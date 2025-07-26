@@ -2555,7 +2555,7 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _BumpMap:
-        m_Texture: {fileID: 2800000, guid: 283f897e4925411ebbaa758b4cb13fc2, type: 3}
+        m_Texture: {fileID: 2800000, guid: 3b994af7e6e4b4a6ebdff9071a7a206e, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _Cube:
@@ -2563,55 +2563,55 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _FaceTex:
-        m_Texture: {fileID: 2800000, guid: 9bf9d7800da5e49239ce1109263c95bb, type: 3}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
+        m_Texture: {fileID: 2800000, guid: e56b5a78ea01b4f13ad2c0452450b108, type: 3}
+        m_Scale: {x: -0.68, y: 0.27}
+        m_Offset: {x: 2.34, y: 1.55}
     - _MainTex:
         m_Texture: {fileID: 6323844057928429324}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _OutlineTex:
-        m_Texture: {fileID: 2800000, guid: f88677df267a41d6be1e7a6133e7d227, type: 3}
-        m_Scale: {x: 1, y: 1}
+        m_Texture: {fileID: 2800000, guid: ee636d7875b1a450ebf34f00b9e6e923, type: 3}
+        m_Scale: {x: -0.16, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Ambient: 0.601
-    - _Bevel: 0.731
+    - _Ambient: 0.191
+    - _Bevel: 0.3
     - _BevelClamp: 0
     - _BevelOffset: 0.02
     - _BevelRoundness: 0
-    - _BevelWidth: 0.093
-    - _BumpFace: 0.26
+    - _BevelWidth: 0.165
+    - _BumpFace: 0.409
     - _BumpOutline: 0
     - _ColorMask: 15
     - _CullMode: 0
-    - _Diffuse: 0.239
-    - _FaceDilate: -0.1
+    - _Diffuse: 0.109
+    - _FaceDilate: -0.16
     - _FaceUVSpeedX: 0
     - _FaceUVSpeedY: 0
-    - _GlowInner: 0.228
+    - _GlowInner: 0.284
     - _GlowOffset: 0
-    - _GlowOuter: 0.188
-    - _GlowPower: 0.246
+    - _GlowOuter: 0.342
+    - _GlowPower: 0.458
     - _GradientScale: 7
     - _LightAngle: 3.56
     - _MaskSoftnessX: 0
     - _MaskSoftnessY: 0
-    - _OutlineSoftness: 0.117
-    - _OutlineUVSpeedX: 0
-    - _OutlineUVSpeedY: 0
-    - _OutlineWidth: 0
+    - _OutlineSoftness: 0
+    - _OutlineUVSpeedX: 0.1
+    - _OutlineUVSpeedY: 0.1
+    - _OutlineWidth: 0.172
     - _PerspectiveFilter: 0.875
-    - _Reflectivity: 7.95
+    - _Reflectivity: 11.08
     - _ScaleRatioA: 0.85714287
-    - _ScaleRatioB: 0.7821428
-    - _ScaleRatioC: 0.7821428
+    - _ScaleRatioB: 0.83357143
+    - _ScaleRatioC: 0.83357143
     - _ScaleX: 1
     - _ScaleY: 1
     - _ShaderFlags: 0
     - _Sharpness: 0
-    - _SpecularPower: 2.31
+    - _SpecularPower: 1.35
     - _Stencil: 0
     - _StencilComp: 8
     - _StencilOp: 0
@@ -2633,10 +2633,10 @@ Material:
     - _FaceColor: {r: 0, g: 0.6800499, b: 1, a: 1}
     - _GlowColor: {r: 0.3960784, g: 0.766612, b: 0.9647059, a: 1}
     - _MaskCoord: {r: 0, g: 0, b: 32767, a: 32767}
-    - _OutlineColor: {r: 0.3537736, g: 0.9887296, b: 1, a: 1}
+    - _OutlineColor: {r: 1, g: 1, b: 1, a: 1}
     - _ReflectFaceColor: {r: 0.23584908, g: 0.23584908, b: 0.23584908, a: 1}
     - _ReflectOutlineColor: {r: 0, g: 0, b: 0, a: 1}
-    - _SpecularColor: {r: 1, g: 0.43300706, b: 0, a: 1}
+    - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
     - _UnderlayColor: {r: 0, g: 0, b: 0, a: 0.5}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

@@ -478,6 +478,7 @@ GameObject:
   - component: {fileID: 1895896985}
   - component: {fileID: 1895896984}
   - component: {fileID: 1895896986}
+  - component: {fileID: 1895896987}
   m_Layer: 5
   m_Name: LITE
   m_TagString: Untagged
@@ -524,9 +525,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'LITE
-
-'
+  m_text: LITE
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: e0c3cfb2cb8ab4e799a3a459901106ff, type: 2}
   m_sharedMaterial: {fileID: 4637317280713991046, guid: e0c3cfb2cb8ab4e799a3a459901106ff, type: 2}
@@ -535,8 +534,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294177779
-  m_fontColor: {r: 0.9528302, g: 0.9528302, b: 0.9528302, a: 1}
+    rgba: 15987699
+  m_fontColor: {r: 0.9528302, g: 0.9528302, b: 0.9528302, a: 0}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -553,8 +552,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 275.48
-  m_fontSizeBase: 275.48
+  m_fontSize: 298.01
+  m_fontSizeBase: 298.01
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -627,6 +626,25 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!320 &1895896987
+PlayableDirector:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1895896982}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_PlayableAsset: {fileID: 11400000, guid: d385b6abc80944b4ca9bcc6a2e0f344b, type: 2}
+  m_InitialState: 1
+  m_WrapMode: 2
+  m_DirectorUpdateMode: 1
+  m_InitialTime: 0
+  m_SceneBindings:
+  - key: {fileID: -5025942758120757963, guid: d385b6abc80944b4ca9bcc6a2e0f344b, type: 2}
+    value: {fileID: 1895896986}
+  m_ExposedReferences:
+    m_References: []
 --- !u!1 &2109042982
 GameObject:
   m_ObjectHideFlags: 0
