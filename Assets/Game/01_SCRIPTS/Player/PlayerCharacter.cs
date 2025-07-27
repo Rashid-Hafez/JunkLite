@@ -30,6 +30,12 @@ namespace junklite
 
         private void Start()
         {
+
+            if(CameraManager.Instance != null)
+            {
+                CameraManager.Instance.SetPlayerTarget(transform);
+            }
+
             // Subscribe to controller events for effects/animations
             if (controller != null)
             {
