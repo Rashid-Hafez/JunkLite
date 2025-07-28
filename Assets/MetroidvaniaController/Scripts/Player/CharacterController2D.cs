@@ -66,7 +66,7 @@ namespace junklite
         public bool IsDashing => isDashing;
 
         //Interaction properties
-        public LayerMask interactableMask;
+       [SerializeField] public LayerMask Collectibles;
         public float range = 5f;
         public int facingDir = 1; // 1 for right, -1 for left
         public bool canCheckInteractables = true;
@@ -100,24 +100,27 @@ namespace junklite
         {
             while (canCheckInteractables)
             {
-                Debug.Log("Scanning for interactables...");
                 Vector2 origin = transform.position;
                 Vector2 direction = Vector2.right * facingDir; // facingDir = 1 or -1
-                RaycastHit2D hit = Physics2D.Raycast(origin, direction, range, interactableMask, 0.6f);
+                RaycastHit2D hit = Physics2D.Raycast(origin, direction, range, Collectibles);
 
                 /// DEBUGGG
                 Debug.DrawRay(origin, direction * range, Color.red); /// TURN OFF FOR RELEASE
-
                 if (hit.collider != null)
                 {
                     IInteraction_Interface interactable = hit.collider.GetComponent<IInteraction_Interface>();
                     if (interactable != null)
                     {
                         CurrentInteractable = interactable;
+                        Debug.Log($"Found interactable: {CurrentInteractable} at distance {hit.distance}");
 
                     }
                 }
-                else CurrentInteractable = null;
+                else
+                {
+                    CurrentInteractable = null;
+                    Debug.Log("Current interactable:");
+                } 
                 yield return new WaitForSeconds(0.2f); // Adjust the interval as needed
             }
         }
