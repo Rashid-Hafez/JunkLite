@@ -2,6 +2,8 @@
 using UnityEngine;
 using UnityEngine.Events;
 using System.Collections;
+using System;
+using Unity.Multiplayer.Center.Common.Analytics;
 
 namespace junklite
 {
@@ -63,6 +65,13 @@ namespace junklite
         public bool IsWallSliding => isWallSliding;
         public bool IsDashing => isDashing;
 
+        //Interaction properties
+        public LayerMask interactableMask;
+        public float range = 5f;
+        public int facingDir = 1; // 1 for right, -1 for left
+        public bool canCheckInteractables = true;
+        private IInteraction_Interface CurrentInteractable = null;
+
         private void Awake()
         {
             m_Rigidbody2D = GetComponent<Rigidbody2D>();
@@ -81,6 +90,55 @@ namespace junklite
             HandleWallJumpLimiting();
         }
 
+        void Start()
+        {
+            StartCoroutine(ScanForInteractables());
+             Debug.Log("CharacterController2D started. Scanning for interactables...");
+        }
+
+        IEnumerator ScanForInteractables()
+        {
+            while (canCheckInteractables)
+            {
+                Debug.Log("Scanning for interactables...");
+                Vector2 origin = transform.position;
+                Vector2 direction = Vector2.right * facingDir; // facingDir = 1 or -1
+                RaycastHit2D hit = Physics2D.Raycast(origin, direction, range, interactableMask, 0.6f);
+
+                /// DEBUGGG
+                Debug.DrawRay(origin, direction * range, Color.red); /// TURN OFF FOR RELEASE
+
+                if (hit.collider != null)
+                {
+                    IInteraction_Interface interactable = hit.collider.GetComponent<IInteraction_Interface>();
+                    if (interactable != null)
+                    {
+                        CurrentInteractable = interactable;
+
+                    }
+                }
+                else CurrentInteractable = null;
+                yield return new WaitForSeconds(0.2f); // Adjust the interval as needed
+            }
+        }
+        public void Interact()
+        {
+            switch (CurrentInteractable?.GetInteractionType())
+            {
+                case IInteraction_Interface.InteractionType.Item:
+                    CurrentInteractable.Interact(transform);
+                    break;
+                case IInteraction_Interface.InteractionType.Door:
+                    // Handle door interaction
+                    break;
+                case IInteraction_Interface.InteractionType.Character:
+                    // Handle character interaction
+                    break;
+                default:
+                    Debug.LogWarning("No valid interaction type found.");
+                    break;
+            }
+        }
         private void CheckGrounded(bool wasGrounded)
         {
             m_Grounded = false;
@@ -192,6 +250,17 @@ namespace junklite
 
             // Handle wall mechanics
             HandleWallMechanics(move, jump, dash);
+
+            /////////////////////// Direction player facing /////////////////////
+            if (move > 0)
+            {
+                facingDir = 1;
+            }
+            else if (move < 0)
+            {
+                facingDir = -1;
+            }
+            /////////////////////////////////////////////////////////////////////
         }
 
         private void HandleJumping(bool jump)

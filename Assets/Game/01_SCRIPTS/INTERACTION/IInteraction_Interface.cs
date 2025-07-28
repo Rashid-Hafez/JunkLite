@@ -3,7 +3,7 @@ using UnityEngine;
 
 public interface IInteraction_Interface
 {
-    enum InteractionType
+    public enum InteractionType
     {
         None = 0,
         Click = 1,
@@ -20,7 +20,7 @@ public interface IInteraction_Interface
     WeakReference getInteractableObj();
 
     //get interaction type, depending on the interaction type, we can use different animations
-    InteractionType GetInteractAnimation();
+    InteractionType GetInteractionType();
     
     void StopInteract(Transform interactor);
     bool IsInteracting();
