@@ -4,6 +4,7 @@ using System;
 
 namespace junklite
 {
+    [DefaultExecutionOrder(1)]
     public class GameInputManager : MonoBehaviour
     {
         public static GameInputManager Instance { get; private set; }

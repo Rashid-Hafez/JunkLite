@@ -1,8 +1,10 @@
 using UnityEngine;
 
+
 namespace junklite
 {
-    [RequireComponent(typeof(CharacterController2D))]
+    [RequireComponent(typeof(CharacterController))]
+    [DefaultExecutionOrder(5)]
     public class PlayerCharacter : CharacterBase
     {
         [Header("Player Settings")]
@@ -104,7 +106,9 @@ namespace junklite
                 inputManager.OnJump += HandleJumpInput;
                 inputManager.OnAttack += HandleAttackInput;
                 // Add dash input when available in your input system
-                // inputManager.OnDash += HandleDashInput;
+                // inputManager.OnDash += HandleDashInput;'
+
+                Debug.Log("Subsrcibed to input");
             }
         }
 

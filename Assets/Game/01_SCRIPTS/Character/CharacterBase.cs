@@ -4,24 +4,24 @@ using UnityEngine.Events;
 
 namespace junklite
 {
-    [RequireComponent(typeof(HealthComponent), typeof(CharacterController2D))]
+    [RequireComponent(typeof(HealthComponent), typeof(CharacterController))]
     public abstract class CharacterBase : MonoBehaviour, IDamageable
     {
         [SerializeField] CharacterStats stats;       
         protected CharacterStats runtimeStats;        
 
         protected HealthComponent healthComponent;
-        protected CharacterController2D controller;
+        protected CharacterController controller;
 
         public bool IsAlive => healthComponent.IsAlive;
         public CharacterStats Stats => runtimeStats;
-        public CharacterController2D Controller => controller;
+        public CharacterController Controller => controller;
         public HealthComponent Health => healthComponent;
 
         protected virtual void Awake()
         {
             // fetch components
-            controller = GetComponent<CharacterController2D>();
+            controller = GetComponent<CharacterController>();
             healthComponent = GetComponent<HealthComponent>();
 
             
