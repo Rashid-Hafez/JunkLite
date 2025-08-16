@@ -1,9 +1,8 @@
 using UnityEngine;
 
-
 namespace junklite
 {
-    [RequireComponent(typeof(CharacterController))]
+    [RequireComponent(typeof(Character2D5Controller))]
     [DefaultExecutionOrder(5)]
     public class PlayerCharacter : CharacterBase
     {
@@ -23,6 +22,7 @@ namespace junklite
         private bool dash = false;
 
         private GameInputManager inputManager;
+        private bool wasGrounded = true;
 
         protected override void Awake()
         {
@@ -32,8 +32,7 @@ namespace junklite
 
         private void Start()
         {
-
-            if(CameraManager.Instance != null)
+            if (CameraManager.Instance != null)
             {
                 CameraManager.Instance.SetPlayerTarget(transform);
             }
@@ -41,8 +40,16 @@ namespace junklite
             // Subscribe to controller events for effects/animations
             if (controller != null)
             {
-                controller.OnFallEvent.AddListener(OnFall);
-                controller.OnLandEvent.AddListener(OnLanding);
+                controller.OnGroundedStateChanged += OnGroundedStateChanged;
+                controller.OnMovementChanged += OnMovementChanged;
+                controller.OnDashStarted += OnDashStarted;
+                controller.OnDashEnded += OnDashEnded;
+            }
+
+            // Set initial movement speed
+            if (controller != null)
+            {
+                controller.MoveSpeed = runSpeed;
             }
         }
 
@@ -60,19 +67,34 @@ namespace junklite
         {
             HandleInput();
             UpdateAnimations();
-        }
 
-        private void FixedUpdate()
-        {
-            if (IsAlive)
+            // Handle jump input
+            if (jump && IsAlive)
             {
-                // Move the character using the controller
-                controller.Move(horizontalMove * Time.fixedDeltaTime, jump, dash);
+                controller.Jump();
+                if (particleJumpUp != null)
+                    particleJumpUp.Play();
+            }
+
+            // Handle dash input
+            if (dash && IsAlive)
+            {
+                controller.Dash();
             }
 
             // Reset one-frame inputs
             jump = false;
             dash = false;
+        }
+
+        private void FixedUpdate()
+        {
+            if (IsAlive && controller != null)
+            {
+                // Convert run speed to normalized input for the controller
+                float normalizedInput = horizontalMove / runSpeed;
+                controller.SetMovementInput(normalizedInput);
+            }
         }
 
         private void HandleInput()
@@ -89,13 +111,13 @@ namespace junklite
 
         private void UpdateAnimations()
         {
-            if (animator != null)
+            if (animator != null && controller != null)
             {
                 animator.SetFloat("Speed", Mathf.Abs(horizontalMove));
-                animator.SetBool("IsGrounded", controller.isGrounded);
-                animator.SetBool("IsWallSliding", controller.IsWallSliding);
+                animator.SetBool("IsGrounded", controller.IsGrounded);
+                animator.SetBool("IsWallSliding", false);
                 animator.SetBool("IsDashing", controller.IsDashing);
-                animator.SetBool("IsJumping", !controller.isGrounded);
+                animator.SetBool("IsJumping", !controller.IsGrounded);
             }
         }
 
@@ -105,10 +127,9 @@ namespace junklite
             {
                 inputManager.OnJump += HandleJumpInput;
                 inputManager.OnAttack += HandleAttackInput;
-                // Add dash input when available in your input system
-                // inputManager.OnDash += HandleDashInput;'
+                inputManager.OnDash += HandleDashInput;
 
-                Debug.Log("Subsrcibed to input");
+                Debug.Log("Subscribed to input");
             }
         }
 
@@ -118,7 +139,7 @@ namespace junklite
             {
                 inputManager.OnJump -= HandleJumpInput;
                 inputManager.OnAttack -= HandleAttackInput;
-                // inputManager.OnDash -= HandleDashInput;
+                inputManager.OnDash -= HandleDashInput;
             }
         }
 
@@ -144,8 +165,8 @@ namespace junklite
         {
             Debug.Log($"{Stats.characterName} performed an attack with {Stats.damage} damage!");
 
-            // Detect enemies in attack range
-            Collider2D[] enemies = Physics2D.OverlapCircleAll(
+            // Detect enemies in attack range using 3D physics
+            Collider[] enemies = Physics.OverlapSphere(
                 transform.position,
                 attackRange,
                 enemyLayerMask
@@ -162,6 +183,37 @@ namespace junklite
             }
         }
 
+        private void OnGroundedStateChanged(bool grounded)
+        {
+            if (grounded && !wasGrounded)
+            {
+                OnLanding();
+            }
+            else if (!grounded && wasGrounded)
+            {
+                OnFall();
+            }
+
+            wasGrounded = grounded;
+        }
+
+        private void OnMovementChanged(Vector3 movement)
+        {
+            // You can add movement-based effects here if needed
+        }
+
+        private void OnDashStarted()
+        {
+            Debug.Log($"{Stats.characterName} started dashing!");
+            // Add dash start effects here (particles, sound, etc.)
+        }
+
+        private void OnDashEnded()
+        {
+            Debug.Log($"{Stats.characterName} finished dashing!");
+            // Add dash end effects here
+        }
+
         public void OnFall()
         {
             if (animator != null)
@@ -174,7 +226,7 @@ namespace junklite
                 animator.SetBool("IsJumping", false);
 
             // Play landing particle effect
-            if (particleJumpDown != null && !controller.IsWallSliding && !controller.IsDashing)
+            if (particleJumpDown != null)
                 particleJumpDown.Play();
         }
 
@@ -184,11 +236,11 @@ namespace junklite
 
             base.TakeDamage(info);
 
-            // Apply knockback
+            // Apply knockback using the new controller
             if (info.Source != null && controller != null)
             {
-                Vector2 knockbackDirection = (transform.position - info.Source.transform.position).normalized;
-                controller.ApplyKnockback(knockbackDirection * 15f);
+                Vector3 knockbackDirection = (transform.position - info.Source.transform.position).normalized;
+                controller.AddForce(knockbackDirection * 15f, ForceMode.Impulse);
             }
 
             // Apply hit stun
@@ -202,7 +254,7 @@ namespace junklite
             // Disable movement
             if (controller != null)
             {
-                controller.SetMovementEnabled(false);
+                controller.CanMove = false;
             }
 
             // Unsubscribe from input
@@ -214,12 +266,12 @@ namespace junklite
         private System.Collections.IEnumerator ApplyHitStun(float duration)
         {
             if (controller != null)
-                controller.SetMovementEnabled(false);
+                controller.CanMove = false;
 
             yield return new WaitForSeconds(duration);
 
             if (IsAlive && controller != null)
-                controller.SetMovementEnabled(true);
+                controller.CanMove = true;
         }
 
         private void OnDrawGizmosSelected()
@@ -227,6 +279,18 @@ namespace junklite
             // Draw attack range
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(transform.position, attackRange);
+        }
+
+        private void OnDestroy()
+        {
+            // Clean up event subscriptions
+            if (controller != null)
+            {
+                controller.OnGroundedStateChanged -= OnGroundedStateChanged;
+                controller.OnMovementChanged -= OnMovementChanged;
+                controller.OnDashStarted -= OnDashStarted;
+                controller.OnDashEnded -= OnDashEnded;
+            }
         }
     }
 }
