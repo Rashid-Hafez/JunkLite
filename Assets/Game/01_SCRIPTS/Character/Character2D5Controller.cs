@@ -69,6 +69,9 @@ namespace junklite
         public bool CanMove { get => canMove; set => canMove = value; }
         public Vector3 Velocity => rb.linearVelocity;
         public float MoveSpeed { get => moveSpeed; set => moveSpeed = value; }
+        public float JumpForce { get => jumpForce; set => jumpForce = value; }
+        public float DashForce { get => dashForce; set => dashForce = value; }
+        public float DashDuration { get => dashDuration; set => dashDuration = value; }
         public bool SnapToZPosition { get => snapToZPosition; set => snapToZPosition = value; }
         public float FixedZPosition { get => fixedZPosition; set => fixedZPosition = value; }
         public bool IsFacingRight => facingMode == FacingMode.ScaleFlip ?

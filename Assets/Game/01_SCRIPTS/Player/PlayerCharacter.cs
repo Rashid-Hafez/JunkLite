@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace junklite
 {
@@ -7,7 +8,6 @@ namespace junklite
     public class PlayerCharacter : CharacterBase
     {
         [Header("Player Settings")]
-        [SerializeField] private float runSpeed = 40f;
         [SerializeField] private float attackRange = 1.5f;
         [SerializeField] private LayerMask enemyLayerMask = 1;
 
@@ -22,7 +22,6 @@ namespace junklite
         private bool dash = false;
 
         private GameInputManager inputManager;
-        private bool wasGrounded = true;
 
         protected override void Awake()
         {
@@ -37,19 +36,14 @@ namespace junklite
                 CameraManager.Instance.SetPlayerTarget(transform);
             }
 
-            // Subscribe to controller events for effects/animations
-            if (controller != null)
+            // Subscribe to CHARACTER SYSTEM events
+            if (characterSystem != null)
             {
-                controller.OnGroundedStateChanged += OnGroundedStateChanged;
-                controller.OnMovementChanged += OnMovementChanged;
-                controller.OnDashStarted += OnDashStarted;
-                controller.OnDashEnded += OnDashEnded;
-            }
-
-            // Set initial movement speed
-            if (controller != null)
-            {
-                controller.MoveSpeed = runSpeed;
+                characterSystem.OnGroundedChanged += OnGroundedStateChanged;
+                characterSystem.OnMovingChanged += OnMovingStateChanged;
+                characterSystem.OnDashingChanged += OnDashingStateChanged;
+                characterSystem.OnAttackingChanged += OnAttackingStateChanged;
+                characterSystem.OnStunnedChanged += OnStunnedStateChanged;
             }
         }
 
@@ -68,16 +62,16 @@ namespace junklite
             HandleInput();
             UpdateAnimations();
 
-            // Handle jump input
-            if (jump && IsAlive)
+            // Handle jump input - check system capabilities
+            if (jump && characterSystem.CanJump)
             {
                 controller.Jump();
                 if (particleJumpUp != null)
                     particleJumpUp.Play();
             }
 
-            // Handle dash input
-            if (dash && IsAlive)
+            // Handle dash input - check system capabilities
+            if (dash && characterSystem.CanDash)
             {
                 controller.Dash();
             }
@@ -85,23 +79,47 @@ namespace junklite
             // Reset one-frame inputs
             jump = false;
             dash = false;
+
+
+            // Test healing with H key
+            if (Keyboard.current.hKey.wasPressedThisFrame)
+            {
+                float healAmount = 20f;
+                Heal(healAmount); // Use CharacterBase method
+                Debug.Log($"Healed {Stats.characterName} for {healAmount} HP!");
+            }
+
+            // Test damage with T key
+            if (Keyboard.current.tKey.wasPressedThisFrame)
+            {
+                float testDamage = 15f;
+                DamageInfo damageInfo = new DamageInfo(testDamage, gameObject);
+                TakeDamage(damageInfo); // Use CharacterBase method (single entry point)
+                Debug.Log($"Applied {testDamage} test damage to {Stats.characterName}!");
+            }
+
+            
+            if (Keyboard.current.yKey.wasPressedThisFrame)
+            {
+                InstantDeath();
+            }
         }
 
         private void FixedUpdate()
         {
-            if (IsAlive && controller != null)
+            if (characterSystem.CanMove && controller != null)
             {
-                // Convert run speed to normalized input for the controller
-                float normalizedInput = horizontalMove / runSpeed;
+                // Convert movement to normalized input
+                float normalizedInput = horizontalMove / controller.MoveSpeed;
                 controller.SetMovementInput(normalizedInput);
             }
         }
 
         private void HandleInput()
         {
-            if (inputManager != null && IsAlive)
+            if (inputManager != null && characterSystem.CanMove)
             {
-                horizontalMove = inputManager.MoveDirection.x * runSpeed;
+                horizontalMove = inputManager.MoveDirection.x * controller.MoveSpeed;
             }
             else
             {
@@ -111,13 +129,16 @@ namespace junklite
 
         private void UpdateAnimations()
         {
-            if (animator != null && controller != null)
+            if (animator != null && characterSystem != null)
             {
+                // Use character system states
                 animator.SetFloat("Speed", Mathf.Abs(horizontalMove));
-                animator.SetBool("IsGrounded", controller.IsGrounded);
+                animator.SetBool("IsGrounded", characterSystem.IsGrounded);
                 animator.SetBool("IsWallSliding", false);
-                animator.SetBool("IsDashing", controller.IsDashing);
-                animator.SetBool("IsJumping", !controller.IsGrounded);
+                animator.SetBool("IsDashing", characterSystem.IsDashing);
+                animator.SetBool("IsJumping", !characterSystem.IsGrounded);
+                animator.SetBool("IsAttacking", characterSystem.IsAttacking);
+                animator.SetBool("IsStunned", characterSystem.IsStunned);
             }
         }
 
@@ -145,27 +166,30 @@ namespace junklite
 
         private void HandleJumpInput()
         {
-            if (IsAlive)
+            if (characterSystem.CanJump)
                 jump = true;
         }
 
         private void HandleAttackInput()
         {
-            if (IsAlive)
+            if (characterSystem.CanAttack)
                 PerformAttack();
         }
 
         private void HandleDashInput()
         {
-            if (IsAlive)
+            if (characterSystem.CanDash)
                 dash = true;
         }
 
         private void PerformAttack()
         {
+            // Set attacking state
+            characterSystem.SetAttacking(true);
+            
             Debug.Log($"{Stats.characterName} performed an attack with {Stats.damage} damage!");
 
-            // Detect enemies in attack range using 3D physics
+            // Detect enemies in attack range
             Collider[] enemies = Physics.OverlapSphere(
                 transform.position,
                 attackRange,
@@ -181,38 +205,66 @@ namespace junklite
                     enemyCharacter.TakeDamage(damageInfo);
                 }
             }
+
+            // End attack after a short duration
+            Invoke(nameof(EndAttack), 0.3f);
         }
 
+        private void EndAttack()
+        {
+            characterSystem.SetAttacking(false);
+        }
+
+        #region State Event Handlers
         private void OnGroundedStateChanged(bool grounded)
         {
-            if (grounded && !wasGrounded)
+            if (grounded)
             {
                 OnLanding();
             }
-            else if (!grounded && wasGrounded)
+            else
             {
                 OnFall();
             }
-
-            wasGrounded = grounded;
         }
 
-        private void OnMovementChanged(Vector3 movement)
+        private void OnMovingStateChanged(bool moving)
         {
-            // You can add movement-based effects here if needed
+            // Add movement-based effects here if needed
         }
 
-        private void OnDashStarted()
+        private void OnDashingStateChanged(bool dashing)
         {
-            Debug.Log($"{Stats.characterName} started dashing!");
-            // Add dash start effects here (particles, sound, etc.)
+            if (dashing)
+            {
+               
+            }
+            else
+            {
+                
+            }
         }
 
-        private void OnDashEnded()
+        private void OnAttackingStateChanged(bool attacking)
         {
-            Debug.Log($"{Stats.characterName} finished dashing!");
-            // Add dash end effects here
+            if (attacking)
+            {
+               
+            }
         }
+
+        private void OnStunnedStateChanged(bool stunned)
+        {
+            if (stunned)
+            {
+               
+            }
+            else
+            {
+               
+            }
+        }
+        #endregion
 
         public void OnFall()
         {
@@ -232,46 +284,29 @@ namespace junklite
 
         public override void TakeDamage(DamageInfo info)
         {
-            if (!IsAlive) return;
+            if (!characterSystem.CanTakeDamage) return;
 
             base.TakeDamage(info);
 
-            // Apply knockback using the new controller
+            // Apply knockback
             if (info.Source != null && controller != null)
             {
                 Vector3 knockbackDirection = (transform.position - info.Source.transform.position).normalized;
                 controller.AddForce(knockbackDirection * 15f, ForceMode.Impulse);
             }
 
-            // Apply hit stun
-            StartCoroutine(ApplyHitStun(0.1f));
+            // Apply hit stun using the character system
+            characterSystem.ApplyStun(0.1f);
         }
 
         protected override void HandleDeath()
         {
             base.HandleDeath();
 
-            // Disable movement
-            if (controller != null)
-            {
-                controller.CanMove = false;
-            }
-
-            // Unsubscribe from input
+            // Unsubscribe from input when dead
             UnsubscribeFromInput();
 
             Debug.Log($"{Stats.characterName} has died.");
-        }
-
-        private System.Collections.IEnumerator ApplyHitStun(float duration)
-        {
-            if (controller != null)
-                controller.CanMove = false;
-
-            yield return new WaitForSeconds(duration);
-
-            if (IsAlive && controller != null)
-                controller.CanMove = true;
         }
 
         private void OnDrawGizmosSelected()
@@ -281,15 +316,18 @@ namespace junklite
             Gizmos.DrawWireSphere(transform.position, attackRange);
         }
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
-            // Clean up event subscriptions
-            if (controller != null)
+            base.OnDestroy(); // This handles character system cleanup
+            
+            // Clean up player-specific event subscriptions
+            if (characterSystem != null)
             {
-                controller.OnGroundedStateChanged -= OnGroundedStateChanged;
-                controller.OnMovementChanged -= OnMovementChanged;
-                controller.OnDashStarted -= OnDashStarted;
-                controller.OnDashEnded -= OnDashEnded;
+                characterSystem.OnGroundedChanged -= OnGroundedStateChanged;
+                characterSystem.OnMovingChanged -= OnMovingStateChanged;
+                characterSystem.OnDashingChanged -= OnDashingStateChanged;
+                characterSystem.OnAttackingChanged -= OnAttackingStateChanged;
+                characterSystem.OnStunnedChanged -= OnStunnedStateChanged;
             }
         }
     }

@@ -1,9 +1,11 @@
 using UnityEngine;
 using System.Collections.Generic;
 using Unity.Cinemachine;
+using System;
 
 namespace junklite
 {
+    [DefaultExecutionOrder(3)]
     public class CameraManager : MonoBehaviour
     {
         public static CameraManager Instance { get; private set; }
@@ -17,6 +19,7 @@ namespace junklite
 
         // Camera dictionary for easy access
         private Dictionary<string, CinemachineCamera> cameras;
+
 
         private void Awake()
         {
@@ -32,13 +35,9 @@ namespace junklite
 
         private void Start()
         {
-            // Find player if not assigned
-            if (playerTransform == null)
-            {
-                GameObject player = GameObject.FindGameObjectWithTag("Player");
-                if (player != null)
-                    playerTransform = player.transform;
-            }
+
+            GameManager.Instance.OnPlayerSpawned += connectToPlayer;
+
 
             // Set player as follow target and activate main camera
             if (mainCamera != null && playerTransform != null)
@@ -46,6 +45,13 @@ namespace junklite
                 mainCamera.Follow = playerTransform;
                 SwitchToMainCamera();
             }
+        }
+
+        private void connectToPlayer(PlayerCharacter character)
+        {
+            playerTransform = character.gameObject.transform;
+
+            SetPlayerTarget(playerTransform);
         }
 
         private void InitializeCameras()
