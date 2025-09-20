@@ -4,99 +4,130 @@ using UnityEngine;
 
 namespace junklite
 {
+    /// <summary>
+    /// Pure attribute container & regen updater.
+    /// </summary>
     public class AttributeManager : MonoBehaviour
     {
-        [Header("Runtime Attributes")]
-        [SerializeField] private List<Attribute> runtimeAttributes = new List<Attribute>();
+        [Header("Config (optional)")]
+        [Tooltip("If assigned, Initialize(stats) will auto-run in Start().")]
+        [SerializeField] private CharacterStats stats;
 
-        // Events
+        [Header("Runtime Attributes (read-only)")]
+        [SerializeField] private List<Attribute> allRuntimeAttributes = new List<Attribute>(); // for inspector/UI
+        private readonly Dictionary<AttributeType, Attribute> map = new Dictionary<AttributeType, Attribute>();
+
+        // ---- Events ----
         public event Action OnDeath;
 
-        // Properties
+        // ---- Properties ----
         public bool IsAlive
         {
             get
             {
-                var health = GetAttribute("Health");
-                return health?.IsAlive ?? true;
+                if (map.TryGetValue(AttributeType.Health, out var health))
+                    return health.IsAlive;
+                return true; // if no health attribute defined, treat as alive (editor convenience)
             }
         }
 
-        /// <summary>Initialize from character stats</summary>
-        public void Initialize(CharacterStats stats)
-        {
-            runtimeAttributes.Clear();
+        public Attribute Health => Get(AttributeType.Health);
 
-            if (stats?.attributes != null)
+        private void Start()
+        {
+            // Optional auto-initialize from serialized stats
+            if (stats != null && map.Count == 0)
+                Initialize(stats);
+        }
+
+        /// <summary>Builds runtime attributes from a CharacterStats ScriptableObject.</summary>
+        public void Initialize(CharacterStats source)
+        {
+            map.Clear();
+            allRuntimeAttributes.Clear();
+            UnhookHealthDeath(); // safety in case of re-init
+
+            if (source?.attributes != null)
             {
-                foreach (var statAttr in stats.attributes)
+                foreach (var s in source.attributes)
                 {
-                    var runtimeAttr = new Attribute
+                    var runtime = new Attribute
                     {
-                        name = statAttr.name,
-                        type = statAttr.type,
-                        maxValue = statAttr.maxValue,
-                        startingValue = statAttr.startingValue,
-                        hasRegeneration = statAttr.hasRegeneration,
-                        regenRate = statAttr.regenRate,
-                        regenDelay = statAttr.regenDelay
+                        name = s.name,
+                        type = s.type,
+                        maxValue = s.maxValue,
+                        startingValue = s.startingValue,
+                        hasRegeneration = s.hasRegeneration,
+                        regenRate = s.regenRate,
+                        regenDelay = s.regenDelay
                     };
 
-                    runtimeAttr.Initialize();
+                    runtime.Initialize();
 
-                    // Subscribe to death event for health attributes
-                    if (runtimeAttr.type == AttributeType.Health)
-                    {
-                        runtimeAttr.OnDeath += () => OnDeath?.Invoke();
-                    }
-
-                    runtimeAttributes.Add(runtimeAttr);
+                    // Track
+                    map[s.type] = runtime;
+                    allRuntimeAttributes.Add(runtime);
                 }
             }
+
+            HookHealthDeath();
         }
 
         private void Update()
         {
-            // Update attribute regeneration
-            foreach (var attr in runtimeAttributes)
-            {
-                attr.UpdateRegen(Time.deltaTime);
-            }
+            // Per-frame regeneration tick
+            var dt = Time.deltaTime;
+            for (int i = 0; i < allRuntimeAttributes.Count; i++)
+                allRuntimeAttributes[i].UpdateRegen(dt);
         }
 
-        /// <summary>Get runtime attribute by name</summary>
+        /// <summary>Typed getter. Returns null if the attribute isn't defined in stats.</summary>
+        public Attribute Get(AttributeType type)
+        {
+            map.TryGetValue(type, out var attr);
+            return attr;
+        }
+
+        /// <summary>Legacy helper for UI bindings that still pass names (case-insensitive).</summary>
         public Attribute GetAttribute(string name)
         {
-            return runtimeAttributes.Find(attr =>
-                attr.name.Equals(name, System.StringComparison.OrdinalIgnoreCase));
-        }
-
-        /// <summary>Simple damage handling</summary>
-        public void TakeDamage(float damage, float armor = 0f)
-        {
-            var health = GetAttribute("Health");
-            if (health != null)
+            for (int i = 0; i < allRuntimeAttributes.Count; i++)
             {
-                float finalDamage = Mathf.Max(1f, damage - armor);
-                health.Remove(finalDamage);
+                var a = allRuntimeAttributes[i];
+                if (a.name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                    return a;
             }
+            return null;
         }
 
-        /// <summary>Simple healing</summary>
+        /// <summary>Convenience heal for health only (optional).</summary>
         public void Heal(float amount)
         {
-            GetAttribute("Health")?.Add(amount);
+            if (amount <= 0f) return;
+            Health?.Add(amount);
         }
 
-        // Convenience properties for common attributes
-        public Attribute Health => GetAttribute("Health");
-        public Attribute Mana => GetAttribute("Mana");
-        public Attribute Stamina => GetAttribute("Stamina");
+        /// <summary>Returns a live list for UI binding (do not modify entries externally).</summary>
+        public List<Attribute> GetAllAttributes() => allRuntimeAttributes;
 
-        /// <summary>Get all runtime attributes (for UI binding)</summary>
-        public List<Attribute> GetAllAttributes()
+        // ---- Internal: wire/unwire health death ----
+        private void HookHealthDeath()
         {
-            return runtimeAttributes;
+            if (map.TryGetValue(AttributeType.Health, out var health))
+                health.OnDeath += RaiseDeath;
+        }
+
+        private void UnhookHealthDeath()
+        {
+            if (map.TryGetValue(AttributeType.Health, out var health))
+                health.OnDeath -= RaiseDeath;
+        }
+
+        private void RaiseDeath() => OnDeath?.Invoke();
+
+        private void OnDestroy()
+        {
+            UnhookHealthDeath();
         }
     }
 }

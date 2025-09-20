@@ -21,7 +21,7 @@ namespace junklite
         private bool isPlayingOneShot = false;
 
         // References
-        private CharacterSystem characterSystem;
+        private CharacterState characterSystem;
         private Character2D5Controller controller;
 
         private void Awake()
@@ -33,7 +33,7 @@ namespace junklite
             }
 
             // Get required components from parent
-            characterSystem = GetComponentInParent<CharacterSystem>();
+            characterSystem = GetComponentInParent<CharacterState>();
             controller = GetComponentInParent<Character2D5Controller>();
 
             if (animator == null)
@@ -166,7 +166,7 @@ namespace junklite
         {
             if (grounded && !isPlayingOneShot)
             {
-                //PlayOneShotAnimation(landAnimName, 0.2f); 
+               // PlayOneShotAnimation(landAnimName, 0.2f); 
             }
         }
 

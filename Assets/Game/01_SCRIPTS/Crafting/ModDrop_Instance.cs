@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class ModDrop_Instance : Item
+public class ModDrop_Instance : MonoBehaviour
 {
     public Mod_Data modData;
     void Start()

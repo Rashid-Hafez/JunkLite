@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -12,7 +13,16 @@ namespace junklite
         [Header("Game Settings")]
         [SerializeField] private GameObject playerPrefab;
         [SerializeField] private Transform[] spawnPoints;
-        [SerializeField] private float respawnDelay = 3f;
+        [SerializeField] private float respawnDelay = 3f; // seconds (real time)
+
+        [Header("UI")]
+        [Tooltip("Player HUD prefab (must have a PlayerUI component on root).")]
+        [SerializeField] private GameObject playerUIPrefab;
+        [Tooltip("Optional: if null, the first Canvas found in the scene will be used.")]
+        [SerializeField] private Canvas uiCanvasOverride;
+
+        // Keep a single instance of the Player UI around
+        private PlayerUI playerUIInstance;
 
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
@@ -21,126 +31,164 @@ namespace junklite
         private GameState currentState = GameState.Playing;
         private PlayerCharacter currentPlayer;
         private int currentSpawnIndex = 0;
+        private Coroutine respawnRoutine;
 
         // Events
         public event Action<GameState> OnGameStateChanged;
         public event Action<PlayerCharacter> OnPlayerSpawned;
         public event Action OnPlayerDied;
 
-        public enum GameState
-        {
-            Playing,
-            Paused,
-            GameOver
-        }
+        public enum GameState { Playing, Paused, GameOver }
 
         // Properties
         public GameState CurrentState => currentState;
         public PlayerCharacter Player => currentPlayer;
         public bool IsPlaying => currentState == GameState.Playing;
 
-        private void Awake()
+        void Awake()
         {
-            // Singleton pattern
             if (Instance != null && Instance != this)
             {
                 Destroy(gameObject);
                 return;
             }
-
             Instance = this;
             DontDestroyOnLoad(gameObject);
+
+            // If you change scenes, make sure the UI is parented to the new scene's Canvas
+            SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
-        private void Start()
+        void Start()
         {
             InitializeGame();
         }
 
-        private void Update()
+        void Update()
         {
             HandleInput();
         }
 
+        // ---- Init & Spawning -------------------------------------------------
+
         private void InitializeGame()
         {
-            // Find spawn points if not assigned
             if (spawnPoints == null || spawnPoints.Length == 0)
-            {
                 FindSpawnPoints();
-            }
 
-            // Spawn player
+            // Create the Player UI once
+            EnsurePlayerUI();
+
+            // Spawn first player
             SpawnPlayer();
-
-            // Set initial state
             SetGameState(GameState.Playing);
 
             Debug.Log("Game initialized successfully!");
         }
 
+        private void EnsurePlayerUI()
+        {
+            if (playerUIInstance != null) return;
+
+            var canvas = uiCanvasOverride != null ? uiCanvasOverride : FindObjectOfType<Canvas>();
+            if (canvas == null)
+            {
+                Debug.LogWarning("No Canvas found for Player UI. HUD will not be created.");
+                return;
+            }
+
+            if (playerUIPrefab == null)
+            {
+                Debug.LogWarning("No Player UI Prefab assigned in GameManager.");
+                return;
+            }
+
+            var uiGO = Instantiate(playerUIPrefab, canvas.transform);
+            uiGO.name = "Player UI";
+            playerUIInstance = uiGO.GetComponent<PlayerUI>();
+            if (playerUIInstance == null)
+                Debug.LogError("Player UI prefab is missing a PlayerUI component.");
+        }
+
+        private void ReparentUIToActiveCanvas()
+        {
+            if (playerUIInstance == null) return;
+
+            var canvas = uiCanvasOverride != null ? uiCanvasOverride : FindObjectOfType<Canvas>();
+            if (canvas != null && playerUIInstance.transform.parent != canvas.transform)
+            {
+                playerUIInstance.transform.SetParent(canvas.transform, worldPositionStays: false);
+            }
+        }
+
         private void FindSpawnPoints()
         {
-            // Auto-find spawn points tagged as "SpawnPoint"
-            GameObject[] spawnObjects = GameObject.FindGameObjectsWithTag("SpawnPoint");
+            var spawnObjects = GameObject.FindGameObjectsWithTag("SpawnPoint");
             spawnPoints = new Transform[spawnObjects.Length];
-
             for (int i = 0; i < spawnObjects.Length; i++)
-            {
                 spawnPoints[i] = spawnObjects[i].transform;
-            }
 
             if (spawnPoints.Length == 0)
-            {
-                Debug.LogWarning("No spawn points found! Create GameObjects with 'SpawnPoint' tag or assign spawn points manually.");
-            }
+                Debug.LogWarning("No spawn points found! Tag some objects as 'SpawnPoint' or assign manually.");
         }
 
         public void SpawnPlayer()
         {
-            // Get spawn position
             Vector3 spawnPosition = GetSpawnPosition();
 
-            // Destroy existing player if any
+            // Clean up previous player (and its subscriptions) if any
             if (currentPlayer != null)
             {
+                UnsubscribeFromPlayer(currentPlayer);
                 Destroy(currentPlayer.gameObject);
+                currentPlayer = null;
             }
 
-            // Spawn new player
-            if (playerPrefab != null)
-            {
-                GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
-                currentPlayer = playerObject.GetComponent<PlayerCharacter>();
-
-                if (currentPlayer != null)
-                {
-                    // Subscribe to player death
-                    currentPlayer.System.OnDeath += HandlePlayerDeath;
-                    OnPlayerSpawned?.Invoke(currentPlayer);
-                    Debug.Log($"Player spawned at {spawnPosition}");
-                }
-                else
-                {
-                    Debug.LogError("Player prefab doesn't have PlayerCharacter component!");
-                }
-            }
-            else
+            if (playerPrefab == null)
             {
                 Debug.LogError("No player prefab assigned to GameManager!");
+                return;
             }
+
+            GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
+            currentPlayer = playerObject.GetComponent<PlayerCharacter>();
+
+            if (currentPlayer == null)
+            {
+                Debug.LogError("Player prefab doesn't have PlayerCharacter component!");
+                return;
+            }
+
+            // Subscribe to the new player's death (CharacterState forwards Attribute death)
+            SubscribeToPlayer(currentPlayer);
+
+            // Bind the existing Player UI to this new player (no new UI instances)
+            if (playerUIInstance != null)
+                playerUIInstance.BindToPlayer(currentPlayer);
+
+            OnPlayerSpawned?.Invoke(currentPlayer);
+            Debug.Log($"Player spawned at {spawnPosition}");
+        }
+
+        private void SubscribeToPlayer(PlayerCharacter player)
+        {
+            if (player != null && player.State != null)
+                player.State.OnDeath += HandlePlayerDeath;
+        }
+
+        private void UnsubscribeFromPlayer(PlayerCharacter player)
+        {
+            if (player != null && player.State != null)
+                player.State.OnDeath -= HandlePlayerDeath;
         }
 
         private Vector3 GetSpawnPosition()
         {
             if (spawnPoints != null && spawnPoints.Length > 0)
             {
-                // Use current spawn index (for checkpoints)
                 currentSpawnIndex = Mathf.Clamp(currentSpawnIndex, 0, spawnPoints.Length - 1);
                 return spawnPoints[currentSpawnIndex].position;
             }
-
-            // Fallback to world origin
             Debug.LogWarning("No spawn points available, spawning at origin!");
             return Vector3.zero;
         }
@@ -154,16 +202,17 @@ namespace junklite
             }
         }
 
+        // ---- Game State ------------------------------------------------------
+
         public void SetGameState(GameState newState)
         {
-            if (currentState != newState)
-            {
-                GameState previousState = currentState;
-                currentState = newState;
+            if (currentState == newState) return;
 
-                HandleStateChange(previousState, newState);
-                OnGameStateChanged?.Invoke(newState);
-            }
+            GameState previous = currentState;
+            currentState = newState;
+
+            HandleStateChange(previous, newState);
+            OnGameStateChanged?.Invoke(newState);
         }
 
         private void HandleStateChange(GameState from, GameState to)
@@ -183,70 +232,63 @@ namespace junklite
                     Debug.Log("Game Over!");
                     break;
             }
-
             Debug.Log($"Game state changed from {from} to {to}");
         }
+
+        // ---- Death & Respawn -------------------------------------------------
 
         private void HandlePlayerDeath()
         {
             Debug.Log("Player died!");
             OnPlayerDied?.Invoke();
 
-            // Respawn after delay
-            Invoke(nameof(RespawnPlayer), respawnDelay);
+            if (respawnRoutine != null) StopCoroutine(respawnRoutine);
+            respawnRoutine = StartCoroutine(RespawnAfterDelay(respawnDelay));
         }
 
-        private void RespawnPlayer()
+        private IEnumerator RespawnAfterDelay(float delaySeconds)
         {
+            // Wait in real-time so pausing won't block respawn
+            float end = Time.realtimeSinceStartup + Mathf.Max(0f, delaySeconds);
+            while (Time.realtimeSinceStartup < end)
+                yield return null;
+
             if (currentState == GameState.Playing)
-            {
                 SpawnPlayer();
-            }
+
+            respawnRoutine = null;
         }
+
+        // ---- Input -----------------------------------------------------------
 
         private void HandleInput()
         {
-            // Pause/Unpause with Escape
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                if (currentState == GameState.Playing)
-                {
-                    SetGameState(GameState.Paused);
-                }
-                else if (currentState == GameState.Paused)
-                {
-                    SetGameState(GameState.Playing);
-                }
+                if (currentState == GameState.Playing) SetGameState(GameState.Paused);
+                else if (currentState == GameState.Paused) SetGameState(GameState.Playing);
             }
 
-            // Restart with R
             if (Input.GetKeyDown(KeyCode.R))
-            {
                 RestartLevel();
-            }
         }
 
-        public void PauseGame()
-        {
-            SetGameState(GameState.Paused);
-        }
-
-        public void ResumeGame()
-        {
-            SetGameState(GameState.Playing);
-        }
+        public void PauseGame() => SetGameState(GameState.Paused);
+        public void ResumeGame() => SetGameState(GameState.Playing);
 
         public void RestartLevel()
         {
             Debug.Log("Restarting level...");
 
-            // Reset spawn point to beginning
             currentSpawnIndex = 0;
+
+            // Ensure UI exists and is under the current scene's Canvas
+            EnsurePlayerUI();
+            ReparentUIToActiveCanvas();
 
             // Respawn player immediately
             SpawnPlayer();
 
-            // Resume game if paused
             SetGameState(GameState.Playing);
         }
 
@@ -268,31 +310,40 @@ namespace junklite
             Application.Quit();
         }
 
-        private void OnDestroy()
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            // Clean up player death subscription
-            if (currentPlayer != null)
-            {
-                currentPlayer.System.OnDeath -= HandlePlayerDeath;
-            }
+            // After scene load, make sure the UI lives under the new scene's Canvas
+            ReparentUIToActiveCanvas();
+
+            // If player exists, re-bind (useful when you load a scene that already has a player)
+            if (playerUIInstance != null && currentPlayer != null)
+                playerUIInstance.BindToPlayer(currentPlayer);
         }
 
-        // Debug GUI
-        private void OnGUI()
+        void OnDestroy()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+
+            if (currentPlayer != null)
+                UnsubscribeFromPlayer(currentPlayer);
+        }
+
+        // ---- Debug GUI -------------------------------------------------------
+
+        void OnGUI()
         {
             if (!showDebugInfo) return;
 
-            GUILayout.BeginArea(new Rect(Screen.width - 200, 10, 190, 150));
+            GUILayout.BeginArea(new Rect(Screen.width - 200, 10, 190, 180));
             GUILayout.Label("=== GAME MANAGER ===");
             GUILayout.Label($"State: {currentState}");
             GUILayout.Label($"Player: {(currentPlayer != null ? "Alive" : "None")}");
             GUILayout.Label($"Spawn Point: {currentSpawnIndex}");
-
+            GUILayout.Label($"UI: {(playerUIInstance != null ? "Ready" : "Missing")}");
             GUILayout.Space(10);
             GUILayout.Label("Controls:");
             GUILayout.Label("ESC - Pause/Resume");
-            GUILayout.Label("R - Restart Level");
-
+            GUILayout.Label("R   - Restart Level");
             GUILayout.EndArea();
         }
     }

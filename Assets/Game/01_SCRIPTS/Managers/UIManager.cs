@@ -15,8 +15,8 @@ namespace junklite
         [SerializeField] private GameObject pausePanel;
         [SerializeField] private GameObject gameOverPanel;
 
-        [Header("HUD Components")]
-        [SerializeField] private HUDManager hudManager;
+        
+        
 
         private void Awake()
         {
@@ -30,8 +30,7 @@ namespace junklite
             DontDestroyOnLoad(gameObject);
 
             // Get HUD manager if not assigned
-            if (hudManager == null)
-                hudManager = GetComponentInChildren<HUDManager>();
+          
         }
 
         private void Start()
@@ -71,10 +70,7 @@ namespace junklite
         private void OnPlayerSpawned(PlayerCharacter player)
         {
             // Connect HUD to new player
-            if (hudManager != null)
-            {
-                hudManager.SetTarget(player);
-            }
+           
         }
 
         public void ShowHUD()

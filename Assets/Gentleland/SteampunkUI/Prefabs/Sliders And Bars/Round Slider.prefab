@@ -25,17 +25,17 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2400338326462174939}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0.010035496, y: 0, z: 0, w: 0.9999497}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.87, y: 0.9, z: 0.9}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2400338327548603887}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 1.15, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: -40.18059, y: 19.574509}
-  m_SizeDelta: {x: -92.8152, y: -41.7123}
+  m_AnchoredPosition: {x: -42.815002, y: 3.050003}
+  m_SizeDelta: {x: -78.63, y: 9.989995}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!222 &2400338326462174942
 CanvasRenderer:
@@ -86,6 +86,7 @@ GameObject:
   - component: {fileID: 2400338327548603887}
   - component: {fileID: 2400338327548603889}
   - component: {fileID: 2400338327548603888}
+  - component: {fileID: 724529414799343956}
   m_Layer: 5
   m_Name: Round Slider
   m_TagString: Untagged
@@ -102,8 +103,8 @@ RectTransform:
   m_GameObject: {fileID: 2400338327548603886}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.6, y: 0.6, z: 0.6}
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 1800232080918466649}
   - {fileID: 2400338328074059042}
@@ -174,6 +175,30 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2400338327548603886}
   m_CullTransparentMesh: 1
+--- !u!114 &724529414799343956
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2400338327548603886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d44ed51ce55a27643a30ef741a388a0d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  animationSpeed: 2.08
+  mainSlider: {fileID: 2400338327548603889}
+  backgroundSlider: {fileID: 0}
+  valueText: {fileID: 6760166263111587357}
+  fillImage: {fileID: 2400338326462174941}
+  useColorGradient: 1
+  highColor: {r: 1, g: 1, b: 1, a: 1}
+  mediumColor: {r: 1, g: 0.9681776, b: 0.60062885, a: 1}
+  lowColor: {r: 1, g: 0.60691816, b: 0.60691816, a: 1}
+  mediumThreshold: 0.5
+  lowThreshold: 0.25
+  backgroundDelay: 0.5
 --- !u!1 &2400338328074059041
 GameObject:
   m_ObjectHideFlags: 0
@@ -208,8 +233,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.42712402, y: -0.4979248}
-  m_SizeDelta: {x: -8.4796, y: -20.5567}
+  m_AnchoredPosition: {x: 3.3649902, y: -4.800003}
+  m_SizeDelta: {x: 6.7300253, y: 9.600008}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2400338328074059044
 CanvasRenderer:
@@ -239,7 +264,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -3987777257890276305, guid: 17026eb7ce293644f8ed852822b7a7b2, type: 3}
+  m_Sprite: {fileID: 382202978, guid: 40c15b299bc30460bbac62d297c8601e, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

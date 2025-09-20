@@ -2,180 +2,145 @@
 
 namespace junklite
 {
-    [RequireComponent(typeof(CharacterSystem))]
+    [RequireComponent(typeof(CharacterState))]
+    [RequireComponent(typeof(AttributeManager))]
+    [RequireComponent(typeof(Damageable))]
+    [RequireComponent(typeof(Character2D5Controller))]
     public abstract class CharacterBase : MonoBehaviour, IDamageable
     {
-        [SerializeField] protected CharacterStats baseStats;
+        [Header("Config")]
+        [SerializeField] protected CharacterStats baseStats; 
 
-        protected CharacterSystem characterSystem;
+        // Shared components
+        protected CharacterState state;
+        protected AttributeManager attributes;
+        protected Damageable damageable;
         protected Character2D5Controller controller;
 
-        // Properties - Simple delegation to CharacterSystem only
-        public bool IsAlive => characterSystem.IsAlive;
-        public CharacterStats Stats => characterSystem.Stats;
-        public CharacterSystem System => characterSystem;
+        // Public accessors
+        public bool IsAlive => attributes ? attributes.IsAlive : true;
+        public CharacterStats Stats => baseStats;
+        public CharacterState State => state;
         public Character2D5Controller Controller => controller;
 
         protected virtual void Awake()
         {
-            // Get components
-            characterSystem = GetComponent<CharacterSystem>();
+            // Cache components
+            state = GetComponent<CharacterState>();
+            attributes = GetComponent<AttributeManager>();
+            damageable = GetComponent<Damageable>();
             controller = GetComponent<Character2D5Controller>();
 
-            // Initialize character system with stats
-            characterSystem.Initialize(baseStats);
+            // Build runtime attributes from the ScriptableObject ASAP
+            if (attributes != null && baseStats != null)
+                attributes.Initialize(baseStats);  // <-- MOVED HERE
 
-            // Connect events - ONE WAY FLOW
-            characterSystem.OnDeath += HandleDeath;
+            // Wire up damageable with its providers
+            if (damageable != null)
+                damageable.Bind(baseStats, attributes, state);
 
-            // Connect controller to character system
+            // Listen for death
+            if (attributes != null)
+                attributes.OnDeath += HandleDeath;
+        }
+
+        protected virtual void Start()
+        {
+            // Pipe controller events into CharacterState flags
             ConnectController();
 
-            // Apply initial stats
+            // Apply movement stats to controller
             UpdateControllerStats();
         }
 
+
         protected virtual void OnDestroy()
         {
-            if (characterSystem != null)
+            if (attributes != null)
+                attributes.OnDeath -= HandleDeath;
+
+            if (controller != null && state != null)
             {
-                characterSystem.OnDeath -= HandleDeath;
+                controller.OnGroundedStateChanged -= state.SetGrounded;
+                controller.OnDashStarted -= OnDashStarted;
+                controller.OnDashEnded -= OnDashEnded;
+                controller.OnMovementChanged -= OnMovementChanged; // unsub ok
             }
         }
 
-        /// <summary>Connect controller events to character system</summary>
+        // --- Controller -> State wiring
         private void ConnectController()
         {
-            if (controller == null || characterSystem == null) return;
+            if (controller == null || state == null) return;
 
-            // Connect controller events to character system
-            controller.OnGroundedStateChanged += characterSystem.SetGrounded;
-            controller.OnDashStarted += () => characterSystem.SetDashing(true);
-            controller.OnDashEnded += () => characterSystem.SetDashing(false);
-            controller.OnMovementChanged += (movement) =>
-                characterSystem.SetMoving(movement.magnitude > 0.1f);
+            controller.OnGroundedStateChanged += state.SetGrounded;
+            controller.OnDashStarted += OnDashStarted;
+            controller.OnDashEnded += OnDashEnded;
+            controller.OnMovementChanged += OnMovementChanged; // now matches Vector3
         }
 
-        /// <summary>SINGLE damage entry point - handles all damage logic and effects</summary>
+       
+        private void OnDashStarted() => state.SetDashing(true);
+        private void OnDashEnded() => state.SetDashing(false);
+        private void OnMovementChanged(Vector3 move)
+        {
+            // Use X/Z magnitude for 2.5D movement
+            // 0.1f threshold => compare squared to avoid sqrt
+            bool isMoving = (move.x * move.x + move.z * move.z) > 0.01f;
+            state.SetMoving(isMoving);
+        }
+
+        // --- IDamageable implementation (single entry)
         public virtual void TakeDamage(DamageInfo info)
         {
-            // Check if character can take damage
-            if (!characterSystem.CanTakeDamage) return;
-
-            // Apply knockback BEFORE damage (in case damage kills the character)
-            ApplyKnockback(info);
-
-            // Apply damage to health through CharacterSystem
-            characterSystem.ApplyDamageToHealth(info);
-
-            // Apply any damage effects (hit stun, particles, etc.)
-            ApplyDamageEffects(info);
+            if (state != null && !state.CanTakeDamage) return;
+            if (damageable != null)
+                damageable.TakeDamage(info);
         }
 
-        /// <summary>Override this for custom knockback behavior</summary>
-        protected virtual void ApplyKnockback(DamageInfo info)
+        // Convenience healing (health math is in AttributeManager)
+        protected void Heal(float amount)
         {
-            if (info.Source != null && controller != null)
-            {
-                Vector3 knockbackDirection = (transform.position - info.Source.transform.position).normalized;
-                controller.AddForce(knockbackDirection * 15f, ForceMode.Impulse);
-            }
+            attributes?.Heal(amount);
         }
 
-        /// <summary>Override this for custom damage effects (hit stun, particles, etc.)</summary>
-        protected virtual void ApplyDamageEffects(DamageInfo info)
+        protected void InstantDeath()
         {
-            // Apply hit stun using the character system
-            characterSystem.ApplyStun(0.1f);
+            if (!IsAlive || attributes?.Health == null) return;
+            attributes.Health.Remove(attributes.Health.Current); // triggers OnDeath
+            Debug.Log($"{gameObject.name} died instantly!");
         }
 
-        /// <summary>Simple healing delegation</summary>
-        public virtual void Heal(float amount)
-        {
-            characterSystem.Heal(amount);
-        }
-
-        /// <summary>Instantly kill this character, bypassing all defenses</summary>
-        public virtual void InstantDeath()
-        {
-            if (!IsAlive) return;
-
-            var health = characterSystem.Health;
-            if (health != null)
-            {
-                // Remove all remaining health to trigger death
-                health.Remove(health.Current);
-                Debug.Log($"{gameObject.name} died instantly!");
-            }
-        }
-
-        /// <summary>Apply stats to controller</summary>
+        // Apply baseStats movement into controller
         protected virtual void UpdateControllerStats()
         {
             if (controller == null || baseStats == null) return;
 
             controller.MoveSpeed = baseStats.moveSpeed;
 
-            // Use reflection safely for optional properties
+            // set optional fields if they exist
             SetControllerProperty("JumpForce", baseStats.jumpForce);
             SetControllerProperty("DashForce", baseStats.dashForce);
             SetControllerProperty("DashDuration", baseStats.dashDuration);
         }
 
-        /// <summary>Helper to set controller properties safely</summary>
-        private void SetControllerProperty(string propertyName, object value)
+        private void SetControllerProperty(string prop, object value)
         {
-            var property = controller.GetType().GetProperty(propertyName);
-            if (property != null && property.CanWrite)
-            {
-                property.SetValue(controller, value);
-            }
+            var p = controller.GetType().GetProperty(prop);
+            if (p != null && p.CanWrite) p.SetValue(controller, value);
         }
 
-        /// <summary>Override for custom death behavior</summary>
+        // Called when attributes say we're dead
         protected virtual void HandleDeath()
         {
-            // Disable controller movement
-            if (controller != null)
-            {
-                controller.CanMove = false;
-            }
-
+            if (controller != null) controller.CanMove = false;
             Debug.Log($"{gameObject.name} has died!");
         }
 
-        // Convenience methods for easy attribute access - all delegate to CharacterSystem
-        public Attribute GetAttribute(string name) => characterSystem.GetAttribute(name);
-        public Attribute Health => characterSystem.Health;
-        public Attribute Mana => characterSystem.Mana;
-        public Attribute Stamina => characterSystem.Stamina;
+        // Optional typed attribute helpers
+        public Attribute GetAttribute(AttributeType type) => attributes ? attributes.Get(type) : null;
+        public Attribute Health => attributes ? attributes.Health : null;
+       
     }
 
-    // Keep existing interfaces
-    public interface IDamageable
-    {
-        void TakeDamage(DamageInfo info);
-        bool IsAlive { get; }
-    }
-
-    public enum DamageType
-    {
-        Physical,
-        Fire,
-        Magic
-    }
-
-    public struct DamageInfo
-    {
-        public float Amount;
-        public GameObject Source;
-        public DamageType Type;
-
-        public DamageInfo(float amount, GameObject source = null, DamageType type = DamageType.Physical)
-        {
-            Amount = amount;
-            Source = source;
-            Type = type;
-        }
-    }
 }

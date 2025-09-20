@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 namespace junklite
 {
     [RequireComponent(typeof(Character2D5Controller))]
+    [RequireComponent(typeof(CharacterState))]
     [DefaultExecutionOrder(5)]
     public class PlayerCharacter : CharacterBase
     {
@@ -12,16 +13,28 @@ namespace junklite
         [SerializeField] private LayerMask enemyLayerMask = 1;
 
         [Header("References")]
-        public Animator animator;
-        public ParticleSystem particleJumpUp;
-        public ParticleSystem particleJumpDown;
+        [SerializeField] private Animator animator;
+        [SerializeField] private ParticleSystem particleJumpUp;
+        [SerializeField] private ParticleSystem particleJumpDown;
 
-        // Input tracking
-        private float horizontalMove = 0f;
-        private bool jump = false;
-        private bool dash = false;
+        // Input tracking (one-frame)
+        float horizontalMove = 0f;
+        bool jump, dash;
 
-        private GameInputManager inputManager;
+        // Systems
+        GameInputManager inputManager;
+
+        // Animator hashes
+        static readonly int HashSpeed = Animator.StringToHash("Speed");
+        static readonly int HashIsGrounded = Animator.StringToHash("IsGrounded");
+        static readonly int HashIsWall = Animator.StringToHash("IsWallSliding");
+        static readonly int HashIsDashing = Animator.StringToHash("IsDashing");
+        static readonly int HashIsJumping = Animator.StringToHash("IsJumping");
+        static readonly int HashIsAttacking = Animator.StringToHash("IsAttacking");
+        static readonly int HashIsStunned = Animator.StringToHash("IsStunned");
+
+        // Non-alloc overlap buffer
+        static readonly Collider[] overlapBuffer = new Collider[12];
 
         protected override void Awake()
         {
@@ -29,305 +42,199 @@ namespace junklite
             inputManager = GameInputManager.Instance;
         }
 
-        private void Start()
+        void Start()
         {
             if (CameraManager.Instance != null)
-            {
                 CameraManager.Instance.SetPlayerTarget(transform);
-            }
 
-            // Subscribe to CHARACTER SYSTEM events
-            if (characterSystem != null)
+            if (State != null)
             {
-                characterSystem.OnGroundedChanged += OnGroundedStateChanged;
-                characterSystem.OnMovingChanged += OnMovingStateChanged;
-                characterSystem.OnDashingChanged += OnDashingStateChanged;
-                characterSystem.OnAttackingChanged += OnAttackingStateChanged;
-                characterSystem.OnStunnedChanged += OnStunnedStateChanged;
+                State.OnGroundedChanged += OnGroundedStateChanged;
+                State.OnMovingChanged += OnMovingStateChanged;
+                State.OnDashingChanged += OnDashingStateChanged;
+                State.OnAttackingChanged += OnAttackingStateChanged;
+                State.OnStunnedChanged += OnStunnedStateChanged;
             }
         }
 
-        private void OnEnable()
-        {
-            SubscribeToInput();
-        }
+        void OnEnable() => SubscribeToInput();
+        void OnDisable() => UnsubscribeFromInput();
 
-        private void OnDisable()
-        {
-            UnsubscribeFromInput();
-        }
-
-        private void Update()
+        void Update()
         {
             HandleInput();
             UpdateAnimations();
 
-            // Handle jump input - check system capabilities
-            if (jump && characterSystem.CanJump)
+            if (jump && State != null && State.CanJump && Controller != null)
             {
-                controller.Jump();
-                if (particleJumpUp != null)
-                    particleJumpUp.Play();
+                Controller.Jump();
+                if (particleJumpUp != null) particleJumpUp.Play();
             }
 
-            // Handle dash input - check system capabilities
-            if (dash && characterSystem.CanDash)
-            {
-                controller.Dash();
-            }
+            if (dash && State != null && State.CanDash && Controller != null)
+                Controller.Dash();
 
-            // Reset one-frame inputs
+            // reset one-frame inputs
             jump = false;
             dash = false;
 
+            // debug keys (optional)
+            if (Keyboard.current?.hKey.wasPressedThisFrame == true) Heal(20f);
+            if (Keyboard.current?.tKey.wasPressedThisFrame == true) TakeDamage(new DamageInfo(15f, null));
+            if (Keyboard.current?.yKey.wasPressedThisFrame == true) InstantDeath();
+        }
 
-            // Test healing with H key
-            if (Keyboard.current.hKey.wasPressedThisFrame)
+        void FixedUpdate()
+        {
+            if (State != null && State.CanMove && Controller != null)
             {
-                float healAmount = 20f;
-                Heal(healAmount); // Use CharacterBase method
-                Debug.Log($"Healed {Stats.characterName} for {healAmount} HP!");
-            }
-
-            // Test damage with T key
-            if (Keyboard.current.tKey.wasPressedThisFrame)
-            {
-                float testDamage = 15f;
-                DamageInfo damageInfo = new DamageInfo(testDamage, gameObject);
-                TakeDamage(damageInfo); // Use CharacterBase method (single entry point)
-                Debug.Log($"Applied {testDamage} test damage to {Stats.characterName}!");
-            }
-
-            
-            if (Keyboard.current.yKey.wasPressedThisFrame)
-            {
-                InstantDeath();
+                float normalized = Controller.MoveSpeed > 0f ? (horizontalMove / Controller.MoveSpeed) : 0f;
+                Controller.SetMovementInput(normalized);
             }
         }
 
-        private void FixedUpdate()
+        void HandleInput()
         {
-            if (characterSystem.CanMove && controller != null)
-            {
-                // Convert movement to normalized input
-                float normalizedInput = horizontalMove / controller.MoveSpeed;
-                controller.SetMovementInput(normalizedInput);
-            }
-        }
-
-        private void HandleInput()
-        {
-            if (inputManager != null && characterSystem.CanMove)
-            {
-                horizontalMove = inputManager.MoveDirection.x * controller.MoveSpeed;
-            }
+            if (inputManager != null && State != null && State.CanMove && Controller != null)
+                horizontalMove = inputManager.MoveDirection.x * Controller.MoveSpeed;
             else
-            {
                 horizontalMove = 0f;
-            }
         }
 
-        private void UpdateAnimations()
+        void UpdateAnimations()
         {
-            if (animator != null && characterSystem != null)
-            {
-                // Use character system states
-                animator.SetFloat("Speed", Mathf.Abs(horizontalMove));
-                animator.SetBool("IsGrounded", characterSystem.IsGrounded);
-                animator.SetBool("IsWallSliding", false);
-                animator.SetBool("IsDashing", characterSystem.IsDashing);
-                animator.SetBool("IsJumping", !characterSystem.IsGrounded);
-                animator.SetBool("IsAttacking", characterSystem.IsAttacking);
-                animator.SetBool("IsStunned", characterSystem.IsStunned);
-            }
+            if (animator == null || State == null) return;
+
+            animator.SetFloat(HashSpeed, Mathf.Abs(horizontalMove));
+            animator.SetBool(HashIsGrounded, State.IsGrounded);
+            animator.SetBool(HashIsWall, false);
+            animator.SetBool(HashIsDashing, State.IsDashing);
+            animator.SetBool(HashIsJumping, !State.IsGrounded);
+            animator.SetBool(HashIsAttacking, State.IsAttacking);
+            animator.SetBool(HashIsStunned, State.IsStunned);
         }
 
-        private void SubscribeToInput()
+        void SubscribeToInput()
         {
-            if (inputManager != null)
-            {
-                inputManager.OnJump += HandleJumpInput;
-                inputManager.OnAttack += HandleAttackInput;
-                inputManager.OnDash += HandleDashInput;
-
-                Debug.Log("Subscribed to input");
-            }
+            if (inputManager == null) return;
+            inputManager.OnJump += HandleJumpInput;
+            inputManager.OnAttack += HandleAttackInput;
+            inputManager.OnDash += HandleDashInput;
         }
 
-        private void UnsubscribeFromInput()
+        void UnsubscribeFromInput()
         {
-            if (inputManager != null)
-            {
-                inputManager.OnJump -= HandleJumpInput;
-                inputManager.OnAttack -= HandleAttackInput;
-                inputManager.OnDash -= HandleDashInput;
-            }
+            if (inputManager == null) return;
+            inputManager.OnJump -= HandleJumpInput;
+            inputManager.OnAttack -= HandleAttackInput;
+            inputManager.OnDash -= HandleDashInput;
         }
 
-        private void HandleJumpInput()
-        {
-            if (characterSystem.CanJump)
-                jump = true;
-        }
+        void HandleJumpInput() { if (State != null && State.CanJump) jump = true; }
+        void HandleAttackInput() { if (State != null && State.CanAttack) PerformAttack(); }
+        void HandleDashInput() { if (State != null && State.CanDash) dash = true; }
 
-        private void HandleAttackInput()
+        void PerformAttack()
         {
-            if (characterSystem.CanAttack)
-                PerformAttack();
-        }
+            if (State == null) return;
 
-        private void HandleDashInput()
-        {
-            if (characterSystem.CanDash)
-                dash = true;
-        }
+            State.SetAttacking(true);
 
-        private void PerformAttack()
-        {
-            // Set attacking state
-            characterSystem.SetAttacking(true);
-            
-            Debug.Log($"{Stats.characterName} performed an attack with {Stats.damage} damage!");
-
-            // Detect enemies in attack range
-            Collider[] enemies = Physics.OverlapSphere(
+            int count = Physics.OverlapSphereNonAlloc(
                 transform.position,
                 attackRange,
+                overlapBuffer,
                 enemyLayerMask
             );
 
-            foreach (var enemy in enemies)
+            for (int i = 0; i < count; i++)
             {
-                var enemyCharacter = enemy.GetComponent<CharacterBase>();
-                if (enemyCharacter != null)
+                var enemyCol = overlapBuffer[i];
+                if (!enemyCol) continue;
+
+                var enemy = enemyCol.GetComponent<CharacterBase>();
+                if (enemy != null)
                 {
-                    DamageInfo damageInfo = new DamageInfo(Stats.damage, gameObject);
-                    enemyCharacter.TakeDamage(damageInfo);
+                    var dmg = new DamageInfo(Stats.damage, gameObject);
+                    enemy.TakeDamage(dmg);
                 }
+
+                overlapBuffer[i] = null; // clear reference
             }
 
-            // End attack after a short duration
             Invoke(nameof(EndAttack), 0.3f);
         }
 
-        private void EndAttack()
+        void EndAttack()
         {
-            characterSystem.SetAttacking(false);
+            if (State != null)
+                State.SetAttacking(false);
         }
 
         #region State Event Handlers
-        private void OnGroundedStateChanged(bool grounded)
-        {
-            if (grounded)
-            {
-                OnLanding();
-            }
-            else
-            {
-                OnFall();
-            }
-        }
-
-        private void OnMovingStateChanged(bool moving)
-        {
-            // Add movement-based effects here if needed
-        }
-
-        private void OnDashingStateChanged(bool dashing)
-        {
-            if (dashing)
-            {
-               
-            }
-            else
-            {
-                
-            }
-        }
-
-        private void OnAttackingStateChanged(bool attacking)
-        {
-            if (attacking)
-            {
-               
-            }
-        }
-
-        private void OnStunnedStateChanged(bool stunned)
-        {
-            if (stunned)
-            {
-               
-            }
-            else
-            {
-               
-            }
-        }
+        void OnGroundedStateChanged(bool grounded) { if (grounded) OnLanding(); else OnFall(); }
+        void OnMovingStateChanged(bool moving) { }
+        void OnDashingStateChanged(bool dashing) { }
+        void OnAttackingStateChanged(bool attacking) { }
+        void OnStunnedStateChanged(bool stunned) { }
         #endregion
 
         public void OnFall()
         {
             if (animator != null)
-                animator.SetBool("IsJumping", true);
+                animator.SetBool(HashIsJumping, true);
         }
 
         public void OnLanding()
         {
             if (animator != null)
-                animator.SetBool("IsJumping", false);
+                animator.SetBool(HashIsJumping, false);
 
-            // Play landing particle effect
             if (particleJumpDown != null)
                 particleJumpDown.Play();
         }
 
         public override void TakeDamage(DamageInfo info)
         {
-            if (!characterSystem.CanTakeDamage) return;
+            if (State != null && !State.CanTakeDamage) return;
 
             base.TakeDamage(info);
 
-            // Apply knockback
-            if (info.Source != null && controller != null)
+            // knockback
+            if (info.Source != null && Controller != null)
             {
-                Vector3 knockbackDirection = (transform.position - info.Source.transform.position).normalized;
-                controller.AddForce(knockbackDirection * 15f, ForceMode.Impulse);
+                Vector3 dir = (transform.position - info.Source.transform.position).normalized;
+                Controller.AddForce(dir * 15f, ForceMode.Impulse);
             }
 
-            // Apply hit stun using the character system
-            characterSystem.ApplyStun(0.1f);
+            // short hit-stun
+            if (State != null)
+                State.ApplyStun(0.1f);
         }
 
         protected override void HandleDeath()
         {
             base.HandleDeath();
-
-            // Unsubscribe from input when dead
             UnsubscribeFromInput();
-
-            Debug.Log($"{Stats.characterName} has died.");
         }
 
-        private void OnDrawGizmosSelected()
+        void OnDrawGizmosSelected()
         {
-            // Draw attack range
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(transform.position, attackRange);
         }
 
         protected override void OnDestroy()
         {
-            base.OnDestroy(); // This handles character system cleanup
-            
-            // Clean up player-specific event subscriptions
-            if (characterSystem != null)
+            base.OnDestroy();
+
+            if (State != null)
             {
-                characterSystem.OnGroundedChanged -= OnGroundedStateChanged;
-                characterSystem.OnMovingChanged -= OnMovingStateChanged;
-                characterSystem.OnDashingChanged -= OnDashingStateChanged;
-                characterSystem.OnAttackingChanged -= OnAttackingStateChanged;
-                characterSystem.OnStunnedChanged -= OnStunnedStateChanged;
+                State.OnGroundedChanged -= OnGroundedStateChanged;
+                State.OnMovingChanged -= OnMovingStateChanged;
+                State.OnDashingChanged -= OnDashingStateChanged;
+                State.OnAttackingChanged -= OnAttackingStateChanged;
+                State.OnStunnedChanged -= OnStunnedStateChanged;
             }
         }
     }
