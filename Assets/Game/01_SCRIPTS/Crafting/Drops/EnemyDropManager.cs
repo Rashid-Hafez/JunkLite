@@ -8,8 +8,9 @@ public class EnemyDropManager : MonoBehaviour
     {
         GlobalTable, CustomList
     }
-
-    [Header("Drop Settings")][SerializeField] [Tooltip("GlobalTable means it calls the global drop table. CustomList means it only drops from the list below.")]
+    
+    [Header("Drop Settings")]
+    [SerializeField] [Tooltip("GlobalTable means it calls the global drop table. CustomList means it only drops from the list below.")]
     public DropMode dropMode = DropMode.GlobalTable; //by def
     [SerializeField] [Tooltip("Set inside array which drops are allowed to drop")]
     public List<Mod_Data> customDrops = new List<Mod_Data>();
@@ -29,9 +30,9 @@ public class EnemyDropManager : MonoBehaviour
         if (dropMode == DropMode.GlobalTable)
         {
             Debug.Log("Dropping from Global Table");
-            Mod_Data vv = DropTableGameObj.Instance.GetRandomDrop();
-            Debug.Log("Dropped Mod: " + vv.displayName + " of Rarity: " + vv.rarity + " and Element: " + vv.element);
-            return vv;
+            Mod_Data randomMod = DropTableGameObj.Instance.GetRandomDrop();
+            Debug.Log("Dropped Mod: " + randomMod.displayName + " of Rarity: " + randomMod.rarity + " and Element: " + randomMod.element);
+            return randomMod;
         }
 
         else return DropCustomListMod();
@@ -39,7 +40,7 @@ public class EnemyDropManager : MonoBehaviour
 
     private Mod_Data DropCustomListMod()
     {
-        return new Mod_Data();
+        return customDrops[UnityEngine.Random.Range(0, customDrops.Count)];
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created

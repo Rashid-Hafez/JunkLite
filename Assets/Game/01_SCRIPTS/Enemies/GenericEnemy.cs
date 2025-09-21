@@ -8,6 +8,19 @@ public class GenericEnemy : MonoBehaviour
     public int health = 100;
     private EnemyDropManager dropHandler;
 
+    [SerializeField] private GameObject lootPrefab; // Assign your prefab in the inspector
+
+    void Update()
+    {
+        // For testing purposes, press the G key to simulate taking damage
+        if (Input.GetKeyDown(KeyCode.G))
+        {
+            TakeDamage(25); // Simulate taking 25 damage
+            Debug.Log("Enemy took damage, current health: " + health);
+        }
+
+    }
+
     void Awake()
     {
         dropHandler = GetComponent<EnemyDropManager>();
@@ -22,10 +35,28 @@ public class GenericEnemy : MonoBehaviour
 
     void Die()
     {
-        // Call the drop manager attached to THIS enemy
+        //////////// LOOT DROP HANDLER ////////////
+        // Drop loot
         if (dropHandler != null)
-            dropHandler.DropMod();
+            Debug.Log("EnemyDropManager found, proceeding to drop loot.");
+        else
+            Debug.LogWarning("No EnemyDropManager found on this enemy!");
 
-        Destroy(gameObject); // remove enemy from scene
+        // Spawn physical object at enemy's position
+        if (lootPrefab != null)
+        {
+            GameObject lootObj = Instantiate(lootPrefab, transform.position, Quaternion.identity);
+            lootObj.GetComponent<ModDrop_Instance>().modData = dropHandler.DropMod();
+            lootObj.name = lootObj.GetComponent<ModDrop_Instance>().modData.displayName; //set name of object to the mod name
+        }
+        else
+        {
+            Debug.LogWarning("No loot prefab assigned to the enemy!");
+        }
+        ///////////////////////////////////////////////////
+        /// 
+        // Destroy or deactivate enemy
+        gameObject.SetActive(false);
+        Debug.Log("Enemy died");
     }
 }
