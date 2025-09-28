@@ -35,7 +35,7 @@ Transform:
   m_GameObject: {fileID: 757279706138491129}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -30.04, y: 36.02, z: 6.64}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -132,11 +132,8 @@ MonoBehaviour:
   enemyLayerMask:
     serializedVersion: 2
     m_Bits: 0
-  animator: {fileID: 0}
   particleJumpUp: {fileID: 0}
   particleJumpDown: {fileID: 0}
-  playerUIPrefab: {fileID: 8667976682045979652, guid: d882800c7bcc72e4cbbcd603340badbc, type: 3}
-  uiCanvasOverride: {fileID: 0}
 --- !u!114 &5260910272949053861
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -270,13 +267,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   animator: {fileID: 6524589381190631642}
   autoFindAnimator: 0
-  idleAnimName: Idle
-  runAnimName: run
-  jumpUpAnimName: jump_up
-  fallAnimName: fall
-  landAnimName: land
-  attackAnimName: Attack
-  showDebugInfo: 1
+  speedParam: Speed
+  isGroundedParam: IsGrounded
+  isJumpingParam: IsJumping
+  isDashingParam: IsDashing
+  isAttackingParam: IsAttacking
+  isStunnedParam: IsStunned
+  landTrigger: Land
+  attackTrigger: Attack
+  dashTrigger: Dash
+  hurtTrigger: Hurt
+  deathTrigger: Death
+  includeZInSpeed: 0
+  speedDamp: 0.1
 --- !u!114 &196964716290612200
 MonoBehaviour:
   m_ObjectHideFlags: 0

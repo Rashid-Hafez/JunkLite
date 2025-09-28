@@ -12,8 +12,7 @@ namespace junklite
         [SerializeField] private float attackRange = 1.5f;
         [SerializeField] private LayerMask enemyLayerMask = 1;
 
-        [Header("References")]
-        [SerializeField] private Animator animator;
+        [Header("VFX")]
         [SerializeField] private ParticleSystem particleJumpUp;
         [SerializeField] private ParticleSystem particleJumpDown;
 
@@ -23,15 +22,6 @@ namespace junklite
 
         // Systems
         GameInputManager inputManager;
-
-        // Animator hashes
-        static readonly int HashSpeed = Animator.StringToHash("Speed");
-        static readonly int HashIsGrounded = Animator.StringToHash("IsGrounded");
-        static readonly int HashIsWall = Animator.StringToHash("IsWallSliding");
-        static readonly int HashIsDashing = Animator.StringToHash("IsDashing");
-        static readonly int HashIsJumping = Animator.StringToHash("IsJumping");
-        static readonly int HashIsAttacking = Animator.StringToHash("IsAttacking");
-        static readonly int HashIsStunned = Animator.StringToHash("IsStunned");
 
         // Non-alloc overlap buffer
         static readonly Collider[] overlapBuffer = new Collider[12];
@@ -63,7 +53,6 @@ namespace junklite
         void Update()
         {
             HandleInput();
-            UpdateAnimations();
 
             if (jump && State != null && State.CanJump && Controller != null)
             {
@@ -99,19 +88,6 @@ namespace junklite
                 horizontalMove = inputManager.MoveDirection.x * Controller.MoveSpeed;
             else
                 horizontalMove = 0f;
-        }
-
-        void UpdateAnimations()
-        {
-            if (animator == null || State == null) return;
-
-            animator.SetFloat(HashSpeed, Mathf.Abs(horizontalMove));
-            animator.SetBool(HashIsGrounded, State.IsGrounded);
-            animator.SetBool(HashIsWall, false);
-            animator.SetBool(HashIsDashing, State.IsDashing);
-            animator.SetBool(HashIsJumping, !State.IsGrounded);
-            animator.SetBool(HashIsAttacking, State.IsAttacking);
-            animator.SetBool(HashIsStunned, State.IsStunned);
         }
 
         void SubscribeToInput()
@@ -172,24 +148,25 @@ namespace junklite
         }
 
         #region State Event Handlers
-        void OnGroundedStateChanged(bool grounded) { if (grounded) OnLanding(); else OnFall(); }
-        void OnMovingStateChanged(bool moving) { }
-        void OnDashingStateChanged(bool dashing) { }
-        void OnAttackingStateChanged(bool attacking) { }
-        void OnStunnedStateChanged(bool stunned) { }
+        void OnGroundedStateChanged(bool grounded)
+        {
+            if (grounded) OnLanding();
+            else OnFall();
+        }
+
+        void OnMovingStateChanged(bool moving) { /* hook VFX/SFX if needed */ }
+        void OnDashingStateChanged(bool dashing) { /* dash enter/exit hooks */ }
+        void OnAttackingStateChanged(bool attacking) { /* combo windows, etc. */ }
+        void OnStunnedStateChanged(bool stunned) { /* UI feedback, etc. */ }
         #endregion
 
         public void OnFall()
         {
-            if (animator != null)
-                animator.SetBool(HashIsJumping, true);
+            // Only VFX here (Animator is driven by AnimationController)
         }
 
         public void OnLanding()
         {
-            if (animator != null)
-                animator.SetBool(HashIsJumping, false);
-
             if (particleJumpDown != null)
                 particleJumpDown.Play();
         }

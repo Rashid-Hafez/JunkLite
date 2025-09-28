@@ -2,286 +2,154 @@ using UnityEngine;
 
 namespace junklite
 {
+    [DisallowMultipleComponent]
     public class AnimationController : MonoBehaviour
     {
-        [Header("Animation Settings")]
+        [Header("Animator")]
         [SerializeField] private Animator animator;
         [SerializeField] private bool autoFindAnimator = true;
 
-        [Header("Animation Names")]
-        [SerializeField] private string idleAnimName = "Idle";
-        [SerializeField] private string runAnimName = "run";
-        [SerializeField] private string jumpUpAnimName = "jump_up";
-        [SerializeField] private string fallAnimName = "fall";
-        [SerializeField] private string landAnimName = "land";
-        [SerializeField] private string attackAnimName = "Attack";
+        [Header("Animator Parameters (create these in your Animator Controller)")]
+        [SerializeField] private string speedParam = "Speed";        // float
+        [SerializeField] private string isGroundedParam = "IsGrounded";   // bool
+        [SerializeField] private string isJumpingParam = "IsJumping";    // bool
+        [SerializeField] private string isDashingParam = "IsDashing";    // bool
+        [SerializeField] private string isAttackingParam = "IsAttacking";  // bool
+        [SerializeField] private string isStunnedParam = "IsStunned";    // bool
 
-        // Current animation state tracking
-        private string currentAnimation;
-        private bool isPlayingOneShot = false;
+        [Header("Triggers (optional)")]
+        [SerializeField] private string landTrigger = "Land";
+        [SerializeField] private string attackTrigger = "Attack";
+        [SerializeField] private string dashTrigger = "Dash";
+        [SerializeField] private string hurtTrigger = "Hurt";
+        [SerializeField] private string deathTrigger = "Death";
 
-        // References
-        private CharacterState characterSystem;
-        private Character2D5Controller controller;
+        [Header("Tuning")]
+        [Tooltip("If true, speed uses sqrt(x^2+z^2). If false, abs(x) only.")]
+        [SerializeField] private bool includeZInSpeed = false;
+        [Tooltip("Damp time for speed parameter (seconds).")]
+        [SerializeField] private float speedDamp = 0.1f;
 
-        private void Awake()
+        // Hashes
+        int hSpeed, hGrounded, hJumping, hDashing, hAttacking, hStunned;
+        int hLandTrig, hAttackTrig, hDashTrig, hHurtTrig, hDeathTrig;
+
+        // Refs (prefer CharacterBase as context hub)
+        CharacterBase ctx;
+        CharacterState state;
+        Character2D5Controller controller;
+
+        bool wasGrounded;
+
+        void Awake()
         {
-            // Auto-find animator if not assigned
             if (autoFindAnimator && animator == null)
-            {
                 animator = GetComponentInChildren<Animator>();
-            }
 
-            // Get required components from parent
-            characterSystem = GetComponentInParent<CharacterState>();
-            controller = GetComponentInParent<Character2D5Controller>();
-
-            if (animator == null)
+            ctx = GetComponentInParent<CharacterBase>();
+            if (ctx != null)
             {
-                Debug.LogError($"AnimationController on {gameObject.name} couldn't find Animator component!");
-            }
-        }
-
-        private void Start()
-        {
-            // Subscribe to character system events for immediate animation responses
-            if (characterSystem != null)
-            {
-                characterSystem.OnGroundedChanged += OnGroundedChanged;
-                characterSystem.OnDashingChanged += OnDashingChanged;
-                characterSystem.OnAttackingChanged += OnAttackingChanged;
-                characterSystem.OnStunnedChanged += OnStunnedChanged;
-                characterSystem.OnDeath += OnDeath;
-            }
-
-            // Play initial idle animation
-            PlayAnimation(idleAnimName);
-        }
-
-        private void Update()
-        {
-            UpdateMovementAnimations();
-        }
-
-        /// <summary>
-        /// Main animation update - handles movement-based animations
-        /// </summary>
-        private void UpdateMovementAnimations()
-        {
-            if (animator == null || characterSystem == null || controller == null)
-                return;
-
-            // Skip if playing one-shot animations
-            if (isPlayingOneShot)
-                return;
-
-            // Skip if dead
-            if (!characterSystem.IsAlive)
-                return;
-
-            // Priority: Attacking > Dashing > Jumping > Running > Idle
-            if (characterSystem.IsAttacking)
-            {
-                // Attack animation is handled by event
-                return;
-            }
-            else if (characterSystem.IsDashing)
-            {
-                // Dash animation is handled by event
-                return;
-            }
-            else if (!characterSystem.IsGrounded)
-            {
-                // Check if just jumped (rising) vs falling
-                if (controller.Velocity.y > 0.1f)
-                    PlayAnimation(jumpUpAnimName);
-                else
-                    PlayAnimation(fallAnimName);
-            }
-            else if (Mathf.Abs(controller.Velocity.x) > 0.1f && characterSystem.CanMove)
-            {
-                // Moving on ground - play run animation
-                PlayAnimation(runAnimName);
+                state = ctx.State;
+                controller = ctx.Controller;
             }
             else
             {
-                // Standing still - play idle animation
-                PlayAnimation(idleAnimName);
+                state = GetComponentInParent<CharacterState>();
+                controller = GetComponentInParent<Character2D5Controller>();
             }
+
+            if (animator == null)
+                Debug.LogError($"[{nameof(AnimationController)}] No Animator found on {name}.");
+
+            // Cache hashes
+            hSpeed = Animator.StringToHash(speedParam);
+            hGrounded = Animator.StringToHash(isGroundedParam);
+            hJumping = Animator.StringToHash(isJumpingParam);
+            hDashing = Animator.StringToHash(isDashingParam);
+            hAttacking = Animator.StringToHash(isAttackingParam);
+            hStunned = Animator.StringToHash(isStunnedParam);
+
+            hLandTrig = string.IsNullOrEmpty(landTrigger) ? 0 : Animator.StringToHash(landTrigger);
+            hAttackTrig = string.IsNullOrEmpty(attackTrigger) ? 0 : Animator.StringToHash(attackTrigger);
+            hDashTrig = string.IsNullOrEmpty(dashTrigger) ? 0 : Animator.StringToHash(dashTrigger);
+            hHurtTrig = string.IsNullOrEmpty(hurtTrigger) ? 0 : Animator.StringToHash(hurtTrigger);
+            hDeathTrig = string.IsNullOrEmpty(deathTrigger) ? 0 : Animator.StringToHash(deathTrigger);
         }
 
-        /// <summary>
-        /// Play an animation if it's not already playing
-        /// </summary>
-        private void PlayAnimation(string animationName)
+        void OnEnable()
         {
-            if (animator == null || string.IsNullOrEmpty(animationName))
-                return;
-
-            if (currentAnimation != animationName)
+            if (state != null)
             {
-                animator.Play(animationName);
-                currentAnimation = animationName;
+                state.OnGroundedChanged += OnGroundedChanged;
+                state.OnDashingChanged += OnDashingChanged;
+                state.OnAttackingChanged += OnAttackingChanged;
+                state.OnStunnedChanged += OnStunnedChanged;
+                state.OnDeath += OnDeath;
+                wasGrounded = state.IsGrounded;
             }
         }
 
-        /// <summary>
-        /// Play a one-shot animation (like attack, hurt) that should override movement animations
-        /// </summary>
-        private void PlayOneShotAnimation(string animationName, float duration = 0f)
+        void OnDisable()
         {
-            if (animator == null || string.IsNullOrEmpty(animationName))
-                return;
-
-            PlayAnimation(animationName);
-            isPlayingOneShot = true;
-
-            // Auto-clear one-shot flag after duration
-            if (duration > 0f)
+            if (state != null)
             {
-                CancelInvoke(nameof(ClearOneShotFlag));
-                Invoke(nameof(ClearOneShotFlag), duration);
+                state.OnGroundedChanged -= OnGroundedChanged;
+                state.OnDashingChanged -= OnDashingChanged;
+                state.OnAttackingChanged -= OnAttackingChanged;
+                state.OnStunnedChanged -= OnStunnedChanged;
+                state.OnDeath -= OnDeath;
             }
         }
 
-        /// <summary>
-        /// Clear the one-shot animation flag
-        /// </summary>
-        private void ClearOneShotFlag()
+        void Update()
         {
-            isPlayingOneShot = false;
+            if (animator == null || state == null || controller == null) return;
+
+            // Speed (damped)
+            float speed = includeZInSpeed
+                ? new Vector2(controller.Velocity.x, controller.Velocity.z).magnitude
+                : Mathf.Abs(controller.Velocity.x);
+            animator.SetFloat(hSpeed, speed, speedDamp, Time.deltaTime);
+
+            // State flags
+            animator.SetBool(hGrounded, state.IsGrounded);
+            animator.SetBool(hJumping, !state.IsGrounded); // simple jump flag (refine with y vel if you like)
+            animator.SetBool(hDashing, state.IsDashing);
+            animator.SetBool(hAttacking, state.IsAttacking);
+            animator.SetBool(hStunned, state.IsStunned);
         }
 
-        /// <summary>
-        /// Manually clear one-shot animation (useful for animation events)
-        /// </summary>
-        public void EndOneShotAnimation()
+        // ---- Event-driven one-shots / edges ----
+
+        void OnGroundedChanged(bool grounded)
         {
-            ClearOneShotFlag();
+            if (grounded && !wasGrounded && hLandTrig != 0)
+                animator.SetTrigger(hLandTrig);
+            wasGrounded = grounded;
         }
 
-        #region Event Handlers
-
-        private void OnGroundedChanged(bool grounded)
+        void OnDashingChanged(bool dashing)
         {
-            if (grounded && !isPlayingOneShot)
-            {
-               // PlayOneShotAnimation(landAnimName, 0.2f); 
-            }
+            if (dashing && hDashTrig != 0)
+                animator.SetTrigger(hDashTrig);
         }
 
-        private void OnDashingChanged(bool dashing)
+        void OnAttackingChanged(bool attacking)
         {
-            if (dashing)
-            {
-               // PlayOneShotAnimation(dashAnimName, 0.2f); 
-            }
+            if (attacking && hAttackTrig != 0)
+                animator.SetTrigger(hAttackTrig);
         }
 
-        private void OnAttackingChanged(bool attacking)
+        void OnStunnedChanged(bool stunned)
         {
-            if (attacking)
-            {
-                PlayOneShotAnimation(attackAnimName, 0.3f); // Match attack duration
-            }
+            if (stunned && hHurtTrig != 0)
+                animator.SetTrigger(hHurtTrig);
         }
 
-        private void OnStunnedChanged(bool stunned)
+        void OnDeath()
         {
-            if (stunned)
-            {
-               // PlayOneShotAnimation(hurtAnimName, 0.1f); // Match stun duration
-            }
+            if (hDeathTrig != 0)
+                animator.SetTrigger(hDeathTrig);
         }
-
-        private void OnDeath()
-        {
-           // PlayAnimation(deathAnimName);
-            isPlayingOneShot = true; // Lock on death animation
-        }
-
-        #endregion
-
-        #region Public Animation Controls
-
-        /// <summary>
-        /// Force play a specific animation (useful for cutscenes, special states)
-        /// </summary>
-        public void ForcePlayAnimation(string animationName)
-        {
-            currentAnimation = ""; // Reset current to force play
-            PlayAnimation(animationName);
-        }
-
-        /// <summary>
-        /// Play a custom one-shot animation with duration
-        /// </summary>
-        public void PlayCustomOneShot(string animationName, float duration)
-        {
-            PlayOneShotAnimation(animationName, duration);
-        }
-
-        /// <summary>
-        /// Check if currently playing a specific animation
-        /// </summary>
-        public bool IsPlayingAnimation(string animationName)
-        {
-            return currentAnimation == animationName;
-        }
-
-        /// <summary>
-        /// Check if currently playing any one-shot animation
-        /// </summary>
-        public bool IsPlayingOneShot => isPlayingOneShot;
-
-        #endregion
-
-        #region Cleanup
-
-        private void OnDestroy()
-        {
-            if (characterSystem != null)
-            {
-                characterSystem.OnGroundedChanged -= OnGroundedChanged;
-                characterSystem.OnDashingChanged -= OnDashingChanged;
-                characterSystem.OnAttackingChanged -= OnAttackingChanged;
-                characterSystem.OnStunnedChanged -= OnStunnedChanged;
-                characterSystem.OnDeath -= OnDeath;
-            }
-        }
-
-        #endregion
-
-        #region Debug
-
-        [Header("Debug")]
-        [SerializeField] private bool showDebugInfo = false;
-
-        private void OnGUI()
-        {
-            if (!showDebugInfo) return;
-
-            GUILayout.BeginArea(new Rect(Screen.width - 250, 10, 240, 150));
-            GUILayout.Label("=== Animation Debug ===");
-            GUILayout.Label($"Current: {currentAnimation}");
-            GUILayout.Label($"One-Shot: {isPlayingOneShot}");
-
-            if (characterSystem != null)
-            {
-                GUILayout.Label($"Grounded: {characterSystem.IsGrounded}");
-                GUILayout.Label($"Moving: {characterSystem.IsMoving}");
-                GUILayout.Label($"Attacking: {characterSystem.IsAttacking}");
-                GUILayout.Label($"Dashing: {characterSystem.IsDashing}");
-            }
-
-            if (controller != null)
-            {
-                GUILayout.Label($"Velocity: {controller.Velocity.x:F1}");
-            }
-
-            GUILayout.EndArea();
-        }
-
-        #endregion
     }
 }
