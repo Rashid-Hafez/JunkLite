@@ -16,6 +16,7 @@ namespace junklite
         protected AttributeManager attributes;
         protected Damageable damageable;
         protected Character2D5Controller controller;
+        protected AnimationController animationController;
 
         // Public accessors
         public bool IsAlive => attributes ? attributes.IsAlive : true;
@@ -30,6 +31,7 @@ namespace junklite
             attributes = GetComponent<AttributeManager>();
             damageable = GetComponent<Damageable>();
             controller = GetComponent<Character2D5Controller>();
+            animationController = GetComponent<AnimationController>();  
 
             // Build runtime attributes from the ScriptableObject ASAP
             if (attributes != null && baseStats != null)
@@ -140,6 +142,18 @@ namespace junklite
         // Optional typed attribute helpers
         public Attribute GetAttribute(AttributeType type) => attributes ? attributes.Get(type) : null;
         public Attribute Health => attributes ? attributes.Health : null;
+
+
+        //override methods
+        public virtual void Activate()
+        {
+
+        }
+
+        public virtual void Deactivate()
+        {
+
+        }
        
     }
 

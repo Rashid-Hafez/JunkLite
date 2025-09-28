@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -16,9 +17,16 @@ namespace junklite
         [SerializeField] private ParticleSystem particleJumpUp;
         [SerializeField] private ParticleSystem particleJumpDown;
 
+        [Header("Respawn Settings")]
+        [SerializeField] private float reviveInvulnerability = 1.25f;
+        [SerializeField] private bool disableCollidersOnDeactivate = true; 
+
         // Input tracking (one-frame)
         float horizontalMove = 0f;
         bool jump, dash;
+
+        Collider[] _cachedColliders;
+        Rigidbody _rb; // optional, if present we'll zero velocity
 
         // Systems
         GameInputManager inputManager;
@@ -30,10 +38,17 @@ namespace junklite
         {
             base.Awake();
             inputManager = GameInputManager.Instance;
+
+            _cachedColliders = GetComponentsInChildren<Collider>(includeInactive: true);
+            _rb = GetComponent<Rigidbody>();
+
+            Deactivate();
         }
 
-        void Start()
+        protected override void Start()
         {
+            base.Start();
+
             if (CameraManager.Instance != null)
                 CameraManager.Instance.SetPlayerTarget(transform);
 
@@ -46,6 +61,89 @@ namespace junklite
                 State.OnStunnedChanged += OnStunnedStateChanged;
             }
         }
+
+        #region Overrides
+
+        public override void Deactivate()
+        {
+            // Stop inputs
+            UnsubscribeFromInput();
+
+            // Stop movement
+            if (Controller != null)
+                Controller.CanMove = false;
+
+            // Lock combat & damage
+            if (State != null)
+            {
+                State.SetAttacking(false);
+                State.SetDashing(false);
+                State.SetVulnerable(false); // invulnerable while deactivated
+            }
+        }
+
+
+        public override void Activate()
+        {
+            // Re-enable colliders
+            if (_cachedColliders != null)
+                foreach (var c in _cachedColliders)
+                    if (c) c.enabled = true;
+
+            // Allow movement again
+            if (Controller != null)
+                Controller.CanMove = true;
+
+            // Re-enable combat, give short i-frames
+            if (State != null)
+            {
+                State.SetAttacking(false);
+                State.SetDashing(false);
+                State.ApplyInvulnerability(reviveInvulnerability); 
+            }
+
+            if(animationController != null)
+            {
+                animationController.ResetGraph();
+            }
+
+
+            // Subscribe to input last
+            SubscribeToInput();
+        }
+
+        public void ReviveAt(Vector3 position)
+        {
+            // --- Reset health / core stats ---
+            if(attributes != null)
+            {
+                attributes.RestoreHealthToMax();
+
+                //Do other things such as restore amor and stuff
+            }
+
+            if (Controller != null)
+            {
+                Controller.TeleportTo(position);
+                Controller.SetMovementInput(0f);
+                Controller.CanMove = false; // stays off until Activate()
+            }
+            else
+            {
+                transform.position = position;
+            }
+
+           
+            if (State != null)
+            {
+                State.ResetForRespawn();  
+                State.SetGrounded(true);
+                State.SetVulnerable(false); 
+            }
+        }
+
+
+        #endregion
 
         void OnEnable() => SubscribeToInput();
         void OnDisable() => UnsubscribeFromInput();
@@ -195,12 +293,6 @@ namespace junklite
             UnsubscribeFromInput();
         }
 
-        void OnDrawGizmosSelected()
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(transform.position, attackRange);
-        }
-
         protected override void OnDestroy()
         {
             base.OnDestroy();
@@ -214,5 +306,13 @@ namespace junklite
                 State.OnStunnedChanged -= OnStunnedStateChanged;
             }
         }
+
+        void OnDrawGizmosSelected()
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(transform.position, attackRange);
+        }
+
+       
     }
 }

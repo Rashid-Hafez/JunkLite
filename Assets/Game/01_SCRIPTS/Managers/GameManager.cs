@@ -18,8 +18,9 @@ namespace junklite
         [Header("UI")]
         [Tooltip("Player HUD prefab (must have a PlayerUI component on root).")]
         [SerializeField] private GameObject playerUIPrefab;
-        [Tooltip("Optional: if null, the first Canvas found in the scene will be used.")]
-        [SerializeField] private Canvas uiCanvasOverride;
+
+        [Tooltip("Canvas to parent the Player UI under. Assign in inspector.")]
+        [SerializeField] private Transform gameplayCanvasTransform;
 
         // Keep a single instance of the Player UI around
         private PlayerUI playerUIInstance;
@@ -54,9 +55,6 @@ namespace junklite
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
-
-            // If you change scenes, make sure the UI is parented to the new scene's Canvas
-            SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
         void Start()
@@ -76,49 +74,33 @@ namespace junklite
             if (spawnPoints == null || spawnPoints.Length == 0)
                 FindSpawnPoints();
 
-            // Create the Player UI once
             EnsurePlayerUI();
 
-            // Spawn first player
             SpawnPlayer();
             SetGameState(GameState.Playing);
-
-            Debug.Log("Game initialized successfully!");
         }
 
         private void EnsurePlayerUI()
         {
             if (playerUIInstance != null) return;
 
-            var canvas = uiCanvasOverride != null ? uiCanvasOverride : FindObjectOfType<Canvas>();
-            if (canvas == null)
+            if (gameplayCanvasTransform == null)
             {
-                Debug.LogWarning("No Canvas found for Player UI. HUD will not be created.");
+                Debug.LogError("GameManager: uiCanvas is not assigned. Assign a Canvas in the inspector.");
                 return;
             }
 
             if (playerUIPrefab == null)
             {
-                Debug.LogWarning("No Player UI Prefab assigned in GameManager.");
+                Debug.LogError("GameManager: playerUIPrefab is not assigned.");
                 return;
             }
 
-            var uiGO = Instantiate(playerUIPrefab, canvas.transform);
+            var uiGO = Instantiate(playerUIPrefab, gameplayCanvasTransform.transform);
             uiGO.name = "Player UI";
             playerUIInstance = uiGO.GetComponent<PlayerUI>();
             if (playerUIInstance == null)
                 Debug.LogError("Player UI prefab is missing a PlayerUI component.");
-        }
-
-        private void ReparentUIToActiveCanvas()
-        {
-            if (playerUIInstance == null) return;
-
-            var canvas = uiCanvasOverride != null ? uiCanvasOverride : FindObjectOfType<Canvas>();
-            if (canvas != null && playerUIInstance.transform.parent != canvas.transform)
-            {
-                playerUIInstance.transform.SetParent(canvas.transform, worldPositionStays: false);
-            }
         }
 
         private void FindSpawnPoints()
@@ -136,35 +118,37 @@ namespace junklite
         {
             Vector3 spawnPosition = GetSpawnPosition();
 
-            // Clean up previous player (and its subscriptions) if any
-            if (currentPlayer != null)
-            {
-                UnsubscribeFromPlayer(currentPlayer);
-                Destroy(currentPlayer.gameObject);
-                currentPlayer = null;
-            }
-
-            if (playerPrefab == null)
-            {
-                Debug.LogError("No player prefab assigned to GameManager!");
-                return;
-            }
-
-            GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
-            currentPlayer = playerObject.GetComponent<PlayerCharacter>();
-
+            // Instantiate only once
             if (currentPlayer == null)
             {
-                Debug.LogError("Player prefab doesn't have PlayerCharacter component!");
-                return;
+                if (playerPrefab == null)
+                {
+                    Debug.LogError("No player prefab assigned to GameManager!");
+                    return;
+                }
+
+                GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
+                currentPlayer = playerObject.GetComponent<PlayerCharacter>();
+                if (currentPlayer == null)
+                {
+                    Debug.LogError("Player prefab doesn't have PlayerCharacter component!");
+                    return;
+                }
+
+                // Subscribe once
+                SubscribeToPlayer(currentPlayer);
+
+                // Bind the existing UI once
+                EnsurePlayerUI();
+                if (playerUIInstance != null)
+                    playerUIInstance.BindToPlayer(currentPlayer);
             }
 
-            // Subscribe to the new player's death (CharacterState forwards Attribute death)
-            SubscribeToPlayer(currentPlayer);
+            // Place + revive mechanics (resets health/state/velocity)
+            currentPlayer.ReviveAt(spawnPosition);
 
-            // Bind the existing Player UI to this new player (no new UI instances)
-            if (playerUIInstance != null)
-                playerUIInstance.BindToPlayer(currentPlayer);
+            // Explicitly hand control back (enables input/move; applies i-frames)
+            currentPlayer.Activate();
 
             OnPlayerSpawned?.Invoke(currentPlayer);
             Debug.Log($"Player spawned at {spawnPosition}");
@@ -242,24 +226,67 @@ namespace junklite
             Debug.Log("Player died!");
             OnPlayerDied?.Invoke();
 
+            if (currentPlayer != null) currentPlayer.Deactivate();
+
             if (respawnRoutine != null) StopCoroutine(respawnRoutine);
-            respawnRoutine = StartCoroutine(RespawnAfterDelay(respawnDelay));
+            respawnRoutine = StartCoroutine(SoftRespawnAfterDelay(respawnDelay));
         }
 
-        private IEnumerator RespawnAfterDelay(float delaySeconds)
+        private IEnumerator SoftRespawnAfterDelay(float delaySeconds)
         {
-            // Wait in real-time so pausing won't block respawn
+            // Wait in real-time (unaffected by Time.timeScale)
             float end = Time.realtimeSinceStartup + Mathf.Max(0f, delaySeconds);
             while (Time.realtimeSinceStartup < end)
                 yield return null;
 
-            if (currentState == GameState.Playing)
-                SpawnPlayer();
+            if (currentState != GameState.Playing)
+            {
+                respawnRoutine = null;
+                yield break;
+            }
+
+            Vector3 spawnPosition = GetSpawnPosition();
+
+            // If somehow the player got destroyed, recreate it 
+            if (currentPlayer == null)
+            {
+                if (playerPrefab == null)
+                {
+                    Debug.LogError("No player prefab assigned to GameManager!");
+                    respawnRoutine = null;
+                    yield break;
+                }
+
+                GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
+                currentPlayer = playerObject.GetComponent<PlayerCharacter>();
+                if (currentPlayer == null)
+                {
+                    Debug.LogError("Player prefab doesn't have PlayerCharacter component!");
+                    respawnRoutine = null;
+                    yield break;
+                }
+
+                SubscribeToPlayer(currentPlayer);
+
+                // Make sure UI is ready/bound
+                EnsurePlayerUI();
+                if (playerUIInstance != null)
+                    playerUIInstance.BindToPlayer(currentPlayer);
+            }
+
+            // Reset gameplay state at spawn (HP, flags, teleport, velocity)
+            currentPlayer.ReviveAt(spawnPosition);
+
+            // Give control back (enables input/move; applies i-frames)
+            currentPlayer.Activate();
+
+            OnPlayerSpawned?.Invoke(currentPlayer);
+            Debug.Log($"Player respawned at {spawnPosition}");
 
             respawnRoutine = null;
         }
 
-        // ---- Input -----------------------------------------------------------
+        //Input 
 
         private void HandleInput()
         {
@@ -276,19 +303,28 @@ namespace junklite
         public void PauseGame() => SetGameState(GameState.Paused);
         public void ResumeGame() => SetGameState(GameState.Playing);
 
+        // Use soft respawn instead of re-instantiating
         public void RestartLevel()
         {
             Debug.Log("Restarting level...");
 
             currentSpawnIndex = 0;
 
-            // Ensure UI exists and is under the current scene's Canvas
+            // Ensure UI exists and is parented under the assigned canvas
             EnsurePlayerUI();
-            ReparentUIToActiveCanvas();
 
-            // Respawn player immediately
-            SpawnPlayer();
+            // If player is alive, deactivate first
+            if (currentPlayer != null)
+                currentPlayer.Deactivate();
 
+            // Cancel any pending respawns
+            if (respawnRoutine != null)
+                StopCoroutine(respawnRoutine);
+
+            // Soft-respawn immediately (delay = 0)
+            respawnRoutine = StartCoroutine(SoftRespawnAfterDelay(0f));
+
+            // Ensure game resumes in play state
             SetGameState(GameState.Playing);
         }
 
@@ -310,20 +346,8 @@ namespace junklite
             Application.Quit();
         }
 
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-        {
-            // After scene load, make sure the UI lives under the new scene's Canvas
-            ReparentUIToActiveCanvas();
-
-            // If player exists, re-bind (useful when you load a scene that already has a player)
-            if (playerUIInstance != null && currentPlayer != null)
-                playerUIInstance.BindToPlayer(currentPlayer);
-        }
-
         void OnDestroy()
         {
-            SceneManager.sceneLoaded -= OnSceneLoaded;
-
             if (currentPlayer != null)
                 UnsubscribeFromPlayer(currentPlayer);
         }

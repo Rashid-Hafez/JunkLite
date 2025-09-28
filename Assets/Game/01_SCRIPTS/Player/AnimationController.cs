@@ -152,6 +152,21 @@ namespace junklite
             isPlayingOneShot = false;
         }
 
+        public void ResetGraph(bool playIdle = true)
+        {
+            if (animator == null) return;
+
+            animator.Rebind();
+            animator.Update(0f);
+
+            if (playIdle && !string.IsNullOrEmpty(idleAnimName))
+                animator.Play(idleAnimName, 0, 0f);
+
+            isPlayingOneShot = false;
+            currentAnimation = idleAnimName;
+        }
+
+
         /// <summary>
         /// Manually clear one-shot animation (useful for animation events)
         /// </summary>
