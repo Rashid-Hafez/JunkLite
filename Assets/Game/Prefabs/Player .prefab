@@ -267,19 +267,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   animator: {fileID: 6524589381190631642}
   autoFindAnimator: 0
-  speedParam: Speed
-  isGroundedParam: IsGrounded
-  isJumpingParam: IsJumping
-  isDashingParam: IsDashing
-  isAttackingParam: IsAttacking
-  isStunnedParam: IsStunned
-  landTrigger: Land
-  attackTrigger: Attack
-  dashTrigger: Dash
-  hurtTrigger: Hurt
-  deathTrigger: Death
-  includeZInSpeed: 0
-  speedDamp: 0.1
+  idleAnimName: Idle
+  runAnimName: run
+  jumpUpAnimName: jump_up
+  fallAnimName: fall
+  landAnimName: land
+  attackAnimName: Attack
+  showDebugInfo: 1
 --- !u!114 &196964716290612200
 MonoBehaviour:
   m_ObjectHideFlags: 0
