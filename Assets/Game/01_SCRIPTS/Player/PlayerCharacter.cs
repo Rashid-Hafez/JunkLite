@@ -19,14 +19,14 @@ namespace junklite
 
         [Header("Respawn Settings")]
         [SerializeField] private float reviveInvulnerability = 1.25f;
-        [SerializeField] private bool disableCollidersOnDeactivate = true; 
+        [SerializeField] private bool disableCollidersOnDeactivate = true;
 
-        // Input tracking (one-frame)
-        float horizontalMove = 0f;
-        bool jump, dash;
+        // Movement input (axis)
+        float horizontalAxis = 0f;
 
+        // Cached components
         Collider[] _cachedColliders;
-        Rigidbody _rb; // optional, if present we'll zero velocity
+        Rigidbody _rb; // optional, used if present
 
         // Systems
         GameInputManager inputManager;
@@ -71,17 +71,26 @@ namespace junklite
 
             // Stop movement
             if (Controller != null)
+            {
                 Controller.CanMove = false;
+                //clear velocity so we don't drift while deactivated
+                if (_rb != null) _rb.linearVelocity = Vector3.zero;
+            }
+
+            // Disable colliders if requested
+            if (disableCollidersOnDeactivate && _cachedColliders != null)
+                foreach (var c in _cachedColliders)
+                    if (c) c.enabled = false;
 
             // Lock combat & damage
             if (State != null)
             {
                 State.SetAttacking(false);
                 State.SetDashing(false);
+                State.SetRolling(false);
                 State.SetVulnerable(false); // invulnerable while deactivated
             }
         }
-
 
         public override void Activate()
         {
@@ -99,14 +108,12 @@ namespace junklite
             {
                 State.SetAttacking(false);
                 State.SetDashing(false);
-                State.ApplyInvulnerability(reviveInvulnerability); 
+                State.SetRolling(false);
+                State.ApplyInvulnerability(reviveInvulnerability);
             }
 
-            if(animationController != null)
-            {
+            if (animationController != null)
                 animationController.ResetGraph();
-            }
-
 
             // Subscribe to input last
             SubscribeToInput();
@@ -115,11 +122,10 @@ namespace junklite
         public void ReviveAt(Vector3 position)
         {
             // --- Reset health / core stats ---
-            if(attributes != null)
+            if (attributes != null)
             {
                 attributes.RestoreHealthToMax();
-
-                //Do other things such as restore amor and stuff
+                // restore armor etc. if needed
             }
 
             if (Controller != null)
@@ -133,15 +139,13 @@ namespace junklite
                 transform.position = position;
             }
 
-           
             if (State != null)
             {
-                State.ResetForRespawn();  
+                State.ResetForRespawn();
                 State.SetGrounded(true);
-                State.SetVulnerable(false); 
+                State.SetVulnerable(false);
             }
         }
-
 
         #endregion
 
@@ -151,19 +155,6 @@ namespace junklite
         void Update()
         {
             HandleInput();
-
-            if (jump && State != null && State.CanJump && Controller != null)
-            {
-                Controller.Jump();
-                if (particleJumpUp != null) particleJumpUp.Play();
-            }
-
-            if (dash && State != null && State.CanDash && Controller != null)
-                Controller.Dash();
-
-            // reset one-frame inputs
-            jump = false;
-            dash = false;
 
             // debug keys (optional)
             if (Keyboard.current?.hKey.wasPressedThisFrame == true) Heal(20f);
@@ -175,38 +166,86 @@ namespace junklite
         {
             if (State != null && State.CanMove && Controller != null)
             {
-                float normalized = Controller.MoveSpeed > 0f ? (horizontalMove / Controller.MoveSpeed) : 0f;
-                Controller.SetMovementInput(normalized);
+                // Character2D5Controller expects normalized axis (-1..1)
+                Controller.SetMovementInput(horizontalAxis);
             }
         }
 
         void HandleInput()
         {
             if (inputManager != null && State != null && State.CanMove && Controller != null)
-                horizontalMove = inputManager.MoveDirection.x * Controller.MoveSpeed;
+                horizontalAxis = inputManager.MoveDirection.x; // keep normalized; controller multiplies by speed
             else
-                horizontalMove = 0f;
+                horizontalAxis = 0f;
         }
 
         void SubscribeToInput()
         {
-            if (inputManager == null) return;
-            inputManager.OnJump += HandleJumpInput;
-            inputManager.OnAttack += HandleAttackInput;
-            inputManager.OnDash += HandleDashInput;
+            if (inputManager == null) inputManager = GameInputManager.Instance;
+            if (inputManager != null)
+            {
+                inputManager.OnJump += OnJumpPressed;
+                inputManager.OnAttack += HandleAttackInput;
+                inputManager.OnDash += OnDashPressed;
+                inputManager.OnRoll += OnRollPressed;  // requires GameInputManager event
+            }
+
+            if (Controller != null)
+            {
+                Controller.OnRollStarted += HandleRollStarted; 
+                Controller.OnRollEnded += HandleRollEnded;
+            }
         }
 
         void UnsubscribeFromInput()
         {
-            if (inputManager == null) return;
-            inputManager.OnJump -= HandleJumpInput;
-            inputManager.OnAttack -= HandleAttackInput;
-            inputManager.OnDash -= HandleDashInput;
+            if (inputManager != null)
+            {
+                inputManager.OnJump -= OnJumpPressed;
+                inputManager.OnAttack -= HandleAttackInput;
+                inputManager.OnDash -= OnDashPressed;
+                inputManager.OnRoll -= OnRollPressed;
+            }
+
+            if (Controller != null)
+            {
+                Controller.OnRollStarted += HandleRollStarted; 
+                Controller.OnRollEnded += HandleRollEnded;
+            }
         }
 
-        void HandleJumpInput() { if (State != null && State.CanJump) jump = true; }
-        void HandleAttackInput() { if (State != null && State.CanAttack) PerformAttack(); }
-        void HandleDashInput() { if (State != null && State.CanDash) dash = true; }
+        // ===== Input Handlers (event-driven) =====
+        void OnJumpPressed()
+        {
+            if (State != null && State.CanJump && Controller != null)
+            {
+                Controller.Jump();
+                if (particleJumpUp != null) particleJumpUp.Play();
+            }
+        }
+
+        void OnDashPressed()
+        {
+            if (State != null && State.CanDash && Controller != null)
+                Controller.Dash();
+        }
+
+
+        void OnRollPressed()
+        {
+            if (Controller != null && State != null && State.CanRoll && Controller.CanMove)
+                Controller.TryStartRoll(); // Controller decides ground vs air
+        }
+
+        void HandleRollStarted() { if (State != null) State.SetRolling(true); }
+        void HandleRollEnded() { if (State != null) State.SetRolling(false); }
+
+        // ===== Combat =====
+        void HandleAttackInput()
+        {
+            if (State != null && State.CanAttack)
+                PerformAttack();
+        }
 
         void PerformAttack()
         {
@@ -305,6 +344,9 @@ namespace junklite
                 State.OnAttackingChanged -= OnAttackingStateChanged;
                 State.OnStunnedChanged -= OnStunnedStateChanged;
             }
+
+            // extra safety
+            UnsubscribeFromInput();
         }
 
         void OnDrawGizmosSelected()
@@ -312,7 +354,5 @@ namespace junklite
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(transform.position, attackRange);
         }
-
-       
     }
 }

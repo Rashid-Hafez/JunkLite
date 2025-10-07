@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace junklite
@@ -15,6 +16,7 @@ namespace junklite
         [SerializeField] private string fallAnimName = "fall";
         [SerializeField] private string landAnimName = "land";
         [SerializeField] private string attackAnimName = "Attack";
+        [SerializeField] private string rollAnimName = "roll";   // used while IsRolling == true
 
         // Current animation state tracking
         private string currentAnimation;
@@ -26,35 +28,28 @@ namespace junklite
 
         private void Awake()
         {
-            // Auto-find animator if not assigned
             if (autoFindAnimator && animator == null)
-            {
                 animator = GetComponentInChildren<Animator>();
-            }
 
-            // Get required components from parent
             characterSystem = GetComponentInParent<CharacterState>();
             controller = GetComponentInParent<Character2D5Controller>();
 
             if (animator == null)
-            {
                 Debug.LogError($"AnimationController on {gameObject.name} couldn't find Animator component!");
-            }
         }
 
         private void Start()
         {
-            // Subscribe to character system events for immediate animation responses
             if (characterSystem != null)
             {
                 characterSystem.OnGroundedChanged += OnGroundedChanged;
                 characterSystem.OnDashingChanged += OnDashingChanged;
                 characterSystem.OnAttackingChanged += OnAttackingChanged;
+                characterSystem.OnRollingChanged += OnRollingChanged;   // <-- subscribe
                 characterSystem.OnStunnedChanged += OnStunnedChanged;
                 characterSystem.OnDeath += OnDeath;
             }
 
-            // Play initial idle animation
             PlayAnimation(idleAnimName);
         }
 
@@ -63,56 +58,52 @@ namespace junklite
             UpdateMovementAnimations();
         }
 
-        /// <summary>
-        /// Main animation update - handles movement-based animations
-        /// </summary>
+     
+        // Priority: Rolling > Attacking > Dashing > Jump/Fall > Run > Idle
         private void UpdateMovementAnimations()
         {
             if (animator == null || characterSystem == null || controller == null)
                 return;
 
-            // Skip if playing one-shot animations
+            // ---- ROLL HAS TOP PRIORITY ----
+            if (characterSystem.IsRolling)
+            {
+                // Make sure roll stays active the whole time
+                isPlayingOneShot = false;
+                PlayAnimation(rollAnimName);
+                return;
+            }
+
+            // One-shots (like attack) can block only if not rolling
             if (isPlayingOneShot)
                 return;
 
-            // Skip if dead
             if (!characterSystem.IsAlive)
                 return;
 
-            // Priority: Attacking > Dashing > Jumping > Running > Idle
             if (characterSystem.IsAttacking)
             {
-                // Attack animation is handled by event
                 return;
             }
             else if (characterSystem.IsDashing)
             {
-                // Dash animation is handled by event
                 return;
             }
             else if (!characterSystem.IsGrounded)
             {
-                // Check if just jumped (rising) vs falling
-                if (controller.Velocity.y > 0.1f)
-                    PlayAnimation(jumpUpAnimName);
-                else
-                    PlayAnimation(fallAnimName);
+                PlayAnimation(controller.Velocity.y > 0.1f ? jumpUpAnimName : fallAnimName);
             }
             else if (Mathf.Abs(controller.Velocity.x) > 0.1f && characterSystem.CanMove)
             {
-                // Moving on ground - play run animation
                 PlayAnimation(runAnimName);
             }
             else
             {
-                // Standing still - play idle animation
                 PlayAnimation(idleAnimName);
             }
         }
 
-        /// <summary>
-        /// Play an animation if it's not already playing
-        /// </summary>
+
         private void PlayAnimation(string animationName)
         {
             if (animator == null || string.IsNullOrEmpty(animationName))
@@ -125,9 +116,6 @@ namespace junklite
             }
         }
 
-        /// <summary>
-        /// Play a one-shot animation (like attack, hurt) that should override movement animations
-        /// </summary>
         private void PlayOneShotAnimation(string animationName, float duration = 0f)
         {
             if (animator == null || string.IsNullOrEmpty(animationName))
@@ -136,7 +124,6 @@ namespace junklite
             PlayAnimation(animationName);
             isPlayingOneShot = true;
 
-            // Auto-clear one-shot flag after duration
             if (duration > 0f)
             {
                 CancelInvoke(nameof(ClearOneShotFlag));
@@ -144,13 +131,7 @@ namespace junklite
             }
         }
 
-        /// <summary>
-        /// Clear the one-shot animation flag
-        /// </summary>
-        private void ClearOneShotFlag()
-        {
-            isPlayingOneShot = false;
-        }
+        private void ClearOneShotFlag() => isPlayingOneShot = false;
 
         public void ResetGraph(bool playIdle = true)
         {
@@ -166,88 +147,63 @@ namespace junklite
             currentAnimation = idleAnimName;
         }
 
-
-        /// <summary>
-        /// Manually clear one-shot animation (useful for animation events)
-        /// </summary>
-        public void EndOneShotAnimation()
-        {
-            ClearOneShotFlag();
-        }
+        public void EndOneShotAnimation() => ClearOneShotFlag();
 
         #region Event Handlers
 
         private void OnGroundedChanged(bool grounded)
         {
-            if (grounded && !isPlayingOneShot)
+            if (grounded && !isPlayingOneShot && !characterSystem.IsRolling)
             {
-               // PlayOneShotAnimation(landAnimName, 0.2f); 
+                // Optional land blip
+                // PlayOneShotAnimation(landAnimName, 0.2f);
             }
         }
 
         private void OnDashingChanged(bool dashing)
         {
-            if (dashing)
+            if (dashing && !characterSystem.IsRolling)
             {
-               // PlayOneShotAnimation(dashAnimName, 0.2f); 
+                // Optional dash blip
+                // PlayOneShotAnimation(dashAnimName, 0.2f);
+            }
+        }
+
+        // ROLL: don’t use a short one-shot; keep the roll looping until state clears
+        private void OnRollingChanged(bool rolling)
+        {
+            if (rolling)
+            {
+                isPlayingOneShot = false;       // make sure roll takes over immediately
+                PlayAnimation(rollAnimName);
+            }
+            else
+            {
+                // when roll ends, Update() will resume normal state selection
             }
         }
 
         private void OnAttackingChanged(bool attacking)
         {
-            if (attacking)
+            if (attacking && !characterSystem.IsRolling)
             {
-                PlayOneShotAnimation(attackAnimName, 0.3f); // Match attack duration
+                PlayOneShotAnimation(attackAnimName, 0.3f);
             }
         }
 
         private void OnStunnedChanged(bool stunned)
         {
-            if (stunned)
+            if (stunned && !characterSystem.IsRolling)
             {
-               // PlayOneShotAnimation(hurtAnimName, 0.1f); // Match stun duration
+                // PlayOneShotAnimation(hurtAnimName, 0.1f);
             }
         }
 
         private void OnDeath()
         {
-           // PlayAnimation(deathAnimName);
+            // PlayAnimation(deathAnimName);
             isPlayingOneShot = true; // Lock on death animation
         }
-
-        #endregion
-
-        #region Public Animation Controls
-
-        /// <summary>
-        /// Force play a specific animation (useful for cutscenes, special states)
-        /// </summary>
-        public void ForcePlayAnimation(string animationName)
-        {
-            currentAnimation = ""; // Reset current to force play
-            PlayAnimation(animationName);
-        }
-
-        /// <summary>
-        /// Play a custom one-shot animation with duration
-        /// </summary>
-        public void PlayCustomOneShot(string animationName, float duration)
-        {
-            PlayOneShotAnimation(animationName, duration);
-        }
-
-        /// <summary>
-        /// Check if currently playing a specific animation
-        /// </summary>
-        public bool IsPlayingAnimation(string animationName)
-        {
-            return currentAnimation == animationName;
-        }
-
-        /// <summary>
-        /// Check if currently playing any one-shot animation
-        /// </summary>
-        public bool IsPlayingOneShot => isPlayingOneShot;
 
         #endregion
 
@@ -260,6 +216,7 @@ namespace junklite
                 characterSystem.OnGroundedChanged -= OnGroundedChanged;
                 characterSystem.OnDashingChanged -= OnDashingChanged;
                 characterSystem.OnAttackingChanged -= OnAttackingChanged;
+                characterSystem.OnRollingChanged -= OnRollingChanged;   // <-- make sure to unsubscribe
                 characterSystem.OnStunnedChanged -= OnStunnedChanged;
                 characterSystem.OnDeath -= OnDeath;
             }
@@ -276,22 +233,22 @@ namespace junklite
         {
             if (!showDebugInfo) return;
 
-            GUILayout.BeginArea(new Rect(Screen.width - 250, 10, 240, 150));
+            GUILayout.BeginArea(new Rect(Screen.width - 250, 10, 240, 170));
             GUILayout.Label("=== Animation Debug ===");
             GUILayout.Label($"Current: {currentAnimation}");
             GUILayout.Label($"One-Shot: {isPlayingOneShot}");
 
             if (characterSystem != null)
             {
-                GUILayout.Label($"Grounded: {characterSystem.IsGrounded}");
-                GUILayout.Label($"Moving: {characterSystem.IsMoving}");
+                GUILayout.Label($"Grounded:  {characterSystem.IsGrounded}");
+                GUILayout.Label($"Rolling:   {characterSystem.IsRolling}");
                 GUILayout.Label($"Attacking: {characterSystem.IsAttacking}");
-                GUILayout.Label($"Dashing: {characterSystem.IsDashing}");
+                GUILayout.Label($"Dashing:   {characterSystem.IsDashing}");
             }
 
             if (controller != null)
             {
-                GUILayout.Label($"Velocity: {controller.Velocity.x:F1}");
+                GUILayout.Label($"VelX: {controller.Velocity.x:F1}  VelY: {controller.Velocity.y:F1}");
             }
 
             GUILayout.EndArea();

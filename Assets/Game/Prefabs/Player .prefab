@@ -89,6 +89,64 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  rollCooldown: 0.6
+  rollCancelsDash: 1
+  groundRollSpeed: 15
+  groundRollDuration: 0.35
+  groundRollCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  groundRollIgnoreFriction: 1
+  airRollForce: 18
+  airRollDuration: 0.35
+  airRollAngleDegrees: 55
+  airRollResetsGravity: 1
+  airRollMaxDownSpeed: -40
+  airRollCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   snapToZPosition: 1
   fixedZPosition: 0
   allowZMovement: 0
@@ -134,6 +192,8 @@ MonoBehaviour:
     m_Bits: 0
   particleJumpUp: {fileID: 0}
   particleJumpDown: {fileID: 0}
+  reviveInvulnerability: 1.25
+  disableCollidersOnDeactivate: 1
 --- !u!114 &5260910272949053861
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -273,6 +333,7 @@ MonoBehaviour:
   fallAnimName: fall
   landAnimName: land
   attackAnimName: Attack
+  rollAnimName: roll
   showDebugInfo: 1
 --- !u!114 &196964716290612200
 MonoBehaviour:

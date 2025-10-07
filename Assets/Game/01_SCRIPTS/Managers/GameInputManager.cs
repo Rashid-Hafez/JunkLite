@@ -14,11 +14,10 @@ namespace junklite
         public event Action OnJump = delegate { };
         public event Action OnAttack = delegate { };
         public event Action OnDash = delegate { };
+        public event Action OnRoll = delegate { }; // <-- renamed from DownSlam
 
         public Vector2 MoveDirection { get; private set; }
-        public bool IsJumpPressed { get; private set; }
         public bool IsAttackHeld { get; private set; }
-        public bool IsDashPressed { get; private set; }
 
         void Awake()
         {
@@ -29,6 +28,7 @@ namespace junklite
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
+
             controls = new InputSystem_Actions();
 
             // === MOVE ===
@@ -37,21 +37,16 @@ namespace junklite
                 MoveDirection = ctx.ReadValue<Vector2>();
                 OnMove(MoveDirection);
             };
-            controls.Player.Move.canceled += ctx =>
+            controls.Player.Move.canceled += _ =>
             {
                 MoveDirection = Vector2.zero;
                 OnMove(MoveDirection);
             };
 
-            // === JUMP ===
-            controls.Player.Jump.performed += _ =>
-            {
-                IsJumpPressed = true;
-                OnJump();
-            };
-            controls.Player.Jump.canceled += _ => IsJumpPressed = false;
+            // === JUMP (Press Only) ===
+            controls.Player.Jump.performed += _ => OnJump();
 
-            // === ATTACK ===
+            // === ATTACK (tap/hold) ===
             controls.Player.Attack.performed += _ =>
             {
                 IsAttackHeld = true;
@@ -59,13 +54,11 @@ namespace junklite
             };
             controls.Player.Attack.canceled += _ => IsAttackHeld = false;
 
-            // === DASH ===
-            controls.Player.Dash.performed += _ =>
-            {
-                IsDashPressed = true;
-                OnDash();
-            };
-            controls.Player.Dash.canceled += _ => IsDashPressed = false;
+            // === DASH (Press Only) ===
+            controls.Player.Dash.performed += _ => OnDash();
+
+            // === ROLL (Press Only) ===
+            controls.Player.Roll.performed += _ => OnRoll(); // <-- new action name
         }
 
         void OnEnable() => controls.Enable();

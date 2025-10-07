@@ -20,6 +20,7 @@ namespace junklite
         public bool IsAttacking { get; private set; }
         public bool IsStunned { get; private set; }
         public bool IsVulnerable { get; private set; } = true;
+        public bool IsRolling { get; private set; }
 
 
         // ---- Events ----
@@ -30,6 +31,7 @@ namespace junklite
         public event Action<bool> OnAttackingChanged;
         public event Action<bool> OnStunnedChanged;
         public event Action<bool> OnVulnerableChanged;
+        public event Action<bool> OnRollingChanged;
 
 
         // ---- Capabilities ----
@@ -41,6 +43,7 @@ namespace junklite
         public bool CanDash => IsAlive && !IsDashing && !IsStunned;
         public bool CanAttack => IsAlive && !IsAttacking && !IsStunned;
         public bool CanTakeDamage => IsAlive && IsVulnerable; // state layer does not decide damage rules
+        public bool CanRoll => IsAlive && !IsStunned && !IsRolling;
 
         private void Awake()
         {
@@ -73,6 +76,7 @@ namespace junklite
             SetDashing(false);
             SetAttacking(false);
             SetStunned(false);
+            SetRolling(false);
         }
 
 
@@ -121,6 +125,13 @@ namespace junklite
 
         public void SetCanTakeDamage(bool canTake) => SetVulnerable(canTake);
 
+        public void SetRolling(bool rolling)
+        {
+            if (IsRolling == rolling) return;
+            IsRolling = rolling;
+            OnRollingChanged?.Invoke(rolling);
+        }
+
         #endregion
 
         #region Timed Utilities
@@ -160,6 +171,7 @@ namespace junklite
             if (IsDashing) states.Add("Dashing");
             if (IsAttacking) states.Add("Attacking");
             if (IsStunned) states.Add("Stunned");
+            if (IsRolling) states.Add("Rolling");
             return string.Join(", ", states);
         }
 
