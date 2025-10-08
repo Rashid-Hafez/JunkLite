@@ -19,6 +19,9 @@ namespace junklite
         public bool IsDashing { get; private set; }
         public bool IsAttacking { get; private set; }
         public bool IsStunned { get; private set; }
+        public bool IsVulnerable { get; private set; } = true;
+        public bool IsRolling { get; private set; }
+
 
         // ---- Events ----
         public event Action OnDeath; // forwarded from attributes if available
@@ -27,6 +30,9 @@ namespace junklite
         public event Action<bool> OnDashingChanged;
         public event Action<bool> OnAttackingChanged;
         public event Action<bool> OnStunnedChanged;
+        public event Action<bool> OnVulnerableChanged;
+        public event Action<bool> OnRollingChanged;
+
 
         // ---- Capabilities ----
         // Alive is read from attributes if available; otherwise assumed true (editor convenience).
@@ -36,7 +42,8 @@ namespace junklite
         public bool CanJump => IsAlive && IsGrounded && !IsStunned;
         public bool CanDash => IsAlive && !IsDashing && !IsStunned;
         public bool CanAttack => IsAlive && !IsAttacking && !IsStunned;
-        public bool CanTakeDamage => IsAlive; // state layer does not decide damage rules
+        public bool CanTakeDamage => IsAlive && IsVulnerable; // state layer does not decide damage rules
+        public bool CanRoll => IsAlive && !IsStunned && !IsRolling;
 
         private void Awake()
         {
@@ -61,7 +68,19 @@ namespace junklite
             OnDeath?.Invoke();
         }
 
-        // ---- State setters ----
+        
+        public void ResetForRespawn()
+        {
+            SetGrounded(false);
+            SetMoving(false);
+            SetDashing(false);
+            SetAttacking(false);
+            SetStunned(false);
+            SetRolling(false);
+        }
+
+
+        #region State Setters
         public void SetGrounded(bool grounded)
         {
             if (IsGrounded == grounded) return;
@@ -97,7 +116,25 @@ namespace junklite
             OnStunnedChanged?.Invoke(stunned);
         }
 
-        // ---- Timed utilities ----
+        public void SetVulnerable(bool vulnerable)
+        {
+            if (IsVulnerable == vulnerable) return;
+            IsVulnerable = vulnerable;
+            OnVulnerableChanged?.Invoke(vulnerable);
+        }
+
+        public void SetCanTakeDamage(bool canTake) => SetVulnerable(canTake);
+
+        public void SetRolling(bool rolling)
+        {
+            if (IsRolling == rolling) return;
+            IsRolling = rolling;
+            OnRollingChanged?.Invoke(rolling);
+        }
+
+        #endregion
+
+        #region Timed Utilities
         public void ApplyStun(float duration)
         {
             if (duration <= 0f) return;
@@ -106,7 +143,23 @@ namespace junklite
             Invoke(nameof(RemoveStun), duration);
         }
 
+        public void ApplyInvulnerability(float seconds)
+        {
+            CancelInvoke(nameof(EndInvulnerability));
+            if (seconds <= 0f)
+            {
+                // if zero/negative, just ensure vulnerable
+                SetVulnerable(true);
+                return;
+            }
+
+            SetVulnerable(false);
+            Invoke(nameof(EndInvulnerability), seconds);
+        }
+        private void EndInvulnerability() => SetVulnerable(true);
         private void RemoveStun() => SetStunned(false);
+
+        #endregion
 
         // ---- Debug helpers ----
         public string GetStatusSummary()
@@ -118,6 +171,7 @@ namespace junklite
             if (IsDashing) states.Add("Dashing");
             if (IsAttacking) states.Add("Attacking");
             if (IsStunned) states.Add("Stunned");
+            if (IsRolling) states.Add("Rolling");
             return string.Join(", ", states);
         }
 

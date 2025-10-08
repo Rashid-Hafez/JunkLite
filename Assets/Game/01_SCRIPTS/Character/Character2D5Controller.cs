@@ -18,6 +18,35 @@ namespace junklite
         [SerializeField] private bool dashResetsGravity = true;
         [SerializeField] private AnimationCurve dashCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
 
+        [Header("Roll Settings")]
+        [SerializeField] private float rollCooldown = 0.6f;
+        [SerializeField] private bool rollCancelsDash = true;
+
+        // --- Ground Roll (forward on ground) ---
+        [SerializeField] private float groundRollSpeed = 9f;
+        [SerializeField] private float groundRollDuration = 0.35f;
+        [SerializeField] private AnimationCurve groundRollCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
+        [SerializeField] private bool groundRollIgnoreFriction = true; // optional: feels snappier
+
+        // --- Air Roll / Roll-Down (a.k.a. slamdown) ---
+        [Header("Air Roll (Roll-Down)")]
+        [SerializeField] private float airRollForce = 18f;              // like your old slam 'force'
+        [SerializeField] private float airRollDuration = 0.35f;
+        [SerializeField] private float airRollAngleDegrees = 55f;       // forward + downward angle
+        [SerializeField] private bool airRollResetsGravity = true;      // zero Y on start for snap
+        [SerializeField] private float airRollMaxDownSpeed = -40f;      // cap Y while rolling down
+        [SerializeField] private AnimationCurve airRollCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
+        private bool isRolling = false;
+        private bool rollIsAir = false;
+        private float rollTimer = 0f;
+        private float rollCooldownTimer = 0f;
+        private Vector3 rollDirection;
+        public System.Action OnRollStarted;
+        public System.Action OnRollEnded;
+        public bool IsRolling => isRolling;
+        public bool IsAirRolling => isRolling && rollIsAir;
+        public bool CanRoll => rollCooldownTimer <= 0f && canMove && !isRolling;
+
         [Header("2.5D Settings")]
         [SerializeField] private bool snapToZPosition = true;
         [SerializeField] private float fixedZPosition = 0f;
@@ -63,6 +92,8 @@ namespace junklite
         public System.Action<Vector3> OnMovementChanged;
         public System.Action OnDashStarted;
         public System.Action OnDashEnded;
+        public System.Action OnSlamStarted;
+        public System.Action OnSlamEnded;
 
         // Properties
         public bool IsGrounded => isGrounded;
@@ -79,6 +110,7 @@ namespace junklite
             Mathf.Abs(transform.eulerAngles.y) < 90f;
         public bool IsDashing => isDashing;
         public bool CanDash => dashCooldownTimer <= 0f && (isGrounded || canDashInAir) && canMove;
+        
 
         private void Awake()
         {
@@ -104,11 +136,16 @@ namespace junklite
             CheckGrounded();
             HandleZPositionConstraint();
             UpdateDash();
+            UpdateRoll();
         }
 
         private void FixedUpdate()
         {
-            if (isDashing)
+            if (isRolling)
+            {
+                ApplyRollMovement();
+            }
+            else if (isDashing)
             {
                 ApplyDashMovement();
             }
@@ -117,6 +154,7 @@ namespace junklite
                 ApplyMovement();
                 ApplyGravity();
             }
+
             ClampFallSpeed();
         }
 
@@ -189,6 +227,101 @@ namespace junklite
             OnDashStarted?.Invoke();
         }
 
+        public void TryStartRoll()
+        {
+            if (!CanRoll) return;
+
+            if (rollCancelsDash && isDashing)
+                EndDash();
+
+            rollIsAir = !isGrounded && Mathf.Abs(rb.linearVelocity.y) > 0.05f;
+            rollTimer = 0f;
+            rollCooldownTimer = rollCooldown;
+            isRolling = true;
+
+            if (rollIsAir)
+            {
+                // Build a down-forward direction based on facing & angle
+                float xSign = IsFacingRight ? 1f : -1f;
+                float rad = airRollAngleDegrees * Mathf.Deg2Rad;
+                rollDirection = new Vector3(Mathf.Cos(rad) * xSign, -Mathf.Sin(rad), 0f).normalized;
+
+                // Snap vertical momentum if desired (feels crisp)
+                if (airRollResetsGravity)
+                    rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+            }
+            else
+            {
+                // Pure forward roll on ground
+                rollDirection = (IsFacingRight ? Vector3.right : Vector3.left);
+
+                // Optional: reduce surface friction influence so roll keeps speed
+                if (groundRollIgnoreFriction)
+                {
+                    // keep current Y & Z, we'll drive X directly
+                    rb.linearVelocity = new Vector3(rb.linearVelocity.x, rb.linearVelocity.y, rb.linearVelocity.z);
+                }
+            }
+
+            OnRollStarted?.Invoke();
+        }
+
+        private void ApplyRollMovement()
+        {
+            if (rollIsAir)
+            {
+                // Air Roll (Roll-Down)
+                float t = Mathf.Clamp01(rollTimer / airRollDuration);
+                float curve = airRollCurve.Evaluate(t);
+                Vector3 v = rollDirection * airRollForce * curve;
+
+                // Apply velocity, preserve lane (Z)
+                rb.linearVelocity = new Vector3(v.x, v.y, rb.linearVelocity.z);
+
+                // Cap downward speed while rolling down (feel control)
+                if (rb.linearVelocity.y < airRollMaxDownSpeed)
+                    rb.linearVelocity = new Vector3(rb.linearVelocity.x, airRollMaxDownSpeed, rb.linearVelocity.z);
+
+                // Face direction
+                if (faceMovementDirection && Mathf.Abs(rollDirection.x) > 0.1f)
+                    SetFacingDirection(rollDirection.x > 0f);
+
+                // End immediately when grounded
+                if (isGrounded)
+                    EndRoll();
+            }
+            else
+            {
+                // Ground Roll (forward along X)
+                float t = Mathf.Clamp01(rollTimer / groundRollDuration);
+                float curve = groundRollCurve.Evaluate(t);
+                float xVel = rollDirection.x * groundRollSpeed * curve;
+
+                rb.linearVelocity = new Vector3(xVel, rb.linearVelocity.y, rb.linearVelocity.z);
+
+                if (faceMovementDirection && Mathf.Abs(rollDirection.x) > 0.1f)
+                    SetFacingDirection(rollDirection.x > 0f);
+
+                // ends on timer (done in Update)
+            }
+        }
+
+        private void EndRoll()
+        {
+            if (!isRolling) return;
+            isRolling = false;
+            rollTimer = 0f;
+
+            // Optional: small carry to keep flow after roll
+            if (!rollIsAir)
+            {
+                rb.linearVelocity = new Vector3(rb.linearVelocity.x * 0.8f, rb.linearVelocity.y, rb.linearVelocity.z);
+            }
+
+            OnRollEnded?.Invoke();
+        }
+
+
         /// <summary>
         /// Add external force to the character
         /// </summary>
@@ -253,6 +386,22 @@ namespace junklite
             }
         }
 
+        private void UpdateRoll()
+        {
+            if (rollCooldownTimer > 0f)
+                rollCooldownTimer -= Time.deltaTime;
+
+            // roll timing
+            if (isRolling)
+            {
+                rollTimer += Time.deltaTime;
+                float dur = rollIsAir ? airRollDuration : groundRollDuration;
+                if (rollTimer >= dur)
+                    EndRoll();
+            }
+
+        }
+
         private void ApplyDashMovement()
         {
             // Calculate dash force based on curve
@@ -286,7 +435,7 @@ namespace junklite
 
         private void ApplyMovement()
         {
-            if (!canMove) return;
+            if (!canMove || isRolling || isDashing) return;
 
             Vector3 movement = Vector3.zero;
 

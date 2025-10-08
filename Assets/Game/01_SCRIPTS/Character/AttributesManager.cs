@@ -100,12 +100,23 @@ namespace junklite
             return null;
         }
 
+        #region Helper Methods
         /// <summary>Convenience heal for health only (optional).</summary>
         public void Heal(float amount)
         {
             if (amount <= 0f) return;
             Health?.Add(amount);
         }
+
+        public void RestoreAllToMax()
+        {
+            for (int i = 0; i < allRuntimeAttributes.Count; i++)
+                allRuntimeAttributes[i].SetToMax();
+        }
+
+        public void RestoreHealthToMax() => Health?.SetToMax();
+
+        #endregion
 
         /// <summary>Returns a live list for UI binding (do not modify entries externally).</summary>
         public List<Attribute> GetAllAttributes() => allRuntimeAttributes;
