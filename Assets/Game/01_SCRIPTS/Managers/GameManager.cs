@@ -127,13 +127,13 @@ namespace junklite
                     return;
                 }
 
-                GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
-                currentPlayer = playerObject.GetComponent<PlayerCharacter>();
-                if (currentPlayer == null)
-                {
-                    Debug.LogError("Player prefab doesn't have PlayerCharacter component!");
-                    return;
-                }
+            GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
+            currentPlayer = playerObject.GetComponent<PlayerCharacter>();
+            if (currentPlayer == null)
+            {
+                Debug.LogError("Player prefab doesn't have PlayerCharacter component!");
+                return;
+            }
 
                 // Subscribe once
                 SubscribeToPlayer(currentPlayer);
@@ -151,6 +151,14 @@ namespace junklite
             currentPlayer.Activate();
 
             OnPlayerSpawned?.Invoke(currentPlayer);
+
+            if (currentPlayer.Stats != null)
+            {
+
+                currentPlayer.State.HasDrone = currentPlayer.Stats.HasDrone;
+                Debug.Log("Game Manager checking drone = " + currentPlayer.State.HasDrone);
+            }
+
             Debug.Log($"Player spawned at {spawnPosition}");
         }
 

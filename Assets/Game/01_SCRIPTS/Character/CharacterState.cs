@@ -22,6 +22,27 @@ namespace junklite
         public bool IsVulnerable { get; private set; } = true;
         public bool IsRolling { get; private set; }
 
+        [SerializeField] private bool hasDrone; // backing field for HasDrone property
+        /// <summary>
+        /// Indicates if the character has unlocked the drone.
+        /// Setting this property triggers OnHasDroneChanged event if the value changes.
+        /// </summary>
+        public bool HasDrone
+        {
+            get => hasDrone;
+            set
+            {
+                if (hasDrone != value)
+                {
+                    hasDrone = value;
+                    OnHasDroneChanged?.Invoke(hasDrone); // Notify listeners (e.g., SpawnDrone) of change
+                }
+            }
+        }
+        /// <summary>
+        /// Event invoked whenever HasDrone changes. Used by SpawnDrone to spawn the drone when unlocked.
+        /// </summary>
+        public event Action<bool> OnHasDroneChanged;
 
         // ---- Events ----
         public event Action OnDeath; // forwarded from attributes if available

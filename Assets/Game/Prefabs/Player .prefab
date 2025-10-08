@@ -19,9 +19,10 @@ GameObject:
   - component: {fileID: 3264612899873906447}
   - component: {fileID: 196964716290612200}
   - component: {fileID: 8591194216099932240}
+  - component: {fileID: 2828649949666267403}
   m_Layer: 0
   m_Name: 'Player '
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 1
@@ -35,7 +36,7 @@ Transform:
   m_GameObject: {fileID: 757279706138491129}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -30.04, y: 36.02, z: 6.64}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -89,64 +90,6 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  rollCooldown: 0.6
-  rollCancelsDash: 1
-  groundRollSpeed: 15
-  groundRollDuration: 0.35
-  groundRollCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  groundRollIgnoreFriction: 1
-  airRollForce: 18
-  airRollDuration: 0.35
-  airRollAngleDegrees: 55
-  airRollResetsGravity: 1
-  airRollMaxDownSpeed: -40
-  airRollCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 34
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 34
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
   snapToZPosition: 1
   fixedZPosition: 0
   allowZMovement: 0
@@ -190,10 +133,9 @@ MonoBehaviour:
   enemyLayerMask:
     serializedVersion: 2
     m_Bits: 0
+  animator: {fileID: 0}
   particleJumpUp: {fileID: 0}
   particleJumpDown: {fileID: 0}
-  reviveInvulnerability: 1.25
-  disableCollidersOnDeactivate: 1
 --- !u!114 &5260910272949053861
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -228,6 +170,8 @@ SpriteRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -249,6 +193,7 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
@@ -310,9 +255,9 @@ CapsuleCollider:
   m_Enabled: 1
   serializedVersion: 2
   m_Radius: 0.5
-  m_Height: 2.357466
+  m_Height: 1.9
   m_Direction: 1
-  m_Center: {x: -0.083853066, y: -0.2475659, z: 0}
+  m_Center: {x: -0.083853066, y: -0.25, z: 0}
 --- !u!114 &3264612899873906447
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -333,7 +278,6 @@ MonoBehaviour:
   fallAnimName: fall
   landAnimName: land
   attackAnimName: Attack
-  rollAnimName: roll
   showDebugInfo: 1
 --- !u!114 &196964716290612200
 MonoBehaviour:
@@ -348,6 +292,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   attributes: {fileID: 0}
+  hasDrone: 1
   showDebugInfo: 0
 --- !u!114 &8591194216099932240
 MonoBehaviour:
@@ -361,6 +306,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f3a8e8bf4b460884ea2f001e8cae0bc6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &2828649949666267403
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 757279706138491129}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df24b6490ff184e1f9db906a343facec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpawnDrone
+  dronePrefab: {fileID: 76666413933033825, guid: 0900888a628534fc59261e4b6581b93e, type: 3}
+  spawnPoint: {fileID: 0}
 --- !u!1 &2322240436462658564
 GameObject:
   m_ObjectHideFlags: 0
@@ -468,7 +427,7 @@ GameObject:
   - component: {fileID: 6524589381190631642}
   m_Layer: 0
   m_Name: Body
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -508,6 +467,8 @@ SpriteRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -529,6 +490,7 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
@@ -5354,6 +5316,8 @@ ParticleSystemRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -5375,6 +5339,7 @@ ParticleSystemRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
