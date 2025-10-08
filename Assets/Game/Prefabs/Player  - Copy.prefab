@@ -192,11 +192,8 @@ MonoBehaviour:
     m_Bits: 0
   particleJumpUp: {fileID: 0}
   particleJumpDown: {fileID: 0}
-<<<<<<< HEAD
-=======
   reviveInvulnerability: 1.25
   disableCollidersOnDeactivate: 1
->>>>>>> origin/ajas-programming
 --- !u!114 &5260910272949053861
 MonoBehaviour:
   m_ObjectHideFlags: 0
