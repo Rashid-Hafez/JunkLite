@@ -152,7 +152,6 @@ namespace junklite
 
             GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
             currentPlayer = playerObject.GetComponent<PlayerCharacter>();
-
             if (currentPlayer == null)
             {
                 Debug.LogError("Player prefab doesn't have PlayerCharacter component!");
@@ -167,6 +166,14 @@ namespace junklite
                 playerUIInstance.BindToPlayer(currentPlayer);
 
             OnPlayerSpawned?.Invoke(currentPlayer);
+
+            if (currentPlayer.Stats != null)
+            {
+
+                currentPlayer.State.HasDrone = currentPlayer.Stats.HasDrone;
+                Debug.Log("Game Manager checking drone = " + currentPlayer.State.HasDrone);
+            }
+
             Debug.Log($"Player spawned at {spawnPosition}");
         }
 

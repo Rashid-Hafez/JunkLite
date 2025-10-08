@@ -20,6 +20,9 @@ namespace junklite
         public float dashForce = 20f;
         public float dashDuration = 0.2f;
 
+        [Header("DRONE")]
+        public bool HasDrone = true;
+
         [Header("Attributes")]
         public List<Attribute> attributes = new List<Attribute>();
 
