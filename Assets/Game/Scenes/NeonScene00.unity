@@ -198177,8 +198177,8 @@ MonoBehaviour:
   - {fileID: 1907374964}
   respawnDelay: 2
   playerUIPrefab: {fileID: 8667976682045979652, guid: d882800c7bcc72e4cbbcd603340badbc, type: 3}
-  uiCanvasOverride: {fileID: 0}
-  showDebugInfo: 0
+  gameplayCanvasTransform: {fileID: 1059702054}
+  showDebugInfo: 1
 --- !u!1001 &1685012755
 PrefabInstance:
   m_ObjectHideFlags: 0
