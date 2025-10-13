@@ -1,11 +1,13 @@
-using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 namespace junklite
 {
     /// <summary>
     /// Pure runtime state & capability gatekeeper.
+    /// No motion/ability timing lives here.
     /// </summary>
     public class CharacterState : MonoBehaviour
     {
@@ -13,7 +15,7 @@ namespace junklite
         [Tooltip("Optional: If present, used only to read IsAlive and forward OnDeath.")]
         [SerializeField] private AttributeManager attributes;   // optional; safe to leave null
 
-        // ---- State flags ----
+        // ---- State flags (single source of truth for gates) ----
         public bool IsGrounded { get; private set; } = true;
         public bool IsMoving { get; private set; }
         public bool IsDashing { get; private set; }
@@ -21,7 +23,6 @@ namespace junklite
         public bool IsStunned { get; private set; }
         public bool IsVulnerable { get; private set; } = true;
         public bool IsRolling { get; private set; }
-
 
         // ---- Events ----
         public event Action OnDeath; // forwarded from attributes if available
@@ -33,8 +34,7 @@ namespace junklite
         public event Action<bool> OnVulnerableChanged;
         public event Action<bool> OnRollingChanged;
 
-
-        // ---- Capabilities ----
+        // ---- Capabilities (derived gates) ----
         // Alive is read from attributes if available; otherwise assumed true (editor convenience).
         public bool IsAlive => attributes != null ? attributes.IsAlive : true;
 
@@ -42,12 +42,14 @@ namespace junklite
         public bool CanJump => IsAlive && IsGrounded && !IsStunned;
         public bool CanDash => IsAlive && !IsDashing && !IsStunned;
         public bool CanAttack => IsAlive && !IsAttacking && !IsStunned;
-        public bool CanTakeDamage => IsAlive && IsVulnerable; // state layer does not decide damage rules
+        public bool CanTakeDamage => IsAlive && IsVulnerable;
         public bool CanRoll => IsAlive && !IsStunned && !IsRolling;
+
+        // ---- Internals (coroutines) ----
+        Coroutine _stunCo, _iFrameCo;
 
         private void Awake()
         {
-            // Auto-wire optional attributes reference if left empty.
             if (attributes == null) TryGetComponent(out attributes);
         }
 
@@ -61,26 +63,35 @@ namespace junklite
         {
             if (attributes != null)
                 attributes.OnDeath -= HandleDeathForward;
+
+            // stop timers to avoid lingering flags after disable/destroy
+            if (_stunCo != null) StopCoroutine(_stunCo);
+            if (_iFrameCo != null) StopCoroutine(_iFrameCo);
         }
 
-        private void HandleDeathForward()
-        {
-            OnDeath?.Invoke();
-        }
+        private void HandleDeathForward() => OnDeath?.Invoke();
 
-        
         public void ResetForRespawn()
         {
+            ClearTransient();
             SetGrounded(false);
             SetMoving(false);
-            SetDashing(false);
-            SetAttacking(false);
-            SetStunned(false);
-            SetRolling(false);
+            SetVulnerable(true);
         }
 
+        /// <summary>Clears momentary action flags (dash/attack/roll/stun).</summary>
+        public void ClearTransient()
+        {
+            if (_stunCo != null) { StopCoroutine(_stunCo); _stunCo = null; }
+            if (_iFrameCo != null) { StopCoroutine(_iFrameCo); _iFrameCo = null; }
 
-        #region State Setters
+            SetDashing(false);
+            SetAttacking(false);
+            SetRolling(false);
+            SetStunned(false);
+        }
+
+        #region State Setters (single-writer, event-synced)
         public void SetGrounded(bool grounded)
         {
             if (IsGrounded == grounded) return;
@@ -131,34 +142,45 @@ namespace junklite
             IsRolling = rolling;
             OnRollingChanged?.Invoke(rolling);
         }
-
         #endregion
 
-        #region Timed Utilities
+        #region Timed Utilities (coroutine-based)
         public void ApplyStun(float duration)
         {
-            if (duration <= 0f) return;
+            if (duration <= 0f) { SetStunned(false); return; }
+            if (_stunCo != null) StopCoroutine(_stunCo);
+            _stunCo = StartCoroutine(StunFor(duration));
+        }
+
+        IEnumerator StunFor(float t)
+        {
             SetStunned(true);
-            CancelInvoke(nameof(RemoveStun));
-            Invoke(nameof(RemoveStun), duration);
+            yield return new WaitForSeconds(t);
+            SetStunned(false);
+            _stunCo = null;
         }
 
         public void ApplyInvulnerability(float seconds)
         {
-            CancelInvoke(nameof(EndInvulnerability));
+            if (_iFrameCo != null) StopCoroutine(_iFrameCo);
+
             if (seconds <= 0f)
             {
-                // if zero/negative, just ensure vulnerable
                 SetVulnerable(true);
+                _iFrameCo = null;
                 return;
             }
 
-            SetVulnerable(false);
-            Invoke(nameof(EndInvulnerability), seconds);
+            _iFrameCo = StartCoroutine(InvulnFor(seconds));
         }
-        private void EndInvulnerability() => SetVulnerable(true);
-        private void RemoveStun() => SetStunned(false);
 
+        IEnumerator InvulnFor(float t)
+        {
+            SetVulnerable(false);
+            yield return new WaitForSeconds(t);
+            SetVulnerable(true);
+            _iFrameCo = null;
+        }
         #endregion
 
         // ---- Debug helpers ----
@@ -183,13 +205,13 @@ namespace junklite
         {
             if (!showDebugInfo) return;
 
-            GUILayout.BeginArea(new Rect(10, 10, 320, 140));
+            GUILayout.BeginArea(new Rect(10, 10, 320, 160));
             GUILayout.Label($"=== {gameObject.name} (State) ===");
             GUILayout.Label($"States: {GetStatusSummary()}");
             GUILayout.Space(6);
             GUILayout.Label("Capabilities:");
             GUILayout.Label($"Move: {CanMove}, Jump: {CanJump}");
-            GUILayout.Label($"Attack: {CanAttack}, Dash: {CanDash}");
+            GUILayout.Label($"Attack: {CanAttack}, Dash: {CanDash}, Roll: {CanRoll}");
             GUILayout.EndArea();
         }
         #endregion

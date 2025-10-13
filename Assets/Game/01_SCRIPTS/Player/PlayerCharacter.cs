@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -17,6 +17,11 @@ namespace junklite
         [SerializeField] private ParticleSystem particleJumpUp;
         [SerializeField] private ParticleSystem particleJumpDown;
 
+        [Header("Dash VFX")]
+        [SerializeField] private ParticleSystem particleDashBurst;   // one-shot on dash start
+        [SerializeField] private TrailRenderer dashTrail;            // enabled while dashing
+        [SerializeField] private Transform feet;                     // optional VFX anchor
+
         [Header("Respawn Settings")]
         [SerializeField] private float reviveInvulnerability = 1.25f;
         [SerializeField] private bool disableCollidersOnDeactivate = true;
@@ -33,6 +38,9 @@ namespace junklite
 
         // Non-alloc overlap buffer
         static readonly Collider[] overlapBuffer = new Collider[12];
+
+        // attack coroutine
+        Coroutine _attackCo;
 
         protected override void Awake()
         {
@@ -52,6 +60,7 @@ namespace junklite
             if (CameraManager.Instance != null)
                 CameraManager.Instance.SetPlayerTarget(transform);
 
+            // Listen to STATE changes (for VFX/SFX hooks if you want)
             if (State != null)
             {
                 State.OnGroundedChanged += OnGroundedStateChanged;
@@ -66,21 +75,22 @@ namespace junklite
 
         public override void Deactivate()
         {
-            // Stop inputs
+            // Stop inputs & event wiring
             UnsubscribeFromInput();
 
             // Stop movement
             if (Controller != null)
             {
                 Controller.CanMove = false;
-                //clear velocity so we don't drift while deactivated
-                if (_rb != null) _rb.linearVelocity = Vector3.zero;
+                if (_rb != null) _rb.linearVelocity = Vector3.zero; // no drift
             }
 
             // Disable colliders if requested
             if (disableCollidersOnDeactivate && _cachedColliders != null)
+            {
                 foreach (var c in _cachedColliders)
                     if (c) c.enabled = false;
+            }
 
             // Lock combat & damage
             if (State != null)
@@ -90,6 +100,9 @@ namespace junklite
                 State.SetRolling(false);
                 State.SetVulnerable(false); // invulnerable while deactivated
             }
+
+            // Stop ongoing attack timer if any
+            if (_attackCo != null) { StopCoroutine(_attackCo); _attackCo = null; }
         }
 
         public override void Activate()
@@ -125,7 +138,6 @@ namespace junklite
             if (attributes != null)
             {
                 attributes.RestoreHealthToMax();
-                // restore armor etc. if needed
             }
 
             if (Controller != null)
@@ -174,7 +186,7 @@ namespace junklite
         void HandleInput()
         {
             if (inputManager != null && State != null && State.CanMove && Controller != null)
-                horizontalAxis = inputManager.MoveDirection.x; // keep normalized; controller multiplies by speed
+                horizontalAxis = inputManager.MoveDirection.x; // normalized; controller multiplies by speed
             else
                 horizontalAxis = 0f;
         }
@@ -187,12 +199,17 @@ namespace junklite
                 inputManager.OnJump += OnJumpPressed;
                 inputManager.OnAttack += HandleAttackInput;
                 inputManager.OnDash += OnDashPressed;
-                inputManager.OnRoll += OnRollPressed;  // requires GameInputManager event
+                inputManager.OnRoll += OnRollPressed;
             }
 
             if (Controller != null)
             {
-                Controller.OnRollStarted += HandleRollStarted; 
+                // --- Controller → State wiring (single source of truth) ---
+                Controller.OnGroundedStateChanged += HandleGroundedFromController;
+                Controller.OnMovementChanged += HandleMovementFromController;
+                Controller.OnDashStarted += HandleDashStarted;
+                Controller.OnDashEnded += HandleDashEnded;
+                Controller.OnRollStarted += HandleRollStarted;
                 Controller.OnRollEnded += HandleRollEnded;
             }
         }
@@ -209,18 +226,39 @@ namespace junklite
 
             if (Controller != null)
             {
-                Controller.OnRollStarted += HandleRollStarted; 
-                Controller.OnRollEnded += HandleRollEnded;
+                Controller.OnGroundedStateChanged -= HandleGroundedFromController;
+                Controller.OnMovementChanged -= HandleMovementFromController;
+                Controller.OnDashStarted -= HandleDashStarted;
+                Controller.OnDashEnded -= HandleDashEnded;
+                Controller.OnRollStarted -= HandleRollStarted;
+                Controller.OnRollEnded -= HandleRollEnded;
             }
         }
 
-        // ===== Input Handlers (event-driven) =====
+        // ===== Controller → State adapters =====
+        void HandleGroundedFromController(bool grounded)
+        {
+            State?.SetGrounded(grounded);
+        }
+
+        void HandleMovementFromController(Vector3 move)
+        {
+            // simple threshold to avoid flicker
+            bool moving = Mathf.Abs(move.x) > 0.05f || Mathf.Abs(move.z) > 0.05f;
+            State?.SetMoving(moving);
+        }
+
+        // ===== Input Handlers =====
         void OnJumpPressed()
         {
             if (State != null && State.CanJump && Controller != null)
             {
                 Controller.Jump();
-                if (particleJumpUp != null) particleJumpUp.Play();
+                if (particleJumpUp != null)
+                {
+                    if (feet) particleJumpUp.transform.position = feet.position;
+                    particleJumpUp.Play();
+                }
             }
         }
 
@@ -230,15 +268,42 @@ namespace junklite
                 Controller.Dash();
         }
 
-
         void OnRollPressed()
         {
             if (Controller != null && State != null && State.CanRoll && Controller.CanMove)
-                Controller.TryStartRoll(); // Controller decides ground vs air
+                Controller.TryStartRoll();
         }
 
-        void HandleRollStarted() { if (State != null) State.SetRolling(true); }
-        void HandleRollEnded() { if (State != null) State.SetRolling(false); }
+        void HandleRollStarted()
+        {
+            if (State != null) State.SetRolling(true);
+        }
+
+        void HandleRollEnded()
+        {
+            if (State != null) State.SetRolling(false);
+        }
+
+        // Dash VFX + state sync (events come from Controller)
+        void HandleDashStarted()
+        {
+            if (State != null) State.SetDashing(true);
+
+            if (particleDashBurst != null)
+            {
+                if (feet) particleDashBurst.transform.position = feet.position;
+                else particleDashBurst.transform.position = transform.position;
+                particleDashBurst.Play();
+            }
+
+            if (dashTrail != null) dashTrail.emitting = true;
+        }
+
+        void HandleDashEnded()
+        {
+            if (State != null) State.SetDashing(false);
+            if (dashTrail != null) dashTrail.emitting = false;
+        }
 
         // ===== Combat =====
         void HandleAttackInput()
@@ -275,26 +340,28 @@ namespace junklite
                 overlapBuffer[i] = null; // clear reference
             }
 
-            Invoke(nameof(EndAttack), 0.3f);
+            if (_attackCo != null) StopCoroutine(_attackCo);
+            _attackCo = StartCoroutine(EndAttackAfter(0.3f));
         }
 
-        void EndAttack()
+        IEnumerator EndAttackAfter(float t)
         {
-            if (State != null)
-                State.SetAttacking(false);
+            yield return new WaitForSeconds(t);
+            if (State != null) State.SetAttacking(false);
+            _attackCo = null;
         }
 
-        #region State Event Handlers
+        #region State Event Handlers (optional hooks)
         void OnGroundedStateChanged(bool grounded)
         {
             if (grounded) OnLanding();
             else OnFall();
         }
 
-        void OnMovingStateChanged(bool moving) { /* hook VFX/SFX if needed */ }
-        void OnDashingStateChanged(bool dashing) { /* dash enter/exit hooks */ }
+        void OnMovingStateChanged(bool moving) { /* VFX/SFX if needed */ }
+        void OnDashingStateChanged(bool dashing) { /* UI or camera effects */ }
         void OnAttackingStateChanged(bool attacking) { /* combo windows, etc. */ }
-        void OnStunnedStateChanged(bool stunned) { /* UI feedback, etc. */ }
+        void OnStunnedStateChanged(bool stunned) { /* UI feedback */ }
         #endregion
 
         public void OnFall()
@@ -305,7 +372,10 @@ namespace junklite
         public void OnLanding()
         {
             if (particleJumpDown != null)
+            {
+                if (feet) particleJumpDown.transform.position = feet.position;
                 particleJumpDown.Play();
+            }
         }
 
         public override void TakeDamage(DamageInfo info)
@@ -356,3 +426,4 @@ namespace junklite
         }
     }
 }
+ 

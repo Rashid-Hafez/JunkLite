@@ -60,6 +60,9 @@ MonoBehaviour:
   moveSpeed: 5
   jumpForce: 10
   groundCheckDistance: 0.1
+  groundCheckRadius: 0.08
+  coyoteTime: 0.1
+  jumpBufferTime: 0.1
   dashForce: 20
   dashDuration: 0.2
   dashCooldown: 1
@@ -190,8 +193,11 @@ MonoBehaviour:
   enemyLayerMask:
     serializedVersion: 2
     m_Bits: 0
-  particleJumpUp: {fileID: 0}
-  particleJumpDown: {fileID: 0}
+  particleJumpUp: {fileID: 3891973445508218817, guid: e190bf97c041e58448af6b043116cba0, type: 3}
+  particleJumpDown: {fileID: 4642848129145531053, guid: 3138a83bedbd6ad4481ba0b061da2eb6, type: 3}
+  particleDashBurst: {fileID: 0}
+  dashTrail: {fileID: 0}
+  feet: {fileID: 0}
   reviveInvulnerability: 1.25
   disableCollidersOnDeactivate: 1
 --- !u!114 &5260910272949053861
@@ -289,7 +295,7 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
 --- !u!136 &975516183627858528
 CapsuleCollider:
   m_ObjectHideFlags: 0

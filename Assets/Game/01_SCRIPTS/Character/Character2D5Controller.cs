@@ -9,6 +9,11 @@ namespace junklite
         [SerializeField] private float moveSpeed = 5f;
         [SerializeField] private float jumpForce = 10f;
         [SerializeField] private float groundCheckDistance = 0.1f;
+        [SerializeField] private float groundCheckRadius = 0.08f;   // spherecast radius
+
+        [Header("Premium Jump Feel")]
+        [SerializeField] private float coyoteTime = 0.10f;          // after leaving ground
+        [SerializeField] private float jumpBufferTime = 0.10f;      // before landing
 
         [Header("Dash Settings")]
         [SerializeField] private float dashForce = 20f;
@@ -26,26 +31,16 @@ namespace junklite
         [SerializeField] private float groundRollSpeed = 9f;
         [SerializeField] private float groundRollDuration = 0.35f;
         [SerializeField] private AnimationCurve groundRollCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
-        [SerializeField] private bool groundRollIgnoreFriction = true; // optional: feels snappier
+        [SerializeField] private bool groundRollIgnoreFriction = true;
 
-        // --- Air Roll / Roll-Down (a.k.a. slamdown) ---
+        // --- Air Roll / Roll-Down ---
         [Header("Air Roll (Roll-Down)")]
-        [SerializeField] private float airRollForce = 18f;              // like your old slam 'force'
+        [SerializeField] private float airRollForce = 18f;
         [SerializeField] private float airRollDuration = 0.35f;
-        [SerializeField] private float airRollAngleDegrees = 55f;       // forward + downward angle
-        [SerializeField] private bool airRollResetsGravity = true;      // zero Y on start for snap
-        [SerializeField] private float airRollMaxDownSpeed = -40f;      // cap Y while rolling down
+        [SerializeField] private float airRollAngleDegrees = 55f;
+        [SerializeField] private bool airRollResetsGravity = true;
+        [SerializeField] private float airRollMaxDownSpeed = -40f;
         [SerializeField] private AnimationCurve airRollCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
-        private bool isRolling = false;
-        private bool rollIsAir = false;
-        private float rollTimer = 0f;
-        private float rollCooldownTimer = 0f;
-        private Vector3 rollDirection;
-        public System.Action OnRollStarted;
-        public System.Action OnRollEnded;
-        public bool IsRolling => isRolling;
-        public bool IsAirRolling => isRolling && rollIsAir;
-        public bool CanRoll => rollCooldownTimer <= 0f && canMove && !isRolling;
 
         [Header("2.5D Settings")]
         [SerializeField] private bool snapToZPosition = true;
@@ -65,11 +60,7 @@ namespace junklite
         [SerializeField] private FacingMode facingMode = FacingMode.ScaleFlip;
         [SerializeField] private float rotationSpeed = 10f;
 
-        public enum FacingMode
-        {
-            ScaleFlip,      // Flip sprite by scaling X axis (good for 2D sprites)
-            YAxisRotation   // Rotate 180 degrees on Y axis (good for 3D models)
-        }
+        public enum FacingMode { ScaleFlip, YAxisRotation }
 
         // Components
         private Rigidbody rb;
@@ -77,15 +68,25 @@ namespace junklite
 
         // Movement state
         private Vector3 moveInput;
-        private bool isGrounded;
         private bool canMove = true;
+
+        // Grounding & jump feel
+        private bool isGrounded;
+        private float coyoteTimer = 0f;
+        private float jumpBufferTimer = 0f;
 
         // Dash state
         private bool isDashing = false;
-        private float dashTimer = 0f;
+        private float dashEndTime = 0f;
         private float dashCooldownTimer = 0f;
         private Vector3 dashDirection;
-        private float originalMoveSpeed;
+
+        // Roll state
+        private bool isRolling = false;
+        private bool rollIsAir = false;
+        private float rollEndTime = 0f;
+        private float rollCooldownTimer = 0f;
+        private Vector3 rollDirection;
 
         // Events
         public System.Action<bool> OnGroundedStateChanged;
@@ -94,6 +95,8 @@ namespace junklite
         public System.Action OnDashEnded;
         public System.Action OnSlamStarted;
         public System.Action OnSlamEnded;
+        public System.Action OnRollStarted;
+        public System.Action OnRollEnded;
 
         // Properties
         public bool IsGrounded => isGrounded;
@@ -105,124 +108,145 @@ namespace junklite
         public float DashDuration { get => dashDuration; set => dashDuration = value; }
         public bool SnapToZPosition { get => snapToZPosition; set => snapToZPosition = value; }
         public float FixedZPosition { get => fixedZPosition; set => fixedZPosition = value; }
-        public bool IsFacingRight => facingMode == FacingMode.ScaleFlip ?
-            transform.localScale.x > 0 :
-            Mathf.Abs(transform.eulerAngles.y) < 90f;
+        public bool IsFacingRight => facingMode == FacingMode.ScaleFlip
+            ? transform.localScale.x > 0f
+            : Mathf.Abs(transform.eulerAngles.y) < 90f;
+
         public bool IsDashing => isDashing;
+        public bool IsRolling => isRolling;
+        public bool IsAirRolling => isRolling && rollIsAir;
         public bool CanDash => dashCooldownTimer <= 0f && (isGrounded || canDashInAir) && canMove;
-        
+        public bool CanRoll => rollCooldownTimer <= 0f && canMove && !isRolling;
 
         private void Awake()
         {
             rb = GetComponent<Rigidbody>();
             col = GetComponent<Collider>();
 
-            // Configure rigidbody for 2.5D
             rb.freezeRotation = true;
 
-            // Set fixed Z position to current position for platformers
+            // Lock Z with constraints to avoid snap pops
             if (snapToZPosition)
             {
                 fixedZPosition = transform.position.z;
-                transform.position = new Vector3(transform.position.x, transform.position.y, fixedZPosition);
+                rb.constraints |= RigidbodyConstraints.FreezePositionZ;
+                // Ensure exact Z on spawn
+                var p = transform.position;
+                transform.position = new Vector3(p.x, p.y, fixedZPosition);
+            }
+            else
+            {
+                // If lane roaming, ensure Z is free
+                rb.constraints &= ~RigidbodyConstraints.FreezePositionZ;
             }
 
-            // Store original move speed
-            originalMoveSpeed = moveSpeed;
+            // Recommended for smooth visuals with physics motion
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         }
 
         private void Update()
         {
-            CheckGrounded();
-            HandleZPositionConstraint();
-            UpdateDash();
-            UpdateRoll();
+            // --- Grounding ---
+            bool wasGrounded = isGrounded;
+            isGrounded = CheckGroundedSpherecast();
+
+            // coyote timer
+            if (isGrounded) coyoteTimer = coyoteTime;
+            else coyoteTimer = Mathf.Max(0f, coyoteTimer - Time.deltaTime);
+
+            // jump buffer timer naturally counts down
+            if (jumpBufferTimer > 0f)
+                jumpBufferTimer = Mathf.Max(0f, jumpBufferTimer - Time.deltaTime);
+
+            if (wasGrounded != isGrounded)
+                OnGroundedStateChanged?.Invoke(isGrounded);
+
+            // --- Cooldowns / absolute end times ---
+            if (dashCooldownTimer > 0f) dashCooldownTimer = Mathf.Max(0f, dashCooldownTimer - Time.deltaTime);
+            if (rollCooldownTimer > 0f) rollCooldownTimer = Mathf.Max(0f, rollCooldownTimer - Time.deltaTime);
+
+            if (isDashing && Time.time >= dashEndTime)
+                EndDash();
+
+            if (isRolling && Time.time >= rollEndTime)
+                EndRoll();
+
+            // If roaming on Z, clamp position in Update (visual) – physics stays in FixedUpdate
+            if (!snapToZPosition && allowZMovement)
+            {
+                Vector3 pos = transform.position;
+                pos.z = Mathf.Clamp(pos.z, minZPosition, maxZPosition);
+                transform.position = pos;
+            }
         }
 
         private void FixedUpdate()
         {
             if (isRolling)
             {
-                ApplyRollMovement();
+                ApplyRollVelocityFixed();
             }
             else if (isDashing)
             {
-                ApplyDashMovement();
+                ApplyDashVelocityFixed();
             }
             else
             {
-                ApplyMovement();
-                ApplyGravity();
+                ApplyMovementFixed();
+                ApplyGravityFixed();
             }
 
-            ClampFallSpeed();
+            ClampFallSpeedFixed();
         }
 
-        /// <summary>
-        /// Set movement input for the character
-        /// </summary>
-        /// <param name="horizontal">Horizontal input (-1 to 1)</param>
-        /// <param name="vertical">Vertical input (for Z-axis movement, -1 to 1)</param>
+        // ===== Public API =====
+
         public void SetMovementInput(float horizontal, float vertical = 0f)
         {
             if (!canMove)
             {
                 moveInput = Vector3.zero;
+                OnMovementChanged?.Invoke(moveInput);
                 return;
             }
 
             moveInput.x = horizontal;
-            moveInput.z = allowZMovement && !snapToZPosition ? vertical : 0f;
-
+            moveInput.z = (allowZMovement && !snapToZPosition) ? vertical : 0f;
             OnMovementChanged?.Invoke(moveInput);
         }
 
         /// <summary>
-        /// Make the character jump
+        /// Queue a jump using buffer/coyote rules. Keeps external API the same.
         /// </summary>
         public void Jump()
         {
-            if (!canMove || !isGrounded || isDashing) return;
-
-            rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpForce, rb.linearVelocity.z);
+            // Don’t jump immediately; buffer it and consume in FixedUpdate phase.
+            jumpBufferTimer = jumpBufferTime;
         }
 
-        /// <summary>
-        /// Make the character dash
-        /// </summary>
         public void Dash()
         {
             if (!CanDash) return;
 
-            // Determine dash direction
-            Vector3 direction = Vector3.right * (IsFacingRight ? 1 : -1);
-
-            // Allow dash in input direction if there's movement input
+            Vector3 dir = Vector3.right * (IsFacingRight ? 1f : -1f);
             if (Mathf.Abs(moveInput.x) > 0.1f)
-            {
-                direction = Vector3.right * Mathf.Sign(moveInput.x);
-            }
+                dir = Vector3.right * Mathf.Sign(moveInput.x);
 
-            StartDash(direction);
+            StartDash(dir);
         }
 
-        /// <summary>
-        /// Start dash in specific direction
-        /// </summary>
         public void StartDash(Vector3 direction)
         {
             if (!CanDash) return;
 
             isDashing = true;
-            dashTimer = 0f;
-            dashCooldownTimer = dashCooldown;
             dashDirection = direction.normalized;
+            dashEndTime = Time.time + dashDuration;
+            dashCooldownTimer = dashCooldown;
 
-            // Reset gravity if enabled
             if (dashResetsGravity)
-            {
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-            }
 
             OnDashStarted?.Invoke();
         }
@@ -235,30 +259,28 @@ namespace junklite
                 EndDash();
 
             rollIsAir = !isGrounded && Mathf.Abs(rb.linearVelocity.y) > 0.05f;
-            rollTimer = 0f;
-            rollCooldownTimer = rollCooldown;
             isRolling = true;
+            rollEndTime = Time.time + (rollIsAir ? airRollDuration : groundRollDuration);
+            rollCooldownTimer = rollCooldown;
 
             if (rollIsAir)
             {
-                // Build a down-forward direction based on facing & angle
                 float xSign = IsFacingRight ? 1f : -1f;
                 float rad = airRollAngleDegrees * Mathf.Deg2Rad;
                 rollDirection = new Vector3(Mathf.Cos(rad) * xSign, -Mathf.Sin(rad), 0f).normalized;
 
-                // Snap vertical momentum if desired (feels crisp)
                 if (airRollResetsGravity)
                     rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+
+                OnSlamStarted?.Invoke();
             }
             else
             {
-                // Pure forward roll on ground
                 rollDirection = (IsFacingRight ? Vector3.right : Vector3.left);
 
-                // Optional: reduce surface friction influence so roll keeps speed
                 if (groundRollIgnoreFriction)
                 {
-                    // keep current Y & Z, we'll drive X directly
+                    // keep current Y/Z; we’ll drive X directly
                     rb.linearVelocity = new Vector3(rb.linearVelocity.x, rb.linearVelocity.y, rb.linearVelocity.z);
                 }
             }
@@ -266,302 +288,213 @@ namespace junklite
             OnRollStarted?.Invoke();
         }
 
-        private void ApplyRollMovement()
+        public void AddForce(Vector3 force, ForceMode mode = ForceMode.Impulse)
         {
+            // Use for external knockback only. We otherwise write linearVelocity directly.
+            rb.AddForce(force, mode);
+        }
+
+        public void TeleportTo(Vector3 position)
+        {
+            if (snapToZPosition) position.z = fixedZPosition;
+            transform.position = position;
+            rb.linearVelocity = Vector3.zero;
+        }
+
+        public void SetFacingDirection(bool facingRight)
+        {
+            switch (facingMode)
+            {
+                case FacingMode.ScaleFlip:
+                    var s = transform.localScale;
+                    s.x = Mathf.Abs(s.x) * (facingRight ? 1f : -1f);
+                    transform.localScale = s;
+                    break;
+                case FacingMode.YAxisRotation:
+                    var e = transform.eulerAngles;
+                    e.y = facingRight ? 0f : 180f;
+                    transform.eulerAngles = e;
+                    break;
+            }
+        }
+
+        // ===== Fixed-step writers =====
+
+        private void ApplyMovementFixed()
+        {
+            // Consume buffered jump with coyote
+            if (jumpBufferTimer > 0f && coyoteTimer > 0f && canMove && !isDashing && !isRolling)
+            {
+                rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpForce, rb.linearVelocity.z);
+                jumpBufferTimer = 0f;
+                coyoteTimer = 0f;
+            }
+
+            if (!canMove) return;
+
+            Vector3 v = rb.linearVelocity;
+            v.x = moveInput.x * moveSpeed;
+
+            if (allowZMovement && !snapToZPosition)
+                v.z = moveInput.z * zMoveSpeed;
+
+            rb.linearVelocity = v;
+
+            if (faceMovementDirection && Mathf.Abs(moveInput.x) > 0.1f)
+                HandleFacingDirectionFixed(moveInput.x);
+        }
+
+        private void ApplyDashVelocityFixed()
+        {
+            // t in [0..1]
+            float t = 1f - Mathf.Clamp01((dashEndTime - Time.time) / dashDuration);
+            float curve = dashCurve.Evaluate(t);
+            Vector3 dashV = dashDirection * dashForce * curve;
+
+            if (dashResetsGravity)
+                rb.linearVelocity = new Vector3(dashV.x, 0f, dashV.z);
+            else
+                rb.linearVelocity = new Vector3(dashV.x, rb.linearVelocity.y, dashV.z);
+
+            if (faceMovementDirection && Mathf.Abs(dashDirection.x) > 0.1f)
+                HandleFacingDirectionFixed(dashDirection.x);
+        }
+
+        private void ApplyRollVelocityFixed()
+        {
+            float total = rollIsAir ? airRollDuration : groundRollDuration;
+            float t = 1f - Mathf.Clamp01((rollEndTime - Time.time) / total);
+
             if (rollIsAir)
             {
-                // Air Roll (Roll-Down)
-                float t = Mathf.Clamp01(rollTimer / airRollDuration);
                 float curve = airRollCurve.Evaluate(t);
                 Vector3 v = rollDirection * airRollForce * curve;
-
-                // Apply velocity, preserve lane (Z)
                 rb.linearVelocity = new Vector3(v.x, v.y, rb.linearVelocity.z);
 
-                // Cap downward speed while rolling down (feel control)
                 if (rb.linearVelocity.y < airRollMaxDownSpeed)
                     rb.linearVelocity = new Vector3(rb.linearVelocity.x, airRollMaxDownSpeed, rb.linearVelocity.z);
 
-                // Face direction
                 if (faceMovementDirection && Mathf.Abs(rollDirection.x) > 0.1f)
                     SetFacingDirection(rollDirection.x > 0f);
 
-                // End immediately when grounded
+                // hard-stop on land
                 if (isGrounded)
                     EndRoll();
             }
             else
             {
-                // Ground Roll (forward along X)
-                float t = Mathf.Clamp01(rollTimer / groundRollDuration);
                 float curve = groundRollCurve.Evaluate(t);
                 float xVel = rollDirection.x * groundRollSpeed * curve;
-
                 rb.linearVelocity = new Vector3(xVel, rb.linearVelocity.y, rb.linearVelocity.z);
 
                 if (faceMovementDirection && Mathf.Abs(rollDirection.x) > 0.1f)
                     SetFacingDirection(rollDirection.x > 0f);
-
-                // ends on timer (done in Update)
             }
+        }
+
+        private void EndDash()
+        {
+            if (!isDashing) return;
+            isDashing = false;
+            OnDashEnded?.Invoke();
         }
 
         private void EndRoll()
         {
             if (!isRolling) return;
             isRolling = false;
-            rollTimer = 0f;
 
-            // Optional: small carry to keep flow after roll
-            if (!rollIsAir)
+            if (rollIsAir) OnSlamEnded?.Invoke();
+            else
             {
+                // tiny carry to keep flow
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x * 0.8f, rb.linearVelocity.y, rb.linearVelocity.z);
             }
-
             OnRollEnded?.Invoke();
         }
 
-
-        /// <summary>
-        /// Add external force to the character
-        /// </summary>
-        public void AddForce(Vector3 force, ForceMode forceMode = ForceMode.Impulse)
+        private void ApplyGravityFixed()
         {
-            rb.AddForce(force, forceMode);
+            if (isGrounded) return;
+            // Skip gravity while rolling in air if you want; feels good to keep it on here
+            rb.AddForce(Physics.gravity * gravityMultiplier, ForceMode.Acceleration);
         }
 
-        /// <summary>
-        /// Teleport character to position
-        /// </summary>
-        public void TeleportTo(Vector3 position)
+        private void HandleFacingDirectionFixed(float horizontalInput)
         {
-            if (snapToZPosition)
-            {
-                position.z = fixedZPosition;
-            }
-
-            transform.position = position;
-            rb.linearVelocity = Vector3.zero;
-        }
-
-        /// <summary>
-        /// Set the facing direction of the character
-        /// </summary>
-        /// <param name="facingRight">True to face right, false to face left</param>
-        public void SetFacingDirection(bool facingRight)
-        {
-            switch (facingMode)
-            {
-                case FacingMode.ScaleFlip:
-                    Vector3 scale = transform.localScale;
-                    scale.x = Mathf.Abs(scale.x) * (facingRight ? 1 : -1);
-                    transform.localScale = scale;
-                    break;
-
-                case FacingMode.YAxisRotation:
-                    Vector3 rotation = transform.eulerAngles;
-                    rotation.y = facingRight ? 0f : 180f;
-                    transform.eulerAngles = rotation;
-                    break;
-            }
-        }
-
-        private void UpdateDash()
-        {
-            // Update dash cooldown
-            if (dashCooldownTimer > 0f)
-            {
-                dashCooldownTimer -= Time.deltaTime;
-            }
-
-            // Update dash timer
-            if (isDashing)
-            {
-                dashTimer += Time.deltaTime;
-
-                if (dashTimer >= dashDuration)
-                {
-                    EndDash();
-                }
-            }
-        }
-
-        private void UpdateRoll()
-        {
-            if (rollCooldownTimer > 0f)
-                rollCooldownTimer -= Time.deltaTime;
-
-            // roll timing
-            if (isRolling)
-            {
-                rollTimer += Time.deltaTime;
-                float dur = rollIsAir ? airRollDuration : groundRollDuration;
-                if (rollTimer >= dur)
-                    EndRoll();
-            }
-
-        }
-
-        private void ApplyDashMovement()
-        {
-            // Calculate dash force based on curve
-            float normalizedTime = dashTimer / dashDuration;
-            float curveValue = dashCurve.Evaluate(normalizedTime);
-            Vector3 dashVelocity = dashDirection * dashForce * curveValue;
-
-            // Apply dash velocity (preserve Y if not resetting gravity)
-            if (dashResetsGravity)
-            {
-                rb.linearVelocity = new Vector3(dashVelocity.x, 0f, dashVelocity.z);
-            }
-            else
-            {
-                rb.linearVelocity = new Vector3(dashVelocity.x, rb.linearVelocity.y, dashVelocity.z);
-            }
-
-            // Update facing direction during dash
-            if (faceMovementDirection && Mathf.Abs(dashDirection.x) > 0.1f)
-            {
-                HandleFacingDirection(dashDirection.x);
-            }
-        }
-
-        private void EndDash()
-        {
-            isDashing = false;
-            dashTimer = 0f;
-            OnDashEnded?.Invoke();
-        }
-
-        private void ApplyMovement()
-        {
-            if (!canMove || isRolling || isDashing) return;
-
-            Vector3 movement = Vector3.zero;
-
-            // Horizontal movement
-            movement.x = moveInput.x * moveSpeed;
-
-            // Z movement (depth)
-            if (allowZMovement && !snapToZPosition)
-            {
-                movement.z = moveInput.z * zMoveSpeed;
-            }
-
-            // Apply movement while preserving Y velocity
-            rb.linearVelocity = new Vector3(movement.x, rb.linearVelocity.y, movement.z);
-
-            // Handle character facing direction
-            if (faceMovementDirection && Mathf.Abs(moveInput.x) > 0.1f)
-            {
-                HandleFacingDirection(moveInput.x);
-            }
-        }
-
-        private void CheckGrounded()
-        {
-            bool wasGrounded = isGrounded;
-
-            Vector3 rayOrigin = col.bounds.center;
-            float rayDistance = col.bounds.extents.y + groundCheckDistance;
-
-            isGrounded = Physics.Raycast(rayOrigin, Vector3.down, rayDistance, groundLayerMask);
-
-            if (wasGrounded != isGrounded)
-            {
-                OnGroundedStateChanged?.Invoke(isGrounded);
-            }
-        }
-
-        private void HandleZPositionConstraint()
-        {
-            if (snapToZPosition)
-            {
-                Vector3 pos = transform.position;
-                if (Mathf.Abs(pos.z - fixedZPosition) > 0.001f)
-                {
-                    transform.position = new Vector3(pos.x, pos.y, fixedZPosition);
-                    rb.linearVelocity = new Vector3(rb.linearVelocity.x, rb.linearVelocity.y, 0f);
-                }
-            }
-            else if (allowZMovement)
-            {
-                // Clamp Z position within bounds
-                Vector3 pos = transform.position;
-                pos.z = Mathf.Clamp(pos.z, minZPosition, maxZPosition);
-                transform.position = pos;
-            }
-        }
-
-        private void ApplyGravity()
-        {
-            if (!isGrounded)
-            {
-                rb.AddForce(Physics.gravity * gravityMultiplier, ForceMode.Acceleration);
-            }
-        }
-
-        private void HandleFacingDirection(float horizontalInput)
-        {
-            bool facingRight = horizontalInput > 0;
+            bool facingRight = horizontalInput > 0f;
 
             switch (facingMode)
             {
                 case FacingMode.ScaleFlip:
-                    // Flip sprite by scaling X axis (instant flip for platformers)
-                    Vector3 scale = transform.localScale;
-                    scale.x = Mathf.Abs(scale.x) * (facingRight ? 1 : -1);
-                    transform.localScale = scale;
+                    var s = transform.localScale;
+                    s.x = Mathf.Abs(s.x) * (facingRight ? 1f : -1f);
+                    transform.localScale = s;
                     break;
 
                 case FacingMode.YAxisRotation:
-                    // Rotate on Y axis (smooth rotation for 3D models)
-                    float targetYRotation = facingRight ? 0f : 180f;
-                    Vector3 currentRotation = transform.eulerAngles;
-                    currentRotation.y = Mathf.LerpAngle(currentRotation.y, targetYRotation, rotationSpeed * Time.fixedDeltaTime);
-                    transform.eulerAngles = currentRotation;
+                    float targetY = facingRight ? 0f : 180f;
+                    Vector3 e = transform.eulerAngles;
+                    e.y = Mathf.LerpAngle(e.y, targetY, rotationSpeed * Time.fixedDeltaTime);
+                    transform.eulerAngles = e;
                     break;
             }
         }
 
-        private void ClampFallSpeed()
+        private void ClampFallSpeedFixed()
         {
             if (rb.linearVelocity.y < maxFallSpeed)
-            {
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, maxFallSpeed, rb.linearVelocity.z);
-            }
         }
 
-        // Debug visualization
+        // ===== Grounding & Z helpers =====
+
+        private bool CheckGroundedSpherecast()
+        {
+            if (col == null) col = GetComponent<Collider>();
+
+            Vector3 origin = col.bounds.center;
+            float dist = col.bounds.extents.y + groundCheckDistance;
+
+            return Physics.SphereCast(origin, groundCheckRadius, Vector3.down, out _, dist, groundLayerMask, QueryTriggerInteraction.Ignore);
+        }
+
+        // ===== Debug viz =====
+
         private void OnDrawGizmosSelected()
         {
             if (col == null) col = GetComponent<Collider>();
 
-            // Draw ground check ray
+            // Ground spherecast
             Gizmos.color = isGrounded ? Color.green : Color.red;
-            Vector3 rayOrigin = col.bounds.center;
-            Vector3 rayEnd = rayOrigin + Vector3.down * (col.bounds.extents.y + groundCheckDistance);
-            Gizmos.DrawLine(rayOrigin, rayEnd);
+            Vector3 origin = col.bounds.center;
+            Vector3 end = origin + Vector3.down * (col.bounds.extents.y + groundCheckDistance);
+            // draw center line
+            Gizmos.DrawLine(origin, end);
+            // draw start sphere
+            Gizmos.DrawWireSphere(origin, groundCheckRadius);
+            // draw end sphere
+            Gizmos.DrawWireSphere(end, groundCheckRadius);
 
-            // Draw Z position constraint
+            // Z lock marker
             if (snapToZPosition)
             {
                 Gizmos.color = Color.blue;
-                Vector3 pos = transform.position;
-                Gizmos.DrawLine(new Vector3(pos.x - 1f, pos.y, fixedZPosition),
-                               new Vector3(pos.x + 1f, pos.y, fixedZPosition));
+                Vector3 p = transform.position;
+                Gizmos.DrawLine(new Vector3(p.x - 1f, p.y, fixedZPosition),
+                                new Vector3(p.x + 1f, p.y, fixedZPosition));
             }
 
-            // Draw Z movement bounds
+            // Z bounds if roaming
             if (allowZMovement && !snapToZPosition)
             {
                 Gizmos.color = Color.yellow;
-                Vector3 pos = transform.position;
-                Gizmos.DrawLine(new Vector3(pos.x, pos.y, minZPosition),
-                               new Vector3(pos.x, pos.y, maxZPosition));
+                Vector3 p = transform.position;
+                Gizmos.DrawLine(new Vector3(p.x, p.y, minZPosition),
+                                new Vector3(p.x, p.y, maxZPosition));
             }
 
-            // Draw dash range visualization
+            // Dash preview (debug)
             if (isDashing)
             {
                 Gizmos.color = Color.cyan;
