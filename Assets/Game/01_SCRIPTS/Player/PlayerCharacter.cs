@@ -90,19 +90,19 @@ namespace junklite
             {
                 foreach (var c in _cachedColliders)
                     if (c) c.enabled = false;
-            }
 
-            // Lock combat & damage
-            if (State != null)
-            {
-                State.SetAttacking(false);
-                State.SetDashing(false);
-                State.SetRolling(false);
-                State.SetVulnerable(false); // invulnerable while deactivated
-            }
+                // Lock combat & damage
+                if (State != null)
+                {
+                    State.SetAttacking(false);
+                    State.SetDashing(false);
+                    State.SetRolling(false);
+                    State.SetVulnerable(false); // invulnerable while deactivated
+                }
 
-            // Stop ongoing attack timer if any
-            if (_attackCo != null) { StopCoroutine(_attackCo); _attackCo = null; }
+                // Stop ongoing attack timer if any
+                if (_attackCo != null) { StopCoroutine(_attackCo); _attackCo = null; }
+            }
         }
 
         public override void Activate()
