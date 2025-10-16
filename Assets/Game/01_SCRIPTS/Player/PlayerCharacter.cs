@@ -188,15 +188,16 @@ namespace junklite
                 inputManager.OnAttack += HandleAttackInput;
                 inputManager.OnDash += OnDashPressed;
                 inputManager.OnRoll += OnRollPressed;  // requires GameInputManager event
+                inputManager.OnDroneAttack += OnDroneAttackPressed; // subscribe to drone attack input
             }
 
             if (Controller != null)
             {
-                Controller.OnRollStarted += HandleRollStarted; 
+                Controller.OnRollStarted += HandleRollStarted;
                 Controller.OnRollEnded += HandleRollEnded;
             }
         }
-
+        
         void UnsubscribeFromInput()
         {
             if (inputManager != null)
@@ -239,6 +240,16 @@ namespace junklite
 
         void HandleRollStarted() { if (State != null) State.SetRolling(true); }
         void HandleRollEnded() { if (State != null) State.SetRolling(false); }
+
+        void OnDroneAttackPressed()
+        {
+            // Invoke the drone attack event in CharacterState
+            if (State != null)
+            {
+                State.DroneAttacking = true;
+            }
+        }
+
 
         // ===== Combat =====
         void HandleAttackInput()
