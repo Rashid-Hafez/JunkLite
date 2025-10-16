@@ -16,6 +16,8 @@ namespace junklite
         public event Action OnDash = delegate { };
         public event Action OnRoll = delegate { }; // <-- renamed from DownSlam
 
+        public event Action OnDroneAttack = delegate { }; // <-- new event for drone attack
+
         public Vector2 MoveDirection { get; private set; }
         public bool IsAttackHeld { get; private set; }
 

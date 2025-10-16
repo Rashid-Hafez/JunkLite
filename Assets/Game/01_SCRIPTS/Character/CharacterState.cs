@@ -43,6 +43,21 @@ namespace junklite
         /// Event invoked whenever HasDrone changes. Used by SpawnDrone to spawn the drone when unlocked.
         /// </summary>
         public event Action<bool> OnHasDroneChanged;
+        [SerializeField] private bool droneAttacking; // backing field for HasDrone property
+
+        public bool DroneAttacking
+        {
+            get => droneAttacking;
+            set
+            {
+                if (droneAttacking != value)
+                {
+                    droneAttacking = value;
+                    OnDroneAttack?.Invoke(); // Notify listeners (e.g., PetDrone) of change
+                }
+            }
+        }
+        public event Action OnDroneAttack; // invoked by player, when player presses drone attack button
 
         // ---- Events ----
         public event Action OnDeath; // forwarded from attributes if available

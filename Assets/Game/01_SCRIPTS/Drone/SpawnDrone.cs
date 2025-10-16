@@ -7,11 +7,6 @@ public class SpawnDrone : MonoBehaviour
     public Transform spawnPoint;
     private PlayerCharacter currentPlayer;
 
-    void Awake()
-    {
-   
-    }
-
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -53,14 +48,8 @@ public class SpawnDrone : MonoBehaviour
             PetDrone petDrone = drone.GetComponent<PetDrone>();
             if (petDrone != null)
             {
-                petDrone.SetPlayer(currentPlayer.gameObject); // Pass player reference for following
+                petDrone.SetPlayer(currentPlayer); // Pass player reference for following
             }
         }
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
     }
 }
