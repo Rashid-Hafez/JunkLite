@@ -121,6 +121,7 @@ namespace junklite
             if (animator == null || string.IsNullOrEmpty(animationName))
                 return;
 
+            
             PlayAnimation(animationName);
             isPlayingOneShot = true;
 
@@ -156,7 +157,8 @@ namespace junklite
             if (grounded && !isPlayingOneShot && !characterSystem.IsRolling)
             {
                 // Optional land blip
-                // PlayOneShotAnimation(landAnimName, 0.2f);
+                 PlayOneShotAnimation(landAnimName, 0.4f);
+                //PlayAnimation(landAnimName);
             }
         }
 

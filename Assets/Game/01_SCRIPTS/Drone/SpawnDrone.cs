@@ -21,14 +21,11 @@ public class SpawnDrone : MonoBehaviour
         {
             Debug.Log("SpawnDrone: PlayerCharacter and State found, subscribing to OnHasDroneChanged event.");
             // Subscribe to drone unlock event
-            currentPlayer.State.OnHasDroneChanged += OnHasDroneChanged;
+           
             spawnPoint = currentPlayer.transform; // Set spawn point to player's position
 
             // If drone is already unlocked at spawn, spawn it immediately
-            if (currentPlayer.State.HasDrone)
-            {
-                Spawn();
-            }
+            
         }
     }
 
