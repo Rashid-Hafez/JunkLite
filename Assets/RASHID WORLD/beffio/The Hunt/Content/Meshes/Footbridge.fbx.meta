@@ -1,75 +1,203 @@
 fileFormatVersion: 2
 guid: 622ebf96e9a975e4a8cefe3666d1ddcc
-timeCreated: 1519835720
-licenseType: Store
 ModelImporter:
-  serializedVersion: 22
-  fileIDToRecycleName:
-    100000: //RootNode
-    100002: Footbridge_Bottom.001
-    100004: Footbridge_Wall_1.001
-    100006: Footbridge_Wall_2.001
-    100008: Footbridge_Bottom.001_LOD0
-    100010: Footbridge_Bottom.001_LOD1
-    100012: Footbridge_Bottom.001_LOD2
-    100014: Footbridge_Wall_1.001_LOD0
-    100016: Footbridge_Wall_1.001_LOD1
-    100018: Footbridge_Wall_1.001_LOD2
-    100020: Footbridge_Wall_2.001_LOD0
-    100022: Footbridge_Wall_2.001_LOD1
-    100024: Footbridge_Wall_2.001_LOD2
-    400000: //RootNode
-    400002: Footbridge_Bottom.001
-    400004: Footbridge_Wall_1.001
-    400006: Footbridge_Wall_2.001
-    400008: Footbridge_Bottom.001_LOD0
-    400010: Footbridge_Bottom.001_LOD1
-    400012: Footbridge_Bottom.001_LOD2
-    400014: Footbridge_Wall_1.001_LOD0
-    400016: Footbridge_Wall_1.001_LOD1
-    400018: Footbridge_Wall_1.001_LOD2
-    400020: Footbridge_Wall_2.001_LOD0
-    400022: Footbridge_Wall_2.001_LOD1
-    400024: Footbridge_Wall_2.001_LOD2
-    2100000: Footbridge
-    2100002: Footbridge_glass
-    2300000: Footbridge_Bottom.001
-    2300002: Footbridge_Wall_1.001
-    2300004: Footbridge_Wall_2.001
-    2300006: Footbridge_Bottom.001_LOD0
-    2300008: Footbridge_Bottom.001_LOD1
-    2300010: Footbridge_Bottom.001_LOD2
-    2300012: Footbridge_Wall_1.001_LOD0
-    2300014: Footbridge_Wall_1.001_LOD1
-    2300016: Footbridge_Wall_1.001_LOD2
-    2300018: Footbridge_Wall_2.001_LOD0
-    2300020: Footbridge_Wall_2.001_LOD1
-    2300022: Footbridge_Wall_2.001_LOD2
-    3300000: Footbridge_Bottom.001
-    3300002: Footbridge_Wall_1.001
-    3300004: Footbridge_Wall_2.001
-    3300006: Footbridge_Bottom.001_LOD0
-    3300008: Footbridge_Bottom.001_LOD1
-    3300010: Footbridge_Bottom.001_LOD2
-    3300012: Footbridge_Wall_1.001_LOD0
-    3300014: Footbridge_Wall_1.001_LOD1
-    3300016: Footbridge_Wall_1.001_LOD2
-    3300018: Footbridge_Wall_2.001_LOD0
-    3300020: Footbridge_Wall_2.001_LOD1
-    3300022: Footbridge_Wall_2.001_LOD2
-    4300000: Footbridge_Bottom.001
-    4300002: Footbridge_Wall_1.001
-    4300004: Footbridge_Wall_2.001
-    4300006: Footbridge_Bottom.001_LOD0
-    4300008: Footbridge_Bottom.001_LOD1
-    4300010: Footbridge_Bottom.001_LOD2
-    4300012: Footbridge_Wall_1.001_LOD0
-    4300014: Footbridge_Wall_1.001_LOD1
-    4300016: Footbridge_Wall_1.001_LOD2
-    4300018: Footbridge_Wall_2.001_LOD0
-    4300020: Footbridge_Wall_2.001_LOD1
-    4300022: Footbridge_Wall_2.001_LOD2
-    20500000: //RootNode
+  serializedVersion: 24200
+  internalIDToNameTable:
+  - first:
+      1: 100000
+    second: //RootNode
+  - first:
+      1: 100002
+    second: Footbridge_Bottom.001
+  - first:
+      1: 100004
+    second: Footbridge_Wall_1.001
+  - first:
+      1: 100006
+    second: Footbridge_Wall_2.001
+  - first:
+      1: 100008
+    second: Footbridge_Bottom.001_LOD0
+  - first:
+      1: 100010
+    second: Footbridge_Bottom.001_LOD1
+  - first:
+      1: 100012
+    second: Footbridge_Bottom.001_LOD2
+  - first:
+      1: 100014
+    second: Footbridge_Wall_1.001_LOD0
+  - first:
+      1: 100016
+    second: Footbridge_Wall_1.001_LOD1
+  - first:
+      1: 100018
+    second: Footbridge_Wall_1.001_LOD2
+  - first:
+      1: 100020
+    second: Footbridge_Wall_2.001_LOD0
+  - first:
+      1: 100022
+    second: Footbridge_Wall_2.001_LOD1
+  - first:
+      1: 100024
+    second: Footbridge_Wall_2.001_LOD2
+  - first:
+      4: 400000
+    second: //RootNode
+  - first:
+      4: 400002
+    second: Footbridge_Bottom.001
+  - first:
+      4: 400004
+    second: Footbridge_Wall_1.001
+  - first:
+      4: 400006
+    second: Footbridge_Wall_2.001
+  - first:
+      4: 400008
+    second: Footbridge_Bottom.001_LOD0
+  - first:
+      4: 400010
+    second: Footbridge_Bottom.001_LOD1
+  - first:
+      4: 400012
+    second: Footbridge_Bottom.001_LOD2
+  - first:
+      4: 400014
+    second: Footbridge_Wall_1.001_LOD0
+  - first:
+      4: 400016
+    second: Footbridge_Wall_1.001_LOD1
+  - first:
+      4: 400018
+    second: Footbridge_Wall_1.001_LOD2
+  - first:
+      4: 400020
+    second: Footbridge_Wall_2.001_LOD0
+  - first:
+      4: 400022
+    second: Footbridge_Wall_2.001_LOD1
+  - first:
+      4: 400024
+    second: Footbridge_Wall_2.001_LOD2
+  - first:
+      21: 2100000
+    second: Footbridge
+  - first:
+      21: 2100002
+    second: Footbridge_glass
+  - first:
+      23: 2300000
+    second: Footbridge_Bottom.001
+  - first:
+      23: 2300002
+    second: Footbridge_Wall_1.001
+  - first:
+      23: 2300004
+    second: Footbridge_Wall_2.001
+  - first:
+      23: 2300006
+    second: Footbridge_Bottom.001_LOD0
+  - first:
+      23: 2300008
+    second: Footbridge_Bottom.001_LOD1
+  - first:
+      23: 2300010
+    second: Footbridge_Bottom.001_LOD2
+  - first:
+      23: 2300012
+    second: Footbridge_Wall_1.001_LOD0
+  - first:
+      23: 2300014
+    second: Footbridge_Wall_1.001_LOD1
+  - first:
+      23: 2300016
+    second: Footbridge_Wall_1.001_LOD2
+  - first:
+      23: 2300018
+    second: Footbridge_Wall_2.001_LOD0
+  - first:
+      23: 2300020
+    second: Footbridge_Wall_2.001_LOD1
+  - first:
+      23: 2300022
+    second: Footbridge_Wall_2.001_LOD2
+  - first:
+      33: 3300000
+    second: Footbridge_Bottom.001
+  - first:
+      33: 3300002
+    second: Footbridge_Wall_1.001
+  - first:
+      33: 3300004
+    second: Footbridge_Wall_2.001
+  - first:
+      33: 3300006
+    second: Footbridge_Bottom.001_LOD0
+  - first:
+      33: 3300008
+    second: Footbridge_Bottom.001_LOD1
+  - first:
+      33: 3300010
+    second: Footbridge_Bottom.001_LOD2
+  - first:
+      33: 3300012
+    second: Footbridge_Wall_1.001_LOD0
+  - first:
+      33: 3300014
+    second: Footbridge_Wall_1.001_LOD1
+  - first:
+      33: 3300016
+    second: Footbridge_Wall_1.001_LOD2
+  - first:
+      33: 3300018
+    second: Footbridge_Wall_2.001_LOD0
+  - first:
+      33: 3300020
+    second: Footbridge_Wall_2.001_LOD1
+  - first:
+      33: 3300022
+    second: Footbridge_Wall_2.001_LOD2
+  - first:
+      43: 4300000
+    second: Footbridge_Bottom.001
+  - first:
+      43: 4300002
+    second: Footbridge_Wall_1.001
+  - first:
+      43: 4300004
+    second: Footbridge_Wall_2.001
+  - first:
+      43: 4300006
+    second: Footbridge_Bottom.001_LOD0
+  - first:
+      43: 4300008
+    second: Footbridge_Bottom.001_LOD1
+  - first:
+      43: 4300010
+    second: Footbridge_Bottom.001_LOD2
+  - first:
+      43: 4300012
+    second: Footbridge_Wall_1.001_LOD0
+  - first:
+      43: 4300014
+    second: Footbridge_Wall_1.001_LOD1
+  - first:
+      43: 4300016
+    second: Footbridge_Wall_1.001_LOD2
+  - first:
+      43: 4300018
+    second: Footbridge_Wall_2.001_LOD0
+  - first:
+      43: 4300020
+    second: Footbridge_Wall_2.001_LOD1
+  - first:
+      43: 4300022
+    second: Footbridge_Wall_2.001_LOD2
+  - first:
+      205: 20500000
+    second: //RootNode
   externalObjects:
   - first:
       type: UnityEngine:Material
@@ -82,7 +210,7 @@ ModelImporter:
       name: Footbridge_glass
     second: {fileID: 2100000, guid: 9eb9e80cc8a13df4ab56ae4babdd80c2, type: 2}
   materials:
-    importMaterials: 1
+    materialImportMode: 1
     materialName: 0
     materialSearch: 1
     materialLocation: 1
@@ -91,14 +219,14 @@ ModelImporter:
     bakeSimulation: 0
     resampleCurves: 1
     optimizeGameObjects: 0
+    removeConstantScaleCurves: 0
     motionNodeName: 
-    rigImportErrors: 
-    rigImportWarnings: 
     animationImportErrors: 
     animationImportWarnings: 
     animationRetargetingWarnings: 
     animationDoRetargetingWarnings: 0
     importAnimatedCustomProperties: 0
+    importConstraints: 0
     animationCompression: 1
     animationRotationError: 0.5
     animationPositionError: 0.5
@@ -107,7 +235,7 @@ ModelImporter:
     extraExposedTransformPaths: []
     extraUserProperties: []
     clipAnimations: []
-    isReadable: 1
+    isReadable: 0
   meshes:
     lODScreenPercentages:
     - 0.25
@@ -116,32 +244,52 @@ ModelImporter:
     globalScale: 0.2
     meshCompression: 0
     addColliders: 0
+    useSRGBMaterialColor: 1
+    sortHierarchyByName: 1
+    importPhysicalCameras: 0
     importVisibility: 1
     importBlendShapes: 1
     importCameras: 1
     importLights: 1
+    nodeNameCollisionStrategy: 0
+    fileIdsGeneration: 1
     swapUVChannels: 0
     generateSecondaryUV: 1
     useFileUnits: 1
-    optimizeMeshForGPU: 1
     keepQuads: 0
     weldVertices: 1
+    bakeAxisConversion: 0
     preserveHierarchy: 0
+    skinWeightsMode: 0
+    maxBonesPerVertex: 4
+    minBoneWeight: 0.001
+    optimizeBones: 1
+    generateMeshLods: 0
+    meshLodGenerationFlags: 0
+    maximumMeshLod: -1
+    meshOptimizationFlags: -1
     indexFormat: 0
     secondaryUVAngleDistortion: 8
     secondaryUVAreaDistortion: 15.000001
     secondaryUVHardAngle: 88
+    secondaryUVMarginMethod: 0
+    secondaryUVMinLightmapResolution: 40
+    secondaryUVMinObjectScale: 1
     secondaryUVPackMargin: 4
     useFileScale: 1
+    strictVertexDataChecks: 0
   tangentSpace:
     normalSmoothAngle: 60
     normalImportMode: 0
     tangentImportMode: 3
     normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 1
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  referencedClips: []
   importAnimation: 1
-  copyAvatar: 0
   humanDescription:
-    serializedVersion: 2
+    serializedVersion: 3
     human: []
     skeleton: []
     armTwist: 0.5
@@ -151,14 +299,19 @@ ModelImporter:
     armStretch: 0.05
     legStretch: 0.05
     feetSpacing: 0
+    globalScale: 0.2
     rootMotionBoneName: 
-    rootMotionBoneRotation: {x: 0, y: 0, z: 0, w: 1}
     hasTranslationDoF: 0
     hasExtraRoot: 0
     skeletonHasParents: 1
   lastHumanDescriptionAvatarSource: {instanceID: 0}
+  autoGenerateAvatarMappingIfUnspecified: 1
   animationType: 0
   humanoidOversampling: 1
+  avatarSetup: 0
+  addHumanoidExtraRootOnlyWhenUsingAvatar: 0
+  importBlendShapeDeformPercent: 0
+  remapMaterialsIfMaterialImportModeIsNone: 1
   additionalBone: 0
   userData: 
   assetBundleName: 
