@@ -155,7 +155,7 @@ namespace junklite
             if (currentPlayer.Stats != null)
             {
 
-               // currentPlayer.State.HasDrone = currentPlayer.Stats.HasDrone;
+                currentPlayer.State.HasDrone = currentPlayer.Stats.HasDrone;
                // Debug.Log("Game Manager checking drone = " + currentPlayer.State.HasDrone);
             }
 

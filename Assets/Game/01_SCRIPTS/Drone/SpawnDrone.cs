@@ -1,16 +1,12 @@
 using junklite;
 using UnityEngine;
 
+
 public class SpawnDrone : MonoBehaviour
 {
     public GameObject dronePrefab;
     public Transform spawnPoint;
     private PlayerCharacter currentPlayer;
-
-    void Awake()
-    {
-   
-    }
 
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -21,11 +17,14 @@ public class SpawnDrone : MonoBehaviour
         {
             Debug.Log("SpawnDrone: PlayerCharacter and State found, subscribing to OnHasDroneChanged event.");
             // Subscribe to drone unlock event
-           
+            currentPlayer.State.OnHasDroneChanged += OnHasDroneChanged;
             spawnPoint = currentPlayer.transform; // Set spawn point to player's position
 
             // If drone is already unlocked at spawn, spawn it immediately
-            
+            if (currentPlayer.State.HasDrone)
+            {
+                Spawn();
+            }
         }
     }
 
@@ -53,11 +52,5 @@ public class SpawnDrone : MonoBehaviour
                 petDrone.SetPlayer(currentPlayer.gameObject); // Pass player reference for following
             }
         }
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
     }
 }

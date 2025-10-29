@@ -48,6 +48,28 @@ namespace junklite
         // ---- Internals (coroutines) ----
         Coroutine _stunCo, _iFrameCo;
 
+        [SerializeField] private bool hasDrone; // backing field for HasDrone property
+        /// <summary>
+        /// Indicates if the character has unlocked the drone.
+        /// Setting this property triggers OnHasDroneChanged event if the value changes.
+        /// </summary>
+        public bool HasDrone //Rasheed code
+        {
+            get => hasDrone;
+            set
+            {
+                if (hasDrone != value)
+                {
+                    hasDrone = value;
+                    OnHasDroneChanged?.Invoke(hasDrone); // Notify listeners (e.g., SpawnDrone) of change
+                }
+            }
+        }
+        /// <summary>
+        /// Event invoked whenever HasDrone changes. Used by SpawnDrone to spawn the drone when unlocked.
+        /// </summary>
+        public event Action<bool> OnHasDroneChanged;
+
         private void Awake()
         {
             if (attributes == null) TryGetComponent(out attributes);

@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 3420628003004189342}
   - component: {fileID: 4703247559611794539}
   - component: {fileID: 7858544837094574137}
+  - component: {fileID: 489108564329932702}
   m_Layer: 0
   m_Name: Drone
   m_TagString: Untagged
@@ -45,7 +46,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fae5fa02c029d4b92b435dd59b3f1233, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PetDrone
+  k: 20
+  mass: 0.8
+  damping: 0.8
+  maxSpeed: 20
+  maxForce: 100
+  tickRate: 0.02
   offset: {x: 1, y: 1.5, z: 0}
+  smoothTime: 0.3
+  overshootFactor: 0.5
 --- !u!212 &7858544837094574137
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -104,3 +113,30 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!50 &489108564329932702
+Rigidbody2D:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 76666413933033825}
+  m_BodyType: 0
+  m_Simulated: 1
+  m_UseFullKinematicContacts: 0
+  m_UseAutoMass: 0
+  m_Mass: 0.8
+  m_LinearDamping: 0.05
+  m_AngularDamping: 0.05
+  m_GravityScale: 0
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_Interpolate: 0
+  m_SleepingMode: 1
+  m_CollisionDetection: 0
+  m_Constraints: 0
