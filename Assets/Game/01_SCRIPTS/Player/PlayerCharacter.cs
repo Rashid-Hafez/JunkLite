@@ -126,7 +126,7 @@ namespace junklite
             }
 
             if (animationController != null)
-                animationController.ResetGraph();
+                //animationController.ResetGraph();
 
             // Subscribe to input last
             SubscribeToInput();

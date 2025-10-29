@@ -5335,7 +5335,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cfa26da95da6aec41ab1fc06a943325d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  baseStats: {fileID: 11400000, guid: 1a441ae647fab80459d8899e03806c79, type: 2}
+  baseStats: {fileID: 11400000, guid: adaa8433c252acc46a3253234b8ce0dd, type: 2}
   attackRange: 1.5
   enemyLayerMask:
     serializedVersion: 2
@@ -5425,14 +5425,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   animator: {fileID: 2597407046275324893}
   autoFindAnimator: 0
-  idleAnimName: Idle
-  runAnimName: Running
-  jumpUpAnimName: Launch_Jump
-  fallAnimName: Mid-air_Jump
-  landAnimName: Landing
-  attackAnimName: Attack
-  rollAnimName: roll
-  showDebugInfo: 1
 --- !u!114 &4805137742815568369
 MonoBehaviour:
   m_ObjectHideFlags: 0
