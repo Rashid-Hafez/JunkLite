@@ -5211,7 +5211,7 @@ MonoBehaviour:
   groundCheckRadius: 0.08
   coyoteTime: 0.1
   jumpBufferTime: 0.1
-  dashForce: 20
+  dashForce: 40
   dashDuration: 0.2
   dashCooldown: 1
   canDashInAir: 1

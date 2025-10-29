@@ -156,7 +156,7 @@ namespace junklite
             {
 
                 currentPlayer.State.HasDrone = currentPlayer.Stats.HasDrone;
-               // Debug.Log("Game Manager checking drone = " + currentPlayer.State.HasDrone);
+                Debug.Log("Game Manager checking drone = " + currentPlayer.State.HasDrone);
             }
 
             Debug.Log($"Player spawned at {spawnPosition}");
