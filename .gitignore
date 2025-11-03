@@ -15,6 +15,7 @@
 *.pidb
 *.unityproj
 *.booproj
+*.mov
 
 ProjectSettings/Packages/com.unity.muse.common/
 UserSettings/Layouts/

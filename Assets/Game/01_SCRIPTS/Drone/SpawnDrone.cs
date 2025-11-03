@@ -49,7 +49,7 @@ public class SpawnDrone : MonoBehaviour
             PetDrone petDrone = drone.GetComponent<PetDrone>();
             if (petDrone != null)
             {
-                petDrone.SetPlayer(currentPlayer.gameObject); // Pass player reference for following
+                petDrone.SetPlayer(currentPlayer); // Pass player reference for following
             }
         }
     }

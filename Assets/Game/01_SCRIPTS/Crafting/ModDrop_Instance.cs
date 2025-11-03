@@ -3,6 +3,9 @@ using UnityEngine;
 public class ModDrop_Instance : MonoBehaviour
 {
     public Mod_Data modData;
+    public float CurrentDurability;
+
+
     void Start()
     {
         if (modData != null)
@@ -14,9 +17,19 @@ public class ModDrop_Instance : MonoBehaviour
         }
     }
 
-    // Update is called once per frame
-    void Update()
+    public ModDrop_Instance(Mod_Data data)
     {
-        
+        modData = data;
+        CurrentDurability = data.maxModDurability;
+    }
+
+    public void ConsumeDurability(float amount)
+    {
+        CurrentDurability = Mathf.Max(0, CurrentDurability - amount);
+    }
+
+    public bool IsBroken()
+    {
+        return CurrentDurability <= 0;
     }
 }

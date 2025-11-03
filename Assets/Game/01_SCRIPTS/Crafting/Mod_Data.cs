@@ -10,6 +10,9 @@ public class Mod_Data : ScriptableObject
     public string displayName;
     [TextArea] public string description;
 
+    [Header("Behavior")]
+    public ModEffectBase modEffectPrefab;   
+     
     public enum ModElement
     {
         Dull, Fire, Ice, Electric, Plasma
