@@ -18,6 +18,8 @@ namespace junklite
 
         public Vector2 MoveDirection { get; private set; }
         public bool IsAttackHeld { get; private set; }
+        public bool IsJumpHeld { get; private set; }
+
 
         void Awake()
         {
@@ -43,8 +45,15 @@ namespace junklite
                 OnMove(MoveDirection);
             };
 
-            // === JUMP (Press Only) ===
-            controls.Player.Jump.performed += _ => OnJump();
+            // === JUMP ===
+            controls.Player.Jump.performed += _ => {
+                OnJump();
+                IsJumpHeld = true;
+            };
+
+            controls.Player.Jump.canceled += _ => {
+                IsJumpHeld = false;
+            };
 
             // === ATTACK (tap/hold) ===
             controls.Player.Attack.performed += _ =>

@@ -1,4 +1,5 @@
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace junklite
 {
@@ -10,6 +11,15 @@ namespace junklite
         [SerializeField] private float jumpForce = 10f;
         [SerializeField] private float groundCheckDistance = 0.1f;
         [SerializeField] private float groundCheckRadius = 0.08f;   // spherecast radius
+
+        [Header("Jump Tuning")]
+        [SerializeField] private float lowJumpMultiplier = 2.5f;     // stronger gravity when jump released
+        [SerializeField] private float fallGravityMultiplier = 2.2f;  // stronger gravity when falling
+        [SerializeField] private float apexBoostDuration = 0.12f;      // tiny boost at peak
+
+        private float apexBoostTimer = 0f;
+        public bool JumpHeldExternally = true;
+
 
         [Header("Premium Jump Feel")]
         [SerializeField] private float coyoteTime = 0.10f;          // after leaving ground
@@ -26,6 +36,25 @@ namespace junklite
         [Header("Roll Settings")]
         [SerializeField] private float rollCooldown = 0.6f;
         [SerializeField] private bool rollCancelsDash = true;
+
+        // --- Wall Slide ---
+        [Header("Wall Slide Settings")]
+        [SerializeField] private float wallSlideSpeed = -2f;           // negative = downward
+        [SerializeField] private float wallCheckRadius = 0.3f;
+        [SerializeField] private Transform wallCheckTransform;
+        [SerializeField] private LayerMask wallLayer;
+
+        private bool isWallSliding;
+        private int wallDirection; // +1 = right wall, -1 = left wall
+
+        // --- Wall Jump ---
+        [Header("Wall Jump Settings")]
+        [SerializeField] private float wallJumpForce = 15f;
+        [SerializeField] private float wallJumpHorizontalForce = 7f;
+        [SerializeField] private float wallJumpDuration = 0.18f;
+
+        private bool isWallJumping = false;
+        private float wallJumpEndTime = 0f;
 
         // --- Ground Roll (forward on ground) ---
         [SerializeField] private float groundRollSpeed = 9f;
@@ -108,6 +137,7 @@ namespace junklite
         public float DashDuration { get => dashDuration; set => dashDuration = value; }
         public bool SnapToZPosition { get => snapToZPosition; set => snapToZPosition = value; }
         public float FixedZPosition { get => fixedZPosition; set => fixedZPosition = value; }
+
         public bool IsFacingRight => facingMode == FacingMode.ScaleFlip
             ? transform.localScale.x > 0f
             : Mathf.Abs(transform.eulerAngles.y) < 90f;
@@ -153,7 +183,7 @@ namespace junklite
 
             // coyote timer
             if (isGrounded) coyoteTimer = coyoteTime;
-            else coyoteTimer = Mathf.Max(0f, coyoteTimer - Time.deltaTime);
+            
 
             // jump buffer timer naturally counts down
             if (jumpBufferTimer > 0f)
@@ -172,7 +202,7 @@ namespace junklite
             if (isRolling && Time.time >= rollEndTime)
                 EndRoll();
 
-            // If roaming on Z, clamp position in Update (visual) � physics stays in FixedUpdate
+            // If roaming on Z, clamp position in Update (visual) – physics stays in FixedUpdate
             if (!snapToZPosition && allowZMovement)
             {
                 Vector3 pos = transform.position;
@@ -183,6 +213,11 @@ namespace junklite
 
         private void FixedUpdate()
         {
+
+            if(!IsGrounded)
+                coyoteTimer -= Time.fixedDeltaTime;
+
+
             if (isRolling)
             {
                 ApplyRollVelocityFixed();
@@ -191,16 +226,27 @@ namespace junklite
             {
                 ApplyDashVelocityFixed();
             }
+            else if (isWallJumping)
+            {
+                ApplyWallJumpFixed();
+            }
             else
             {
                 ApplyMovementFixed();
+                HandleWallSlide();
                 ApplyGravityFixed();
             }
 
             ClampFallSpeedFixed();
         }
 
-        // ===== Public API =====
+        #region Public Methods
+
+        public void SetJumpHeld(bool held)
+        {
+            JumpHeldExternally = held;
+        }
+
 
         public void SetMovementInput(float horizontal, float vertical = 0f)
         {
@@ -211,18 +257,30 @@ namespace junklite
                 return;
             }
 
+            if (isWallJumping)
+            {
+                moveInput = Vector3.zero;
+                return;
+            }
+
             moveInput.x = horizontal;
             moveInput.z = (allowZMovement && !snapToZPosition) ? vertical : 0f;
             OnMovementChanged?.Invoke(moveInput);
         }
 
         /// <summary>
-        /// Queue a jump using buffer/coyote rules. Keeps external API the same.
+        /// Jump entry point. Decides between wall jump and normal jump.
         /// </summary>
         public void Jump()
         {
-            // Don�t jump immediately; buffer it and consume in FixedUpdate phase.
-            jumpBufferTimer = jumpBufferTime;
+            // Wall jump has priority if we’re sliding
+            if (isWallSliding)
+            {
+                StartWallJump();
+                return;
+            }
+
+            jumpBufferTimer = jumpBufferTime; // Normal jump uses buffer + coyote
         }
 
         public void Dash()
@@ -280,7 +338,7 @@ namespace junklite
 
                 if (groundRollIgnoreFriction)
                 {
-                    // keep current Y/Z; we�ll drive X directly
+                    // keep current Y/Z; we’ll drive X directly
                     rb.linearVelocity = new Vector3(rb.linearVelocity.x, rb.linearVelocity.y, rb.linearVelocity.z);
                 }
             }
@@ -318,34 +376,156 @@ namespace junklite
             }
         }
 
+        #endregion
+
+        #region Wall Slide & Wall Jump
+
+        private bool CheckWall()
+        {
+            if (wallCheckTransform == null) return false;
+            return Physics.CheckSphere(wallCheckTransform.position, wallCheckRadius, wallLayer);
+        }
+
+        private void HandleWallSlide()
+        {
+            // no wall slide if grounded or in wall jump
+            if (isGrounded || isWallJumping)
+            {
+                isWallSliding = false;
+                return;
+            }
+
+            // Must be touching a wall
+            bool touchingWall = CheckWall();
+            if (!touchingWall)
+            {
+                isWallSliding = false;
+                return;
+            }
+
+            // Determine which direction is the wall based on facing
+            wallDirection = IsFacingRight ? +1 : -1;
+
+            // Must be holding movement TOWARD the wall
+            bool holdingTowardWall =
+                Mathf.Abs(moveInput.x) > 0.1f &&
+                Mathf.Sign(moveInput.x) == wallDirection;
+
+            if (!holdingTowardWall)
+            {
+                isWallSliding = false;
+                return;
+            }
+
+            // Now we are sliding!
+            isWallSliding = true;
+
+            // Slow downward velocity (wallSlideSpeed is negative)
+            Vector3 v = rb.linearVelocity;
+            if (v.y < wallSlideSpeed)
+                v.y = -wallSlideSpeed;
+
+            rb.linearVelocity = v;
+        }
+
+        private void StartWallJump()
+        {
+            isWallSliding = false;
+            isWallJumping = true;
+            wallJumpEndTime = Time.time + wallJumpDuration;
+
+            // Jump away from the wall
+            int jumpDir = -wallDirection;
+
+            rb.linearVelocity = new Vector3(
+                wallJumpHorizontalForce * jumpDir,
+                wallJumpForce,
+                rb.linearVelocity.z
+            );
+
+            // Clear timers so a ground jump isn't consumed
+            coyoteTimer = 0f;
+            jumpBufferTimer = 0f;
+
+            // Face the jump direction
+            SetFacingDirection(jumpDir > 0);
+
+            Debug.Log("Wall Jump!");
+        }
+
+        private void ApplyWallJumpFixed()
+        {
+            // Let gravity act during wall jump
+            if (!isGrounded)
+            {
+                rb.AddForce(Physics.gravity * gravityMultiplier, ForceMode.Acceleration);
+            }
+
+            // After duration, hand control back to normal movement
+            if (Time.time >= wallJumpEndTime)
+                isWallJumping = false;
+        }
+
+        #endregion
+
         // ===== Fixed-step writers =====
 
         private void ApplyMovementFixed()
         {
-            // Consume buffered jump with coyote
+            // --- Wall Jump Movement Lock ---
+            // Do NOT allow normal movement to override the wall jump
+            if (isWallJumping)
+                return;
+
+            // --- Jump Buffer + Coyote Jump ---
             if (jumpBufferTimer > 0f && coyoteTimer > 0f && canMove && !isDashing && !isRolling)
             {
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpForce, rb.linearVelocity.z);
                 jumpBufferTimer = 0f;
-                coyoteTimer = 0f;
             }
 
             if (!canMove) return;
 
             Vector3 v = rb.linearVelocity;
-            v.x = moveInput.x * moveSpeed;
 
+            // --- ARC FIX: Preserve horizontal momentum in the air unless player inputs movement ---
+            if (!isGrounded)
+            {
+                if (Mathf.Abs(moveInput.x) < 0.1f)
+                {
+                    // Keep existing horizontal speed → smooth arc after wall jump
+                    v.x = rb.linearVelocity.x;
+                }
+                else
+                {
+                    // Player overrides momentum with input
+                    v.x = moveInput.x * moveSpeed;
+                }
+            }
+            else
+            {
+                // Normal grounded movement
+                v.x = moveInput.x * moveSpeed;
+            }
+
+            // Z-axis movement if enabled
             if (allowZMovement && !snapToZPosition)
                 v.z = moveInput.z * zMoveSpeed;
 
+            // Apply final velocity
             rb.linearVelocity = v;
 
+            // Facing direction
             if (faceMovementDirection && Mathf.Abs(moveInput.x) > 0.1f)
                 HandleFacingDirectionFixed(moveInput.x);
         }
 
+
         private void ApplyDashVelocityFixed()
         {
+            if (isWallJumping)
+                return;
+
             // t in [0..1]
             float t = 1f - Mathf.Clamp01((dashEndTime - Time.time) / dashDuration);
             float curve = dashCurve.Evaluate(t);
@@ -416,9 +596,40 @@ namespace junklite
         private void ApplyGravityFixed()
         {
             if (isGrounded) return;
-            // Skip gravity while rolling in air if you want; feels good to keep it on here
+            if (isRolling) return; // optional – keeps roll behaviour intact
+
+            float yVel = rb.linearVelocity.y;
+
+            // 1. Detect apex (when switching from upward to downward)
+            if (yVel > -0.1f && yVel < 0.1f)
+                apexBoostTimer = apexBoostDuration;
+
+            // 2. Apply apex boost (Hollow Knight style)
+            if (apexBoostTimer > 0f)
+            {
+                apexBoostTimer -= Time.fixedDeltaTime;
+                rb.AddForce(Physics.gravity * gravityMultiplier * fallGravityMultiplier * 1.2f, ForceMode.Acceleration);
+                return;
+            }
+
+            // 3. Variable jump height (jump released early)
+            if (yVel > 0f && !JumpHeldExternally)
+            {
+                rb.AddForce(Physics.gravity * gravityMultiplier * lowJumpMultiplier, ForceMode.Acceleration);
+                return;
+            }
+
+            // 4. Falling naturally → stronger gravity
+            if (yVel < 0f)
+            {
+                rb.AddForce(Physics.gravity * gravityMultiplier * fallGravityMultiplier, ForceMode.Acceleration);
+                return;
+            }
+
+            // 5. Normal upward gravity while holding jump
             rb.AddForce(Physics.gravity * gravityMultiplier, ForceMode.Acceleration);
         }
+
 
         private void HandleFacingDirectionFixed(float horizontalInput)
         {
@@ -443,6 +654,8 @@ namespace junklite
 
         private void ClampFallSpeedFixed()
         {
+            if (isWallSliding) return;
+
             if (rb.linearVelocity.y < maxFallSpeed)
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, maxFallSpeed, rb.linearVelocity.z);
         }
@@ -501,6 +714,13 @@ namespace junklite
                 Vector3 dashEnd = transform.position + dashDirection * dashForce * 0.1f;
                 Gizmos.DrawLine(transform.position, dashEnd);
                 Gizmos.DrawWireSphere(dashEnd, 0.2f);
+            }
+
+            // Wall check gizmo
+            if (wallCheckTransform != null)
+            {
+                Gizmos.color = Color.magenta;
+                Gizmos.DrawWireSphere(wallCheckTransform.position, wallCheckRadius);
             }
         }
     }
