@@ -5209,8 +5209,20 @@ MonoBehaviour:
   jumpForce: 12
   groundCheckDistance: 0.1
   groundCheckRadius: 0.08
+<<<<<<< HEAD
   coyoteTime: 0.1
   jumpBufferTime: 0.1
+=======
+  lowJumpMultiplier: 3
+  fallGravityMultiplier: 2.4
+  apexBoostDuration: 0.12
+  JumpHeldExternally: 1
+  maxAirJumps: 1
+  doubleJumpForce: 15
+  doubleJumpStallTime: 0.05
+  coyoteTime: 0.2
+  jumpBufferTime: 0.15
+>>>>>>> a45d831 (Double jump)
   dashForce: 40
   dashDuration: 0.2
   dashCooldown: 1

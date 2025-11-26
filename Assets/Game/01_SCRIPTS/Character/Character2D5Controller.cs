@@ -11,6 +11,25 @@ namespace junklite
         [SerializeField] private float groundCheckDistance = 0.1f;
         [SerializeField] private float groundCheckRadius = 0.08f;   // spherecast radius
 
+<<<<<<< HEAD
+=======
+        [Header("Jump Tuning")]
+        [SerializeField] private float lowJumpMultiplier = 2.5f;     // stronger gravity when jump released
+        [SerializeField] private float fallGravityMultiplier = 2.2f;  // stronger gravity when falling
+        [SerializeField] private float apexBoostDuration = 0.12f;      // tiny boost at peak
+
+        private float apexBoostTimer = 0f;
+        public bool JumpHeldExternally = true;
+
+        [Header("Double Jump Settings")]
+        [SerializeField] private int maxAirJumps = 1;
+        [SerializeField] private float doubleJumpForce = 9f; // smaller than normal jump
+        [SerializeField] private float doubleJumpStallTime = 0.05f;  // small delay before the upward launch
+        private int airJumpCount = 0;
+        private bool isDoubleJumpStalling = false;
+        private float doubleJumpStallEndTime = 0f;
+
+>>>>>>> a45d831 (Double jump)
         [Header("Premium Jump Feel")]
         [SerializeField] private float coyoteTime = 0.10f;          // after leaving ground
         [SerializeField] private float jumpBufferTime = 0.10f;      // before landing
@@ -153,7 +172,14 @@ namespace junklite
 
             // coyote timer
             if (isGrounded) coyoteTimer = coyoteTime;
+<<<<<<< HEAD
             else coyoteTimer = Mathf.Max(0f, coyoteTimer - Time.deltaTime);
+=======
+
+            if (isGrounded)
+                airJumpCount = 0;
+
+>>>>>>> a45d831 (Double jump)
 
             // jump buffer timer naturally counts down
             if (jumpBufferTimer > 0f)
@@ -183,6 +209,29 @@ namespace junklite
 
         private void FixedUpdate()
         {
+<<<<<<< HEAD
+=======
+
+            if(!IsGrounded)
+                coyoteTimer -= Time.fixedDeltaTime;
+
+            if (isDoubleJumpStalling)
+            {
+                // forbid gravity & movement change during stall
+                rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+
+                if (Time.time >= doubleJumpStallEndTime)
+                {
+                    // Stall over → apply upward launch
+                    isDoubleJumpStalling = false;
+                    rb.linearVelocity = new Vector3(rb.linearVelocity.x, doubleJumpForce, rb.linearVelocity.z);
+                }
+
+                // Skip rest of movement while stalling
+                return;
+            }
+
+>>>>>>> a45d831 (Double jump)
             if (isRolling)
             {
                 ApplyRollVelocityFixed();
@@ -322,12 +371,52 @@ namespace junklite
 
         private void ApplyMovementFixed()
         {
+<<<<<<< HEAD
             // Consume buffered jump with coyote
             if (jumpBufferTimer > 0f && coyoteTimer > 0f && canMove && !isDashing && !isRolling)
             {
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpForce, rb.linearVelocity.z);
                 jumpBufferTimer = 0f;
                 coyoteTimer = 0f;
+=======
+            // --- Wall Jump Movement Lock ---
+            // Do NOT allow normal movement to override the wall jump
+            if (isWallJumping)
+                return;
+
+            // --- Jump Buffer + Coyote Jump + Double Jump ---
+            if (jumpBufferTimer > 0f && canMove && !isDashing && !isRolling)
+            {
+                bool canGroundJump = coyoteTimer > 0f;
+                bool canAirJump = !canGroundJump && airJumpCount < maxAirJumps;
+
+                if (canGroundJump)
+                {
+                    // NORMAL JUMP (variable height)
+                    rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpForce, rb.linearVelocity.z);
+                    jumpBufferTimer = 0f;
+                }
+                else if (canAirJump)
+                {
+                    // Enter stall mode
+                    isDoubleJumpStalling = true;
+                    doubleJumpStallEndTime = Time.time + doubleJumpStallTime;
+
+                    // Zero out vertical speed to create stall
+                    rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+
+                    // Consume jump buffer and count
+                    airJumpCount++;
+                    jumpBufferTimer = 0f;
+
+                    // Disable variable jump for air jump
+                    JumpHeldExternally = true;
+
+                    // Stop any apex-boost weirdness
+                    apexBoostTimer = 0f;
+                }
+
+>>>>>>> a45d831 (Double jump)
             }
 
             if (!canMove) return;
