@@ -5213,6 +5213,9 @@ MonoBehaviour:
   fallGravityMultiplier: 2.4
   apexBoostDuration: 0.12
   JumpHeldExternally: 1
+  maxAirJumps: 1
+  doubleJumpForce: 15
+  doubleJumpStallTime: 0.05
   coyoteTime: 0.2
   jumpBufferTime: 0.15
   dashForce: 40
