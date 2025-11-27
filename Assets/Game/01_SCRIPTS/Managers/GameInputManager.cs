@@ -12,6 +12,7 @@ namespace junklite
 
         public event Action<Vector2> OnMove = delegate { };
         public event Action OnJump = delegate { };
+        public event Action OnJumpReleased = delegate { };
         public event Action OnAttack = delegate { };
         public event Action OnDash = delegate { };
         public event Action OnRoll = delegate { }; // <-- renamed from DownSlam
@@ -53,6 +54,7 @@ namespace junklite
 
             controls.Player.Jump.canceled += _ => {
                 IsJumpHeld = false;
+                OnJumpReleased();
             };
 
             // === ATTACK (tap/hold) ===

@@ -133,6 +133,15 @@ namespace junklite
         public System.Action OnSlamEnded;
         public System.Action OnRollStarted;
         public System.Action OnRollEnded;
+   
+        public System.Action<bool> OnWallSlideChanged;   // true = started, false = ended
+        public System.Action OnWallJumped;               // fired when wall jump begins
+        public System.Action OnDoubleJumpPerformed;      // fired when double jump is triggered
+        public System.Action OnJumpStarted;              // fired on ground jump
+        public System.Action OnFallStarted;              // airborne began
+        public System.Action OnFallEnded;                // landed after falling
+
+
 
         // Properties
         public bool IsGrounded => isGrounded;
@@ -200,7 +209,17 @@ namespace junklite
                 jumpBufferTimer = Mathf.Max(0f, jumpBufferTimer - Time.deltaTime);
 
             if (wasGrounded != isGrounded)
+            {
                 OnGroundedStateChanged?.Invoke(isGrounded);
+
+                // fall start (left the ground)
+                if (!isGrounded && wasGrounded)
+                    OnFallStarted?.Invoke();
+
+                // fall end (landed)
+                if (isGrounded && !wasGrounded)
+                    OnFallEnded?.Invoke();
+            }
 
             // --- Cooldowns / absolute end times ---
             if (dashCooldownTimer > 0f) dashCooldownTimer = Mathf.Max(0f, dashCooldownTimer - Time.deltaTime);
@@ -413,25 +432,28 @@ namespace junklite
 
         private void HandleWallSlide()
         {
-            // no wall slide if grounded or in wall jump
+            bool previous = isWallSliding;
+
             if (isGrounded || isWallJumping)
             {
                 isWallSliding = false;
+                if (previous != isWallSliding)
+                    OnWallSlideChanged?.Invoke(false);
                 return;
             }
 
-            // Must be touching a wall
             bool touchingWall = CheckWall();
             if (!touchingWall)
             {
                 isWallSliding = false;
+                if (previous != isWallSliding)
+                    OnWallSlideChanged?.Invoke(false);
                 return;
             }
 
-            // Determine which direction is the wall based on facing
+            // Determine wall direction
             wallDirection = IsFacingRight ? +1 : -1;
 
-            // Must be holding movement TOWARD the wall
             bool holdingTowardWall =
                 Mathf.Abs(moveInput.x) > 0.1f &&
                 Mathf.Sign(moveInput.x) == wallDirection;
@@ -439,19 +461,24 @@ namespace junklite
             if (!holdingTowardWall)
             {
                 isWallSliding = false;
+                if (previous != isWallSliding)
+                    OnWallSlideChanged?.Invoke(false);
                 return;
             }
 
-            // Now we are sliding!
+            // success → wall sliding
             isWallSliding = true;
 
-            // Slow downward velocity (wallSlideSpeed is negative)
+            // slow downward speed (already your logic)
             Vector3 v = rb.linearVelocity;
             if (v.y < wallSlideSpeed)
                 v.y = -wallSlideSpeed;
-
             rb.linearVelocity = v;
+
+            if (previous != isWallSliding)
+                OnWallSlideChanged?.Invoke(true);
         }
+
 
         private void StartWallJump()
         {
@@ -475,6 +502,7 @@ namespace junklite
             // Face the jump direction
             SetFacingDirection(jumpDir > 0);
 
+            OnWallJumped?.Invoke();
             Debug.Log("Wall Jump!");
         }
 
@@ -506,7 +534,7 @@ namespace junklite
             if (jumpBufferTimer > 0f && canMove && !isDashing && !isRolling)
             {
                 bool canGroundJump = coyoteTimer > 0f;
-                bool canAirJump = !canGroundJump && airJumpCount < maxAirJumps;
+                bool canAirJump = !canGroundJump && !isWallSliding && airJumpCount < maxAirJumps;
 
                 if (canGroundJump)
                 {
@@ -516,6 +544,8 @@ namespace junklite
                 }
                 else if (canAirJump)
                 {
+                    OnDoubleJumpPerformed?.Invoke();
+
                     // Enter stall mode
                     isDoubleJumpStalling = true;
                     doubleJumpStallEndTime = Time.time + doubleJumpStallTime;

@@ -2,40 +2,21 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using UnityEngine.Splines;
 
 namespace junklite
 {
     /// <summary>
     /// Pure runtime state & capability gatekeeper.
-    /// No motion/ability timing lives here.
+    /// Zero physics or timing logic lives here.
+    /// Extended to support Hollow Knight–style movement states.
     /// </summary>
     public class CharacterState : MonoBehaviour
     {
         [Header("Optional References")]
-        [Tooltip("Optional: If present, used only to read IsAlive and forward OnDeath.")]
         [SerializeField] private AttributeManager attributes;   // optional; safe to leave null
 
-        // ---- State flags (single source of truth for gates) ----
-        public bool IsGrounded { get; private set; } = true;
-        public bool IsMoving { get; private set; }
-        public bool IsDashing { get; private set; }
-        public bool IsAttacking { get; private set; }
-        public bool IsStunned { get; private set; }
-        public bool IsVulnerable { get; private set; } = true;
-        public bool IsRolling { get; private set; }
 
-        // ---- Events ----
-        public event Action OnDeath; // forwarded from attributes if available
-        public event Action<bool> OnGroundedChanged;
-        public event Action<bool> OnMovingChanged;
-        public event Action<bool> OnDashingChanged;
-        public event Action<bool> OnAttackingChanged;
-        public event Action<bool> OnStunnedChanged;
-        public event Action<bool> OnVulnerableChanged;
-        public event Action<bool> OnRollingChanged;
-
-        // ---- Capabilities (derived gates) ----
-        // Alive is read from attributes if available; otherwise assumed true (editor convenience).
         public bool IsAlive => attributes != null ? attributes.IsAlive : true;
 
         public bool CanMove => IsAlive && !IsStunned;
@@ -45,15 +26,51 @@ namespace junklite
         public bool CanTakeDamage => IsAlive && IsVulnerable;
         public bool CanRoll => IsAlive && !IsStunned && !IsRolling;
 
-        // ---- Internals (coroutines) ----
+
+        // ==== Core State Flags ====
+        public bool IsGrounded { get; private set; } = true;
+        public bool IsMoving { get; private set; }
+        public bool IsDashing { get; private set; }
+        public bool IsAttacking { get; private set; }
+        public bool IsStunned { get; private set; }
+        public bool IsVulnerable { get; private set; } = true;
+        public bool IsRolling { get; private set; }
+
+        // ==== New Movement States ====
+        public bool IsWallSliding { get; private set; }
+        public bool IsWallJumping { get; private set; }
+        public bool IsDoubleJumping { get; private set; }
+
+        
+        public bool IsJumping { get; private set; }   // ANY upward launch
+        public bool IsFalling { get; private set; }   // ANY downward movement
+
+        // Derived (not stored, auto-calculated)
+        public bool IsAirborne => !IsGrounded;
+
+        // ==== Events ====
+        public event Action OnDeath;
+        public event Action<bool> OnGroundedChanged;
+        public event Action<bool> OnMovingChanged;
+        public event Action<bool> OnDashingChanged;
+        public event Action<bool> OnAttackingChanged;
+        public event Action<bool> OnStunnedChanged;
+        public event Action<bool> OnVulnerableChanged;
+        public event Action<bool> OnRollingChanged;
+
+        // New movement state events
+        public event Action<bool> OnWallSlideChanged;
+        public event Action<bool> OnWallJumpChanged;
+        public event Action<bool> OnDoubleJumpChanged;
+        public event Action<bool> OnJumpStateChanged;
+        public event Action<bool> OnFallStateChanged;
+
+        // Timed internals
         Coroutine _stunCo, _iFrameCo;
 
-        [SerializeField] private bool hasDrone; // backing field for HasDrone property
-        /// <summary>
-        /// Indicates if the character has unlocked the drone.
-        /// Setting this property triggers OnHasDroneChanged event if the value changes.
-        /// </summary>
-        public bool HasDrone //Rasheed code
+        // Drone feature (existing)
+        [SerializeField] private bool hasDrone;
+        public bool HasDrone
         {
             get => hasDrone;
             set
@@ -61,13 +78,10 @@ namespace junklite
                 if (hasDrone != value)
                 {
                     hasDrone = value;
-                    OnHasDroneChanged?.Invoke(hasDrone); // Notify listeners (e.g., SpawnDrone) of change
+                    OnHasDroneChanged?.Invoke(hasDrone);
                 }
             }
         }
-        /// <summary>
-        /// Event invoked whenever HasDrone changes. Used by SpawnDrone to spawn the drone when unlocked.
-        /// </summary>
         public event Action<bool> OnHasDroneChanged;
 
         private void Awake()
@@ -86,22 +100,29 @@ namespace junklite
             if (attributes != null)
                 attributes.OnDeath -= HandleDeathForward;
 
-            // stop timers to avoid lingering flags after disable/destroy
             if (_stunCo != null) StopCoroutine(_stunCo);
             if (_iFrameCo != null) StopCoroutine(_iFrameCo);
         }
 
         private void HandleDeathForward() => OnDeath?.Invoke();
 
+        // ===== Reset for Respawn =====
         public void ResetForRespawn()
         {
             ClearTransient();
             SetGrounded(false);
             SetMoving(false);
             SetVulnerable(true);
+
+            // movement flags
+            SetWallSliding(false);
+            SetWallJumping(false);
+            SetDoubleJumping(false);
+            SetJumping(false);
+            SetFalling(false);
         }
 
-        /// <summary>Clears momentary action flags (dash/attack/roll/stun).</summary>
+        // ===== Clear momentary action flags =====
         public void ClearTransient()
         {
             if (_stunCo != null) { StopCoroutine(_stunCo); _stunCo = null; }
@@ -110,15 +131,33 @@ namespace junklite
             SetDashing(false);
             SetAttacking(false);
             SetRolling(false);
-            SetStunned(false);
+
+            // movement transient
+            SetWallJumping(false);
+            SetDoubleJumping(false);
+            SetJumping(false);
+            SetFalling(false);
         }
 
-        #region State Setters (single-writer, event-synced)
+        // ===========================================================================
+        //  STATE SETTERS (only allow state updates from PlayerCharacter / Controller)
+        // ===========================================================================
+
         public void SetGrounded(bool grounded)
         {
             if (IsGrounded == grounded) return;
             IsGrounded = grounded;
             OnGroundedChanged?.Invoke(grounded);
+
+            // auto update airborne-based states
+            if (grounded)
+            {
+                SetJumping(false);
+                SetFalling(false);
+                SetWallSliding(false);
+                SetWallJumping(false);
+                SetDoubleJumping(false);
+            }
         }
 
         public void SetMoving(bool moving)
@@ -156,17 +195,54 @@ namespace junklite
             OnVulnerableChanged?.Invoke(vulnerable);
         }
 
-        public void SetCanTakeDamage(bool canTake) => SetVulnerable(canTake);
-
         public void SetRolling(bool rolling)
         {
             if (IsRolling == rolling) return;
             IsRolling = rolling;
             OnRollingChanged?.Invoke(rolling);
         }
-        #endregion
 
-        #region Timed Utilities (coroutine-based)
+        // ===== NEW movement states =====
+
+        public void SetWallSliding(bool sliding)
+        {
+            if (IsWallSliding == sliding) return;
+            IsWallSliding = sliding;
+            OnWallSlideChanged?.Invoke(sliding);
+        }
+
+        public void SetWallJumping(bool jumping)
+        {
+            if (IsWallJumping == jumping) return;
+            IsWallJumping = jumping;
+            OnWallJumpChanged?.Invoke(jumping);
+        }
+
+        public void SetDoubleJumping(bool jumping)
+        {
+            if (IsDoubleJumping == jumping) return;
+            IsDoubleJumping = jumping;
+            OnDoubleJumpChanged?.Invoke(jumping);
+        }
+
+        public void SetJumping(bool jumping)
+        {
+            if (IsJumping == jumping) return;
+            IsJumping = jumping;
+            OnJumpStateChanged?.Invoke(jumping);
+        }
+
+        public void SetFalling(bool falling)
+        {
+            if (IsFalling == falling) return;
+            IsFalling = falling;
+            OnFallStateChanged?.Invoke(falling);
+        }
+
+        // ===========================================================================
+        //  TIMED UTILS
+        // ===========================================================================
+
         public void ApplyStun(float duration)
         {
             if (duration <= 0f) { SetStunned(false); return; }
@@ -203,23 +279,29 @@ namespace junklite
             SetVulnerable(true);
             _iFrameCo = null;
         }
-        #endregion
 
-        // ---- Debug helpers ----
+        // ===========================================================================
+        //  DEBUG
+        // ===========================================================================
+
         public string GetStatusSummary()
         {
-            var states = new List<string>();
-            states.Add(IsAlive ? "ALIVE" : "DEAD");
-            if (IsGrounded) states.Add("Grounded");
-            if (IsMoving) states.Add("Moving");
-            if (IsDashing) states.Add("Dashing");
-            if (IsAttacking) states.Add("Attacking");
-            if (IsStunned) states.Add("Stunned");
-            if (IsRolling) states.Add("Rolling");
-            return string.Join(", ", states);
+            var list = new List<string>();
+            list.Add(IsAlive ? "ALIVE" : "DEAD");
+            if (IsGrounded) list.Add("Grounded");
+            if (IsMoving) list.Add("Moving");
+            if (IsJumping) list.Add("Jumping");
+            if (IsFalling) list.Add("Falling");
+            if (IsWallSliding) list.Add("WallSliding");
+            if (IsWallJumping) list.Add("WallJumping");
+            if (IsDoubleJumping) list.Add("DoubleJumping");
+            if (IsDashing) list.Add("Dashing");
+            if (IsAttacking) list.Add("Attacking");
+            if (IsRolling) list.Add("Rolling");
+            if (IsStunned) list.Add("Stunned");
+            return string.Join(", ", list);
         }
 
-        #region Debug GUI
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = false;
 
@@ -227,15 +309,11 @@ namespace junklite
         {
             if (!showDebugInfo) return;
 
-            GUILayout.BeginArea(new Rect(10, 10, 320, 160));
+            GUILayout.BeginArea(new Rect(10, 10, 320, 200));
             GUILayout.Label($"=== {gameObject.name} (State) ===");
             GUILayout.Label($"States: {GetStatusSummary()}");
-            GUILayout.Space(6);
-            GUILayout.Label("Capabilities:");
-            GUILayout.Label($"Move: {CanMove}, Jump: {CanJump}");
-            GUILayout.Label($"Attack: {CanAttack}, Dash: {CanDash}, Roll: {CanRoll}");
+            GUILayout.Label($"Airborne: {IsAirborne}");
             GUILayout.EndArea();
         }
-        #endregion
     }
 }
