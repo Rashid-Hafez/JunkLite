@@ -26,10 +26,6 @@ namespace junklite
         [SerializeField] private float reviveInvulnerability = 1.25f;
         [SerializeField] private bool disableCollidersOnDeactivate = true;
 
-
-        public bool JumpHeld => inputManager != null && inputManager.IsJumpHeld;
-
-
         // Movement input (axis)
         float horizontalAxis = 0f;
 
@@ -184,12 +180,8 @@ namespace junklite
             {
                 // Character2D5Controller expects normalized axis (-1..1)
                 Controller.SetMovementInput(horizontalAxis);
-
-                // send jump held state to the controller (we’ll implement this next)
-                Controller.SetJumpHeld(JumpHeld);
             }
         }
-
 
         void HandleInput()
         {

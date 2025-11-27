@@ -39,7 +39,7 @@ namespace junklite
         public bool IsAlive => attributes != null ? attributes.IsAlive : true;
 
         public bool CanMove => IsAlive && !IsStunned;
-        public bool CanJump => IsAlive && !IsStunned;
+        public bool CanJump => IsAlive && IsGrounded && !IsStunned;
         public bool CanDash => IsAlive && !IsDashing && !IsStunned;
         public bool CanAttack => IsAlive && !IsAttacking && !IsStunned;
         public bool CanTakeDamage => IsAlive && IsVulnerable;
