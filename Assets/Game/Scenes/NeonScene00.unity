@@ -94789,6 +94789,37 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4096918690992378, guid: 76ca9382e22e4ba4c98ce0cd4f2c0dfe, type: 3}
   m_PrefabInstance: {fileID: 859151065}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &859229948
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 859229949}
+  m_Layer: 0
+  m_Name: ----------MODS-----------
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &859229949
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 859229948}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -2.77567, y: 19.95774, z: 68.52094}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &860675933
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -131567,6 +131598,52 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4450190234265066, guid: 8639e7892864e7542bdd751cb5d390bc, type: 3}
   m_PrefabInstance: {fileID: 1144037668}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1144613457
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1144613458}
+  - component: {fileID: 1144613459}
+  m_Layer: 0
+  m_Name: Weapon Tests
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1144613458
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1144613457}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -2.77567, y: 19.95774, z: 68.52094}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1144613459
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1144613457}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ed3d10e3bd05441ba2b645d32106171, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponInstance_Tests
+  weaponData: {fileID: 11400000, guid: c1386f12b3d83467e8d8b3a9530eeb81, type: 2}
+  pogoModData: {fileID: 11400000, guid: c6802931fa9ae4e60b0eea4d25b1eee4, type: 2}
 --- !u!1001 &1147001442
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -252203,6 +252280,63 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 0900888a628534fc59261e4b6581b93e, type: 3}
+--- !u!1001 &4646087865101412691
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2731638010735790675, guid: 635f610fbb97f4b808cd99063585e2e8, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -2.77567
+      objectReference: {fileID: 0}
+    - target: {fileID: 2731638010735790675, guid: 635f610fbb97f4b808cd99063585e2e8, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 19.95774
+      objectReference: {fileID: 0}
+    - target: {fileID: 2731638010735790675, guid: 635f610fbb97f4b808cd99063585e2e8, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 68.52094
+      objectReference: {fileID: 0}
+    - target: {fileID: 2731638010735790675, guid: 635f610fbb97f4b808cd99063585e2e8, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2731638010735790675, guid: 635f610fbb97f4b808cd99063585e2e8, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2731638010735790675, guid: 635f610fbb97f4b808cd99063585e2e8, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2731638010735790675, guid: 635f610fbb97f4b808cd99063585e2e8, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2731638010735790675, guid: 635f610fbb97f4b808cd99063585e2e8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2731638010735790675, guid: 635f610fbb97f4b808cd99063585e2e8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2731638010735790675, guid: 635f610fbb97f4b808cd99063585e2e8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5431729946957532368, guid: 635f610fbb97f4b808cd99063585e2e8, type: 3}
+      propertyPath: m_Name
+      value: PogoModEffect
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 635f610fbb97f4b808cd99063585e2e8, type: 3}
 --- !u!1001 &4704791892402856566
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -252569,3 +252703,6 @@ SceneRoots:
   - {fileID: 4351167099057185219}
   - {fileID: 4704791892402856566}
   - {fileID: 1652609972}
+  - {fileID: 859229949}
+  - {fileID: 4646087865101412691}
+  - {fileID: 1144613458}

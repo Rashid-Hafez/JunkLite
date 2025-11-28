@@ -1,13 +1,15 @@
 using System.Collections.Generic;
+using System.ComponentModel;
 using junklite;
+using NUnit.Framework;
 using UnityEngine;
 
 [System.Serializable]
 public class WeaponInstance : MonoBehaviour
 {
-    [SerializeField]
-    
-    public WeaponType weaponType;
+
+    private WeaponType weaponType;
+
     [SerializeField]
     private WeaponData weaponData; // NEW: holds base damage
 
@@ -16,7 +18,12 @@ public class WeaponInstance : MonoBehaviour
     private float baseDamage;
     private float attackSpeed;
     private int maxDurability;
-    public int _currentDurability;
+
+    // Public accessor for weaponData
+    public WeaponData WeaponData { get => weaponData; set => weaponData = value; }
+
+    [SerializeField]
+    private int _currentDurability;
     public int currentDurability
     {
         get { return _currentDurability; }
@@ -49,7 +56,7 @@ public class WeaponInstance : MonoBehaviour
     private List<Mod_Data> mods;
 
     [SerializeField] [Header("Collider")]
-    protected Collider weaponCollider;
+    public Collider weaponCollider;
 
     public event System.Action OnHit;
     public event System.Action OnBlock;
@@ -78,7 +85,29 @@ public class WeaponInstance : MonoBehaviour
         weaponDurability = weaponData.maxWeaponDurability;
         mods = new List<Mod_Data>(weaponData.modSlots);
         weaponType = weaponData.type;
-        weaponCollider.enabled = false; // Start disabled
+
+        if (GetComponent<Collider>() == null)
+        {
+            WarningException warning = new WarningException("No Collider found on WeaponInstance: " + gameObject.name);
+            weaponCollider = gameObject.AddComponent<BoxCollider>();
+            weaponCollider.enabled = false; // Start disabled
+        }
+         else if (weaponCollider == null)
+        {
+            weaponCollider = GetComponent<Collider>();
+            weaponCollider.enabled = false; // Start disabled
+        }
+
+        if (weaponData == null)
+        {
+            Assert.IsNotNull(weaponData, "WeaponData is not assigned on WeaponInstance: " + gameObject.name);
+            Debug.LogError("WeaponData is not assigned on WeaponInstance: " + gameObject.name);
+            throw new WarningException("WeaponData is not assigned on WeaponInstance: " + gameObject.name);
+        }
+
+        attackSpeed = weaponData.baseAttackSpeed;
+        baseDamage = weaponData.baseDamage;
+        maxDurability = weaponData.maxWeaponDurability;
         rarity = weaponData.rarity;
     }
 
@@ -92,7 +121,7 @@ public class WeaponInstance : MonoBehaviour
     public void AddMod(Mod_Data modData)
     {
         // Instantiate the mod effect prefab (the logic lives here)
-        ModEffectBase effect = Instantiate(modData.modEffectPrefab, transform);
+        ModEffectBase effect = Instantiate(modData.modEffectPrefab, transform); // THIS IS WHERE WE CREATE THE MOD EFFECT PREFAB AND LINK HAVE OUR LOGIC RUN. THIS IS SO IMPORTANT ITS THE MOST IMPORTANT LINE IN THE ENTIRE CODEBASE!!!!
         
         // Initialize it with weapon reference and the mod data blueprint
         effect.Initialize(this, modData);
@@ -166,8 +195,6 @@ public class WeaponInstance : MonoBehaviour
             Hit();
         }
     }
-
-    public Collider WeaponCollider => weaponCollider;
 
     ///////////////////////////////////////////////////////////////////////////////
     //  Event Invokers
