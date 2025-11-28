@@ -11,12 +11,15 @@ public class WeaponData : ScriptableObject
         Epic,
         Legendary
     }
+
     [Header("Core")]
     public Rarity rarity;
     public string weaponId;
     public string displayName;
     public WeaponType type;
 
+    public int modSlots;
+    
     [Header("Base Stats")]
     public float baseAttackSpeed = 1f;
     public int maxWeaponDurability = 100;

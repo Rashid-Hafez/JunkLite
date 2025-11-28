@@ -35,6 +35,7 @@ public class Mod_Data : ScriptableObject
     public float durabilityCostPerHit = 1f;   // how fast THIS mod burns
     public float maxModDurability = 20f;      // per-instance cap
     public float DPS = 0f;
+    public float EffectSpecificStrength = 5f;
 
     [Header("FX")]
     public Sprite icon;
