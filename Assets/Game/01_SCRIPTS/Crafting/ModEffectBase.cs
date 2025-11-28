@@ -10,8 +10,17 @@ public abstract class ModEffectBase : MonoBehaviour
     {
         this.weapon = weapon;
         this.runtime = runtime;
+
         BindEvents();
     }
 
-    protected virtual void BindEvents() { }
+    protected abstract void BindEvents();
+
+    protected void Consume(float amount)
+    {
+        runtime.ConsumeDurability(amount);
+
+        if (runtime.IsBroken)
+            weapon.RemoveMod(this);
+    }
 }

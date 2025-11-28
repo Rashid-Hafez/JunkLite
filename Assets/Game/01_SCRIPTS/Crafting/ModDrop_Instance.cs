@@ -4,6 +4,7 @@ public class ModDrop_Instance : MonoBehaviour
 {
     public Mod_Data modData;
     public float CurrentDurability;
+    public bool IsBroken => CurrentDurability <= 0;
 
 
     void Start()
@@ -28,8 +29,4 @@ public class ModDrop_Instance : MonoBehaviour
         CurrentDurability = Mathf.Max(0, CurrentDurability - amount);
     }
 
-    public bool IsBroken()
-    {
-        return CurrentDurability <= 0;
-    }
 }
