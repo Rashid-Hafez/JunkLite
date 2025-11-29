@@ -156,6 +156,17 @@ public class WeaponInstance : MonoBehaviour
     // Expose active effects for UI and debugging
     public List<ModEffectBase> GetActiveEffects() => activeEffects;
 
+    // NEW: Get equipped mods as Mod_Data (for inventory access)
+    public List<Mod_Data> GetEquippedMods()
+    {
+        List<Mod_Data> equippedModData = new List<Mod_Data>();
+        foreach (ModEffectBase effect in activeEffects)
+        {
+            equippedModData.Add(effect.modData);
+        }
+        return equippedModData;
+    }
+
     // NEW: Enable collider during swing animation
     public void EnableWeaponCollider()
     {
