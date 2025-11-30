@@ -7063,6 +7063,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 384708574794753801, guid: c86270615e235f84a984da1b654629f6, type: 3}
+      propertyPath: wallJumpForce
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 384708574794753801, guid: c86270615e235f84a984da1b654629f6, type: 3}
+      propertyPath: wallJumpHorizontalForce
+      value: 5
+      objectReference: {fileID: 0}
     - target: {fileID: 1262748468359835149, guid: c86270615e235f84a984da1b654629f6, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -7125,7 +7133,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5850090766314225882, guid: c86270615e235f84a984da1b654629f6, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9189637083321113361, guid: c86270615e235f84a984da1b654629f6, type: 3}
       propertyPath: m_LocalRotation.w

@@ -196,6 +196,9 @@ namespace junklite
             // --- Cooldowns / absolute end times ---
             if (dashCooldownTimer > 0f) dashCooldownTimer = Mathf.Max(0f, dashCooldownTimer - Time.deltaTime);
 
+            if (isDashing && Time.time >= dashEndTime)
+                EndDash();
+
             // If roaming on Z, clamp position in Update (visual) – physics stays in FixedUpdate
             if (!snapToZPosition && allowZMovement)
             {
@@ -427,7 +430,6 @@ namespace junklite
             SetFacingDirection(jumpDir > 0);
 
             OnWallJumped?.Invoke();
-            Debug.Log("Wall Jump!");
         }
 
         private void ApplyWallJumpFixed()
