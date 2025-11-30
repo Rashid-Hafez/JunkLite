@@ -53,7 +53,7 @@ public class WeaponInstance : MonoBehaviour
     }
 
     [SerializeField]
-    private List<Mod_Data> mods;
+    private List<Mod_Data> mods; // List of equipped mods
 
     [SerializeField] [Header("Collider")]
     public Collider weaponCollider;
@@ -69,7 +69,7 @@ public class WeaponInstance : MonoBehaviour
     public event System.Action OnWeaponUnequipped;
     public event System.Action OnWeaponDropped;
     public event System.Action OnWeaponUpgraded;
-    public event System.Action OnParry;
+    public event System.Action OnParry; // Parry event // come back later, should maybe be called from enemy system
     public event System.Action OnDurabilityIncreased;
     public event System.Action OnDurabilityDecreased;
 
@@ -167,7 +167,7 @@ public class WeaponInstance : MonoBehaviour
         return equippedModData;
     }
 
-    // NEW: Enable collider during swing animation
+    // NEW: Enable collider during swing animation called from anim notify
     public void EnableWeaponCollider()
     {
         weaponCollider.enabled = true;
@@ -195,9 +195,10 @@ public class WeaponInstance : MonoBehaviour
             
             // Apply damage
             float damage = CalculateTotalDamage();
+
             Mod_Data.ModElement damageType = GetDominantElement();
             //enemy.TakeDamage(damage, damageType);
-            enemy.  TakeDamage(new DamageInfo
+            enemy.TakeDamage(new DamageInfo
             {
                 Amount = damage,
                 Type = (DamageType)damageType // Assuming DamageType enum matches ModElement
@@ -216,6 +217,7 @@ public class WeaponInstance : MonoBehaviour
     /// </summary>
     public void Hit()
     {
+        /// deduct durability from weapon and mods here if needed
         OnHit?.Invoke();
     }
 

@@ -19,6 +19,7 @@ public class PogoModEffect : ModEffectBase
         weapon.GetComponent<Rigidbody>().AddForce(Vector3.up * modData.EffectSpecificStrength, ForceMode.Impulse);
 
         Debug.Log("PogoModEffect triggered: Applied upward force to weapon.");
+
         // #rashwashere: Consider adding sound or visual effects to enhance feedback
     }
 
