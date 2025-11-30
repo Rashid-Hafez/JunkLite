@@ -191,7 +191,6 @@ namespace junklite
                 inputManager.OnJumpReleased += OnJumpReleased;
                 inputManager.OnAttack += HandleAttackInput;
                 inputManager.OnDash += OnDashPressed;
-                inputManager.OnRoll += OnRollPressed;
             }
 
             if (Controller != null)
@@ -201,9 +200,7 @@ namespace junklite
                 Controller.OnMovementChanged += HandleMovementFromController;
                 Controller.OnDashStarted += HandleDashStarted;
                 Controller.OnDashEnded += HandleDashEnded;
-                Controller.OnRollStarted += HandleRollStarted;
-                Controller.OnRollEnded += HandleRollEnded;
-
+              
                 // === NEW MOVEMENT STATES ===
                 Controller.OnWallSlideChanged += HandleWallSlideChanged;
                 Controller.OnWallJumped += HandleWallJumped;
@@ -222,7 +219,6 @@ namespace junklite
                 inputManager.OnJumpReleased -= OnJumpReleased;
                 inputManager.OnAttack -= HandleAttackInput;
                 inputManager.OnDash -= OnDashPressed;
-                inputManager.OnRoll -= OnRollPressed;
             }
 
             if (Controller != null)
@@ -231,8 +227,6 @@ namespace junklite
                 Controller.OnMovementChanged -= HandleMovementFromController;
                 Controller.OnDashStarted -= HandleDashStarted;
                 Controller.OnDashEnded -= HandleDashEnded;
-                Controller.OnRollStarted -= HandleRollStarted;
-                Controller.OnRollEnded -= HandleRollEnded;
 
                 // New movement unsubscriptions
                 Controller.OnWallSlideChanged -= HandleWallSlideChanged;
@@ -339,11 +333,6 @@ namespace junklite
                 Controller.Dash();
         }
 
-        void OnRollPressed()
-        {
-            if (Controller != null && State != null && State.CanRoll && Controller.CanMove)
-                Controller.TryStartRoll();
-        }
 
         void OnJumpReleased()
         {

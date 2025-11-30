@@ -40,9 +40,7 @@ namespace junklite
         [SerializeField] private bool dashResetsGravity = true;
         [SerializeField] private AnimationCurve dashCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
 
-        [Header("Roll Settings")]
-        [SerializeField] private float rollCooldown = 0.6f;
-        [SerializeField] private bool rollCancelsDash = true;
+       
 
         // --- Wall Slide ---
         [Header("Wall Slide Settings")]
@@ -62,21 +60,6 @@ namespace junklite
 
         private bool isWallJumping = false;
         private float wallJumpEndTime = 0f;
-
-        // --- Ground Roll (forward on ground) ---
-        [SerializeField] private float groundRollSpeed = 9f;
-        [SerializeField] private float groundRollDuration = 0.35f;
-        [SerializeField] private AnimationCurve groundRollCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
-        [SerializeField] private bool groundRollIgnoreFriction = true;
-
-        // --- Air Roll / Roll-Down ---
-        [Header("Air Roll (Roll-Down)")]
-        [SerializeField] private float airRollForce = 18f;
-        [SerializeField] private float airRollDuration = 0.35f;
-        [SerializeField] private float airRollAngleDegrees = 55f;
-        [SerializeField] private bool airRollResetsGravity = true;
-        [SerializeField] private float airRollMaxDownSpeed = -40f;
-        [SerializeField] private AnimationCurve airRollCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
 
         [Header("2.5D Settings")]
         [SerializeField] private bool snapToZPosition = true;
@@ -117,12 +100,6 @@ namespace junklite
         private float dashCooldownTimer = 0f;
         private Vector3 dashDirection;
 
-        // Roll state
-        private bool isRolling = false;
-        private bool rollIsAir = false;
-        private float rollEndTime = 0f;
-        private float rollCooldownTimer = 0f;
-        private Vector3 rollDirection;
 
         // Events
         public System.Action<bool> OnGroundedStateChanged;
@@ -131,9 +108,7 @@ namespace junklite
         public System.Action OnDashEnded;
         public System.Action OnSlamStarted;
         public System.Action OnSlamEnded;
-        public System.Action OnRollStarted;
-        public System.Action OnRollEnded;
-   
+  
         public System.Action<bool> OnWallSlideChanged;   // true = started, false = ended
         public System.Action OnWallJumped;               // fired when wall jump begins
         public System.Action OnDoubleJumpPerformed;      // fired when double jump is triggered
@@ -159,10 +134,7 @@ namespace junklite
             : Mathf.Abs(transform.eulerAngles.y) < 90f;
 
         public bool IsDashing => isDashing;
-        public bool IsRolling => isRolling;
-        public bool IsAirRolling => isRolling && rollIsAir;
         public bool CanDash => dashCooldownTimer <= 0f && (isGrounded || canDashInAir) && canMove;
-        public bool CanRoll => rollCooldownTimer <= 0f && canMove && !isRolling;
 
         private void Awake()
         {
@@ -223,13 +195,6 @@ namespace junklite
 
             // --- Cooldowns / absolute end times ---
             if (dashCooldownTimer > 0f) dashCooldownTimer = Mathf.Max(0f, dashCooldownTimer - Time.deltaTime);
-            if (rollCooldownTimer > 0f) rollCooldownTimer = Mathf.Max(0f, rollCooldownTimer - Time.deltaTime);
-
-            if (isDashing && Time.time >= dashEndTime)
-                EndDash();
-
-            if (isRolling && Time.time >= rollEndTime)
-                EndRoll();
 
             // If roaming on Z, clamp position in Update (visual) – physics stays in FixedUpdate
             if (!snapToZPosition && allowZMovement)
@@ -262,11 +227,7 @@ namespace junklite
                 return;
             }
 
-            if (isRolling)
-            {
-                ApplyRollVelocityFixed();
-            }
-            else if (isDashing)
+            if (isDashing)
             {
                 ApplyDashVelocityFixed();
             }
@@ -351,43 +312,6 @@ namespace junklite
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
 
             OnDashStarted?.Invoke();
-        }
-
-        public void TryStartRoll()
-        {
-            if (!CanRoll) return;
-
-            if (rollCancelsDash && isDashing)
-                EndDash();
-
-            rollIsAir = !isGrounded && Mathf.Abs(rb.linearVelocity.y) > 0.05f;
-            isRolling = true;
-            rollEndTime = Time.time + (rollIsAir ? airRollDuration : groundRollDuration);
-            rollCooldownTimer = rollCooldown;
-
-            if (rollIsAir)
-            {
-                float xSign = IsFacingRight ? 1f : -1f;
-                float rad = airRollAngleDegrees * Mathf.Deg2Rad;
-                rollDirection = new Vector3(Mathf.Cos(rad) * xSign, -Mathf.Sin(rad), 0f).normalized;
-
-                if (airRollResetsGravity)
-                    rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-
-                OnSlamStarted?.Invoke();
-            }
-            else
-            {
-                rollDirection = (IsFacingRight ? Vector3.right : Vector3.left);
-
-                if (groundRollIgnoreFriction)
-                {
-                    // keep current Y/Z; we’ll drive X directly
-                    rb.linearVelocity = new Vector3(rb.linearVelocity.x, rb.linearVelocity.y, rb.linearVelocity.z);
-                }
-            }
-
-            OnRollStarted?.Invoke();
         }
 
         public void AddForce(Vector3 force, ForceMode mode = ForceMode.Impulse)
@@ -531,7 +455,7 @@ namespace junklite
                 return;
 
             // --- Jump Buffer + Coyote Jump + Double Jump ---
-            if (jumpBufferTimer > 0f && canMove && !isDashing && !isRolling)
+            if (jumpBufferTimer > 0f && canMove && !isDashing)
             {
                 bool canGroundJump = coyoteTimer > 0f;
                 bool canAirJump = !canGroundJump && !isWallSliding && airJumpCount < maxAirJumps;
@@ -575,18 +499,17 @@ namespace junklite
             {
                 if (Mathf.Abs(moveInput.x) < 0.1f)
                 {
-                    // Keep existing horizontal speed → smooth arc after wall jump
-                    v.x = rb.linearVelocity.x;
+                    // Strong air drag to force straight-down fall
+                    v.x = Mathf.Lerp(v.x, 0f, 0.35f);
                 }
                 else
                 {
-                    // Player overrides momentum with input
+                    // Normal air control
                     v.x = moveInput.x * moveSpeed;
                 }
             }
             else
             {
-                // Normal grounded movement
                 v.x = moveInput.x * moveSpeed;
             }
 
@@ -622,37 +545,7 @@ namespace junklite
                 HandleFacingDirectionFixed(dashDirection.x);
         }
 
-        private void ApplyRollVelocityFixed()
-        {
-            float total = rollIsAir ? airRollDuration : groundRollDuration;
-            float t = 1f - Mathf.Clamp01((rollEndTime - Time.time) / total);
 
-            if (rollIsAir)
-            {
-                float curve = airRollCurve.Evaluate(t);
-                Vector3 v = rollDirection * airRollForce * curve;
-                rb.linearVelocity = new Vector3(v.x, v.y, rb.linearVelocity.z);
-
-                if (rb.linearVelocity.y < airRollMaxDownSpeed)
-                    rb.linearVelocity = new Vector3(rb.linearVelocity.x, airRollMaxDownSpeed, rb.linearVelocity.z);
-
-                if (faceMovementDirection && Mathf.Abs(rollDirection.x) > 0.1f)
-                    SetFacingDirection(rollDirection.x > 0f);
-
-                // hard-stop on land
-                if (isGrounded)
-                    EndRoll();
-            }
-            else
-            {
-                float curve = groundRollCurve.Evaluate(t);
-                float xVel = rollDirection.x * groundRollSpeed * curve;
-                rb.linearVelocity = new Vector3(xVel, rb.linearVelocity.y, rb.linearVelocity.z);
-
-                if (faceMovementDirection && Mathf.Abs(rollDirection.x) > 0.1f)
-                    SetFacingDirection(rollDirection.x > 0f);
-            }
-        }
 
         private void EndDash()
         {
@@ -661,32 +554,28 @@ namespace junklite
             OnDashEnded?.Invoke();
         }
 
-        private void EndRoll()
-        {
-            if (!isRolling) return;
-            isRolling = false;
-
-            if (rollIsAir) OnSlamEnded?.Invoke();
-            else
-            {
-                // tiny carry to keep flow
-                rb.linearVelocity = new Vector3(rb.linearVelocity.x * 0.8f, rb.linearVelocity.y, rb.linearVelocity.z);
-            }
-            OnRollEnded?.Invoke();
-        }
 
         private void ApplyGravityFixed()
         {
             if (isGrounded) return;
-            if (isRolling) return; // optional – keeps roll behaviour intact
-
+           
             float yVel = rb.linearVelocity.y;
 
-            // 1. Detect apex (when switching from upward to downward)
+            // --- CELSTE / HOLLOW KNIGHT HARD JUMP CUT ---
+            if (yVel > 0f && !JumpHeldExternally)
+            {
+                rb.linearVelocity = new Vector3(rb.linearVelocity.x, yVel * 0.45f, rb.linearVelocity.z);
+            }
+
+            // Cancel apex boost when jump is released
+            if (!JumpHeldExternally)
+                apexBoostTimer = 0f;
+
+            // Apex detection
             if (yVel > -0.1f && yVel < 0.1f)
                 apexBoostTimer = apexBoostDuration;
 
-            // 2. Apply apex boost (Hollow Knight style)
+            // Apex boost
             if (apexBoostTimer > 0f)
             {
                 apexBoostTimer -= Time.fixedDeltaTime;
@@ -694,23 +583,24 @@ namespace junklite
                 return;
             }
 
-            // 3. Variable jump height (jump released early)
+            // Low jump gravity (jump released early)
             if (yVel > 0f && !JumpHeldExternally)
             {
                 rb.AddForce(Physics.gravity * gravityMultiplier * lowJumpMultiplier, ForceMode.Acceleration);
                 return;
             }
 
-            // 4. Falling naturally → stronger gravity
+            // Falling
             if (yVel < 0f)
             {
                 rb.AddForce(Physics.gravity * gravityMultiplier * fallGravityMultiplier, ForceMode.Acceleration);
                 return;
             }
 
-            // 5. Normal upward gravity while holding jump
+            // Normal gravity
             rb.AddForce(Physics.gravity * gravityMultiplier, ForceMode.Acceleration);
         }
+
 
 
         private void HandleFacingDirectionFixed(float horizontalInput)

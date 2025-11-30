@@ -5258,7 +5258,7 @@ MonoBehaviour:
     m_Bits: 4096
   wallJumpForce: 10
   wallJumpHorizontalForce: 7
-  wallJumpDuration: 0.4
+  wallJumpDuration: 0.2
   groundRollSpeed: 15
   groundRollDuration: 0.35
   groundRollCurve:
