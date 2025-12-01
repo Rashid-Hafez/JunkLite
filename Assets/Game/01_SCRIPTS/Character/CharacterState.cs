@@ -9,7 +9,7 @@ namespace junklite
     /// <summary>
     /// Pure runtime state & capability gatekeeper.
     /// Zero physics or timing logic lives here.
-    /// Extended to support Hollow Knight–style movement states.
+    /// Extended to support Hollow Knightï¿½style movement states.
     /// </summary>
     public class CharacterState : MonoBehaviour
     {
@@ -204,16 +204,46 @@ namespace junklite
 
         // ===== NEW movement states =====
 
+        /// <summary>
+        /// Sets wall sliding state. Automatically clears jumping state when sliding starts.
+        /// </summary>
         public void SetWallSliding(bool sliding)
         {
             if (IsWallSliding == sliding) return;
+            
+            // When starting to wall slide, clear jump states first
+            if (sliding)
+            {
+                if (IsJumping)
+                {
+                    IsJumping = false;
+                    OnJumpStateChanged?.Invoke(false);
+                }
+                if (IsFalling)
+                {
+                    IsFalling = false;
+                    OnFallStateChanged?.Invoke(false);
+                }
+            }
+            
             IsWallSliding = sliding;
             OnWallSlideChanged?.Invoke(sliding);
         }
 
+        /// <summary>
+        /// Sets wall jumping state. Automatically clears wall sliding when wall jump starts.
+        /// </summary>
         public void SetWallJumping(bool jumping)
         {
             if (IsWallJumping == jumping) return;
+            
+            // When starting wall jump, clear wall sliding first
+            if (jumping && IsWallSliding)
+            {
+                IsWallSliding = false;
+                OnWallSlideChanged?.Invoke(false);
+            }
+            
             IsWallJumping = jumping;
             OnWallJumpChanged?.Invoke(jumping);
         }
@@ -225,15 +255,36 @@ namespace junklite
             OnDoubleJumpChanged?.Invoke(jumping);
         }
 
+        /// <summary>
+        /// Sets jumping state. Wall sliding prevents jumping from being set to true.
+        /// </summary>
         public void SetJumping(bool jumping)
         {
+            // Cannot set jumping to true while wall sliding
+            if (jumping && IsWallSliding) return;
+            
             if (IsJumping == jumping) return;
+            
+            // When starting to jump, clear falling
+            if (jumping && IsFalling)
+            {
+                IsFalling = false;
+                OnFallStateChanged?.Invoke(false);
+            }
+            
             IsJumping = jumping;
             OnJumpStateChanged?.Invoke(jumping);
         }
 
+        /// <summary>
+        /// Sets falling state. Cannot set falling to true while jumping (use velocity-based transition).
+        /// </summary>
         public void SetFalling(bool falling)
         {
+            // Cannot set falling to true while actively jumping
+            // The transition from jumping to falling is handled by velocity checks
+            if (falling && IsJumping) return;
+            
             if (IsFalling == falling) return;
             IsFalling = falling;
             OnFallStateChanged?.Invoke(falling);

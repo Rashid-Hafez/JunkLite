@@ -404,12 +404,22 @@ namespace junklite
 
             if (previous != isWallSliding)
                 OnWallSlideChanged?.Invoke(true);
+            
+            // Turn off jumping while wall sliding
+            coyoteTimer = 0f;
+            jumpBufferTimer = 0f;
         }
 
 
         private void StartWallJump()
         {
-            isWallSliding = false;
+            // Ensure wall sliding is cleared before starting wall jump
+            if (isWallSliding)
+            {
+                isWallSliding = false;
+                OnWallSlideChanged?.Invoke(false);
+            }
+
             isWallJumping = true;
             wallJumpEndTime = Time.time + wallJumpDuration;
 
@@ -459,14 +469,22 @@ namespace junklite
             // --- Jump Buffer + Coyote Jump + Double Jump ---
             if (jumpBufferTimer > 0f && canMove && !isDashing)
             {
+                // Cannot jump while wall sliding (wall jump is handled separately in Jump() method)
+                if (isWallSliding)
+                {
+                    jumpBufferTimer = 0f;
+                    return;
+                }
+
                 bool canGroundJump = coyoteTimer > 0f;
-                bool canAirJump = !canGroundJump && !isWallSliding && airJumpCount < maxAirJumps;
+                bool canAirJump = !canGroundJump && airJumpCount < maxAirJumps;
 
                 if (canGroundJump)
                 {
                     // NORMAL JUMP (variable height)
                     rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpForce, rb.linearVelocity.z);
                     jumpBufferTimer = 0f;
+                    OnJumpStarted?.Invoke();
                 }
                 else if (canAirJump)
                 {
@@ -562,11 +580,21 @@ namespace junklite
             if (isGrounded) return;
            
             float yVel = rb.linearVelocity.y;
+            bool touchingWall = CheckWall();
 
             // --- CELSTE / HOLLOW KNIGHT HARD JUMP CUT ---
             if (yVel > 0f && !JumpHeldExternally)
             {
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, yVel * 0.45f, rb.linearVelocity.z);
+            }
+
+            // --- WALL COLLISION DURING JUMP: Prevent continuous height gain ---
+            // If touching wall while jumping upward, apply extra gravity to limit jump height
+            if (yVel > 0f && touchingWall && JumpHeldExternally)
+            {
+                // Apply stronger gravity multiplier when colliding with wall during jump
+                rb.AddForce(Physics.gravity * gravityMultiplier * lowJumpMultiplier * 1.5f, ForceMode.Acceleration);
+                return;
             }
 
             // Cancel apex boost when jump is released

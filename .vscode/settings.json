@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "JunkLite-clean.sln"
+    "dotnet.defaultSolution": "JunkLite.sln"
 }

@@ -36,6 +36,8 @@ namespace junklite
                 characterSystem.OnAttackingChanged += OnAttackingChanged;
                 characterSystem.OnRollingChanged += OnRollingChanged;
                 characterSystem.OnDeath += OnDeath;
+                characterSystem.OnWallSlideChanged += OnWallSlideChanged;
+                characterSystem.OnJumpStateChanged += OnJumpStateChanged;
             }
         }
 
@@ -48,25 +50,11 @@ namespace junklite
             animator.SetFloat("Speed", speed);
             animator.SetBool("IsGrounded", characterSystem.IsGrounded);
 
-            // --- Jump & fall detection ---
-            if (!characterSystem.IsGrounded)
-            {
-                if (controller.Velocity.y > 0.1f)
-                {
-                    animator.SetBool("IsJumping", true);
-                    animator.SetBool("IsFalling", false);
-                }
-                else if (controller.Velocity.y < -0.1f)
-                {
-                    animator.SetBool("IsFalling", true);
-                    animator.SetBool("IsJumping", false);
-                }
-            }
-            else
-            {
-                animator.SetBool("IsJumping", false);
-                animator.SetBool("IsFalling", false);
-            }
+            // --- Jump, Fall & Wall Slide states ---
+            // These are now properly managed by CharacterState with mutual exclusivity
+            animator.SetBool("IsJumping", characterSystem.IsJumping);
+            animator.SetBool("IsFalling", characterSystem.IsFalling);
+            animator.SetBool("IsWallSliding", characterSystem.IsWallSliding);
 
             // --- Optional landing trigger ---
             if (!wasGroundedLastFrame && characterSystem.IsGrounded)
@@ -105,6 +93,18 @@ namespace junklite
                 animator.SetTrigger("Attack");
         }
 
+        private void OnWallSlideChanged(bool wallSliding)
+        {
+            // Handled in Update() for consistency, but also respond to events for immediate feedback
+            animator.SetBool("IsWallSliding", wallSliding);
+        }
+
+        private void OnJumpStateChanged(bool jumping)
+        {
+            // Handled in Update() for consistency, but also respond to events for immediate feedback
+            animator.SetBool("IsJumping", jumping);
+        }
+
         private void OnDeath()
         {
             animator.SetTrigger("Die");
@@ -121,6 +121,8 @@ namespace junklite
             characterSystem.OnAttackingChanged -= OnAttackingChanged;
             characterSystem.OnRollingChanged -= OnRollingChanged;
             characterSystem.OnDeath -= OnDeath;
+            characterSystem.OnWallSlideChanged -= OnWallSlideChanged;
+            characterSystem.OnJumpStateChanged -= OnJumpStateChanged;
         }
     }
 }

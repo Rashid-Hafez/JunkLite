@@ -167,6 +167,40 @@ namespace junklite
                 Controller.SetMovementInput(horizontalAxis);
                 Controller.SetJumpHeld(JumpHeld);
             }
+
+            // Handle velocity-based state transitions
+            UpdateAirborneStates();
+        }
+
+        /// <summary>
+        /// Updates jumping/falling states based on velocity when airborne.
+        /// </summary>
+        void UpdateAirborneStates()
+        {
+            if (State == null || Controller == null) return;
+
+            // Only process when airborne and not wall sliding
+            if (State.IsGrounded || State.IsWallSliding) return;
+
+            float yVel = Controller.Velocity.y;
+
+            // Transition from jumping to falling when velocity goes negative
+            if (State.IsJumping && yVel < -0.1f)
+            {
+                State.SetJumping(false);
+                State.SetFalling(true);
+            }
+            // If not jumping and going down, ensure falling is set
+            else if (!State.IsJumping && yVel < -0.1f && !State.IsFalling)
+            {
+                State.SetFalling(true);
+            }
+            // If going up but not marked as jumping (e.g. launched by something), set jumping
+            else if (yVel > 0.1f && !State.IsJumping && !State.IsWallJumping && !State.IsDoubleJumping)
+            {
+                // Only auto-set jumping if we're clearly going upward
+                // This handles edge cases like external forces
+            }
         }
 
         void HandleInput()
@@ -264,8 +298,12 @@ namespace junklite
 
         void HandleWallJumped()
         {
-            State?.SetWallJumping(true);
-            State?.SetJumping(true);
+            // Wall jump: first clear wall sliding, then set wall jumping, then set jumping
+            // Order matters for proper state transitions!
+            State?.SetWallSliding(false);  // Clear wall slide first
+            State?.SetWallJumping(true);   // Mark as wall jumping
+            State?.SetJumping(true);       // Now we're also jumping
+            State?.SetFalling(false);      // Not falling while going up
             StartCoroutine(ResetWallJumpFlag());
         }
 
@@ -277,8 +315,10 @@ namespace junklite
 
         void HandleDoubleJump()
         {
-            State?.SetDoubleJumping(true);
-            State?.SetJumping(true);
+            // Double jump: clear falling, set jumping and double jumping
+            State?.SetFalling(false);       // Clear falling first
+            State?.SetDoubleJumping(true);  // Mark as double jumping
+            State?.SetJumping(true);        // Also set regular jumping
             StartCoroutine(ResetDoubleJumpFlag());
         }
 
@@ -290,8 +330,9 @@ namespace junklite
 
         void HandleJumpStarted()
         {
-            State?.SetJumping(true);
-            State?.SetFalling(false);
+            // Ground jump: set jumping and clear falling
+            State?.SetFalling(false);  // Clear falling first
+            State?.SetJumping(true);   // Now set jumping
 
             if (particleJumpUp != null)
             {
@@ -302,8 +343,10 @@ namespace junklite
 
         void HandleFallStarted()
         {
+            // Note: This fires when leaving the ground, NOT when starting to fall downward
+            // Do NOT clear IsJumping here - jumping transitions to falling based on velocity
+            // IsJumping will be cleared when we land or when velocity goes negative
             State?.SetFalling(true);
-            State?.SetJumping(false);
         }
 
         void HandleFallEnded()
