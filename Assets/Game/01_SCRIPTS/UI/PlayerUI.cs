@@ -5,35 +5,35 @@ namespace junklite
 {
     /// <summary>
     /// Root HUD script for the player's gameplay UI.
-    /// Binds child StatBarUIs (Health, Armor, etc.) to the player's AttributeManager.
+    /// Binds health, armor, name, weapon UI, and inventory UI to the player.
     /// </summary>
     [DisallowMultipleComponent]
     public class PlayerUI : MonoBehaviour
     {
         [Header("Auto-Bind")]
-        [Tooltip("If true, auto-binds to GameManager.Instance.Player on Enable and re-binds on respawn.")]
         [SerializeField] private bool autoBindToGameManager = true;
-
-        [Tooltip("Hide this UI root when the player dies.")]
         [SerializeField] private bool hideOnDeath = false;
 
         [Header("References")]
         [SerializeField] private StatBarUI healthBar;
-        [SerializeField] private StatBarUI armorBar;     // Optional but recommended: add Armor to AttributeType & CharacterStats
-        [SerializeField] private TMP_Text playerNameText;// Optional
+        [SerializeField] private StatBarUI armorBar;
+        [SerializeField] private TMP_Text playerNameText;
+
+        [Header("UI Extensions (Weapon + Inventory)")]
+        [SerializeField] private WeaponUI weaponUI;               // new
+        [SerializeField] private InventoryModsUI inventoryModsUI; // optional new UI
 
         // Runtime
-        [SerializeField]private CharacterBase player;
+        private CharacterBase player;
         private AttributeManager attributes;
+        private WeaponHolder weaponHolder;
+        private InventoryComponent inventory;
 
-        // ---------- Public API ----------
+        // -----------------------------------------------------------------------
 
-        /// <summary>
-        /// Bind this UI to a specific player character.
-        /// </summary>
         public void BindToPlayer(CharacterBase target)
         {
-            Unbind();
+            Unbind(); // clean before binding new target
 
             player = target;
             if (player == null)
@@ -42,74 +42,96 @@ namespace junklite
                 return;
             }
 
+            // --------- Bind Attributes ----------
             attributes = player.GetComponent<AttributeManager>();
             if (attributes == null)
             {
-                Debug.LogWarning("[PlayerUI] Target has no AttributeManager. UI will be hidden.");
+                Debug.LogWarning("[PlayerUI] Player has no AttributeManager.");
                 SetVisible(false);
                 return;
             }
 
-            // Name (optional)
+            // Player name
             if (playerNameText != null && player.Stats != null)
+            {
                 playerNameText.text = string.IsNullOrEmpty(player.Stats.characterName)
                     ? player.gameObject.name
                     : player.Stats.characterName;
-
-            // Bind bars (event-driven)
-            if (healthBar != null) healthBar.Bind(attributes.Health);
-
-            if (armorBar != null)
-            {
-                // Prefer Armor as a real Attribute for live updates:
-                var armorAttr = attributes.Get(AttributeType.Armor); // make sure AttributeType.Armor exists + CharacterStats includes it
-                if (armorAttr != null)
-                {
-                    armorBar.Bind(armorAttr);
-                }
-                else
-                {
-                    // If you don't model Armor as an Attribute yet, just hide the bar (or show a static label elsewhere)
-                    armorBar.Unbind();
-                    armorBar.gameObject.SetActive(false);
-                }
             }
 
-            
-            // Handle death visibility (optional)
+            // Health bar
+            if (healthBar != null)
+                healthBar.Bind(attributes.Health);
+
+            // Armor bar (if exists)
+            if (armorBar != null)
+            {
+                var armorAttr = attributes.Get(AttributeType.Armor);
+                if (armorAttr != null)
+                    armorBar.Bind(armorAttr);
+                else
+                    armorBar.gameObject.SetActive(false);
+            }
+
+            // Handle death visibility
             attributes.OnDeath += HandlePlayerDeath;
+
+            // --------- Bind Weapon Holder ----------
+            weaponHolder = player.GetComponent<WeaponHolder>();
+            if (weaponUI != null && weaponHolder != null)
+            {
+                weaponUI.Bind(weaponHolder);
+                weaponUI.RefreshWeapon(); // initialize UI visibility & slots
+            }
+
+            // --------- Bind Inventory (if exists) ----------
+            inventory = player.GetComponent<InventoryComponent>();
+            if (inventoryModsUI != null && inventory != null)
+            {
+                inventoryModsUI.Bind(inventory);
+            }
 
             SetVisible(true);
         }
 
-        /// <summary>
-        /// Unbinds current player & attributes and detaches UI listeners.
-        /// </summary>
+        // -----------------------------------------------------------------------
+
         public void Unbind()
         {
+            // Unsubscribe from attribute events
             if (attributes != null)
                 attributes.OnDeath -= HandlePlayerDeath;
 
-            // Unbind bars
-            if (healthBar != null) healthBar.Unbind();
-            if (armorBar != null) armorBar.Unbind();
-           
+            // Unbind health + armor
+            if (healthBar != null)
+                healthBar.Unbind();
 
-            attributes = null;
+            if (armorBar != null)
+                armorBar.Unbind();
+
+            // Unbind weapon UI
+            if (weaponUI != null)
+                weaponUI.Unbind();
+
+            // Unbind inventory UI
+            if (inventoryModsUI != null)
+                inventoryModsUI.Unbind();
+
             player = null;
+            attributes = null;
+            weaponHolder = null;
+            inventory = null;
         }
 
-        // ---------- Unity lifecycle ----------
+        // -----------------------------------------------------------------------
 
         private void OnEnable()
         {
             if (autoBindToGameManager && GameManager.Instance != null)
             {
-                // Bind immediately if a player exists
                 if (GameManager.Instance.Player != null)
                     BindToPlayer(GameManager.Instance.Player);
 
-                // Re-bind automatically on respawn
                 GameManager.Instance.OnPlayerSpawned += HandlePlayerSpawned;
             }
         }
@@ -127,11 +149,10 @@ namespace junklite
             Unbind();
         }
 
-        // ---------- Handlers ----------
+        // -----------------------------------------------------------------------
 
         private void HandlePlayerSpawned(PlayerCharacter newPlayer)
         {
-            // Auto-rebind on respawn
             BindToPlayer(newPlayer);
         }
 
@@ -141,7 +162,7 @@ namespace junklite
                 SetVisible(false);
         }
 
-        // ---------- Helpers ----------
+        // -----------------------------------------------------------------------
 
         private void SetVisible(bool visible)
         {

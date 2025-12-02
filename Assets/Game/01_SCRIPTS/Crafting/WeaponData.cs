@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 [CreateAssetMenu(fileName = "WeaponData", menuName = "Junklite/WeaponData")]
 public class WeaponData : ScriptableObject
@@ -16,6 +17,7 @@ public class WeaponData : ScriptableObject
     public string weaponId;
     public string displayName;
     public WeaponType type;
+    public Sprite icon;
 
     [Header("Base Stats")]
     public float baseAttackSpeed = 1f;

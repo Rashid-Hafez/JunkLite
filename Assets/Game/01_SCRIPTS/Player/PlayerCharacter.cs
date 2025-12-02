@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -42,6 +43,9 @@ namespace junklite
         // attack coroutine
         Coroutine _attackCo;
 
+        // Attached Comps
+        private WeaponHolder weaponHolder;
+
         protected override void Awake()
         {
             base.Awake();
@@ -59,6 +63,8 @@ namespace junklite
 
             if (CameraManager.Instance != null)
                 CameraManager.Instance.SetPlayerTarget(transform);
+
+            weaponHolder = GetComponent<WeaponHolder>();
 
             if (State != null)
             {
@@ -211,10 +217,8 @@ namespace junklite
                 horizontalAxis = 0f;
         }
 
-        // ====================================================================
+       
         // SUBSCRIBE / UNSUBSCRIBE
-        // ====================================================================
-
         void SubscribeToInput()
         {
             if (inputManager == null) inputManager = GameInputManager.Instance;
@@ -384,10 +388,7 @@ namespace junklite
         }
         #endregion
 
-        // ====================================================================
         // DASH STATE
-        // ====================================================================
-
         void HandleDashStarted()
         {
             State?.SetDashing(true);
@@ -408,72 +409,11 @@ namespace junklite
             if (dashTrail != null) dashTrail.emitting = false;
         }
 
-        // ====================================================================
-        // ROLL STATE
-        // ====================================================================
-
-        void HandleRollStarted()
-        {
-            State?.SetRolling(true);
-        }
-
-        void HandleRollEnded()
-        {
-            State?.SetRolling(false);
-        }
-
-        // ====================================================================
-        // COMBAT
-        // ====================================================================
-
         void HandleAttackInput()
         {
             if (State != null && State.CanAttack)
-                PerformAttack();
+                weaponHolder.Attack();
         }
-
-        void PerformAttack()
-        {
-            if (State == null) return;
-
-            State.SetAttacking(true);
-
-            int count = Physics.OverlapSphereNonAlloc(
-                transform.position,
-                attackRange,
-                overlapBuffer,
-                enemyLayerMask
-            );
-
-            for (int i = 0; i < count; i++)
-            {
-                var enemyCol = overlapBuffer[i];
-                if (!enemyCol) continue;
-
-                var enemy = enemyCol.GetComponent<CharacterBase>();
-                if (enemy != null)
-                {
-                    var dmg = new DamageInfo(Stats.damage, gameObject);
-                    enemy.TakeDamage(dmg);
-                }
-
-                overlapBuffer[i] = null;
-            }
-
-            if (_attackCo != null) StopCoroutine(_attackCo);
-            _attackCo = StartCoroutine(EndAttackAfter(0.3f));
-        }
-
-        IEnumerator EndAttackAfter(float t)
-        {
-            yield return new WaitForSeconds(t);
-            State?.SetAttacking(false);
-            _attackCo = null;
-        }
-
-        // ====================================================================
-        // STATE EVENT HANDLERS
-        // ====================================================================
 
         void OnGroundedStateChanged(bool grounded)
         {

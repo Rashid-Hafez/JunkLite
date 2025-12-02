@@ -3,6 +3,7 @@ using UnityEngine;
 
 public class DropTableGameObj : MonoBehaviour
 {
+    /*
     public static DropTableGameObj Instance; //make class singleton and only one instance
 
     [Header("Drop Table")]
@@ -86,4 +87,5 @@ public class DropTableGameObj : MonoBehaviour
         Mod_Data randomMod = filteredMods[Mathf.Abs(rando)];
         return randomMod;
     }
+    */
 }

@@ -32,9 +32,11 @@ public class GenericEnemy : MonoBehaviour
         if (health <= 0)
             Die();
     }
-
+    
     void Die()
     {
+        
+        /*
         //////////// LOOT DROP HANDLER ////////////
         // Drop loot
         if (dropHandler != null)
@@ -57,6 +59,6 @@ public class GenericEnemy : MonoBehaviour
         /// 
         // Destroy or deactivate enemy
         gameObject.SetActive(false);
-        Debug.Log("Enemy died");
+        Debug.Log("Enemy died"); */
     }
 }

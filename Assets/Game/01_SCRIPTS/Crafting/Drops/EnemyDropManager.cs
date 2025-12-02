@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class EnemyDropManager : MonoBehaviour
 {
+    /*
     public enum DropMode
     {
         GlobalTable, CustomList
@@ -54,4 +55,5 @@ public class EnemyDropManager : MonoBehaviour
     {
         
     }
+    */
 }
