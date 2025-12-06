@@ -4,6 +4,23 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "Junklite/Mod")]
 public class Mod_Data : ScriptableObject
 {
+    public enum Rarity
+    {
+        Common,
+        Uncommon,
+        Rare,
+        Legendary
+    }
+    public enum ModElement
+    {
+        Dull,
+        Fire,
+        Ice,
+        Lightning,
+        Poison
+    }
+    public Rarity rarity;
+    public ModElement element;
     public string modId;
     public string displayName;
     public Sprite icon;

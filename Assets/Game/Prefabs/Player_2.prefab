@@ -5454,7 +5454,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: df24b6490ff184e1f9db906a343facec, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnDrone
-  dronePrefab: {fileID: 76666413933033825, guid: 0900888a628534fc59261e4b6581b93e, type: 3}
+  dronePrefab: {fileID: 76666413933033825, guid: f79d1eaa0429d4695879772a38bc93d1, type: 3}
   spawnPoint: {fileID: 0}
 --- !u!1 &6987343146703007017
 GameObject:
