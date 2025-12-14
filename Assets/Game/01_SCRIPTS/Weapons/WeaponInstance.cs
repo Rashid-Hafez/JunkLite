@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
+using System.Collections.Generic;
 
 namespace junklite
 {
@@ -12,24 +12,22 @@ namespace junklite
         public float baseDamage;
         public float baseAttackSpeed;
 
-        [Header("Hitbox")]
-        [SerializeField] private Transform hitOrigin;
-        [SerializeField] private float hitRadius = 1.0f;
-        [SerializeField] private LayerMask enemyMask;
+        [Header("Combo Settings")]
+        [SerializeField] private float comboResetTime = 0.45f;
+
+        private int sideComboIndex = 0;
+        private float comboTimer = 0f;
+
+        private Rigidbody ownerRb;
 
         private readonly List<ModRuntimeInstance> activeMods = new();
         public System.Action OnModsChanged;
 
-        public int MaxActiveSlots =>
-            weaponData != null ? weaponData.maxActiveModSlots : 0;
-
-        public bool HasFreeModSlot => activeMods.Count < MaxActiveSlots;
-
-        void Start()
+        private void Start()
         {
-            if (weaponData == null)
+            if (weaponData == null || weaponData.comboData == null)
             {
-                Debug.LogError($"WeaponInstance '{name}' has no WeaponData!");
+                Debug.LogError($"WeaponInstance '{name}' missing WeaponData / ComboData");
                 return;
             }
 
@@ -37,82 +35,161 @@ namespace junklite
             baseAttackSpeed = weaponData.baseAttackSpeed;
         }
 
-        // ========= ATTACK =========
-        public void Attack()
+        private void Update()
         {
-            foreach (var mod in activeMods)
-                mod.logic.OnAttackStart(this);
-
-            PerformAttackHit();
-        }
-
-        void PerformAttackHit()
-        {
-            if (!hitOrigin) return;
-
-            Collider[] results = Physics.OverlapSphere(
-                hitOrigin.position, hitRadius, enemyMask);
-
-            foreach (var col in results)
+            if (sideComboIndex > 0)
             {
-                var enemy = col.GetComponent<Enemy>();
-                if (!enemy) continue;
-
-                DamageInfo dmg = new DamageInfo(baseDamage, gameObject);
-
-                ApplyModsOnHit(enemy, ref dmg);
-
-                // enemy.TakeDamage(dmg);   // when ready
+                comboTimer += Time.deltaTime;
+                if (comboTimer >= comboResetTime)
+                    ResetSideCombo();
             }
         }
 
-        private void ApplyModsOnHit(Enemy enemy, ref DamageInfo dmg)
+        public void SetOwnerRigidbody(Rigidbody rb)
         {
-            var mods = activeMods.ToArray(); // safe copy
+            ownerRb = rb;
+        }
 
-            foreach (var mod in mods)
+        // ==================================================
+        // MAIN ATTACK ENTRY (CALLED BY WEAPON HOLDER)
+        // ==================================================
+
+       public AttackHitResult TryAttack(AttackDirection dir, Vector3 hitPosition, float radius, LayerMask enemyLayer, LayerMask environmentLayer, float facing)
+       {
+            if (weaponData == null || weaponData.comboData == null)
+                return AttackHitResult.None;
+            
+            WeaponComboData.ComboStep step = GetComboStep(dir);
+            float finalRadius = step.hitRadius > 0f ? step.hitRadius: radius;
+
+            Collider[] hits = Physics.OverlapSphere(hitPosition, finalRadius, enemyLayer | environmentLayer);
+
+            AttackHitResult result = AttackHitResult.None;
+            Vector3 contactPoint = Vector3.zero;
+            float closestDist = float.MaxValue;
+
+            foreach (var col in hits)
             {
-                mod.logic.OnHit(this, enemy, ref dmg);
+                int layerMask = 1 << col.gameObject.layer;
 
-                ConsumeModDurability(mod, mod.data.durabilityCostPerHit);
+                // Find closest contact point
+                Vector3 point = col.ClosestPoint(hitPosition);
+                float dist = Vector3.SqrMagnitude(point - hitPosition);
+
+                if (dist < closestDist)
+                {
+                    closestDist = dist;
+                    contactPoint = point;
+                }
+
+                if ((layerMask & enemyLayer) != 0)
+                {
+                    result = AttackHitResult.Enemy;
+                    break; // enemy priority
+                }
+
+                if ((layerMask & environmentLayer) != 0)
+                {
+                    result = AttackHitResult.Environment;
+                }
             }
+
+            // =========================
+            // SLASH + HIT PARTICLES
+            // =========================
+            WeaponHolder holder = GetComponentInParent<WeaponHolder>();
+            
+            if (holder != null && step.slashPrefab != null)
+            {
+               Transform anchor = holder.GetAttackTransform(dir);
+
+            if (result != AttackHitResult.None)
+            {
+                // Hit → spawn slash at contact point + hit effect
+                holder.PlaySlashAt(step.slashPrefab, anchor, contactPoint);
+
+                holder.PlayHitEffect(contactPoint);
+            }
+            else
+            {
+            // No hit → normal slash
+            holder.PlaySlash(
+                step.slashPrefab,
+                anchor
+            );
+            }
+            }
+
+            return result;
+       }
+
+
+
+
+        // ==================================================
+        // COMBO STEP SELECTION
+        // ==================================================
+        private WeaponComboData.ComboStep GetComboStep(AttackDirection dir)
+        {
+            WeaponComboData combo = weaponData.comboData;
+
+            if (dir == AttackDirection.Side)
+            {
+                int currentStep = sideComboIndex + 1; 
+                Debug.Log($"[WEAPON COMBO] Side Attack Step: {currentStep}");
+
+                WeaponComboData.ComboStep step =
+                    combo.sideComboSteps[sideComboIndex];
+
+                AdvanceSideCombo();
+                return step;
+            }
+
+            // Up / Down → always single hit
+            ResetSideCombo();
+
+            return dir == AttackDirection.Up
+                ? combo.upAttack
+                : combo.downAttack;
+        }
+
+        private void AdvanceSideCombo()
+        {
+            comboTimer = 0f;
+            sideComboIndex++;
+
+            if (sideComboIndex >= weaponData.comboData.sideComboSteps.Length)
+                sideComboIndex = 0;
+        }
+
+        private void ResetSideCombo()
+        {
+            sideComboIndex = 0;
+            comboTimer = 0f;
         }
 
 
-        public void ConsumeModDurability(ModRuntimeInstance runtime, float amount)
-        {
-            if (!activeMods.Contains(runtime))
-                return;
+        // ==================================================
+        // MOD SYSTEM 
+        // ==================================================
+        public int MaxActiveSlots =>
+            weaponData != null ? weaponData.maxActiveModSlots : 0;
 
-            runtime.Consume(amount);
+        public bool HasFreeModSlot =>
+            activeMods.Count < MaxActiveSlots;
 
-            if (runtime.IsBroken)
-            {
-                RemoveMod(runtime);
-                return;
-            }
+        public IReadOnlyList<ModRuntimeInstance> GetActiveMods() =>
+            activeMods;
 
-            OnModsChanged?.Invoke();
-        }
-
-
-        /// <summary>
-        /// Try to equip a mod onto this weapon.
-        /// Returns true if actually equipped.
-        /// </summary>
         public bool TryAddMod(Mod_Data data)
         {
             if (!HasFreeModSlot)
-            {
-                Debug.Log("Weapon has no free mod slots.");
                 return false;
-            }
 
             var runtime = new ModRuntimeInstance(data);
             activeMods.Add(runtime);
 
             runtime.logic.OnEquip(this);
-
             OnModsChanged?.Invoke();
             return true;
         }
@@ -124,20 +201,24 @@ namespace junklite
             OnModsChanged?.Invoke();
         }
 
-        public void NotifyModsChanged()
+        public void ConsumeModDurability(ModRuntimeInstance runtime, float amount)
         {
+            if (!activeMods.Contains(runtime))
+                return;
+
+            runtime.Consume(amount);
+
+            if (runtime.IsBroken)
+                RemoveMod(runtime);
+
             OnModsChanged?.Invoke();
-        }
-
-
-        public IReadOnlyList<ModRuntimeInstance> GetActiveMods() => activeMods;
-
-        void OnDrawGizmosSelected()
-        {
-            if (!hitOrigin) return;
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(hitOrigin.position, hitRadius);
         }
     }
 
+    public enum AttackHitResult
+    {
+        None,
+        Enemy,
+        Environment
+    }
 }

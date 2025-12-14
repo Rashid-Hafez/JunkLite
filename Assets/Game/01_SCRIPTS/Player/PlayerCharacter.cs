@@ -149,7 +149,7 @@ namespace junklite
             }
         }
 
-        void OnEnable() => SubscribeToInput();
+      //  void OnEnable() => SubscribeToInput();
         void OnDisable() => UnsubscribeFromInput();
 
         // ====================================================================
@@ -411,9 +411,28 @@ namespace junklite
 
         void HandleAttackInput()
         {
-            if (State != null && State.CanAttack)
-                weaponHolder.Attack();
+            if (State == null || !State.CanAttack || weaponHolder == null)
+                return;
+
+            Vector2 move = inputManager.MoveDirection;
+
+            AttackDirection dir = AttackDirection.Side;
+
+            // UP ATTACK (W)
+            if (move.y > 0.5f)
+            {
+                dir = AttackDirection.Up;
+            }
+
+            // DOWN ATTACK (S + AIR ONLY)
+            else if (move.y < -0.5f && !State.IsGrounded)
+            {
+                dir = AttackDirection.Down;
+            }
+
+            weaponHolder.Attack(dir);  
         }
+
 
         void OnGroundedStateChanged(bool grounded)
         {
