@@ -97,23 +97,23 @@ namespace junklite
             // =========================
             // SLASH + HIT PARTICLES
             // =========================
-            WeaponHolder holder = GetComponentInParent<WeaponHolder>();
+            WeaponManager manager = GetComponentInParent<WeaponManager>();
             
-            if (holder != null && step.slashPrefab != null)
+            if (manager != null && step.slashPrefab != null)
             {
-               Transform anchor = holder.GetAttackTransform(dir);
+               Transform anchor = manager.GetAttackTransform(dir);
 
             if (result != AttackHitResult.None)
             {
                 // Hit → spawn slash at contact point + hit effect
-                holder.PlaySlashAt(step.slashPrefab, anchor, contactPoint);
+                manager.PlaySlashAt(step.slashPrefab, anchor, contactPoint);
 
-                holder.PlayHitEffect(contactPoint);
+                manager.PlayHitEffect(contactPoint);
             }
             else
             {
             // No hit → normal slash
-            holder.PlaySlash(
+            manager.PlaySlash(
                 step.slashPrefab,
                 anchor
             );

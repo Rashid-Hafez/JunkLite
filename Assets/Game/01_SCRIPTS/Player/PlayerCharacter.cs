@@ -44,7 +44,7 @@ namespace junklite
         Coroutine _attackCo;
 
         // Attached Comps
-        private WeaponHolder weaponHolder;
+        private WeaponManager _weaponManager;
 
         protected override void Awake()
         {
@@ -64,7 +64,7 @@ namespace junklite
             if (CameraManager.Instance != null)
                 CameraManager.Instance.SetPlayerTarget(transform);
 
-            weaponHolder = GetComponent<WeaponHolder>();
+            _weaponManager = GetComponent<WeaponManager>();
 
             if (State != null)
             {
@@ -411,7 +411,7 @@ namespace junklite
 
         void HandleAttackInput()
         {
-            if (State == null || !State.CanAttack || weaponHolder == null)
+            if (State == null || !State.CanAttack || _weaponManager == null)
                 return;
 
             Vector2 move = inputManager.MoveDirection;
@@ -430,7 +430,7 @@ namespace junklite
                 dir = AttackDirection.Down;
             }
 
-            weaponHolder.Attack(dir);  
+            _weaponManager.Attack(dir);  
         }
 
 

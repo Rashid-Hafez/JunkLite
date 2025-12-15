@@ -5,8 +5,10 @@ using System.Collections;
 namespace junklite
 {
     [RequireComponent(typeof(Collider))]
-    public class WeaponHolder : MonoBehaviour
+    public class WeaponManager : MonoBehaviour
     {
+        [Header("Weapon Holder")] public Transform weaponHolder;
+        
         [Header("Attack Transforms (Scene Anchors)")]
         [SerializeField] private Transform sideAttack;
         [SerializeField] private Transform upAttack;

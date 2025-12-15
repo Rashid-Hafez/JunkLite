@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace junklite
 {
@@ -8,15 +9,16 @@ namespace junklite
         [Header("Stored Mods")]
         [SerializeField] private List<Mod_Data> ownedMods = new();
 
+        [FormerlySerializedAs("weaponHolder")]
         [Header("References")]
-        [SerializeField] private WeaponHolder weaponHolder;
+        [SerializeField] private WeaponManager weaponManager;
 
         public event System.Action OnInventoryChanged;
 
         void Awake()
         {
-            if (!weaponHolder)
-                weaponHolder = GetComponent<WeaponHolder>();
+            if (!weaponManager)
+                weaponManager = GetComponent<WeaponManager>();
         }
 
         // ===== PICKUP MOD =====
@@ -25,7 +27,7 @@ namespace junklite
             ownedMods.Add(mod);
 
             // Optional auto-equip if weapon has a free slot
-            var weapon = weaponHolder.CurrentWeapon;
+            var weapon = weaponManager.CurrentWeapon;
             if (weapon != null && weapon.HasFreeModSlot)
             {
                 if (weapon.TryAddMod(mod))
@@ -40,7 +42,7 @@ namespace junklite
         // ===== MANUAL EQUIP FROM INVENTORY =====
         public void EquipMod(Mod_Data mod)
         {
-            var weapon = weaponHolder.CurrentWeapon;
+            var weapon = weaponManager.CurrentWeapon;
             if (weapon == null) return;
             if (!ownedMods.Contains(mod)) return;
 
@@ -56,7 +58,7 @@ namespace junklite
         // ===== UNEQUIP BACK TO INVENTORY =====
         public void UnequipMod(ModRuntimeInstance runtime)
         {
-            var weapon = weaponHolder.CurrentWeapon;
+            var weapon = weaponManager.CurrentWeapon;
             if (weapon == null) return;
 
             ownedMods.Add(runtime.data);

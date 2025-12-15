@@ -26,7 +26,7 @@ namespace junklite
         // Runtime
         private CharacterBase player;
         private AttributeManager attributes;
-        private WeaponHolder weaponHolder;
+        private WeaponManager _weaponManager;
         private InventoryComponent inventory;
 
         // -----------------------------------------------------------------------
@@ -77,10 +77,10 @@ namespace junklite
             attributes.OnDeath += HandlePlayerDeath;
 
             // --------- Bind Weapon Holder ----------
-            weaponHolder = player.GetComponent<WeaponHolder>();
-            if (weaponUI != null && weaponHolder != null)
+            _weaponManager = player.GetComponent<WeaponManager>();
+            if (weaponUI != null && _weaponManager != null)
             {
-                weaponUI.Bind(weaponHolder);
+                weaponUI.Bind(_weaponManager);
                 weaponUI.RefreshWeapon(); // initialize UI visibility & slots
             }
 
@@ -119,7 +119,7 @@ namespace junklite
 
             player = null;
             attributes = null;
-            weaponHolder = null;
+            _weaponManager = null;
             inventory = null;
         }
 

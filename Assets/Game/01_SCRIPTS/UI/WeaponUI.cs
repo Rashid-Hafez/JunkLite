@@ -15,15 +15,15 @@ namespace junklite
         [SerializeField] private Transform modSlotsParent;
         [SerializeField] private ModSlotUI modSlotPrefab;
 
-        private WeaponHolder holder;
+        private WeaponManager _manager;
         private WeaponInstance currentWeapon;
         private List<ModSlotUI> slotUIs = new();
 
-        public void Bind(WeaponHolder weaponHolder)
+        public void Bind(WeaponManager weaponManager)
         {
-            holder = weaponHolder;
+            _manager = weaponManager;
 
-            holder.OnWeaponChanged += RefreshWeapon;
+            _manager.OnWeaponChanged += RefreshWeapon;
 
             // Subscribe for weapon equip changes if needed later
             RefreshWeapon();
@@ -31,11 +31,11 @@ namespace junklite
 
         public void Unbind()
         {
-            if (holder != null)
-                holder.OnWeaponChanged -= RefreshWeapon;
+            if (_manager != null)
+                _manager.OnWeaponChanged -= RefreshWeapon;
 
             ClearSlots();
-            holder = null;
+            _manager = null;
             currentWeapon = null;
             weaponPanel.gameObject.SetActive(false);
         }
@@ -43,7 +43,7 @@ namespace junklite
         // Call whenever weapon changes
         public void RefreshWeapon()
         {
-            if (holder == null || holder.CurrentWeapon == null)
+            if (_manager == null || _manager.CurrentWeapon == null)
             {
                 weaponPanel.gameObject.SetActive(false);
                 return;
@@ -51,7 +51,7 @@ namespace junklite
 
             weaponPanel.gameObject.SetActive(true);
 
-            BindToWeapon(holder.CurrentWeapon);
+            BindToWeapon(_manager.CurrentWeapon);
         }
 
         private void BindToWeapon(WeaponInstance weapon)
