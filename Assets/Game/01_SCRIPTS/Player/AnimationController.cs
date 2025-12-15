@@ -38,6 +38,8 @@ namespace junklite
                 characterSystem.OnDeath += OnDeath;
                 characterSystem.OnWallSlideChanged += OnWallSlideChanged;
                 characterSystem.OnJumpStateChanged += OnJumpStateChanged;
+                characterSystem.OnDoubleJumpChanged += OnDoubleJumpChanged;
+
             }
         }
 
@@ -105,6 +107,15 @@ namespace junklite
             animator.SetBool("IsJumping", jumping);
         }
 
+        private void OnDoubleJumpChanged(bool doubleJumping)
+        {
+            if (animator == null) return;
+
+            animator.SetBool("IsDoubleJumping", doubleJumping);
+            if (doubleJumping)
+                animator.SetTrigger("DoubleJump");
+        }
+
         private void OnDeath()
         {
             animator.SetTrigger("Die");
@@ -123,6 +134,7 @@ namespace junklite
             characterSystem.OnDeath -= OnDeath;
             characterSystem.OnWallSlideChanged -= OnWallSlideChanged;
             characterSystem.OnJumpStateChanged -= OnJumpStateChanged;
+            characterSystem.OnDoubleJumpChanged -= OnDoubleJumpChanged;
         }
     }
 }

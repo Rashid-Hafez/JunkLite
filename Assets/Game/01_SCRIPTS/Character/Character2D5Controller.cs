@@ -307,6 +307,10 @@ namespace junklite
             if (!CanDash) return;
 
             isDashing = true;
+
+            //////// vfx /sfx trigger could go here ////////
+
+
             dashDirection = direction.normalized;
             dashEndTime = Time.time + dashDuration;
             dashCooldownTimer = dashCooldown;
