@@ -11849,7 +11849,7 @@ PrefabInstance:
       value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 5744350271466584198, guid: 4d9a3b35b3bc07649b697df7fb497b6d, type: 3}
-      propertyPath: 'm_Materials.Array.data[1]'
+      propertyPath: m_Materials.Array.data[1]
       value: 
       objectReference: {fileID: 2100000, guid: 410fa9a27b8dd1f4989dd201babd7d76, type: 2}
     - target: {fileID: 5862613817031353211, guid: 4d9a3b35b3bc07649b697df7fb497b6d, type: 3}
@@ -12314,6 +12314,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c612597b395734e41be145e4875f41fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dropMode: 0
+  customDrops: []
+  RarityManager: 0
+  ElementManager: 0
 --- !u!4 &612045887191398366
 Transform:
   m_ObjectHideFlags: 0
@@ -12372,6 +12376,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a9414762d43da4c60be01d222cdfb21d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  allMods: []
+  commonChance: 0.7
+  uncommonChance: 0.2
+  rareChance: 0.09
+  mythicChance: 0.01
 --- !u!222 &1124278410971409101
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -12392,8 +12401,7 @@ Transform:
   m_LocalPosition: {x: -6.4, y: 2.72, z: -27.1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1748144912}
+  m_Children: [{fileID: 1748144912}]
   m_Father: {fileID: 8016660106381777637}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &1516445472606763914
@@ -12548,8 +12556,7 @@ Transform:
   m_LocalPosition: {x: -8.99597, y: -0.67, z: -0.41}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 643304207}
+  m_Children: [{fileID: 643304207}]
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2757281772235630049
@@ -12873,67 +12880,6 @@ ParticleSystemRenderer:
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
   m_MaskInteraction: 0
---- !u!1001 &3356976098882466907
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 1262748468359835149, guid: c86270615e235f84a984da1b654629f6, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0.006
-      objectReference: {fileID: 0}
-    - target: {fileID: 1262748468359835149, guid: c86270615e235f84a984da1b654629f6, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1262748468359835149, guid: c86270615e235f84a984da1b654629f6, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1262748468359835149, guid: c86270615e235f84a984da1b654629f6, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1262748468359835149, guid: c86270615e235f84a984da1b654629f6, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1262748468359835149, guid: c86270615e235f84a984da1b654629f6, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1262748468359835149, guid: c86270615e235f84a984da1b654629f6, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1262748468359835149, guid: c86270615e235f84a984da1b654629f6, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1262748468359835149, guid: c86270615e235f84a984da1b654629f6, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1262748468359835149, guid: c86270615e235f84a984da1b654629f6, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5850090766314225882, guid: c86270615e235f84a984da1b654629f6, type: 3}
-      propertyPath: m_Name
-      value: Player_2
-      objectReference: {fileID: 0}
-    - target: {fileID: 5850090766314225882, guid: c86270615e235f84a984da1b654629f6, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: c86270615e235f84a984da1b654629f6, type: 3}
 --- !u!1 &3812854430213512420
 GameObject:
   m_ObjectHideFlags: 0
@@ -18392,7 +18338,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eec71c1461417c048bc72dd2b13101fe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.WorldWeaponPickup
-  weaponInstance: {fileID: 643304205}
+  weaponInstance: {fileID: 3022584149528216383, guid: 2e03a8204b07cf840a182ca2018d700a, type: 3}
 --- !u!198 &5325606054989635769
 ParticleSystem:
   m_ObjectHideFlags: 0
@@ -33581,7 +33527,6 @@ SceneRoots:
   - {fileID: 9020430206254315046}
   - {fileID: 2422594475556461528}
   - {fileID: 6470356672485341010}
-  - {fileID: 3356976098882466907}
   - {fileID: 1111402667}
   - {fileID: 134209839}
   - {fileID: 1473941111}

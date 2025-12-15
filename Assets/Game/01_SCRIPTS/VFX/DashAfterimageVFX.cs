@@ -221,7 +221,7 @@ namespace junklite
 
                         mf.sharedMesh = bakedMesh;
 
-                        // materials (share original to avoid instancing) – color via MPB
+                        // materials (share original to avoid instancing) ï¿½ color via MPB
                         if (overrideMaterial)
                             mr.sharedMaterial = overrideMaterial;
                         else
