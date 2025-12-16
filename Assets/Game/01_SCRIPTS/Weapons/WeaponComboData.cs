@@ -9,10 +9,11 @@ namespace junklite
         [System.Serializable]
         public struct ComboStep
         {
-            public float damageMultiplier;  // 1.0 = base damage
-            public GameObject slashPrefab;  // visual slash
-            public float hitRadius;         // per-hit hitbox size
+            public float damageMultiplier;
+            public GameObject slashPrefab;
+            public float hitRadius;
         }
+
 
         [Header("Side Attack Combo")]
         public ComboStep[] sideComboSteps; // e.g., 3 steps
