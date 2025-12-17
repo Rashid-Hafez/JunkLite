@@ -22,9 +22,23 @@ namespace junklite
         [Header("Hit Detection")]
         [SerializeField] private LayerMask enemyLayer;
         [SerializeField] private LayerMask environmentLayer;
-        [Header("Hit Effects")]
-        [SerializeField] private GameObject hitParticlePrefab;
 
+        [Header("Hit Particle VFX")]
+        [SerializeField] private GameObject hitParticlePrefab;
+        [SerializeField] private int hitParticlePoolSize = 8;
+        [SerializeField] private float hitParticleLifetime = 0.2f;
+        [SerializeField] private Transform hitParticlePoolRoot;
+
+        private readonly Queue<GameObject> hitParticlePool = new();
+
+
+        [Header("Hit Cross VFX")]
+        [SerializeField] private GameObject hitCrossPrefab;
+        [SerializeField] private int hitCrossPoolSize = 8;
+        [SerializeField] private float hitCrossLifetime = 0.12f;
+        [SerializeField] private Transform hitCrossPoolRoot;
+
+        private readonly Queue<GameObject> hitCrossPool = new();
 
         [Header("Recoil")]
         [SerializeField] private float sideRecoil = 6f;
@@ -66,30 +80,143 @@ namespace junklite
             }
         }
 
+        private void OnTriggerEnter(Collider other)
+        {
+            var weaponPickup = other.GetComponent<WorldWeaponPickup>();
+            if (weaponPickup != null && CurrentWeapon == null)
+            {
+                PickupWeapon(weaponPickup);
+                return;
+            }
+
+            var modPickup = other.GetComponent<WorldModPickup>();
+            if (modPickup != null)
+                PickupMod(modPickup);
+        }
+
+        #region Attack
         // ================== ATTACK ==================
-        public bool Attack(AttackDirection dir)
+        public void Attack(AttackDirection dir)
         {
             if (CurrentWeapon == null)
-                return false;
+                return;
 
+            // Trigger the weapon → event → HandleWeaponAttack
+            CurrentWeapon.ExecuteAttack(dir);
+        }
+
+        private void HandleWeaponAttack(AttackDirection dir, WeaponComboData.ComboStep step)
+        {
             Transform anchor = GetAttackTransform(dir);
-            float radius = GetFallbackRadius(dir);
-
             if (anchor == null)
-                return false;
+                return;
 
-            AttackHitResult hitResult = CurrentWeapon.TryAttack(
-                dir,
+            float fallbackRadius = GetFallbackRadius(dir);
+            float finalRadius = step.hitRadius > 0f ? step.hitRadius : fallbackRadius;
+
+            // --- HIT DETECTION ---
+            Collider[] hits = Physics.OverlapSphere(
                 anchor.position,
-                radius,
-                enemyLayer,
-                environmentLayer,
-                Facing
+                finalRadius,
+                enemyLayer | environmentLayer,
+                QueryTriggerInteraction.Ignore
             );
 
-            ApplyRecoil(dir, hitResult);
+            AttackHitResult result = AttackHitResult.None;
+            Collider hitCollider = null;
 
-            return hitResult != AttackHitResult.None;
+            for (int i = 0; i < hits.Length; i++)
+            {
+                int mask = 1 << hits[i].gameObject.layer;
+
+                if ((mask & enemyLayer) != 0)
+                {
+                    result = AttackHitResult.Enemy;
+                    hitCollider = hits[i];
+                    break;
+                }
+
+                if ((mask & environmentLayer) != 0)
+                {
+                    result = AttackHitResult.Environment;
+                    hitCollider = hits[i];
+                }
+            }
+
+            // --- IMPACT POINT ---
+            Vector3 impactPoint = anchor.position;
+
+            if (result != AttackHitResult.None)
+            {
+                impactPoint = ResolveImpactPoint(dir, anchor.position, finalRadius);
+                PlayHitEffect(impactPoint, dir);
+                PlayHitCross(impactPoint);
+            }
+
+            // --- SLASH ---
+            if (step.slashPrefab != null)
+            {
+                if (result != AttackHitResult.None)
+                    PlaySlashAt(step.slashPrefab, anchor, impactPoint);
+                else
+                    PlaySlash(step.slashPrefab, anchor);
+            }
+
+            ApplyRecoil(dir, result);
+        }
+
+
+        private Vector3 ResolveImpactPoint(AttackDirection dir, Vector3 origin, float radius)
+        {
+            Vector3 rayDir;
+
+            switch (dir)
+            {
+                case AttackDirection.Up:
+                    rayDir = Vector3.up;
+                    break;
+                case AttackDirection.Down:
+                    rayDir = Vector3.down;
+                    break;
+                default:
+                    rayDir = Vector3.right * Facing;
+                    break;
+            }
+
+            // Start from behind so it works even if overlapping
+            Vector3 rayStart = origin - rayDir * (radius + 0.25f);
+            float rayLength = (radius + 0.25f) + (radius + 0.5f);
+
+            Vector3 point = origin;
+            Vector3 normal = -rayDir;
+
+            if (Physics.Raycast(
+                rayStart,
+                rayDir,
+                out RaycastHit hit,
+                rayLength,
+                enemyLayer | environmentLayer,
+                QueryTriggerInteraction.Ignore))
+            {
+                point = hit.point;
+                normal = hit.normal;
+            }
+            else
+            {
+                // Fallback
+                point = origin + rayDir * radius;
+            }
+
+            // ---- CRITICAL 2.5D VISIBILITY FIX ----
+            // Push out of surface
+            point += normal * 0.06f;
+
+            // Push toward camera so it renders in front
+            Camera cam = Camera.main;
+            if (cam != null)
+                point += (-cam.transform.forward) * 0.1f;
+
+            return point;
         }
 
 
@@ -115,7 +242,9 @@ namespace junklite
                 default: return sideRadius;
             }
         }
+        #endregion Attack
 
+        #region Recoil
         // ================== RECOIL ==================
         private void ApplyRecoil(AttackDirection dir, AttackHitResult hit)
         {
@@ -150,64 +279,77 @@ namespace junklite
                     break;
             }
         }
+        #endregion Recoil
 
+        #region Object Pool
 
-        // ================== PICKUPS (UNCHANGED LOGIC) ==================
-        private void OnTriggerEnter(Collider other)
+        private void InitializeHitParticlePool()
         {
-            var weaponPickup = other.GetComponent<WorldWeaponPickup>();
-            if (weaponPickup != null && CurrentWeapon == null)
+            if (hitParticlePrefab == null)
+                return;
+
+            hitParticlePool.Clear();
+
+            for (int i = 0; i < hitParticlePoolSize; i++)
             {
-                PickupWeapon(weaponPickup);
-                return;
+                GameObject go = Instantiate(hitParticlePrefab, hitParticlePoolRoot);
+                go.SetActive(false);
+                hitParticlePool.Enqueue(go);
             }
-
-            var modPickup = other.GetComponent<WorldModPickup>();
-            if (modPickup != null)
-                PickupMod(modPickup);
         }
 
-        private void PickupWeapon(WorldWeaponPickup pickup)
+
+        private void InitializeHitCrossPool()
         {
-            storedPickup = pickup;
-            pickup.gameObject.SetActive(false);
-
-            CurrentWeapon = pickup.weaponInstance;
-            CurrentWeapon.gameObject.SetActive(true);
-            CurrentWeapon.transform.SetParent(transform, false);
-            CurrentWeapon.SetOwnerRigidbody(playerRb);
-
-            InitializeSlashPools(CurrentWeapon.weaponData.comboData);
-            OnWeaponChanged?.Invoke();
-        }
-
-        public void DropWeapon()
-        {
-            if (CurrentWeapon == null || storedPickup == null)
+            if (hitCrossPrefab == null)
                 return;
 
-            CurrentWeapon.transform.SetParent(storedPickup.transform, false);
-            CurrentWeapon.gameObject.SetActive(false);
-            CurrentWeapon = null;
+            hitCrossPool.Clear();
 
-            storedPickup.transform.position =
-                transform.position + Vector3.right * Facing * 1.2f;
-
-            storedPickup.gameObject.SetActive(true);
-            storedPickup = null;
-
-            OnWeaponChanged?.Invoke();
+            for (int i = 0; i < hitCrossPoolSize; i++)
+            {
+                GameObject cross = Instantiate(hitCrossPrefab, hitCrossPoolRoot);
+                cross.SetActive(false);
+                hitCrossPool.Enqueue(cross);
+            }
         }
 
-        private void PickupMod(WorldModPickup pickup)
+        public void PlayHitCross(Vector3 worldPosition)
         {
-            var inventory = GetComponent<InventoryComponent>();
-            if (inventory == null) return;
+            if (hitCrossPrefab == null)
+                return;
 
-            inventory.PickupMod(pickup.modData);
-            Destroy(pickup.gameObject);
+            GameObject cross = GetHitCross();
+
+            cross.transform.SetParent(null);
+            cross.transform.position = worldPosition;
+            cross.transform.rotation = Quaternion.identity;
+            cross.SetActive(true);
+
+            StartCoroutine(ReturnHitCrossAfterTime(cross, hitCrossLifetime));
         }
 
+        private GameObject GetHitCross()
+        {
+            if (hitCrossPool.Count > 0)
+                return hitCrossPool.Dequeue();
+
+            // fallback if pool exhausted
+            return Instantiate(hitCrossPrefab, hitCrossPoolRoot);
+        }
+
+        private void ReturnHitCross(GameObject cross)
+        {
+            cross.SetActive(false);
+            cross.transform.SetParent(hitCrossPoolRoot, false);
+            hitCrossPool.Enqueue(cross);
+        }
+
+        private IEnumerator ReturnHitCrossAfterTime(GameObject cross, float time)
+        {
+            yield return new WaitForSeconds(time);
+            ReturnHitCross(cross);
+        }
 
         private void InitializeSlashPools(WeaponComboData comboData)
         {
@@ -237,6 +379,20 @@ namespace junklite
             Register(comboData.downAttack.slashPrefab);
         }
 
+        private GameObject GetHitParticle()
+        {
+            if (hitParticlePool.Count > 0)
+                return hitParticlePool.Dequeue();
+
+            return Instantiate(hitParticlePrefab, hitParticlePoolRoot);
+        }
+
+        private void ReturnHitParticle(GameObject go)
+        {
+            go.SetActive(false);
+            go.transform.SetParent(hitParticlePoolRoot, false);
+            hitParticlePool.Enqueue(go);
+        }
 
 
         public GameObject GetSlash(GameObject prefab, Transform attackAnchor)
@@ -265,6 +421,73 @@ namespace junklite
                 pool.Enqueue(slash);
         }
 
+        private IEnumerator ReturnHitParticleAfterTime(GameObject go, float time)
+        {
+            yield return new WaitForSeconds(time);
+            ReturnHitParticle(go);
+        }
+
+        private IEnumerator ReturnSlashAfterTime(GameObject prefab, GameObject slash, float time)
+        {
+            yield return new WaitForSeconds(time);
+            ReturnSlash(prefab, slash);
+        }
+
+
+        #endregion Object Pool
+
+        #region Weapon and Mod Pickup
+
+        private void PickupWeapon(WorldWeaponPickup pickup)
+        {
+            storedPickup = pickup;
+            pickup.gameObject.SetActive(false);
+
+            CurrentWeapon = pickup.weaponInstance;
+            CurrentWeapon.gameObject.SetActive(true);
+            CurrentWeapon.transform.SetParent(transform, false);
+            CurrentWeapon.SetOwnerRigidbody(playerRb);
+
+            CurrentWeapon.OnAttack += HandleWeaponAttack;
+
+            InitializeSlashPools(CurrentWeapon.weaponData.comboData);
+            InitializeHitParticlePool();
+            InitializeHitCrossPool();
+            OnWeaponChanged?.Invoke();
+        }
+
+        public void DropWeapon()
+        {
+            if (CurrentWeapon == null || storedPickup == null)
+                return;
+
+            CurrentWeapon.OnAttack -= HandleWeaponAttack;
+
+            CurrentWeapon.transform.SetParent(storedPickup.transform, false);
+            CurrentWeapon.gameObject.SetActive(false);
+            CurrentWeapon = null;
+
+            storedPickup.transform.position =
+                transform.position + Vector3.right * Facing * 1.2f;
+
+            storedPickup.gameObject.SetActive(true);
+            storedPickup = null;
+
+            OnWeaponChanged?.Invoke();
+        }
+
+        private void PickupMod(WorldModPickup pickup)
+        {
+            var inventory = GetComponent<InventoryComponent>();
+            if (inventory == null) return;
+
+            inventory.PickupMod(pickup.modData);
+            Destroy(pickup.gameObject);
+        }
+
+        #endregion Weapon and Mod Pickup
+
+        #region Effects
         public void PlaySlash(GameObject prefab, Transform attackAnchor, float lifetime = 0.2f)
         {
             GameObject slash = GetSlash(prefab, attackAnchor);
@@ -285,25 +508,58 @@ namespace junklite
             StartCoroutine(ReturnSlashAfterTime(prefab, slash, lifetime));
         }
 
-        public void PlayHitEffect(Vector3 worldPosition)
+        public void PlayHitEffect(Vector3 impactPoint, AttackDirection dir)
         {
             if (hitParticlePrefab == null)
-                     return;
+                return;
 
-            Instantiate(hitParticlePrefab, worldPosition, Quaternion.identity);
-            Debug.Log("Hit particle spawned");
+            GameObject go = GetHitParticle();
+
+            // Determine attack direction in world
+            Vector3 attackDir;
+
+            switch (dir)
+            {
+                case AttackDirection.Up:
+                    attackDir = Vector3.up;
+                    break;
+                case AttackDirection.Down:
+                    attackDir = Vector3.down;
+                    break;
+                default:
+                    attackDir = Vector3.right * Facing;
+                    break;
+            }
+
+            // IMPORTANT:
+            // Push particles slightly FORWARD along attack direction
+            // This compensates for particle size expanding inward
+            const float directionalOffset = 0.12f;
+
+            Vector3 spawnPos =
+                impactPoint +
+                attackDir * directionalOffset;
+
+            go.transform.SetParent(null);
+            go.transform.position = spawnPos;
+            go.transform.rotation = Quaternion.identity;
+            go.SetActive(true);
+
+            // Restart particle simulation cleanly
+            ParticleSystem ps = go.GetComponent<ParticleSystem>();
+            if (ps != null)
+            {
+                ps.Clear(true);
+                ps.Play(true);
+            }
+
+            StartCoroutine(ReturnHitParticleAfterTime(go, hitParticleLifetime));
         }
 
 
-        private IEnumerator ReturnSlashAfterTime(GameObject prefab, GameObject slash, float time)
-        {
-            yield return new WaitForSeconds(time);
-            ReturnSlash(prefab, slash);
-        }
+        #endregion Effects
 
 
-#if UNITY_EDITOR
-        // ================== GIZMOS ==================
         private void OnDrawGizmosSelected()
         {
             if (sideAttack == null || upAttack == null || downAttack == null)
@@ -318,7 +574,7 @@ namespace junklite
             Gizmos.color = Color.cyan;
             Gizmos.DrawWireSphere(downAttack.position, downRadius);
         }
-#endif
+
     }
 
     public enum AttackDirection

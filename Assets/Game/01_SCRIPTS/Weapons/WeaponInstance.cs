@@ -22,6 +22,9 @@ namespace junklite
 
         private readonly List<ModRuntimeInstance> activeMods = new();
         public System.Action OnModsChanged;
+        public event System.Action<AttackDirection, WeaponComboData.ComboStep> OnAttack;
+
+
 
         private void Start()
         {
@@ -54,74 +57,28 @@ namespace junklite
         // MAIN ATTACK ENTRY (CALLED BY WEAPON HOLDER)
         // ==================================================
 
-       public AttackHitResult TryAttack(AttackDirection dir, Vector3 hitPosition, float radius, LayerMask enemyLayer, LayerMask environmentLayer, float facing)
-       {
+        public void ExecuteAttack(AttackDirection dir)
+        {
             if (weaponData == null || weaponData.comboData == null)
-                return AttackHitResult.None;
-            
-            WeaponComboData.ComboStep step = GetComboStep(dir);
-            float finalRadius = step.hitRadius > 0f ? step.hitRadius: radius;
+                return;
 
-            Collider[] hits = Physics.OverlapSphere(hitPosition, finalRadius, enemyLayer | environmentLayer);
+            WeaponComboData.ComboStep step;
 
-            AttackHitResult result = AttackHitResult.None;
-            Vector3 contactPoint = Vector3.zero;
-            float closestDist = float.MaxValue;
-
-            foreach (var col in hits)
+            if (dir == AttackDirection.Side)
             {
-                int layerMask = 1 << col.gameObject.layer;
-
-                // Find closest contact point
-                Vector3 point = col.ClosestPoint(hitPosition);
-                float dist = Vector3.SqrMagnitude(point - hitPosition);
-
-                if (dist < closestDist)
-                {
-                    closestDist = dist;
-                    contactPoint = point;
-                }
-
-                if ((layerMask & enemyLayer) != 0)
-                {
-                    result = AttackHitResult.Enemy;
-                    break; // enemy priority
-                }
-
-                if ((layerMask & environmentLayer) != 0)
-                {
-                    result = AttackHitResult.Environment;
-                }
-            }
-
-            // =========================
-            // SLASH + HIT PARTICLES
-            // =========================
-            WeaponManager manager = GetComponentInParent<WeaponManager>();
-            
-            if (manager != null && step.slashPrefab != null)
-            {
-               Transform anchor = manager.GetAttackTransform(dir);
-
-            if (result != AttackHitResult.None)
-            {
-                // Hit → spawn slash at contact point + hit effect
-                manager.PlaySlashAt(step.slashPrefab, anchor, contactPoint);
-
-                manager.PlayHitEffect(contactPoint);
+                step = weaponData.comboData.sideComboSteps[sideComboIndex];
+                AdvanceSideCombo();
             }
             else
             {
-            // No hit → normal slash
-            manager.PlaySlash(
-                step.slashPrefab,
-                anchor
-            );
-            }
+                ResetSideCombo();
+                step = dir == AttackDirection.Up
+                    ? weaponData.comboData.upAttack
+                    : weaponData.comboData.downAttack;
             }
 
-            return result;
-       }
+            OnAttack?.Invoke(dir, step);
+        }
 
 
 
