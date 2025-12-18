@@ -9,41 +9,32 @@ namespace junklite
     /// <summary>
     /// Pure runtime state & capability gatekeeper.
     /// Zero physics or timing logic lives here.
-    /// Extended to support Hollow Knight�style movement states.
+    /// Base class for all character states.
     /// </summary>
-    public class CharacterState : MonoBehaviour
+    public abstract class CharacterState : MonoBehaviour
     {
         [Header("Optional References")]
-        [SerializeField] private AttributeManager attributes;   // optional; safe to leave null
+        [SerializeField] protected AttributeManager attributes;   // optional; safe to leave null
 
 
         public bool IsAlive => attributes != null ? attributes.IsAlive : true;
 
-        public bool CanMove => IsAlive && !IsStunned;
-        public bool CanJump => IsAlive && !IsStunned;
-        public bool CanDash => IsAlive && !IsDashing && !IsStunned;
-        public bool CanAttack => IsAlive && !IsAttacking && !IsStunned;
+        public virtual bool CanMove => IsAlive && !IsStunned;
+        public virtual bool CanJump => IsAlive && !IsStunned;
+        public virtual bool CanAttack => IsAlive && !IsAttacking && !IsStunned;
         public bool CanTakeDamage => IsAlive && IsVulnerable;
-        public bool CanRoll => IsAlive && !IsStunned && !IsRolling;
 
 
         // ==== Core State Flags ====
-        public bool IsGrounded { get; private set; } = true;
-        public bool IsMoving { get; private set; }
-        public bool IsDashing { get; private set; }
-        public bool IsAttacking { get; private set; }
-        public bool IsStunned { get; private set; }
-        public bool IsVulnerable { get; private set; } = true;
-        public bool IsRolling { get; private set; }
+        public bool IsGrounded { get; protected set; } = true;
+        public bool IsMoving { get; protected set; }
+        public bool IsAttacking { get; protected set; }
+        public bool IsStunned { get; protected set; }
+        public bool IsVulnerable { get; protected set; } = true;
 
-        // ==== New Movement States ====
-        public bool IsWallSliding { get; private set; }
-        public bool IsWallJumping { get; private set; }
-        public bool IsDoubleJumping { get; private set; }
 
-        
-        public bool IsJumping { get; private set; }   // ANY upward launch
-        public bool IsFalling { get; private set; }   // ANY downward movement
+        public bool IsJumping { get; protected set; }   // ANY upward launch
+        public bool IsFalling { get; protected set; }   // ANY downward movement
 
         // Derived (not stored, auto-calculated)
         public bool IsAirborne => !IsGrounded;
@@ -52,50 +43,32 @@ namespace junklite
         public event Action OnDeath;
         public event Action<bool> OnGroundedChanged;
         public event Action<bool> OnMovingChanged;
-        public event Action<bool> OnDashingChanged;
         public event Action<bool> OnAttackingChanged;
         public event Action<bool> OnStunnedChanged;
         public event Action<bool> OnVulnerableChanged;
-        public event Action<bool> OnRollingChanged;
-
-        // New movement state events
-        public event Action<bool> OnWallSlideChanged;
-        public event Action<bool> OnWallJumpChanged;
-        public event Action<bool> OnDoubleJumpChanged;
         public event Action<bool> OnJumpStateChanged;
         public event Action<bool> OnFallStateChanged;
 
+        // Protected invokers for derived classes
+        protected void InvokeGroundedChanged(bool value) => OnGroundedChanged?.Invoke(value);
+        protected void InvokeJumpStateChanged(bool value) => OnJumpStateChanged?.Invoke(value);
+        protected void InvokeFallStateChanged(bool value) => OnFallStateChanged?.Invoke(value);
+
         // Timed internals
-        Coroutine _stunCo, _iFrameCo;
+        protected Coroutine _stunCo, _iFrameCo;
 
-        // Drone feature (existing)
-        [SerializeField] private bool hasDrone;
-        public bool HasDrone
-        {
-            get => hasDrone;
-            set
-            {
-                if (hasDrone != value)
-                {
-                    hasDrone = value;
-                    OnHasDroneChanged?.Invoke(hasDrone);
-                }
-            }
-        }
-        public event Action<bool> OnHasDroneChanged;
-
-        private void Awake()
+        protected virtual void Awake()
         {
             if (attributes == null) TryGetComponent(out attributes);
         }
 
-        private void OnEnable()
+        protected virtual void OnEnable()
         {
             if (attributes != null)
                 attributes.OnDeath += HandleDeathForward;
         }
 
-        private void OnDisable()
+        protected virtual void OnDisable()
         {
             if (attributes != null)
                 attributes.OnDeath -= HandleDeathForward;
@@ -104,10 +77,10 @@ namespace junklite
             if (_iFrameCo != null) StopCoroutine(_iFrameCo);
         }
 
-        private void HandleDeathForward() => OnDeath?.Invoke();
+        protected void HandleDeathForward() => OnDeath?.Invoke();
 
         // ===== Reset for Respawn =====
-        public void ResetForRespawn()
+        public virtual void ResetForRespawn()
         {
             ClearTransient();
             SetGrounded(false);
@@ -115,48 +88,38 @@ namespace junklite
             SetVulnerable(true);
 
             // movement flags
-            SetWallSliding(false);
-            SetWallJumping(false);
-            SetDoubleJumping(false);
             SetJumping(false);
             SetFalling(false);
         }
 
         // ===== Clear momentary action flags =====
-        public void ClearTransient()
+        public virtual void ClearTransient()
         {
             if (_stunCo != null) { StopCoroutine(_stunCo); _stunCo = null; }
             if (_iFrameCo != null) { StopCoroutine(_iFrameCo); _iFrameCo = null; }
 
-            SetDashing(false);
             SetAttacking(false);
-            SetRolling(false);
 
             // movement transient
-            SetWallJumping(false);
-            SetDoubleJumping(false);
             SetJumping(false);
             SetFalling(false);
         }
 
         // ===========================================================================
-        //  STATE SETTERS (only allow state updates from PlayerCharacter / Controller)
+        //  STATE SETTERS
         // ===========================================================================
 
-        public void SetGrounded(bool grounded)
+        public virtual void SetGrounded(bool grounded)
         {
             if (IsGrounded == grounded) return;
             IsGrounded = grounded;
-            OnGroundedChanged?.Invoke(grounded);
+            InvokeGroundedChanged(grounded);
 
             // auto update airborne-based states
             if (grounded)
             {
                 SetJumping(false);
                 SetFalling(false);
-                SetWallSliding(false);
-                SetWallJumping(false);
-                SetDoubleJumping(false);
             }
         }
 
@@ -165,13 +128,6 @@ namespace junklite
             if (IsMoving == moving) return;
             IsMoving = moving;
             OnMovingChanged?.Invoke(moving);
-        }
-
-        public void SetDashing(bool dashing)
-        {
-            if (IsDashing == dashing) return;
-            IsDashing = dashing;
-            OnDashingChanged?.Invoke(dashing);
         }
 
         public void SetAttacking(bool attacking)
@@ -195,99 +151,36 @@ namespace junklite
             OnVulnerableChanged?.Invoke(vulnerable);
         }
 
-        public void SetRolling(bool rolling)
-        {
-            if (IsRolling == rolling) return;
-            IsRolling = rolling;
-            OnRollingChanged?.Invoke(rolling);
-        }
-
-        // ===== NEW movement states =====
-
         /// <summary>
-        /// Sets wall sliding state. Automatically clears jumping state when sliding starts.
+        /// Sets jumping state.
         /// </summary>
-        public void SetWallSliding(bool sliding)
+        public virtual void SetJumping(bool jumping)
         {
-            if (IsWallSliding == sliding) return;
-            
-            // When starting to wall slide, clear jump states first
-            if (sliding)
-            {
-                if (IsJumping)
-                {
-                    IsJumping = false;
-                    OnJumpStateChanged?.Invoke(false);
-                }
-                if (IsFalling)
-                {
-                    IsFalling = false;
-                    OnFallStateChanged?.Invoke(false);
-                }
-            }
-            
-            IsWallSliding = sliding;
-            OnWallSlideChanged?.Invoke(sliding);
-        }
-
-        /// <summary>
-        /// Sets wall jumping state. Automatically clears wall sliding when wall jump starts.
-        /// </summary>
-        public void SetWallJumping(bool jumping)
-        {
-            if (IsWallJumping == jumping) return;
-            
-            // When starting wall jump, clear wall sliding first
-            if (jumping && IsWallSliding)
-            {
-                IsWallSliding = false;
-                OnWallSlideChanged?.Invoke(false);
-            }
-            
-            IsWallJumping = jumping;
-            OnWallJumpChanged?.Invoke(jumping);
-        }
-
-        public void SetDoubleJumping(bool jumping)
-        {
-            if (IsDoubleJumping == jumping) return;
-            IsDoubleJumping = jumping;
-            OnDoubleJumpChanged?.Invoke(jumping);
-        }
-
-        /// <summary>
-        /// Sets jumping state. Wall sliding prevents jumping from being set to true.
-        /// </summary>
-        public void SetJumping(bool jumping)
-        {
-            // Cannot set jumping to true while wall sliding
-            if (jumping && IsWallSliding) return;
-            
             if (IsJumping == jumping) return;
-            
+
             // When starting to jump, clear falling
             if (jumping && IsFalling)
             {
                 IsFalling = false;
-                OnFallStateChanged?.Invoke(false);
+                InvokeFallStateChanged(false);
             }
-            
+
             IsJumping = jumping;
-            OnJumpStateChanged?.Invoke(jumping);
+            InvokeJumpStateChanged(jumping);
         }
 
         /// <summary>
         /// Sets falling state. Cannot set falling to true while jumping (use velocity-based transition).
         /// </summary>
-        public void SetFalling(bool falling)
+        public virtual void SetFalling(bool falling)
         {
             // Cannot set falling to true while actively jumping
             // The transition from jumping to falling is handled by velocity checks
             if (falling && IsJumping) return;
-            
+
             if (IsFalling == falling) return;
             IsFalling = falling;
-            OnFallStateChanged?.Invoke(falling);
+            InvokeFallStateChanged(falling);
         }
 
         // ===========================================================================
@@ -335,7 +228,7 @@ namespace junklite
         //  DEBUG
         // ===========================================================================
 
-        public string GetStatusSummary()
+        public virtual string GetStatusSummary()
         {
             var list = new List<string>();
             list.Add(IsAlive ? "ALIVE" : "DEAD");
@@ -343,12 +236,7 @@ namespace junklite
             if (IsMoving) list.Add("Moving");
             if (IsJumping) list.Add("Jumping");
             if (IsFalling) list.Add("Falling");
-            if (IsWallSliding) list.Add("WallSliding");
-            if (IsWallJumping) list.Add("WallJumping");
-            if (IsDoubleJumping) list.Add("DoubleJumping");
-            if (IsDashing) list.Add("Dashing");
             if (IsAttacking) list.Add("Attacking");
-            if (IsRolling) list.Add("Rolling");
             if (IsStunned) list.Add("Stunned");
             return string.Join(", ", list);
         }
@@ -356,7 +244,7 @@ namespace junklite
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = false;
 
-        private void OnGUI()
+        protected virtual void OnGUI()
         {
             if (!showDebugInfo) return;
 

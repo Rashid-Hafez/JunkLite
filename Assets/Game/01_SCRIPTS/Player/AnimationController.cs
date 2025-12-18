@@ -9,7 +9,7 @@ namespace junklite
         [SerializeField] private bool autoFindAnimator = true;
 
         // Cached refs
-        private CharacterState characterSystem;
+        private PlayerState characterSystem;
         private Character2D5Controller controller;
 
         // Internal
@@ -20,7 +20,7 @@ namespace junklite
             if (autoFindAnimator && animator == null)
                 animator = GetComponentInChildren<Animator>();
 
-            characterSystem = GetComponentInParent<CharacterState>();
+            characterSystem = GetComponentInParent<PlayerState>();
             controller = GetComponentInParent<Character2D5Controller>();
 
             if (animator == null)
