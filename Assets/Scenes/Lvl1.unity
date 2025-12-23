@@ -10037,7 +10037,8 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: c17a19fc19f98634282a2fe7b69fb440, type: 2}
   baseDamage: 0
   baseAttackSpeed: 0
-  comboResetTime: 0.45
+  attackCooldown: 0.4
+  comboResetTime: 0.65
 --- !u!212 &643304206
 SpriteRenderer:
   serializedVersion: 2
@@ -12473,7 +12474,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1001 &1833455353
+--- !u!1001 &1827714198
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -12483,15 +12484,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1262748468359835149, guid: 2c322f9622b9d1543860dc377a82afda, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 3.36
+      value: 3.20101
       objectReference: {fileID: 0}
     - target: {fileID: 1262748468359835149, guid: 2c322f9622b9d1543860dc377a82afda, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.83
+      value: -0.61622
       objectReference: {fileID: 0}
     - target: {fileID: 1262748468359835149, guid: 2c322f9622b9d1543860dc377a82afda, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -1.2
+      value: -0.85448
       objectReference: {fileID: 0}
     - target: {fileID: 1262748468359835149, guid: 2c322f9622b9d1543860dc377a82afda, type: 3}
       propertyPath: m_LocalRotation.w
@@ -12529,8 +12530,7 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 4805137742815568369, guid: 2c322f9622b9d1543860dc377a82afda, type: 3}
+    m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -60889,8 +60889,8 @@ SceneRoots:
   - {fileID: 1578799143}
   - {fileID: 9020430206254315046}
   - {fileID: 2422594475556461528}
-  - {fileID: 1833455353}
   - {fileID: 6470356672485341010}
+  - {fileID: 1827714198}
   - {fileID: 876535120}
   - {fileID: 1803506200}
   - {fileID: 2755338132299214815}

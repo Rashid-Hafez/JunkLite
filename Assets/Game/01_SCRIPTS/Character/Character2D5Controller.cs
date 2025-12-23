@@ -13,17 +13,23 @@ namespace junklite
         [SerializeField] private float groundCheckRadius = 0.08f;   // spherecast radius
 
         [Header("Jump Tuning")]
-        [SerializeField] private float lowJumpMultiplier = 2.5f;     // stronger gravity when jump released
-        [SerializeField] private float fallGravityMultiplier = 2.2f;  // stronger gravity when falling
-        [SerializeField] private float apexBoostDuration = 0.12f;      // tiny boost at peak
+        [SerializeField] private float minJumpHoldTime = 0.08f;       // guaranteed jump time even if released instantly
+        [SerializeField] private float lowJumpMultiplier = 2.5f;      // stronger gravity when jump released while rising
+        [SerializeField] private float fallGravityMultiplier = 2.5f;  // stronger gravity when falling (snappy descent)
+        [SerializeField] private float jumpCutMultiplier = 0.4f;      // one-time velocity cut when jump released early
+        [SerializeField] private float apexThreshold = 2f;            // velocity below this = "at apex", applies fall gravity early
 
-        private float apexBoostTimer = 0f;
-        public bool JumpHeldExternally = true;
+        private float minJumpHoldEndTime = 0f;
+        public bool JumpHeldExternally = false;
+        private float becameAirborneTime = 0f;
+        private bool hasJumpBeenCut = false;  // ensures velocity cut happens only once per jump
 
         [Header("Double Jump Settings")]
         [SerializeField] private int maxAirJumps = 1;
         [SerializeField] private float doubleJumpForce = 9f; // smaller than normal jump
         [SerializeField] private float doubleJumpStallTime = 0.05f;  // small delay before the upward launch
+        [SerializeField] private float minAirtimeForDoubleJump = 0.2f;  // tune this (0.15-0.3 feels good)
+
         private int airJumpCount = 0;
         private bool isDoubleJumpStalling = false;
         private float doubleJumpStallEndTime = 0f;
@@ -40,7 +46,7 @@ namespace junklite
         [SerializeField] private bool dashResetsGravity = true;
         [SerializeField] private AnimationCurve dashCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
 
-       
+
 
         // --- Wall Slide ---
         [Header("Wall Slide Settings")]
@@ -108,7 +114,7 @@ namespace junklite
         public System.Action OnDashEnded;
         public System.Action OnSlamStarted;
         public System.Action OnSlamEnded;
-  
+
         public System.Action<bool> OnWallSlideChanged;   // true = started, false = ended
         public System.Action OnWallJumped;               // fired when wall jump begins
         public System.Action OnDoubleJumpPerformed;      // fired when double jump is triggered
@@ -173,8 +179,15 @@ namespace junklite
             if (isGrounded) coyoteTimer = coyoteTime;
 
             if (isGrounded)
+            {
                 airJumpCount = 0;
-
+                hasJumpBeenCut = false;  // reset for next jump
+            }
+            else
+            {
+                if (wasGrounded)  // just became airborne
+                    becameAirborneTime = Time.time;
+            }
 
             // jump buffer timer naturally counts down
             if (jumpBufferTimer > 0f)
@@ -211,7 +224,7 @@ namespace junklite
         private void FixedUpdate()
         {
 
-            if(!IsGrounded)
+            if (!IsGrounded)
                 coyoteTimer -= Time.fixedDeltaTime;
 
             if (isDoubleJumpStalling)
@@ -224,6 +237,7 @@ namespace junklite
                     // Stall over → apply upward launch
                     isDoubleJumpStalling = false;
                     rb.linearVelocity = new Vector3(rb.linearVelocity.x, doubleJumpForce, rb.linearVelocity.z);
+                    StartMinJumpHoldWindow();
                 }
 
                 // Skip rest of movement while stalling
@@ -255,6 +269,11 @@ namespace junklite
             JumpHeldExternally = held;
         }
 
+        private void StartMinJumpHoldWindow()
+        {
+            minJumpHoldEndTime = Time.time + minJumpHoldTime;
+        }
+
 
         public void SetMovementInput(float horizontal, float vertical = 0f)
         {
@@ -281,14 +300,33 @@ namespace junklite
         /// </summary>
         public void Jump()
         {
-            // Wall jump has priority if we’re sliding
             if (isWallSliding)
             {
                 StartWallJump();
                 return;
             }
 
-            jumpBufferTimer = jumpBufferTime; // Normal jump uses buffer + coyote
+            // Ground jump - use buffer system
+            if (coyoteTimer > 0f)
+            {
+                jumpBufferTimer = jumpBufferTime;
+                return;
+            }
+
+            // Air jump - direct, no buffer
+            bool canAirJump = airJumpCount < maxAirJumps
+                && Time.time >= becameAirborneTime + minAirtimeForDoubleJump;
+
+            if (canAirJump)
+            {
+                OnDoubleJumpPerformed?.Invoke();
+                isDoubleJumpStalling = true;
+                doubleJumpStallEndTime = Time.time + doubleJumpStallTime;
+                rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+                airJumpCount++;
+                JumpHeldExternally = true;
+                hasJumpBeenCut = false;  // fresh jump, allow one cut
+            }
         }
 
         public void Dash()
@@ -408,7 +446,7 @@ namespace junklite
 
             if (previous != isWallSliding)
                 OnWallSlideChanged?.Invoke(true);
-            
+
             // Turn off jumping while wall sliding
             coyoteTimer = 0f;
             jumpBufferTimer = 0f;
@@ -435,6 +473,8 @@ namespace junklite
                 wallJumpForce,
                 rb.linearVelocity.z
             );
+
+            StartMinJumpHoldWindow();
 
             // Clear timers so a ground jump isn't consumed
             coyoteTimer = 0f;
@@ -466,59 +506,33 @@ namespace junklite
         private void ApplyMovementFixed()
         {
             // --- Wall Jump Movement Lock ---
-            // Do NOT allow normal movement to override the wall jump
             if (isWallJumping)
                 return;
 
-            // --- Jump Buffer + Coyote Jump + Double Jump ---
-            if (jumpBufferTimer > 0f && canMove && !isDashing)
+            // --- Ground Jump via Buffer + Coyote ---
+            if (jumpBufferTimer > 0f && canMove && !isDashing && !isWallSliding)
             {
-                // Cannot jump while wall sliding (wall jump is handled separately in Jump() method)
-                if (isWallSliding)
+                if (coyoteTimer > 0f)
                 {
-                    jumpBufferTimer = 0f;
-                    return;
-                }
-
-                bool canGroundJump = coyoteTimer > 0f;
-                bool canAirJump = !canGroundJump && airJumpCount < maxAirJumps;
-
-                if (canGroundJump)
-                {
-                    // NORMAL JUMP (variable height)
                     rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpForce, rb.linearVelocity.z);
+                    StartMinJumpHoldWindow();
+                    hasJumpBeenCut = false;  // fresh jump, allow one cut
                     jumpBufferTimer = 0f;
+                    coyoteTimer = 0f;
                     OnJumpStarted?.Invoke();
                 }
-                else if (canAirJump)
+                else
                 {
-                    OnDoubleJumpPerformed?.Invoke();
-
-                    // Enter stall mode
-                    isDoubleJumpStalling = true;
-                    doubleJumpStallEndTime = Time.time + doubleJumpStallTime;
-
-                    // Zero out vertical speed to create stall
-                    rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-
-                    // Consume jump buffer and count
-                    airJumpCount++;
+                    // No coyote available, clear buffer (air jump handled in Jump() directly)
                     jumpBufferTimer = 0f;
-
-                    // Disable variable jump for air jump
-                    JumpHeldExternally = true;
-
-                    // Stop any apex-boost weirdness
-                    apexBoostTimer = 0f;
                 }
-
             }
 
             if (!canMove) return;
 
             Vector3 v = rb.linearVelocity;
 
-            // --- ARC FIX: Preserve horizontal momentum in the air unless player inputs movement ---
+            // --- Air movement ---
             if (!isGrounded)
             {
                 if (Mathf.Abs(moveInput.x) < 0.1f)
@@ -582,57 +596,46 @@ namespace junklite
         private void ApplyGravityFixed()
         {
             if (isGrounded) return;
-           
-            float yVel = rb.linearVelocity.y;
-            bool touchingWall = CheckWall();
 
-            // --- CELSTE / HOLLOW KNIGHT HARD JUMP CUT ---
-            if (yVel > 0f && !JumpHeldExternally)
+            float yVel = rb.linearVelocity.y;
+            bool minHoldActive = Time.time < minJumpHoldEndTime;
+            bool canCutJump = !JumpHeldExternally && !minHoldActive;
+
+            // --- ONE-TIME HARD JUMP CUT (Hollow Knight / Celeste style) ---
+            if (yVel > 0.1f && canCutJump && !hasJumpBeenCut)
             {
-                rb.linearVelocity = new Vector3(rb.linearVelocity.x, yVel * 0.45f, rb.linearVelocity.z);
+                rb.linearVelocity = new Vector3(rb.linearVelocity.x, yVel * jumpCutMultiplier, rb.linearVelocity.z);
+                hasJumpBeenCut = true;
+                yVel = rb.linearVelocity.y;
             }
 
-            // --- WALL COLLISION DURING JUMP: Prevent continuous height gain ---
-            // If touching wall while jumping upward, apply extra gravity to limit jump height
+            // --- WALL COLLISION: Extra gravity when hitting wall while jumping ---
+            bool touchingWall = CheckWall();
             if (yVel > 0f && touchingWall && JumpHeldExternally)
             {
-                // Apply stronger gravity multiplier when colliding with wall during jump
                 rb.AddForce(Physics.gravity * gravityMultiplier * lowJumpMultiplier * 1.5f, ForceMode.Acceleration);
                 return;
             }
 
-            // Cancel apex boost when jump is released
-            if (!JumpHeldExternally)
-                apexBoostTimer = 0f;
+            // --- GRAVITY (always applied, like Rigidbody.useGravity) ---
+            // Key fix: Apply fall gravity when AT or NEAR apex, not just when yVel < 0
+            // This prevents the "float" at the peak of the jump
 
-            // Apex detection
-            if (yVel > -0.1f && yVel < 0.1f)
-                apexBoostTimer = apexBoostDuration;
-
-            // Apex boost
-            if (apexBoostTimer > 0f)
+            if (yVel < apexThreshold)
             {
-                apexBoostTimer -= Time.fixedDeltaTime;
-                rb.AddForce(Physics.gravity * gravityMultiplier * fallGravityMultiplier * 1.2f, ForceMode.Acceleration);
-                return;
-            }
-
-            // Low jump gravity (jump released early)
-            if (yVel > 0f && !JumpHeldExternally)
-            {
-                rb.AddForce(Physics.gravity * gravityMultiplier * lowJumpMultiplier, ForceMode.Acceleration);
-                return;
-            }
-
-            // Falling
-            if (yVel < 0f)
-            {
+                // At apex or falling - snap down immediately with fall gravity
                 rb.AddForce(Physics.gravity * gravityMultiplier * fallGravityMultiplier, ForceMode.Acceleration);
-                return;
             }
-
-            // Normal gravity
-            rb.AddForce(Physics.gravity * gravityMultiplier, ForceMode.Acceleration);
+            else if (canCutJump)
+            {
+                // Rising fast but jump released - strong gravity to shorten arc
+                rb.AddForce(Physics.gravity * gravityMultiplier * lowJumpMultiplier, ForceMode.Acceleration);
+            }
+            else
+            {
+                // Rising fast with jump held - normal gravity
+                rb.AddForce(Physics.gravity * gravityMultiplier, ForceMode.Acceleration);
+            }
         }
 
 

@@ -12,6 +12,12 @@ namespace junklite
         public float baseDamage;
         public float baseAttackSpeed;
 
+        [Header("Attack Timing")]
+        [SerializeField] private float attackCooldown = 0.5f;
+
+        private float lastAttackTime = -999f;
+        public bool CanAttack => Time.time >= lastAttackTime + attackCooldown;
+
         [Header("Combo Settings")]
         [SerializeField] private float comboResetTime = 0.45f;
 
@@ -62,6 +68,11 @@ namespace junklite
             if (weaponData == null || weaponData.comboData == null)
                 return;
 
+            if (!CanAttack)
+                return;
+
+            lastAttackTime = Time.time;
+
             WeaponComboData.ComboStep step;
 
             if (dir == AttackDirection.Side)
@@ -79,9 +90,6 @@ namespace junklite
 
             OnAttack?.Invoke(dir, step);
         }
-
-
-
 
         // ==================================================
         // COMBO STEP SELECTION

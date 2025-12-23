@@ -453,7 +453,10 @@ namespace junklite
         void OnJumpPressed()
         {
             if (playerState != null && playerState.CanJump && Controller != null)
+            {
+                Controller.SetJumpHeld(true);  
                 Controller.Jump();
+            }
         }
 
         void OnDashPressed()
