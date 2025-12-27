@@ -90,6 +90,7 @@ namespace junklite
         // Components
         private Rigidbody rb;
         private Collider col;
+        private PlayerState playerState;
 
         // Movement state
         private Vector3 moveInput;
@@ -146,6 +147,7 @@ namespace junklite
         {
             rb = GetComponent<Rigidbody>();
             col = GetComponent<Collider>();
+            playerState = GetComponent<PlayerState>();
 
             rb.freezeRotation = true;
 
@@ -389,6 +391,24 @@ namespace junklite
             }
         }
 
+        /// <summary>
+        /// Returns current movement input magnitude (for animation checks).
+        /// </summary>
+        public float GetMovementInputMagnitude()
+        {
+            return Mathf.Abs(moveInput.x);
+        }
+
+        /// <summary>
+        /// Stops all velocity immediately. Use on death or hard stops.
+        /// </summary>
+        public void StopAllVelocity()
+        {
+            //rb.linearVelocity = Vector3.zero;
+            //rb.angularVelocity = Vector3.zero;
+            moveInput = Vector3.zero;
+        }
+
         #endregion
 
         #region Wall Slide & Wall Jump
@@ -507,6 +527,10 @@ namespace junklite
         {
             // --- Wall Jump Movement Lock ---
             if (isWallJumping)
+                return;
+
+            // --- Stunned - don't override velocity (let knockback play out) ---
+            if (playerState != null && playerState.IsStunned)
                 return;
 
             // --- Ground Jump via Buffer + Coyote ---

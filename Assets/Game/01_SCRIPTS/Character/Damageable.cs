@@ -8,17 +8,53 @@ namespace junklite
         bool IsAlive { get; }
     }
 
+    public interface IGrabbable
+    {
+        void GetGrabbed(GrabInfo info);
+        bool CanBeGrabbed { get; }
+    }
+
     public enum DamageType { Physical, Fire, Magic }
 
+    /// <summary>
+    /// Damage data - kept lean and focused only on damage.
+    /// </summary>
     public struct DamageInfo
     {
         public float Amount;
         public GameObject Source;
         public DamageType Type;
+        public Vector2 KnockbackForce;
 
-        public DamageInfo(float amount, GameObject source = null, DamageType type = DamageType.Physical)
+        public DamageInfo(float amount, GameObject source = null, DamageType type = DamageType.Physical, Vector2 knockback = default)
         {
-            Amount = amount; Source = source; Type = type;
+            Amount = amount;
+            Source = source;
+            Type = type;
+            KnockbackForce = knockback;
+        }
+    }
+
+    /// <summary>
+    /// Grab data - everything needed for a grab and throw interaction.
+    /// </summary>
+    public struct GrabInfo
+    {
+        public GameObject Source;
+        public float Duration;
+        public Vector3 GrabOffset;
+        public Vector2 ThrowForce;
+        public float ThrowDamage;
+        public int ThrowDirection; // 1 = right, -1 = left
+
+        public GrabInfo(GameObject source, float duration, Vector3 grabOffset, Vector2 throwForce, float throwDamage, int throwDirection)
+        {
+            Source = source;
+            Duration = duration;
+            GrabOffset = grabOffset;
+            ThrowForce = throwForce;
+            ThrowDamage = throwDamage;
+            ThrowDirection = throwDirection;
         }
     }
 
@@ -66,11 +102,8 @@ namespace junklite
 
         bool IsHostile(GameObject source)
         {
-            // If either has no team, allow by default (or return false if you prefer strict).
             var srcTeam = source ? source.GetComponentInParent<TeamMember>() : null;
             if (myTeam == null || srcTeam == null) return true;
-
-            // Disallow same-team damage; allow Player ↔ Enemy
             return myTeam.Team != srcTeam.Team;
         }
     }

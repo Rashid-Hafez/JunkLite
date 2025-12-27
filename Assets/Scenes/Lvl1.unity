@@ -119,37 +119,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &11655076
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 11655077}
-  m_Layer: 0
-  m_Name: Wallcheck
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &11655077
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 11655076}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.656, y: -0.092, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 667412947}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &68849781
 GameObject:
   m_ObjectHideFlags: 0
@@ -9936,37 +9905,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 502200488}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &498002403
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 498002404}
-  m_Layer: 0
-  m_Name: Ledge Check
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &498002404
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 498002403}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.239, y: -1.43, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 667412947}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &502200487
 GameObject:
   m_ObjectHideFlags: 0
@@ -10003,6 +9941,76 @@ Transform:
   - {fileID: 1153500655}
   - {fileID: 1737470714}
   m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &594801203
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 594801206}
+  - component: {fileID: 594801205}
+  - component: {fileID: 594801204}
+  m_Layer: 14
+  m_Name: Dash hitbox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &594801204
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 594801203}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98ec56f88f91517478199942c46e6dee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.Hitbox
+  targetLayers:
+    serializedVersion: 2
+    m_Bits: 1
+  hitOnce: 1
+--- !u!65 &594801205
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 594801203}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 2.7031636, z: 1}
+  m_Center: {x: 0.31, y: 0.10658175, z: 0}
+--- !u!4 &594801206
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 594801203}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 667412947}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &643304204
 GameObject:
@@ -10245,12 +10253,12 @@ GameObject:
   - component: {fileID: 667412947}
   - component: {fileID: 667412949}
   - component: {fileID: 667412955}
-  - component: {fileID: 667412954}
-  - component: {fileID: 667412953}
-  - component: {fileID: 667412952}
-  - component: {fileID: 667412951}
-  - component: {fileID: 667412950}
-  m_Layer: 0
+  - component: {fileID: 667412960}
+  - component: {fileID: 667412959}
+  - component: {fileID: 667412958}
+  - component: {fileID: 667412957}
+  - component: {fileID: 667412956}
+  m_Layer: 14
   m_Name: Robot Enemy
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10266,14 +10274,13 @@ Transform:
   m_GameObject: {fileID: 667412946}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -6.69, y: 0.354, z: -0.515}
+  m_LocalPosition: {x: 18.89, y: 0.354, z: -0.515}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1019862424}
-  - {fileID: 898384278}
-  - {fileID: 11655077}
-  - {fileID: 498002404}
+  - {fileID: 1182120239}
+  - {fileID: 594801206}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &667412949
@@ -10303,97 +10310,6 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 112
   m_CollisionDetection: 0
---- !u!114 &667412950
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 667412946}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f3a8e8bf4b460884ea2f001e8cae0bc6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.Damageable
---- !u!114 &667412951
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 667412946}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 536e229fc1fd03f4498c4e7d3a4f47cf, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.AttributeManager
-  stats: {fileID: 11400000, guid: 239c8740c6048b14abc3a7d587e8b045, type: 2}
-  allRuntimeAttributes: []
---- !u!114 &667412952
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 667412946}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bb7d9c6f425f37341a312a93d132caea, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyController
-  moveSpeed: 3
-  acceleration: 10
-  flipByScale: 1
-  visualTransform: {fileID: 0}
-  groundCheck: {fileID: 898384278}
-  groundCheckRadius: 0.2
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 6144
-  wallCheck: {fileID: 11655077}
-  wallCheckDistance: 0.5
-  ledgeCheck: {fileID: 498002404}
-  ledgeCheckDistance: 1
---- !u!114 &667412953
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 667412946}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 98bfb27136396fa459087acb8dc3c695, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.RobotBrain
-  detectionRange: 6
-  attackRange: 1.5
-  playerLayer:
-    serializedVersion: 2
-    m_Bits: 1
-  alertDuration: 0.2
-  recoverDuration: 0.4
-  patrolDistance: 7.07
-  patrolWaitTime: 1
-  chaseSpeed: 4
-  stunDuration: 0.3
---- !u!114 &667412954
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 667412946}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ec762c8ed052ae24181844bfe022ec87, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyCharacter
-  baseStats: {fileID: 0}
-  detectionRange: 10.6
-  playerLayer:
-    serializedVersion: 2
-    m_Bits: 1
 --- !u!136 &667412955
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -10407,7 +10323,7 @@ CapsuleCollider:
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 1
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
@@ -10417,6 +10333,99 @@ CapsuleCollider:
   m_Height: 3.26
   m_Direction: 1
   m_Center: {x: 0, y: 0.11, z: 0}
+--- !u!114 &667412956
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 667412946}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 101c252627e08ba49a32b7c6d0183033, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.RobotEnemy
+  baseStats: {fileID: 11400000, guid: 9c72d1ca99bf4a341b6578b22cb2b01c, type: 2}
+  config: {fileID: 11400000, guid: a06c1f2f196407e4683d5cd382702c22, type: 2}
+  detectionZone: {fileID: 1182120237}
+  attackRange: 1.45
+  targetLayer:
+    serializedVersion: 2
+    m_Bits: 1
+  dashHitbox: {fileID: 594801204}
+  patrolDistance: 6.2
+  wallCheckDistance: 1.08
+  wallLayer:
+    serializedVersion: 2
+    m_Bits: 4096
+  showGizmos: 1
+  dashChargeTime: 0.7
+  dashSpeed: 20
+  dashRecoveryTime: 0.3
+  dashDamage: 10
+  dashKnockback: {x: 15, y: 5}
+  canGrab: 1
+  grabChance: 0.372
+  grabDuration: 1.5
+  throwForce: {x: 20, y: 50}
+  throwDamage: 20
+  grabOffset: {x: 0.5, y: 1.5, z: 0}
+--- !u!114 &667412957
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 667412946}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3a8e8bf4b460884ea2f001e8cae0bc6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.Damageable
+--- !u!114 &667412958
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 667412946}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 536e229fc1fd03f4498c4e7d3a4f47cf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.AttributeManager
+  stats: {fileID: 0}
+  allRuntimeAttributes: []
+--- !u!114 &667412959
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 667412946}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b5abb57bc2a39d43b7f9068ce56df7d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.StateMachine
+  logTransitions: 0
+--- !u!114 &667412960
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 667412946}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50c367319eb1a7842aa44ccae27a29a8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyMovement
+  moveSpeed: 3
+  stoppingDistance: 0.1
+  movementPlane: 0
+  useScaleFlip: 1
+  defaultFacing: 1
 --- !u!1 &673303867
 GameObject:
   m_ObjectHideFlags: 0
@@ -10635,37 +10644,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
---- !u!1 &898384277
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 898384278}
-  m_Layer: 0
-  m_Name: GroundCheck
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &898384278
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 898384277}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -1.42, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 667412947}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &933118155
 GameObject:
   m_ObjectHideFlags: 0
@@ -10752,7 +10730,7 @@ GameObject:
   - component: {fileID: 1019862424}
   - component: {fileID: 1019862426}
   - component: {fileID: 1019862425}
-  m_Layer: 0
+  m_Layer: 14
   m_Name: Robot visual
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10969,6 +10947,80 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 0
   m_SpriteSortPoint: 0
+--- !u!1 &1182120236
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1182120239}
+  - component: {fileID: 1182120238}
+  - component: {fileID: 1182120237}
+  m_Layer: 14
+  m_Name: Detection Zone
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1182120237
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1182120236}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 074b548b6f92e4e43aa567bd186f57a8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.DetectionZone
+  targetLayers:
+    serializedVersion: 2
+    m_Bits: 1
+  requireLineOfSight: 1
+  losBlockingLayers:
+    serializedVersion: 2
+    m_Bits: 4096
+  showGizmos: 1
+--- !u!135 &1182120238
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1182120236}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 5.73
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!4 &1182120239
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1182120236}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 667412947}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1271579710
 GameObject:
   m_ObjectHideFlags: 0

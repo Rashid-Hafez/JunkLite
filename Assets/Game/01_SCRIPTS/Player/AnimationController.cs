@@ -49,6 +49,12 @@ namespace junklite
 
             // --- Base locomotion parameters ---
             float speed = Mathf.Abs(controller.Velocity.x);
+
+            // Don't show run animation if stunned or no movement input
+            bool hasMovementInput = controller.GetMovementInputMagnitude() > 0.1f;
+            if (characterSystem.IsStunned || !hasMovementInput)
+                speed = 0f;
+
             animator.SetFloat("Speed", speed);
             animator.SetBool("IsGrounded", characterSystem.IsGrounded);
 

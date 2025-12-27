@@ -8,7 +8,7 @@ namespace junklite
     public class WeaponManager : MonoBehaviour
     {
         [Header("Weapon Holder")] public Transform weaponHolder;
-        
+
         [Header("Attack Transforms (Scene Anchors)")]
         [SerializeField] private Transform sideAttack;
         [SerializeField] private Transform upAttack;
@@ -22,6 +22,9 @@ namespace junklite
         [Header("Hit Detection")]
         [SerializeField] private LayerMask enemyLayer;
         [SerializeField] private LayerMask environmentLayer;
+
+        [Header("Knockback")]
+        [SerializeField] private Vector2 defaultKnockback = new Vector2(8f, 4f);
 
         [Header("Hit Particle VFX")]
         [SerializeField] private GameObject hitParticlePrefab;
@@ -133,6 +136,10 @@ namespace junklite
                 {
                     result = AttackHitResult.Enemy;
                     hitCollider = hits[i];
+
+                    // === DEAL DAMAGE TO ENEMY ===
+                    DealDamageToTarget(hits[i], step);
+
                     break;
                 }
 
@@ -163,6 +170,40 @@ namespace junklite
             }
 
             ApplyRecoil(dir, result);
+        }
+
+        /// <summary>
+        /// Deals damage to the target hit by the weapon.
+        /// </summary>
+        private void DealDamageToTarget(Collider targetCollider, WeaponComboData.ComboStep step)
+        {
+            // Find IDamageable on target
+            var damageable = targetCollider.GetComponent<IDamageable>();
+            if (damageable == null)
+                damageable = targetCollider.GetComponentInParent<IDamageable>();
+
+            if (damageable == null || !damageable.IsAlive)
+                return;
+
+            // Calculate damage
+            float damage = CurrentWeapon != null ? CurrentWeapon.baseDamage : 10f;
+
+            // Apply step damage multiplier if available
+            if (step.damageMultiplier > 0f)
+                damage *= step.damageMultiplier;
+
+            // Calculate knockback direction
+            Vector3 knockbackDir = (targetCollider.transform.position - playerTransform.position).normalized;
+            Vector2 knockback = new Vector2(
+                knockbackDir.x * defaultKnockback.x,
+                defaultKnockback.y
+            );
+
+            // Create damage info
+            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
+
+            // Apply damage
+            damageable.TakeDamage(damageInfo);
         }
 
 
@@ -242,53 +283,27 @@ namespace junklite
                 default: return sideRadius;
             }
         }
-        #endregion Attack
 
-        #region Recoil
-        // ================== RECOIL ==================
-        private void ApplyRecoil(AttackDirection dir, AttackHitResult hit)
+        private void ApplyRecoil(AttackDirection dir, AttackHitResult result)
         {
-            if (hit == AttackHitResult.None || playerRb == null)
+            if (playerRb == null || result == AttackHitResult.None)
                 return;
 
-            switch (dir)
+            if (dir == AttackDirection.Side)
             {
-                case AttackDirection.Side:
-                    playerRb.AddForce(
-                        Vector3.left * Facing * sideRecoil,
-                        ForceMode.Impulse
-                    );
-                    break;
-
-                case AttackDirection.Up:
-                   /* playerRb.AddForce(
-                        Vector3.down * upRecoil,
-                        ForceMode.Impulse
-                    );*/
-                    break;
-
-                case AttackDirection.Down:
-                    // Pogo only on enemies (industry standard)
-                   /* if (hit == AttackHitResult.Enemy)
-                    {
-                        playerRb.AddForce(
-                            Vector3.up * downPogoForce,
-                            ForceMode.Impulse
-                        );
-                    }*/
-                    break;
+                float recoilDir = -Facing;
+                playerRb.AddForce(Vector3.right * recoilDir * sideRecoil, ForceMode.Impulse);
             }
         }
-        #endregion Recoil
+
+        #endregion Attack
 
         #region Object Pool
 
         private void InitializeHitParticlePool()
         {
-            if (hitParticlePrefab == null)
+            if (hitParticlePrefab == null || hitParticlePoolRoot == null)
                 return;
-
-            hitParticlePool.Clear();
 
             for (int i = 0; i < hitParticlePoolSize; i++)
             {
@@ -298,35 +313,17 @@ namespace junklite
             }
         }
 
-
         private void InitializeHitCrossPool()
         {
-            if (hitCrossPrefab == null)
+            if (hitCrossPrefab == null || hitCrossPoolRoot == null)
                 return;
-
-            hitCrossPool.Clear();
 
             for (int i = 0; i < hitCrossPoolSize; i++)
             {
-                GameObject cross = Instantiate(hitCrossPrefab, hitCrossPoolRoot);
-                cross.SetActive(false);
-                hitCrossPool.Enqueue(cross);
+                GameObject go = Instantiate(hitCrossPrefab, hitCrossPoolRoot);
+                go.SetActive(false);
+                hitCrossPool.Enqueue(go);
             }
-        }
-
-        public void PlayHitCross(Vector3 worldPosition)
-        {
-            if (hitCrossPrefab == null)
-                return;
-
-            GameObject cross = GetHitCross();
-
-            cross.transform.SetParent(null);
-            cross.transform.position = worldPosition;
-            cross.transform.rotation = Quaternion.identity;
-            cross.SetActive(true);
-
-            StartCoroutine(ReturnHitCrossAfterTime(cross, hitCrossLifetime));
         }
 
         private GameObject GetHitCross()
@@ -334,8 +331,20 @@ namespace junklite
             if (hitCrossPool.Count > 0)
                 return hitCrossPool.Dequeue();
 
-            // fallback if pool exhausted
             return Instantiate(hitCrossPrefab, hitCrossPoolRoot);
+        }
+
+        private void PlayHitCross(Vector3 position)
+        {
+            if (hitCrossPrefab == null)
+                return;
+
+            GameObject cross = GetHitCross();
+            cross.transform.SetParent(null);
+            cross.transform.position = position;
+            cross.SetActive(true);
+
+            StartCoroutine(ReturnHitCrossAfterTime(cross, hitCrossLifetime));
         }
 
         private void ReturnHitCross(GameObject cross)
@@ -496,7 +505,7 @@ namespace junklite
             StartCoroutine(ReturnSlashAfterTime(prefab, slash, lifetime));
         }
 
-        public void PlaySlashAt(GameObject prefab, Transform attackAnchor, Vector3 worldContactPoint,float lifetime = 0.12f)
+        public void PlaySlashAt(GameObject prefab, Transform attackAnchor, Vector3 worldContactPoint, float lifetime = 0.12f)
         {
             GameObject slash = GetSlash(prefab, attackAnchor);
             if (slash == null) return;

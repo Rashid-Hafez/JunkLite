@@ -6442,17 +6442,18 @@ MonoBehaviour:
   downRadius: 0.85
   enemyLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 24576
   environmentLayer:
     serializedVersion: 2
     m_Bits: 4096
+  defaultKnockback: {x: 8, y: 4}
   hitParticlePrefab: {fileID: 9066207848555103289, guid: 47c1cc4b51c7d564aa5c081fd8c65583, type: 3}
   hitParticlePoolSize: 8
-  hitParticleLifetime: 0.2
+  hitParticleLifetime: 9.5
   hitParticlePoolRoot: {fileID: 1262748468359835149}
   hitCrossPrefab: {fileID: 7049337084192431640, guid: 74f7c3ebf7a21014e8ed755b3434b1f0, type: 3}
   hitCrossPoolSize: 8
-  hitCrossLifetime: 0.12
+  hitCrossLifetime: 0.15
   hitCrossPoolRoot: {fileID: 1262748468359835149}
   sideRecoil: 15
   poolSizePerSlash: 5

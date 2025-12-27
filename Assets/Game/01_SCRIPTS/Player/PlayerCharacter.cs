@@ -8,7 +8,7 @@ namespace junklite
     [RequireComponent(typeof(Character2D5Controller))]
     [RequireComponent(typeof(PlayerState))]
     [DefaultExecutionOrder(5)]
-    public class PlayerCharacter : CharacterBase
+    public class PlayerCharacter : CharacterBase, IGrabbable
     {
         [Header("Player Settings")]
         [SerializeField] private float attackRange = 1.5f;
@@ -50,6 +50,11 @@ namespace junklite
 
         // attack coroutine
         Coroutine _attackCo;
+
+        // Grab state
+        private bool isGrabbed = false;
+        public bool IsGrabbed => isGrabbed;
+        public bool CanBeGrabbed => IsAlive && !isGrabbed;
 
         // Attached Comps
         private WeaponManager _weaponManager;
@@ -454,7 +459,7 @@ namespace junklite
         {
             if (playerState != null && playerState.CanJump && Controller != null)
             {
-                Controller.SetJumpHeld(true);  
+                Controller.SetJumpHeld(true);
                 Controller.Jump();
             }
         }
@@ -534,6 +539,8 @@ namespace junklite
         public void OnLanding() { }
 
         // ====================================================================
+        // DAMAGE
+        // ====================================================================
 
         public override void TakeDamage(DamageInfo info)
         {
@@ -541,19 +548,123 @@ namespace junklite
 
             base.TakeDamage(info);
 
-            if (info.Source != null && Controller != null)
+            // Apply knockback
+            if (info.Source != null && Controller != null && info.KnockbackForce.sqrMagnitude > 0f)
             {
                 Vector3 dir = (transform.position - info.Source.transform.position).normalized;
-                Controller.AddForce(dir * 15f, ForceMode.Impulse);
+                Vector3 knockback = new Vector3(
+                    dir.x * info.KnockbackForce.x,
+                    info.KnockbackForce.y,
+                    dir.z * info.KnockbackForce.x
+                );
+                Controller.AddForce(knockback, ForceMode.VelocityChange);
             }
 
+            // Stun duration covers knockback time
             if (playerState != null)
-                playerState.ApplyStun(0.1f);
+                playerState.ApplyStun(0.25f);
         }
+
+        // ====================================================================
+        // GRAB (IGrabbable)
+        // ====================================================================
+
+        public void GetGrabbed(GrabInfo info)
+        {
+            if (!CanBeGrabbed) return;
+            StartCoroutine(HandleGrab(info));
+        }
+
+        private IEnumerator HandleGrab(GrabInfo info)
+        {
+            isGrabbed = true;
+
+            // Stun player for entire grab + throw recovery
+            if (playerState != null)
+                playerState.ApplyStun(info.Duration + 0.5f);
+
+            // Disable controller movement and stop velocity
+            if (Controller != null)
+            {
+                Controller.CanMove = false;
+                Controller.StopAllVelocity();
+            }
+
+            // Disable rigidbody physics during grab
+            bool wasKinematic = false;
+            if (_rb != null)
+            {
+                wasKinematic = _rb.isKinematic;
+                _rb.isKinematic = true;
+                _rb.linearVelocity = Vector3.zero;
+            }
+
+            Transform enemyTransform = info.Source?.transform;
+
+            // Hold player attached to enemy for grab duration
+            float timer = 0f;
+            while (timer < info.Duration)
+            {
+                timer += Time.deltaTime;
+
+                // Keep player attached to enemy at grabOffset
+                if (enemyTransform != null)
+                {
+                    transform.position = enemyTransform.position + info.GrabOffset;
+                }
+
+                // Keep velocity zero during grab
+                if (Controller != null)
+                    Controller.StopAllVelocity();
+
+                yield return null;
+            }
+
+            // Re-enable rigidbody physics before throw
+            if (_rb != null)
+            {
+                _rb.isKinematic = wasKinematic;
+            }
+
+            // Apply throw damage
+            if (info.ThrowDamage > 0f && attributes != null)
+                attributes.Health.Remove(info.ThrowDamage);
+
+            // Apply throw force
+            if (Controller != null && info.ThrowForce.sqrMagnitude > 0f)
+            {
+                Vector3 throwKnockback = new Vector3(
+                    info.ThrowDirection * info.ThrowForce.x,
+                    info.ThrowForce.y,
+                    0f
+                );
+
+                Controller.AddForce(throwKnockback, ForceMode.VelocityChange);
+                Debug.Log($"Player thrown! Direction: {info.ThrowDirection}, Force: {throwKnockback}");
+            }
+
+            // Re-enable controller after throw
+            if (Controller != null)
+            {
+                Controller.CanMove = true;
+            }
+
+            isGrabbed = false;
+        }
+
+        // ====================================================================
 
         protected override void HandleDeath()
         {
-            if (controller != null) controller.CanMove = false;
+            // Stop all movement and velocity on death
+            if (controller != null)
+            {
+                controller.CanMove = false;
+                controller.StopAllVelocity();
+            }
+
+            isGrabbed = false;
+
             base.HandleDeath();
             UnsubscribeFromInput();
         }
