@@ -6560,7 +6560,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: df24b6490ff184e1f9db906a343facec, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnDrone
-  dronePrefab: {fileID: 76666413933033825, guid: 0900888a628534fc59261e4b6581b93e, type: 3}
+  dronePrefab: {fileID: 76666413933033825, guid: f79d1eaa0429d4695879772a38bc93d1, type: 3}
   spawnPoint: {fileID: 0}
 --- !u!95 &5280575404221636350
 Animator:
@@ -6598,7 +6598,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerState
   attributes: {fileID: 0}
   showDebugInfo: 0
-  hasDrone: 0
+  hasDrone: 1
 --- !u!1 &6072922327564230154
 GameObject:
   m_ObjectHideFlags: 0
