@@ -8,12 +8,18 @@ public class FireModLogic : ModLogic
     public float burnDamagePerTick = 5f;
     public float tickInterval = 0.5f;
     public float burnDuration = 3f;
-
+    
+    public Sprite fireModSprite;
     // Called whenever the weapon hits an enemy
-    public override void OnHit(WeaponInstance weapon, Enemy enemy, ref DamageInfo dmg)
+    
+    public override void OnHit(WeaponInstance weapon, EnemyCharacter enemy, ref DamageInfo dmg)
     {
-        // Apply a burning effect to the enemy
-        
+        if (enemy != null)
+        {
+            // Apply burn effect to enemy
+            enemy.ApplyStatusEffect(new BurnStatusEffect(burnDamagePerTick, tickInterval, burnDuration), null);
+            Debug.LogWarning("enemy detected");
+        }
     }
 
     // Activate weapon VFX when mod is equipped

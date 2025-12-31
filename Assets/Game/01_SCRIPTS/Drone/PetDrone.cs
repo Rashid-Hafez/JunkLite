@@ -97,7 +97,7 @@ public class PetDrone : MonoBehaviour
 
     void Start()
     {
-        Debug.LogWarning("PetDrone script started.");
+        //Debug.LogWarning("PetDrone script started.");
         // Ensure player reference is set before starting
         if (player1 != null)
         {

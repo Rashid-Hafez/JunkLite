@@ -9942,6 +9942,52 @@ Transform:
   - {fileID: 1737470714}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &534381222
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 534381224}
+  - component: {fileID: 534381223}
+  m_Layer: 0
+  m_Name: FeedbackManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &534381223
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 534381222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e11738d2155547d393e5f52f50163ea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  rumbleDuration: 0.2
+  rumbleIntensity: 0.5
+--- !u!4 &534381224
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 534381222}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 18.94082, y: 1.25117, z: -1.01241}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &594801203
 GameObject:
   m_ObjectHideFlags: 0
@@ -10006,7 +10052,7 @@ Transform:
   m_GameObject: {fileID: 594801203}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.37, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -10258,6 +10304,7 @@ GameObject:
   - component: {fileID: 667412958}
   - component: {fileID: 667412957}
   - component: {fileID: 667412956}
+  - component: {fileID: 667412961}
   m_Layer: 14
   m_Name: Robot Enemy
   m_TagString: Untagged
@@ -10365,7 +10412,7 @@ MonoBehaviour:
   dashDamage: 10
   dashKnockback: {x: 15, y: 5}
   canGrab: 1
-  grabChance: 0.372
+  grabChance: 0.213
   grabDuration: 1.5
   throwForce: {x: 20, y: 50}
   throwDamage: 20
@@ -10426,6 +10473,20 @@ MonoBehaviour:
   movementPlane: 0
   useScaleFlip: 1
   defaultFacing: 1
+--- !u!114 &667412961
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 667412946}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8fa90c71d9df5f4c8a017338d7f72b5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.AnimationController
+  animator: {fileID: 0}
+  autoFindAnimator: 1
 --- !u!1 &673303867
 GameObject:
   m_ObjectHideFlags: 0
@@ -11015,7 +11076,7 @@ Transform:
   m_GameObject: {fileID: 1182120236}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.02, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -40301,7 +40362,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7093325802339153998}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 449ef5ebbe24720439ec31d15f7b6f3d, type: 3}
   m_Name: 
@@ -40349,6 +40410,7 @@ GameObject:
   - component: {fileID: 6804730193276140009}
   - component: {fileID: 7463669349803538004}
   - component: {fileID: 5439230423213017180}
+  - component: {fileID: 7463669349803538005}
   m_Layer: 0
   m_Name: CinemachineCamera
   m_TagString: MainCamera
@@ -45316,6 +45378,30 @@ AudioListener:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7093325802339153998}
   m_Enabled: 1
+--- !u!114 &7463669349803538005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7093325802339153998}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 00b2d199b96b516448144ab30fb26aed, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineImpulseListener
+  ApplyAfter: 2
+  ChannelMask: 1
+  Gain: 1
+  Use2DDistance: 0
+  UseCameraSpace: 1
+  SignalCombinationMode: 0
+  ReactionSettings:
+    m_SecondaryNoise: {fileID: 11400000, guid: 69ce8388f6785dd4c8c39915efece2f4, type: 2}
+    AmplitudeGain: 1
+    FrequencyGain: 1
+    Duration: 1
+    m_NoiseOffsets: {x: 0, y: 0, z: 0}
 --- !u!1 &7474828361886955965
 GameObject:
   m_ObjectHideFlags: 0
@@ -60871,6 +60957,7 @@ SceneRoots:
   - {fileID: 1336238123}
   - {fileID: 1820418862}
   - {fileID: 4236188474072214778}
+  - {fileID: 534381224}
   - {fileID: 933118157}
   - {fileID: 3992237334800134275}
   - {fileID: 1004551717}

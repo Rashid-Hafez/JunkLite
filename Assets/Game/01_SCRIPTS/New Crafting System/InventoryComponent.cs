@@ -68,6 +68,25 @@ namespace junklite
         }
 
         public IReadOnlyList<Mod_Data> GetOwnedMods() => ownedMods;
+
+        public void EquipRandomMod()
+        {
+            if (ownedMods.Count == 0) return;
+
+            var weapon = weaponManager.CurrentWeapon;
+            if (weapon == null) return;
+
+            // Try to equip each mod until one works
+            foreach (var mod in ownedMods)
+            {
+                if (weapon.TryAddMod(mod))
+                {
+                    ownedMods.Remove(mod);
+                    OnInventoryChanged?.Invoke();
+                    break;
+                }
+            }
+        }
     }
 
 }

@@ -1,5 +1,5 @@
+using System.Collections;
 using UnityEngine;
-
 namespace junklite
 {
     /// <summary>
@@ -32,8 +32,16 @@ namespace junklite
         [SerializeField] protected float wallCheckDistance = 0.5f;
         [SerializeField] protected LayerMask wallLayer;
 
+        [Header("Stats")]
+        [SerializeField] public float speed = 60f;
+        [SerializeField] public float life = 100f;
+
         [Header("Debug")]
         [SerializeField] protected bool showGizmos = true;
+
+        [Header("status effect system")]
+        private Coroutine statusCoroutine;
+        protected SpriteRenderer activeVFX;
 
         // Components
         protected StateMachine stateMachine;
@@ -49,6 +57,7 @@ namespace junklite
 
         // Combat state - prevents detection events from interrupting combat
         protected bool isInCombat = false;
+
         public bool IsInCombat => isInCombat;
 
         // Public accessors - Components
@@ -460,5 +469,44 @@ namespace junklite
         }
 
         #endregion
+
+        #region status effect system
+	/// <summary>
+	/// Applies a status effect to the enemy.
+	public void ApplyStatusEffect(StatusEffect effect, SpriteRenderer VFX)
+	{
+		if (effect == null) return;
+
+        // stop any existing status coroutine (optional behaviour)
+        if (statusCoroutine != null)
+        {
+            StopCoroutine(statusCoroutine);
+            statusCoroutine = null;
+        }
+
+        // spawn VFX (if provided) as child so it follows the enemy
+        if (VFX != null)
+        {
+            activeVFX = Instantiate(VFX, transform);
+            activeVFX.transform.localPosition = Vector3.zero;
+        }
+
+        statusCoroutine = StartCoroutine(RunStatus(effect, activeVFX));
+	}
+
+	 private IEnumerator RunStatus(StatusEffect effect, SpriteRenderer vfx)
+    {
+        yield return StartCoroutine(effect.Apply(this));
+
+        if (vfx != null)
+        {
+            Destroy(vfx.gameObject);
+                activeVFX = null;
+        }
+
+        statusCoroutine = null;
+    }
+#endregion status effect system
+
     }
 }

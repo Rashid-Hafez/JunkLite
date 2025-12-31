@@ -7,6 +7,7 @@ namespace junklite
     [RequireComponent(typeof(Collider))]
     public class WeaponManager : MonoBehaviour
     {
+
         [Header("Weapon Holder")] public Transform weaponHolder;
 
         [Header("Attack Transforms (Scene Anchors)")]
@@ -41,6 +42,10 @@ namespace junklite
         [SerializeField] private float hitCrossLifetime = 0.12f;
         [SerializeField] private Transform hitCrossPoolRoot;
 
+        [Header("Feedback Manager")]
+        [SerializeField] private FeedbackManager feedbackManager;
+        [SerializeField] private Unity.Cinemachine.CinemachineImpulseSource impulseSource;
+
         private readonly Queue<GameObject> hitCrossPool = new();
 
         [Header("Recoil")]
@@ -67,6 +72,8 @@ namespace junklite
         {
             playerRb = GetComponentInParent<Rigidbody>();
             playerTransform = transform.parent ?? transform;
+
+            feedbackManager = FeedbackManager.Instance;
         }
 
         private void Update()
@@ -172,6 +179,7 @@ namespace junklite
             ApplyRecoil(dir, result);
         }
 
+#region mod attack logic
         /// <summary>
         /// Deals damage to the target hit by the weapon.
         /// </summary>
@@ -202,10 +210,32 @@ namespace junklite
             // Create damage info
             var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
 
+            // --- APPLY MOD LOGIC ON HIT ---
+            if (CurrentWeapon != null)
+            {
+                var activeMods = CurrentWeapon.GetActiveMods();
+
+                if  (activeMods.Count <= 0)
+                {
+                    Debug.LogWarning($"no mods");
+                }
+
+            var enemyCharacter = targetCollider.GetComponent<EnemyCharacter>() 
+                               ?? targetCollider.GetComponentInParent<EnemyCharacter>();
+        
+                foreach (var mod in activeMods)
+                {
+                    Debug.LogWarning($"Processing OnHit for mod: {mod.data.name}");
+                    mod.logic.OnHit(CurrentWeapon, enemyCharacter, ref damageInfo);
+                }
+            }
+
+            PlayFeedback(); //Feedback on hit
             // Apply damage
             damageable.TakeDamage(damageInfo);
         }
 
+#endregion mod attack logic
 
         private Vector3 ResolveImpactPoint(AttackDirection dir, Vector3 origin, float radius)
         {
@@ -454,15 +484,28 @@ namespace junklite
 
             CurrentWeapon = pickup.weaponInstance;
             CurrentWeapon.gameObject.SetActive(true);
-            CurrentWeapon.transform.SetParent(transform, false);
+            CurrentWeapon.transform.parent = weaponHolder;
+            CurrentWeapon.transform.localPosition = Vector3.zero;
+            CurrentWeapon.transform.localRotation = Quaternion.Euler(0, 0, -30f);
+            CurrentWeapon.transform.localScale = Vector3.one;
+            CurrentWeapon.GetComponent<SpriteRenderer>().sortingOrder = 11;
+            //CurrentWeapon.transform.SetParent(transform, false);
             CurrentWeapon.SetOwnerRigidbody(playerRb);
 
             CurrentWeapon.OnAttack += HandleWeaponAttack;
+
+            InventoryComponent inventory = GetComponent<InventoryComponent>();
+            if (inventory != null)
+            {
+                inventory.EquipRandomMod();
+                Debug.LogWarning("Equipped RANDOM MOD, mod was picked up first BEFORE WEAPON");
+            }
 
             InitializeSlashPools(CurrentWeapon.weaponData.comboData);
             InitializeHitParticlePool();
             InitializeHitCrossPool();
             OnWeaponChanged?.Invoke();
+
         }
 
         public void DropWeapon()
@@ -565,7 +608,11 @@ namespace junklite
             StartCoroutine(ReturnHitParticleAfterTime(go, hitParticleLifetime));
         }
 
-
+        private void PlayFeedback()
+        {
+            feedbackManager.HitStop(0.08f);
+            feedbackManager.CinemachineShake(impulseSource);
+        }
         #endregion Effects
 
 

@@ -28,6 +28,8 @@ namespace junklite
 
         private readonly List<ModRuntimeInstance> activeMods = new();
         public System.Action OnModsChanged;
+        internal object spriteRenderer;
+
         public event System.Action<AttackDirection, WeaponComboData.ComboStep> OnAttack;
 
 
@@ -133,7 +135,7 @@ namespace junklite
             comboTimer = 0f;
         }
 
-
+#region mod system
         // ==================================================
         // MOD SYSTEM 
         // ==================================================
@@ -187,3 +189,4 @@ namespace junklite
         Environment
     }
 }
+#endregion

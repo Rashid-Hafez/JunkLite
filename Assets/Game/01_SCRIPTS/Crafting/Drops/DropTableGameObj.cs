@@ -25,7 +25,6 @@ public class DropTableGameObj : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            Debug.LogWarning("created singleton droptable manager");
 
         }
         else if (Instance != this)

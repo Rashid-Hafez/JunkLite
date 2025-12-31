@@ -6,7 +6,7 @@ namespace junklite
     public abstract class ModLogic : ScriptableObject
     {
         // Called when weapon hits an enemy
-        public virtual void OnHit(WeaponInstance weapon, Enemy enemy, ref DamageInfo dmg) { }
+        public virtual void OnHit(WeaponInstance weapon, EnemyCharacter enemy, ref DamageInfo dmg) { }
 
         // Called when player starts an attack
         public virtual void OnAttackStart(WeaponInstance weapon) { }
