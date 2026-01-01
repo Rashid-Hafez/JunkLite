@@ -39,7 +39,7 @@ namespace junklite
                 characterSystem.OnWallSlideChanged += OnWallSlideChanged;
                 characterSystem.OnJumpStateChanged += OnJumpStateChanged;
                 characterSystem.OnDoubleJumpChanged += OnDoubleJumpChanged;
-
+                characterSystem.OnComboAttackTriggered += OnComboAttackTriggered;
             }
         }
 
@@ -122,6 +122,18 @@ namespace junklite
                 animator.SetTrigger("DoubleJump");
         }
 
+        private void OnComboAttackTriggered(int comboIndex)
+        {
+            if (animator == null) return;
+
+            // Only trigger combo animations when grounded
+            if (characterSystem != null && !characterSystem.IsGrounded)
+                return;
+
+            animator.SetInteger("ComboStep", comboIndex);
+            animator.SetTrigger("AttackTrigger");
+        }
+
         private void OnDeath()
         {
             animator.SetTrigger("Die");
@@ -141,6 +153,7 @@ namespace junklite
             characterSystem.OnWallSlideChanged -= OnWallSlideChanged;
             characterSystem.OnJumpStateChanged -= OnJumpStateChanged;
             characterSystem.OnDoubleJumpChanged -= OnDoubleJumpChanged;
+            characterSystem.OnComboAttackTriggered -= OnComboAttackTriggered;
         }
     }
 }

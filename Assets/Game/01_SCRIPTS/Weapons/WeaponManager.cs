@@ -58,6 +58,7 @@ namespace junklite
         // ================== INTERNAL ==================
         private Rigidbody playerRb;
         private Transform playerTransform;
+        private PlayerState playerState;
 
         public WeaponInstance CurrentWeapon { get; private set; }
         private WorldWeaponPickup storedPickup;
@@ -72,6 +73,7 @@ namespace junklite
         {
             playerRb = GetComponentInParent<Rigidbody>();
             playerTransform = transform.parent ?? transform;
+            playerState = GetComponentInParent<PlayerState>();
 
             // ensure we have a FeedbackManager instance
             feedbackManager = FeedbackManager.instance ?? FindObjectOfType<FeedbackManager>();
@@ -129,8 +131,12 @@ namespace junklite
             CurrentWeapon.ExecuteAttack(dir);
         }
 
-        private void HandleWeaponAttack(AttackDirection dir, WeaponComboData.ComboStep step)
+        private void HandleWeaponAttack(AttackDirection dir, WeaponComboData.ComboStep step, int comboIndex)
         {
+            // Forward combo attack to PlayerState for animation binding
+            if (playerState != null && comboIndex >= 0)
+                playerState.TriggerComboAttack(comboIndex);
+
             Transform anchor = GetAttackTransform(dir);
             if (anchor == null)
                 return;

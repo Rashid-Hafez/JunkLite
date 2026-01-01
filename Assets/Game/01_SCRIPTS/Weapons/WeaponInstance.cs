@@ -30,7 +30,7 @@ namespace junklite
         public System.Action OnModsChanged;
         internal object spriteRenderer;
 
-        public event System.Action<AttackDirection, WeaponComboData.ComboStep> OnAttack;
+        public event System.Action<AttackDirection, WeaponComboData.ComboStep, int> OnAttack;
 
 
 
@@ -76,21 +76,24 @@ namespace junklite
             lastAttackTime = Time.time;
 
             WeaponComboData.ComboStep step;
+            int comboIndex;
 
             if (dir == AttackDirection.Side)
             {
+                comboIndex = sideComboIndex; // Capture BEFORE advancing
                 step = weaponData.comboData.sideComboSteps[sideComboIndex];
                 AdvanceSideCombo();
             }
             else
             {
+                comboIndex = -1; // Non-side attacks don't use combo index
                 ResetSideCombo();
                 step = dir == AttackDirection.Up
                     ? weaponData.comboData.upAttack
                     : weaponData.comboData.downAttack;
             }
 
-            OnAttack?.Invoke(dir, step);
+            OnAttack?.Invoke(dir, step, comboIndex);
         }
 
         // ==================================================

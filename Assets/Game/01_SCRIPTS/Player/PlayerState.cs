@@ -8,7 +8,7 @@ namespace junklite
 {
     /// <summary>
     /// Player-specific runtime state & capability gatekeeper.
-    /// Extended to support Hollow Knight–style movement states.
+    /// Extended to support Hollow Knightï¿½style movement states.
     /// </summary>
     public class PlayerState : CharacterState
     {
@@ -36,6 +36,9 @@ namespace junklite
         public event Action<bool> OnWallSlideChanged;
         public event Action<bool> OnWallJumpChanged;
         public event Action<bool> OnDoubleJumpChanged;
+
+        // Combo attack event (for animation binding)
+        public event Action<int> OnComboAttackTriggered;
 
         // Drone feature (existing)
         [SerializeField] private bool hasDrone;
@@ -163,6 +166,17 @@ namespace junklite
             if (IsDoubleJumping == jumping) return;
             IsDoubleJumping = jumping;
             OnDoubleJumpChanged?.Invoke(jumping);
+        }
+
+        // ===== Combo Attack (for animation) =====
+
+        /// <summary>
+        /// Triggers combo attack event for animation binding.
+        /// Called by WeaponManager when a side combo attack is performed.
+        /// </summary>
+        public void TriggerComboAttack(int comboIndex)
+        {
+            OnComboAttackTriggered?.Invoke(comboIndex);
         }
 
         /// <summary>
