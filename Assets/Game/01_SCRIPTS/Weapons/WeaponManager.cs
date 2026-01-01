@@ -73,7 +73,21 @@ namespace junklite
             playerRb = GetComponentInParent<Rigidbody>();
             playerTransform = transform.parent ?? transform;
 
-            feedbackManager = FeedbackManager.Instance;
+            // ensure we have a FeedbackManager instance
+            feedbackManager = FeedbackManager.instance ?? FindObjectOfType<FeedbackManager>();
+            if (feedbackManager == null)
+                Debug.LogWarning("FeedbackManager not found in scene");
+
+            // ensure impulseSource is assigned (try to find on this GameObject or parents)
+            if (impulseSource == null)
+            {
+                impulseSource = GetComponent<Unity.Cinemachine.CinemachineImpulseSource>()
+                                ?? GetComponentInParent<Unity.Cinemachine.CinemachineImpulseSource>()
+                                ?? GetComponentInChildren<Unity.Cinemachine.CinemachineImpulseSource>();
+            }
+
+            if (impulseSource == null)
+                Debug.LogWarning("CinemachineImpulseSource not assigned/found on weapon/player");
         }
 
         private void Update()

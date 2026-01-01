@@ -6616,14 +6616,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineImpulseSource
   ImpulseDefinition:
     ImpulseChannel: 1
-    ImpulseShape: 4
+    ImpulseShape: 1
     CustomImpulseShape:
       serializedVersion: 2
       m_Curve: []
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    ImpulseDuration: 0.3
+    ImpulseDuration: 0.1
     ImpulseType: 0
     DissipationRate: 0.25
     RawSignal: {fileID: 0}
@@ -6654,7 +6654,7 @@ MonoBehaviour:
     DissipationMode: 2
     DissipationDistance: 100
     PropagationSpeed: 343
-  DefaultVelocity: {x: 1.5, y: -1, z: 0}
+  DefaultVelocity: {x: 1, y: 1, z: 0.3}
 --- !u!1 &6072922327564230154
 GameObject:
   m_ObjectHideFlags: 0
@@ -17088,13 +17088,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7845686338488413019}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -0, z: 0.03186291, w: -0.99949235}
+  m_LocalRotation: {x: 0, y: -0, z: -0.02673687, w: -0.9996425}
   m_LocalPosition: {x: 0.52055526, y: -0.00000003989767, z: 0}
   m_LocalScale: {x: 0.9999999, y: 0.9999999, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1244950013051302739}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -363.652}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -356.936}
 --- !u!1 &7986908603600502982
 GameObject:
   m_ObjectHideFlags: 0

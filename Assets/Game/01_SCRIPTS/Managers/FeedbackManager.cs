@@ -7,52 +7,63 @@ using Unity.Cinemachine;
 
 public class FeedbackManager : MonoBehaviour
 {
-    private static FeedbackManager instance;
+    public static FeedbackManager instance;
 
     [SerializeField] float rumbleDuration = 0.2f;
     [SerializeField] float rumbleIntensity = 0.5f;
 
     Coroutine HitStopCoroutine;
 
-#region Singleton Construction
-    public static FeedbackManager Instance
+    #region Singleton Construction
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    static void InitOnLoad()
     {
-        get
+        if (FindObjectOfType<FeedbackManager>() == null)
         {
-            if (instance == null)
-            {
-                instance = FindObjectOfType<FeedbackManager>();
-                if (instance == null)
-                {
-                    GameObject obj = new GameObject("FeedbackManager");
-                    instance = obj.AddComponent<FeedbackManager>();
-                }
-            }
-            return instance;
+            var go = new GameObject("FeedbackManager");
+            go.AddComponent<FeedbackManager>();
+            UnityEngine.Object.DontDestroyOnLoad(go);
         }
     }
+
     void Awake()
     {
         if (instance == null)
         {
             instance = this;
-            //DontDestroyOnLoad(gameObject);
+            UnityEngine.Object.DontDestroyOnLoad(gameObject);
         }
-        
+        else if (instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
     }
-#endregion Singleton Construction
 
-#region rumble
-    public void CinemachineShake(CinemachineImpulseSource impulseSource)
+    #endregion Singleton Construction
+
+    #region rumble
+
+    void Start()
+    {
+
+    }
+    public void CinemachineShake(Unity.Cinemachine.CinemachineImpulseSource impulseSource, float force = 1f)
     {
         if (impulseSource != null)
         {
-            impulseSource.GenerateImpulse();
+            Debug.Log($"FeedbackManager: Generating impulse (force={force}) from {impulseSource.gameObject.name}");
+            impulseSource.GenerateImpulse(force);
+        }
+        else
+        {
+            Debug.LogWarning("FeedbackManager.CinemachineShake called with null impulseSource");
         }
     }
-#endregion rumble
+    #endregion rumble
 
-#region hitstop
+    #region hitstop
 
     public void HitStop(float duration)
     {
@@ -69,6 +80,6 @@ public class FeedbackManager : MonoBehaviour
         Time.timeScale = originalTimeScale;
     }
 
-#endregion hitstop
+    #endregion hitstop
 
 }
