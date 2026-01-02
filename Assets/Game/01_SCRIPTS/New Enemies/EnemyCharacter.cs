@@ -39,9 +39,18 @@ namespace junklite
         [Header("Debug")]
         [SerializeField] protected bool showGizmos = true;
 
-        [Header("status effect system")]
+        [Header("Damage Flash VFX")]
+        [SerializeField] protected SpriteRenderer spriteRenderer;
+        [SerializeField] protected Color damageFlashColor = Color.white;
+        [SerializeField] protected float damageFlashDuration = 0.1f;
+
+        [Header("Status Effect System")]
         private Coroutine statusCoroutine;
         protected SpriteRenderer activeVFX;
+
+        // Damage flash state
+        private Coroutine damageFlashCoroutine;
+        private Color originalSpriteColor;
 
         // Components
         protected StateMachine stateMachine;
@@ -114,6 +123,13 @@ namespace junklite
                 dashHitbox.OnHit += OnDashHitboxHit;
                 dashHitbox.Deactivate();
             }
+
+            // Setup damage flash VFX
+            if (spriteRenderer != null)
+                originalSpriteColor = spriteRenderer.color;
+
+            if (damageable != null)
+                damageable.OnDamaged += OnDamagedFlash;
         }
 
         protected override void Start()
@@ -321,6 +337,13 @@ namespace junklite
         {
             Debug.Log($"[{gameObject.name}] HandleDeath called!");
 
+            // Stop damage flash if active
+            if (damageFlashCoroutine != null)
+            {
+                StopCoroutine(damageFlashCoroutine);
+                damageFlashCoroutine = null;
+            }
+
             // Disable hitbox first
             if (dashHitbox != null)
                 dashHitbox.Deactivate();
@@ -430,8 +453,10 @@ namespace junklite
             }
         }
 
-        protected virtual void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
+
             // Unsubscribe from detection zone events
             if (detectionZone != null)
             {
@@ -443,6 +468,12 @@ namespace junklite
             if (dashHitbox != null)
             {
                 dashHitbox.OnHit -= OnDashHitboxHit;
+            }
+
+            // Unsubscribe from damage flash event
+            if (damageable != null)
+            {
+                damageable.OnDamaged -= OnDamagedFlash;
             }
         }
 
@@ -470,43 +501,73 @@ namespace junklite
 
         #endregion
 
-        #region status effect system
-	/// <summary>
-	/// Applies a status effect to the enemy.
-	public void ApplyStatusEffect(StatusEffect effect, SpriteRenderer VFX)
-	{
-		if (effect == null) return;
+        #region Damage Flash VFX
 
-        // stop any existing status coroutine (optional behaviour)
-        if (statusCoroutine != null)
+        /// <summary>
+        /// Called when this enemy takes damage - triggers flash VFX.
+        /// Override in subclasses to customize flash behavior.
+        /// </summary>
+        protected virtual void OnDamagedFlash(float damage, GameObject source)
         {
-            StopCoroutine(statusCoroutine);
+            if (spriteRenderer == null || !IsAlive) return;
+
+            if (damageFlashCoroutine != null)
+                StopCoroutine(damageFlashCoroutine);
+
+            damageFlashCoroutine = StartCoroutine(DamageFlashRoutine());
+        }
+
+        private IEnumerator DamageFlashRoutine()
+        {
+            spriteRenderer.color = damageFlashColor;
+            yield return new WaitForSeconds(damageFlashDuration);
+
+            // Only restore if still alive (death might change color)
+            if (IsAlive && spriteRenderer != null)
+                spriteRenderer.color = originalSpriteColor;
+
+            damageFlashCoroutine = null;
+        }
+
+        #endregion
+
+        #region Status Effect System
+        /// <summary>
+        /// Applies a status effect to the enemy.
+        public void ApplyStatusEffect(StatusEffect effect, SpriteRenderer VFX)
+        {
+            if (effect == null) return;
+
+            // stop any existing status coroutine (optional behaviour)
+            if (statusCoroutine != null)
+            {
+                StopCoroutine(statusCoroutine);
+                statusCoroutine = null;
+            }
+
+            // spawn VFX (if provided) as child so it follows the enemy
+            if (VFX != null)
+            {
+                activeVFX = Instantiate(VFX, transform);
+                activeVFX.transform.localPosition = Vector3.zero;
+            }
+
+            statusCoroutine = StartCoroutine(RunStatus(effect, activeVFX));
+        }
+
+        private IEnumerator RunStatus(StatusEffect effect, SpriteRenderer vfx)
+        {
+            yield return StartCoroutine(effect.Apply(this));
+
+            if (vfx != null)
+            {
+                Destroy(vfx.gameObject);
+                activeVFX = null;
+            }
+
             statusCoroutine = null;
         }
-
-        // spawn VFX (if provided) as child so it follows the enemy
-        if (VFX != null)
-        {
-            activeVFX = Instantiate(VFX, transform);
-            activeVFX.transform.localPosition = Vector3.zero;
-        }
-
-        statusCoroutine = StartCoroutine(RunStatus(effect, activeVFX));
-	}
-
-	 private IEnumerator RunStatus(StatusEffect effect, SpriteRenderer vfx)
-    {
-        yield return StartCoroutine(effect.Apply(this));
-
-        if (vfx != null)
-        {
-            Destroy(vfx.gameObject);
-                activeVFX = null;
-        }
-
-        statusCoroutine = null;
-    }
-#endregion status effect system
+        #endregion status effect system
 
     }
 }
