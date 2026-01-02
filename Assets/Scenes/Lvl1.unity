@@ -10637,6 +10637,9 @@ MonoBehaviour:
   speed: 60
   life: 100
   showGizmos: 1
+  spriteRenderer: {fileID: 1019862426}
+  damageFlashColor: {r: 1, g: 1, b: 1, a: 1}
+  damageFlashDuration: 0.7
   dashChargeTime: 0.7
   dashSpeed: 20
   dashRecoveryTime: 0.3
