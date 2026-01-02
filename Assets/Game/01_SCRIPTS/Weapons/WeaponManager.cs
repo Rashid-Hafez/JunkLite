@@ -40,6 +40,7 @@ namespace junklite
         [SerializeField] private GameObject hitCrossPrefab;
         [SerializeField] private int hitCrossPoolSize = 8;
         [SerializeField] private float hitCrossLifetime = 0.12f;
+        [SerializeField] private float hitCrossSize = 4f;
         [SerializeField] private Transform hitCrossPoolRoot;
 
         [Header("Feedback Manager")]
@@ -392,6 +393,7 @@ namespace junklite
             GameObject cross = GetHitCross();
             cross.transform.SetParent(null);
             cross.transform.position = position;
+            cross.transform.localScale = Vector3.one * hitCrossSize;
             cross.SetActive(true);
 
             StartCoroutine(ReturnHitCrossAfterTime(cross, hitCrossLifetime));

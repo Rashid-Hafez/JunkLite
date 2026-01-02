@@ -58,7 +58,7 @@ Transform:
   m_GameObject: {fileID: 507294687730123644}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.153, y: -1.716, z: 0}
+  m_LocalPosition: {x: -0.153, y: -2, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6453,13 +6453,13 @@ MonoBehaviour:
   hitParticleLifetime: 9.5
   hitParticlePoolRoot: {fileID: 1262748468359835149}
   hitCrossPrefab: {fileID: 7049337084192431640, guid: 74f7c3ebf7a21014e8ed755b3434b1f0, type: 3}
-  hitCrossPoolSize: 8
-  hitCrossLifetime: 0.15
+  hitCrossPoolSize: 12
+  hitCrossLifetime: 0.3
   hitCrossPoolRoot: {fileID: 1262748468359835149}
   feedbackManager: {fileID: 0}
   impulseSource: {fileID: 0}
-  sideRecoil: 15
-  poolSizePerSlash: 5
+  sideRecoil: 23
+  poolSizePerSlash: 21
   slashPoolRoot: {fileID: 5299554336080067432}
 --- !u!114 &7084116597231280329
 MonoBehaviour:
@@ -6616,7 +6616,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineImpulseSource
   ImpulseDefinition:
     ImpulseChannel: 1
-    ImpulseShape: 1
+    ImpulseShape: 4
     CustomImpulseShape:
       serializedVersion: 2
       m_Curve: []
@@ -6654,7 +6654,7 @@ MonoBehaviour:
     DissipationMode: 2
     DissipationDistance: 100
     PropagationSpeed: 343
-  DefaultVelocity: {x: 1, y: 1, z: 0.3}
+  DefaultVelocity: {x: 0.3, y: 0.4, z: 0.3}
 --- !u!1 &6072922327564230154
 GameObject:
   m_ObjectHideFlags: 0
@@ -22468,7 +22468,7 @@ SpriteRenderer:
   m_SortingOrder: 5500
   m_MaskInteraction: 0
   m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
-  m_Color: {r: 0, g: 0, b: 0, a: 1}
+  m_Color: {r: 0.735849, g: 0.73237807, b: 0.73237807, a: 0.59607846}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
