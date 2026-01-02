@@ -1,0 +1,14 @@
+{
+    "RoslynExtensionsOptions": {
+        "enableAnalyzersSupport": true,
+        "enableImportCompletion": true,
+        "locationPaths": []
+    },
+    "FormattingOptions": {
+        "enableEditorConfigSupport": true
+    },
+    "MsBuild": {
+        "UseBundledOnly": true
+    }
+}
+
