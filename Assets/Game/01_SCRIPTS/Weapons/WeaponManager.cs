@@ -31,6 +31,7 @@ namespace junklite
         [SerializeField] private GameObject hitParticlePrefab;
         [SerializeField] private int hitParticlePoolSize = 8;
         [SerializeField] private float hitParticleLifetime = 0.2f;
+        [SerializeField] private float hitParticleSize = 1f;
         [SerializeField] private Transform hitParticlePoolRoot;
 
         private readonly Queue<GameObject> hitParticlePool = new();
@@ -55,6 +56,9 @@ namespace junklite
         [Header("Slash Pooling")]
         [SerializeField] private int poolSizePerSlash = 5;
         [SerializeField] private Transform slashPoolRoot;
+        [SerializeField] private float slashOffsetDirection = 0.5f;
+        [SerializeField] private float slashOffsetDistance = 0.5f;
+        [SerializeField] private float slashScale = 1f;
         private readonly Dictionary<GameObject, Queue<GameObject>> slashPools = new();
         // ================== INTERNAL ==================
         private Rigidbody playerRb;
@@ -456,6 +460,23 @@ namespace junklite
         }
 
 
+        /// <summary>
+        /// Retrieves a slash GameObject from the pool or instantiates a new one if the pool is empty.
+        /// Sets its parent to the given attack anchor and resets its transform.
+        /// 
+        /// See also: Spine Runtime Example on object pooling and pooling pattern
+        /// https://github.com/EsotericSoftware/spine-runtimes/blob/4.1/spine-unity/Assets/Spine Examples/Scripts/Sample Components/SkeletonUtility%20Modules/Editor/spine-unity-examples-editor.asmdef
+        /// For best practices on pooling and instantiation in Unity, refer to:
+        /// https://docs.unity3d.com/Manual/Pooling.html
+        /// </summary>
+        /// <param name="prefab">The slash GameObject prefab.</param>
+        /// <param name="attackAnchor">The transform at which to parent the slash instance.</param>
+        /// <returns>A pooled or newly instantiated slash GameObject, or null if prefab is not in pool.</returns>
+        /// <remarks>
+        /// Optionally offset the slash, depending on design.
+        /// Vector3 offsetToBody = -attackAnchor.right * Facing * 0.5f;
+        /// </remarks>
+    
         public GameObject GetSlash(GameObject prefab, Transform attackAnchor)
         {
             if (prefab == null || !slashPools.TryGetValue(prefab, out var pool))
@@ -465,11 +486,16 @@ namespace junklite
                 ? pool.Dequeue()
                 : Instantiate(prefab, slashPoolRoot);
 
+            // Optionally offset the slash, depending on design.
             slash.transform.SetParent(attackAnchor, false);
-            slash.transform.localPosition = Vector3.zero;
+    
+        // Use world direction - offset toward body (opposite of facing)    //Y axis //z axis (dont touch 0)
+            Vector3 offsetToBody = new Vector3(-Facing * slashOffsetDirection, 0f, 0f); // world direction
+            slash.transform.localPosition = offsetToBody * slashOffsetDistance;
+    
             slash.transform.localRotation = Quaternion.identity;
+            slash.transform.localScale = Vector3.one * slashScale;
             slash.SetActive(true);
-
             return slash;
         }
 

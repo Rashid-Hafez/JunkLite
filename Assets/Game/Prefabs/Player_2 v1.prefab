@@ -58,7 +58,7 @@ Transform:
   m_GameObject: {fileID: 507294687730123644}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.153, y: -2, z: 0}
+  m_LocalPosition: {x: -0.153, y: -2.22, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -218,7 +218,7 @@ Transform:
   m_GameObject: {fileID: 1400162637692582732}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.59, y: 0, z: 0}
+  m_LocalPosition: {x: 1, y: 0.44, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6438,9 +6438,9 @@ MonoBehaviour:
   sideAttack: {fileID: 1136741146495962630}
   upAttack: {fileID: 4010800810585965723}
   downAttack: {fileID: 6097633871308346407}
-  sideRadius: 1.2
-  upRadius: 0.83
-  downRadius: 0.85
+  sideRadius: 1.59
+  upRadius: 1.16
+  downRadius: 1.5
   enemyLayer:
     serializedVersion: 2
     m_Bits: 24576
@@ -6451,16 +6451,21 @@ MonoBehaviour:
   hitParticlePrefab: {fileID: 9066207848555103289, guid: 47c1cc4b51c7d564aa5c081fd8c65583, type: 3}
   hitParticlePoolSize: 8
   hitParticleLifetime: 9.5
+  hitParticleSize: 5
   hitParticlePoolRoot: {fileID: 1262748468359835149}
   hitCrossPrefab: {fileID: 7049337084192431640, guid: 74f7c3ebf7a21014e8ed755b3434b1f0, type: 3}
-  hitCrossPoolSize: 12
+  hitCrossPoolSize: 8
   hitCrossLifetime: 0.3
+  hitCrossSize: 4
   hitCrossPoolRoot: {fileID: 1262748468359835149}
   feedbackManager: {fileID: 0}
   impulseSource: {fileID: 0}
   sideRecoil: 23
-  poolSizePerSlash: 21
+  poolSizePerSlash: 12
   slashPoolRoot: {fileID: 5299554336080067432}
+  slashOffsetDirection: 0.5
+  slashOffsetDistance: 0.5
+  slashScale: 3
 --- !u!114 &7084116597231280329
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -17126,6 +17131,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 4663971242036751131}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &8036920574413056732
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7907267189826004493}
+  m_Layer: 0
+  m_Name: Slash Medium
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7907267189826004493
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8036920574413056732}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.377, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5299554336080067432}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8184957200907692394
 GameObject:
   m_ObjectHideFlags: 0
@@ -22323,6 +22359,37 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
+--- !u!1 &8889325340132699127
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5580755530135163141}
+  m_Layer: 0
+  m_Name: Slash Light
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5580755530135163141
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8889325340132699127}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.377, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5299554336080067432}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8893390407692335855
 GameObject:
   m_ObjectHideFlags: 0
@@ -22507,5 +22574,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1146275183657988417}
+  - {fileID: 5580755530135163141}
+  - {fileID: 7907267189826004493}
   m_Father: {fileID: 1262748468359835149}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

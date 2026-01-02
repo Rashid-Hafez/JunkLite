@@ -1,5 +1,10 @@
 {
     "recommendations": [
       "visualstudiotoolsforunity.vstuc"
+      ,
+      "unity.unity-debug",
+      "unity.unity-snippets",
+      "yuryslav.project-manager",
+      "kleber-swf.unity-code-snippets"
     ]
 }
