@@ -48,6 +48,33 @@ namespace junklite
         private Coroutine statusCoroutine;
         protected SpriteRenderer activeVFX;
 
+        [Header("Combat VFX")]
+        [SerializeField] protected GameObject chargeVFXPrefab;
+        [SerializeField] protected GameObject dashVFXPrefab;
+        [SerializeField] protected GameObject grabVFXPrefab;
+        [SerializeField] protected GameObject recoveryVFXPrefab;
+        [SerializeField] protected float vfxScale = 2f;
+
+
+        [Header("MOD VFX")]
+        [SerializeField] protected GameObject fireVFXPrefab;
+        [SerializeField] protected GameObject iceVFXPrefab;
+        [SerializeField] protected GameObject electricVFXPrefab;
+        [SerializeField] protected GameObject poisonVFXPrefab;
+        [SerializeField] protected GameObject holyVFXPrefab;
+        [SerializeField] protected GameObject darkVFXPrefab;
+        [SerializeField] protected GameObject lightVFXPrefab;
+        [SerializeField] protected GameObject shadowVFXPrefab;
+        [SerializeField] protected float ModParticleScale = 2f;
+        [SerializeField] protected float ModParticleRotation = 0f;
+        [SerializeField] protected float duration = 0f;
+
+        // Active VFX instances (don't overwrite the prefabs!)
+        protected GameObject activeChargeVFX;
+        protected GameObject activeDashVFX;
+        protected GameObject activeGrabVFX;
+        protected GameObject activeRecoveryVFX;
+
         // Damage flash state
         private Coroutine damageFlashCoroutine;
         private Color originalSpriteColor;
@@ -511,6 +538,8 @@ namespace junklite
         {
             if (spriteRenderer == null || !IsAlive) return;
 
+            Debug.Log($"[{gameObject.name}] Damage flash triggered! Color: {damageFlashColor}");
+
             if (damageFlashCoroutine != null)
                 StopCoroutine(damageFlashCoroutine);
 
@@ -568,6 +597,86 @@ namespace junklite
             statusCoroutine = null;
         }
         #endregion status effect system
+
+        #region Combat VFX Methods
+
+        // === CHARGE VFX ===
+        public virtual void SpawnChargeVFX()
+        {
+            if (chargeVFXPrefab == null) return;
+            DestroyChargeVFX();
+            activeChargeVFX = Instantiate(chargeVFXPrefab, transform);
+            activeChargeVFX.transform.localPosition = Vector3.zero;
+            activeChargeVFX.transform.localScale = Vector3.one * vfxScale;
+        }
+
+        public virtual void DestroyChargeVFX()
+        {
+            if (activeChargeVFX != null)
+            {
+                Destroy(activeChargeVFX);
+                activeChargeVFX = null;
+            }
+        }
+
+        // === DASH VFX ===
+        public virtual void SpawnDashVFX()//can be overriden in specific enemies subclassess
+        {
+            if (dashVFXPrefab == null) return;
+            DestroyDashVFX();
+            activeDashVFX = Instantiate(dashVFXPrefab, transform);
+            activeDashVFX.transform.localPosition = Vector3.zero;
+            activeDashVFX.transform.localScale = Vector3.one * vfxScale;
+        }
+
+        public virtual void DestroyDashVFX()
+        {
+            if (activeDashVFX != null)
+            {
+                Destroy(activeDashVFX);
+                activeDashVFX = null;
+            }
+        }
+
+        // === GRAB VFX ===
+        public virtual void SpawnGrabVFX()
+        {
+            if (grabVFXPrefab == null) return;
+            DestroyGrabVFX();
+            activeGrabVFX = Instantiate(grabVFXPrefab, transform);
+            activeGrabVFX.transform.localPosition = Vector3.zero;
+            activeGrabVFX.transform.localScale = Vector3.one * vfxScale;
+        }
+
+        public virtual void DestroyGrabVFX()
+        {
+            if (activeGrabVFX != null)
+            {
+                Destroy(activeGrabVFX);
+                activeGrabVFX = null;
+            }
+        }
+
+        // === RECOVERY VFX ===
+        public virtual void SpawnRecoveryVFX()
+        {
+            if (recoveryVFXPrefab == null) return;
+            DestroyRecoveryVFX();
+            activeRecoveryVFX = Instantiate(recoveryVFXPrefab, transform);
+            activeRecoveryVFX.transform.localPosition = Vector3.zero;
+            activeRecoveryVFX.transform.localScale = Vector3.one * vfxScale;
+        }
+
+        public virtual void DestroyRecoveryVFX()
+        {
+            if (activeRecoveryVFX != null)
+            {
+                Destroy(activeRecoveryVFX);
+                activeRecoveryVFX = null;
+            }
+        }
+
+        #endregion
 
     }
 }

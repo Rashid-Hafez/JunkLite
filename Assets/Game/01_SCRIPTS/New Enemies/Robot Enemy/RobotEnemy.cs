@@ -78,13 +78,13 @@ namespace junklite
 
         public override void OnPlayerSpotted()
         {
-            // Dead enemies don't respond
             if (!IsAlive) return;
-
-            // Don't interrupt if already in combat
             if (isInCombat) return;
 
             EnterCombat();
+
+
+
             stateMachine.ChangeState<ChargeState>();
         }
 
@@ -129,6 +129,7 @@ namespace junklite
 
             if (HasTarget)
             {
+
                 // Continue combat - charge again
                 stateMachine.ChangeState<ChargeState>();
             }
@@ -211,5 +212,6 @@ namespace junklite
             damageable.TakeDamage(info);
             Debug.Log($"{gameObject.name} hit {other.name} for {dashDamage} damage");
         }
+
     }
 }

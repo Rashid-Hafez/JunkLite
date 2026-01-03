@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace junklite
@@ -40,8 +41,10 @@ namespace junklite
                 characterSystem.OnJumpStateChanged += OnJumpStateChanged;
                 characterSystem.OnDoubleJumpChanged += OnDoubleJumpChanged;
                 characterSystem.OnComboAttackTriggered += OnComboAttackTriggered;
+                characterSystem.OnStunnedChanged += OnStunnedChanged;
             }
         }
+
 
         private void Update()
         {
@@ -78,6 +81,11 @@ namespace junklite
         }
 
         #region Event Handlers
+
+        private void OnStunnedChanged(bool obj)
+        {
+            animator.SetTrigger("Stunned");
+        }
 
         private void OnGroundedChanged(bool grounded)
         {

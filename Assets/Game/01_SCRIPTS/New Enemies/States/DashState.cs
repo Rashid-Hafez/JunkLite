@@ -37,6 +37,7 @@ namespace junklite
             if (HasTarget)
             {
                 dashTarget = Target.position;
+                enemy.SpawnDashVFX();
                 StartDash();
             }
             else
@@ -86,6 +87,9 @@ namespace junklite
         {
             // Ensure hitbox is disabled (safety, in case we exit early)
             hitbox?.Deactivate();
+
+            // Stop dash VFX
+            enemy.DestroyDashVFX();
 
             // Stop movement
             movement?.Stop();
