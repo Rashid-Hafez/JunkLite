@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -7,6 +8,7 @@ namespace junklite
     [RequireComponent(typeof(Character2D5Controller))]
     [RequireComponent(typeof(PlayerState))]
     [DefaultExecutionOrder(5)]
+    [RequireComponent(typeof(CinemachineImpulseSource))]
     public class PlayerCharacter : CharacterBase, IGrabbable
     {
         [Header("Player Settings")]
@@ -35,6 +37,7 @@ namespace junklite
         [SerializeField] private float damageFlashInterval = 0.04f;
         [SerializeField] private GameObject damageHitVFXPrefab;
         [SerializeField] private float damageHitVFXLifetime = 0.5f;
+        [SerializeField] private CinemachineImpulseSource damageImpulseSource;
 
         public bool JumpHeld => inputManager != null && inputManager.IsJumpHeld;
 
@@ -71,6 +74,7 @@ namespace junklite
         // Damage flash runtime
         private Coroutine _damageFlashCo;
         private Color[] _damageFlashOriginalColors;
+        private FeedbackManager feedbackManager = FeedbackManager.instance;
 
         protected override void Awake()
         {
@@ -101,6 +105,12 @@ namespace junklite
 
             if (CameraManager.Instance != null)
                 CameraManager.Instance.SetPlayerTarget(transform);
+
+            ////// SCREENSHAKE AND FEEDBACK, VIBRATION CONTROLLER, FLASH VFX ETC
+            if (feedbackManager == null)
+                feedbackManager = FeedbackManager.instance;
+            if (damageImpulseSource == null)
+                damageImpulseSource = GetComponent<CinemachineImpulseSource>();
 
             _weaponManager = GetComponent<WeaponManager>();
 
@@ -263,7 +273,7 @@ namespace junklite
         // INPUT
         // ====================================================================
 
-        void Update()
+        void Update() //PLEASE REMOVE THIS
         {
             HandleInput();
 
@@ -590,6 +600,8 @@ namespace junklite
                     Destroy(vfx, damageHitVFXLifetime);
             }
 
+            feedbackManager.CinemachineShake(damageImpulseSource, 5f);
+
             StartDamageFlash();
 
             // Apply knockback
@@ -637,7 +649,12 @@ namespace junklite
             for (int i = 0; i < damageFlashRenderers.Length; i++)
             {
                 if (damageFlashRenderers[i])
-                    damageFlashRenderers[i].color = _damageFlashOriginalColors[i];
+                {
+                    // Safety: always restore fully visible
+                    Color c = _damageFlashOriginalColors[i];
+                    c.a = 1f;
+                    damageFlashRenderers[i].color = c;
+                }
             }
         }
 
@@ -645,21 +662,34 @@ namespace junklite
         {
             float interval = Mathf.Max(0.01f, damageFlashInterval);
             float half = interval * 0.5f;
-            float endTime = Time.time + damageFlashDuration;
+            float endTime = Time.unscaledTime + damageFlashDuration;
 
-            while (Time.time < endTime)
+            while (Time.unscaledTime < endTime)
             {
                 // flash
                 for (int i = 0; i < damageFlashRenderers.Length; i++)
-                    if (damageFlashRenderers[i]) damageFlashRenderers[i].color = damageFlashColor;
+                {
+                    if (!damageFlashRenderers[i]) continue;
+                    Color c = damageFlashColor;
+                    c.a = 0.3f; // Safety: never flash to full transparent
+                    damageFlashRenderers[i].color = c;
+                }
 
-                yield return new WaitForSeconds(half);
+                yield return new WaitForSecondsRealtime(half);
 
                 // restore
                 for (int i = 0; i < damageFlashRenderers.Length; i++)
-                    if (damageFlashRenderers[i]) damageFlashRenderers[i].color = _damageFlashOriginalColors[i];
+                {
+                    if (!damageFlashRenderers[i]) continue;
+                    Color c = _damageFlashOriginalColors[i];
+                    c.a = 1f; // Safety: always restore fully visible
+                    c.r = 1f;
+                    c.g = 1f;
+                    c.b = 1f;
+                    damageFlashRenderers[i].color = c;
+                }
 
-                yield return new WaitForSeconds(half);
+                yield return new WaitForSecondsRealtime(half);
             }
 
             StopDamageFlash();

@@ -1,9 +1,9 @@
 using System;
-using junklite;
-using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using junklite;
 using Unity.Cinemachine;
+using UnityEngine;
 
 public class FeedbackManager : MonoBehaviour
 {
@@ -13,6 +13,8 @@ public class FeedbackManager : MonoBehaviour
     [SerializeField] float rumbleIntensity = 0.5f;
 
     Coroutine HitStopCoroutine;
+
+    public static FeedbackManager Instance { get; internal set; }
 
     #region Singleton Construction
 
