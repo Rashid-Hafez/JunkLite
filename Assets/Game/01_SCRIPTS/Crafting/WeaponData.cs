@@ -25,11 +25,12 @@ namespace junklite
         [Header("Base Stats")]
         public float baseAttackSpeed = 1f;
         public int maxWeaponDurability = 100;
-        public float baseDamage = 10f; // base damage without any mods applied
+        public float baseDamage = 10f;
+        public Vector2 knockbackForce = new Vector2(8f, 4f);
 
         [Header("Progression")]
-        public int maxActiveModSlots = 2;   // grows via workbench upgrades (permanent)
-        public int maxReserveSlots = 4;     // extra pockets; not directly usable in combat
+        public int maxActiveModSlots = 2;
+        public int maxReserveSlots = 4;
 
     }
 }

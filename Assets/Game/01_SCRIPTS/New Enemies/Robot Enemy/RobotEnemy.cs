@@ -63,15 +63,9 @@ namespace junklite
 
         public override void TakeDamage(DamageInfo info)
         {
-            // Debug log before taking damage
-            float currentHealth = Health != null ? Health.Current : 0f;
+            if (state != null && !state.CanTakeDamage) return;
 
             base.TakeDamage(info);
-
-            float newHealth = Health != null ? Health.Current : 0f;
-            string sourceName = info.Source != null ? info.Source.name : "Unknown";
-
-            Debug.Log($"[{gameObject.name}] Took {info.Amount} damage from {sourceName}! Health: {currentHealth} → {newHealth}");
         }
 
         // === ROBOT BRAIN - All decisions live here ===

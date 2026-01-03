@@ -7,10 +7,10 @@ namespace junklite
     {
         [SerializeField] private Image icon;
 
-        private Mod_Data mod;
+        private ModData mod;
         private InventoryComponent inventory;
 
-        public void Bind(Mod_Data data, InventoryComponent inv)
+        public void Bind(ModData data, InventoryComponent inv)
         {
             mod = data;
             inventory = inv;

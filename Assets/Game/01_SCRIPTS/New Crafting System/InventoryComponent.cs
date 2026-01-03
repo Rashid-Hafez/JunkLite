@@ -1,92 +1,166 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace junklite
 {
+    /// <summary>
+    /// Stores mods that couldn't fit on the weapon.
+    /// Mods go to weapon first → if no free slots, stored here.
+    /// </summary>
     public class InventoryComponent : MonoBehaviour
     {
         [Header("Stored Mods")]
-        [SerializeField] private List<Mod_Data> ownedMods = new();
+        [SerializeField] private List<ModData> storedMods = new();
 
-        [FormerlySerializedAs("weaponHolder")]
         [Header("References")]
         [SerializeField] private WeaponManager weaponManager;
 
         public event System.Action OnInventoryChanged;
 
-        void Awake()
+        // Public accessors
+        public IReadOnlyList<ModData> StoredMods => storedMods;
+        public int StoredModCount => storedMods.Count;
+
+        private void Awake()
         {
-            if (!weaponManager)
+            if (weaponManager == null)
                 weaponManager = GetComponent<WeaponManager>();
         }
 
-        // ===== PICKUP MOD =====
-        public void PickupMod(Mod_Data mod)
+        /// <summary>
+        /// Called when player picks up a mod.
+        /// Tries to equip on weapon first, stores in inventory if no slot.
+        /// </summary>
+        public void PickupMod(ModData mod)
         {
-            ownedMods.Add(mod);
+            if (mod == null) return;
 
-            // Optional auto-equip if weapon has a free slot
-            var weapon = weaponManager.CurrentWeapon;
-            if (weapon != null && weapon.HasFreeModSlot)
+            var weapon = weaponManager?.CurrentWeapon;
+
+            // Try to equip directly on weapon
+            if (weapon != null && weapon.HasFreeSlot)
             {
                 if (weapon.TryAddMod(mod))
                 {
-                    ownedMods.Remove(mod); // moved from inventory → weapon
+                    Debug.Log($"[Inventory] Mod equipped directly: {mod.modName}");
+                    return;
                 }
             }
 
+            // No free slot - store in inventory
+            storedMods.Add(mod);
             OnInventoryChanged?.Invoke();
+            Debug.Log($"[Inventory] Mod stored (no free slot): {mod.modName}");
         }
 
-        // ===== MANUAL EQUIP FROM INVENTORY =====
-        public void EquipMod(Mod_Data mod)
+        /// <summary>
+        /// Manually equip a mod from inventory to weapon.
+        /// </summary>
+        public bool EquipMod(ModData mod)
         {
-            var weapon = weaponManager.CurrentWeapon;
-            if (weapon == null) return;
-            if (!ownedMods.Contains(mod)) return;
+            if (mod == null || !storedMods.Contains(mod))
+                return false;
 
-            bool equipped = weapon.TryAddMod(mod);
-            if (equipped)
+            var weapon = weaponManager?.CurrentWeapon;
+            if (weapon == null || !weapon.HasFreeSlot)
+                return false;
+
+            if (weapon.TryAddMod(mod))
             {
-                ownedMods.Remove(mod);
+                storedMods.Remove(mod);
                 OnInventoryChanged?.Invoke();
+                Debug.Log($"[Inventory] Equipped from inventory: {mod.modName}");
+                return true;
             }
-            // if !equipped (no slot) → stays in inventory
+
+            return false;
         }
 
-        // ===== UNEQUIP BACK TO INVENTORY =====
-        public void UnequipMod(ModRuntimeInstance runtime)
+        /// <summary>
+        /// Unequip a mod from weapon back to inventory.
+        /// </summary>
+        public void UnequipMod(ActiveMod activeMod)
         {
-            var weapon = weaponManager.CurrentWeapon;
+            if (activeMod == null) return;
+
+            var weapon = weaponManager?.CurrentWeapon;
             if (weapon == null) return;
 
-            ownedMods.Add(runtime.data);
-            weapon.RemoveMod(runtime);
+            // Store the mod data before removing
+            storedMods.Add(activeMod.data);
+            weapon.RemoveMod(activeMod);
+
+            OnInventoryChanged?.Invoke();
+            Debug.Log($"[Inventory] Unequipped to inventory: {activeMod.data.modName}");
+        }
+
+        /// <summary>
+        /// Try to equip a random stored mod (useful for auto-equip on weapon pickup).
+        /// </summary>
+        public bool EquipRandomMod()
+        {
+            if (storedMods.Count == 0) return false;
+
+            var weapon = weaponManager?.CurrentWeapon;
+            if (weapon == null || !weapon.HasFreeSlot) return false;
+
+            // Try each stored mod
+            for (int i = storedMods.Count - 1; i >= 0; i--)
+            {
+                var mod = storedMods[i];
+                if (weapon.TryAddMod(mod))
+                {
+                    storedMods.RemoveAt(i);
+                    OnInventoryChanged?.Invoke();
+                    Debug.Log($"[Inventory] Auto-equipped: {mod.modName}");
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Equip all stored mods that can fit on the weapon.
+        /// </summary>
+        public void EquipAllPossible()
+        {
+            var weapon = weaponManager?.CurrentWeapon;
+            if (weapon == null) return;
+
+            for (int i = storedMods.Count - 1; i >= 0; i--)
+            {
+                if (!weapon.HasFreeSlot) break;
+
+                var mod = storedMods[i];
+                if (weapon.TryAddMod(mod))
+                {
+                    storedMods.RemoveAt(i);
+                }
+            }
 
             OnInventoryChanged?.Invoke();
         }
 
-        public IReadOnlyList<Mod_Data> GetOwnedMods() => ownedMods;
-
-        public void EquipRandomMod()
+        /// <summary>
+        /// Check if a specific mod is in inventory.
+        /// </summary>
+        public bool HasMod(ModData mod)
         {
-            if (ownedMods.Count == 0) return;
+            return storedMods.Contains(mod);
+        }
 
-            var weapon = weaponManager.CurrentWeapon;
-            if (weapon == null) return;
-
-            // Try to equip each mod until one works
-            foreach (var mod in ownedMods)
+        /// <summary>
+        /// Remove a mod from inventory (e.g., if sold or discarded).
+        /// </summary>
+        public bool RemoveMod(ModData mod)
+        {
+            if (storedMods.Remove(mod))
             {
-                if (weapon.TryAddMod(mod))
-                {
-                    ownedMods.Remove(mod);
-                    OnInventoryChanged?.Invoke();
-                    break;
-                }
+                OnInventoryChanged?.Invoke();
+                return true;
             }
+            return false;
         }
     }
-
 }

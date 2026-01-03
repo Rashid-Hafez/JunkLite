@@ -25,6 +25,13 @@ namespace junklite
             this.stateMachine = enemy.StateMachine;
         }
 
+        /// <summary>
+        /// Whether the enemy can take damage while in this state.
+        /// Override to return false for invulnerability frames or immunity states.
+        /// Default is true.
+        /// </summary>
+        public virtual bool CanTakeDamage => true;
+
         public virtual void Enter() { }
 
         public virtual void Update() { }

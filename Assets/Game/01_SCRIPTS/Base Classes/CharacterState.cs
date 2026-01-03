@@ -16,13 +16,12 @@ namespace junklite
         [Header("Optional References")]
         [SerializeField] protected AttributeManager attributes;   // optional; safe to leave null
 
-
         public bool IsAlive => attributes != null ? attributes.IsAlive : true;
 
         public virtual bool CanMove => IsAlive && !IsStunned;
         public virtual bool CanJump => IsAlive && !IsStunned;
         public virtual bool CanAttack => IsAlive && !IsAttacking && !IsStunned;
-        public bool CanTakeDamage => IsAlive && IsVulnerable;
+        public virtual bool CanTakeDamage => IsAlive && IsVulnerable;
 
 
         // ==== Core State Flags ====

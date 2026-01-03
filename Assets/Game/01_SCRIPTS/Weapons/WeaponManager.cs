@@ -55,10 +55,12 @@ namespace junklite
         [SerializeField] private int poolSizePerSlash = 5;
         [SerializeField] private Transform slashPoolRoot;
         private readonly Dictionary<GameObject, Queue<GameObject>> slashPools = new();
+
         // ================== INTERNAL ==================
         private Rigidbody playerRb;
         private Transform playerTransform;
         private PlayerState playerState;
+        private PlayerCharacter playerCharacter;
 
         public WeaponInstance CurrentWeapon { get; private set; }
         private WorldWeaponPickup storedPickup;
@@ -74,6 +76,7 @@ namespace junklite
             playerRb = GetComponentInParent<Rigidbody>();
             playerTransform = transform.parent ?? transform;
             playerState = GetComponentInParent<PlayerState>();
+            playerCharacter = GetComponentInParent<PlayerCharacter>();
 
             // ensure we have a FeedbackManager instance
             feedbackManager = FeedbackManager.instance ?? FindObjectOfType<FeedbackManager>();
@@ -96,14 +99,6 @@ namespace junklite
         {
             if (UnityEngine.InputSystem.Keyboard.current?.gKey.wasPressedThisFrame == true)
                 DropWeapon();
-
-            // Debug: consume mod durability (UNCHANGED)
-            if (UnityEngine.InputSystem.Keyboard.current?.hKey.wasPressedThisFrame == true && CurrentWeapon != null)
-            {
-                var mods = CurrentWeapon.GetActiveMods();
-                if (mods.Count > 0)
-                    CurrentWeapon.ConsumeModDurability(mods[0], 5f);
-            }
         }
 
         private void OnTriggerEnter(Collider other)
@@ -199,7 +194,7 @@ namespace junklite
             ApplyRecoil(dir, result);
         }
 
-#region mod attack logic
+        #region mod attack logic
         /// <summary>
         /// Deals damage to the target hit by the weapon.
         /// </summary>
@@ -230,32 +225,21 @@ namespace junklite
             // Create damage info
             var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
 
-            // --- APPLY MOD LOGIC ON HIT ---
+            // --- TRIGGER MOD EFFECTS (Simplified!) ---
             if (CurrentWeapon != null)
             {
-                var activeMods = CurrentWeapon.GetActiveMods();
+                var enemy = targetCollider.GetComponent<EnemyCharacter>()
+                         ?? targetCollider.GetComponentInParent<EnemyCharacter>();
 
-                if  (activeMods.Count <= 0)
-                {
-                    Debug.LogWarning($"no mods");
-                }
-
-            var enemyCharacter = targetCollider.GetComponent<EnemyCharacter>() 
-                               ?? targetCollider.GetComponentInParent<EnemyCharacter>();
-        
-                foreach (var mod in activeMods)
-                {
-                    Debug.LogWarning($"Processing OnHit for mod: {mod.data.name}");
-                    mod.logic.OnHit(CurrentWeapon, enemyCharacter, ref damageInfo);
-                }
+                // One simple call - weapon handles everything
+                CurrentWeapon.TriggerModsOnHit(enemy, playerCharacter);
             }
 
-            PlayFeedback(); //Feedback on hit
-            // Apply damage
+            PlayFeedback();
             damageable.TakeDamage(damageInfo);
         }
 
-#endregion mod attack logic
+        #endregion mod attack logic
 
         private Vector3 ResolveImpactPoint(AttackDirection dir, Vector3 origin, float radius)
         {
@@ -509,23 +493,21 @@ namespace junklite
             CurrentWeapon.transform.localRotation = Quaternion.Euler(0, 0, -30f);
             CurrentWeapon.transform.localScale = Vector3.one;
             CurrentWeapon.GetComponent<SpriteRenderer>().sortingOrder = 11;
-            //CurrentWeapon.transform.SetParent(transform, false);
             CurrentWeapon.SetOwnerRigidbody(playerRb);
 
             CurrentWeapon.OnAttack += HandleWeaponAttack;
 
-            InventoryComponent inventory = GetComponent<InventoryComponent>();
+            // Auto-equip any stored mods from inventory
+            var inventory = GetComponent<InventoryComponent>();
             if (inventory != null)
             {
-                inventory.EquipRandomMod();
-                Debug.LogWarning("Equipped RANDOM MOD, mod was picked up first BEFORE WEAPON");
+                inventory.EquipAllPossible();
             }
 
             InitializeSlashPools(CurrentWeapon.weaponData.comboData);
             InitializeHitParticlePool();
             InitializeHitCrossPool();
             OnWeaponChanged?.Invoke();
-
         }
 
         public void DropWeapon()
@@ -550,11 +532,26 @@ namespace junklite
 
         private void PickupMod(WorldModPickup pickup)
         {
-            var inventory = GetComponent<InventoryComponent>();
-            if (inventory == null) return;
+            if (pickup.modData == null)
+                return;
 
-            inventory.PickupMod(pickup.modData);
-            Destroy(pickup.gameObject);
+            // Try to add directly to weapon if it has a free slot
+            if (CurrentWeapon != null && CurrentWeapon.HasFreeSlot)
+            {
+                if (CurrentWeapon.TryAddMod(pickup.modData))
+                {
+                    Destroy(pickup.gameObject);
+                    return;
+                }
+            }
+
+            // No free slot on weapon - store in inventory
+            var inventory = GetComponent<InventoryComponent>();
+            if (inventory != null)
+            {
+                inventory.PickupMod(pickup.modData);
+                Destroy(pickup.gameObject);
+            }
         }
 
         #endregion Weapon and Mod Pickup

@@ -26,13 +26,11 @@ namespace junklite
 
         private Rigidbody ownerRb;
 
-        private readonly List<ModRuntimeInstance> activeMods = new();
+        // Simplified mod system
+        private readonly List<ActiveMod> activeMods = new();
         public System.Action OnModsChanged;
-        internal object spriteRenderer;
 
         public event System.Action<AttackDirection, WeaponComboData.ComboStep, int> OnAttack;
-
-
 
         private void Start()
         {
@@ -80,13 +78,13 @@ namespace junklite
 
             if (dir == AttackDirection.Side)
             {
-                comboIndex = sideComboIndex; // Capture BEFORE advancing
+                comboIndex = sideComboIndex;
                 step = weaponData.comboData.sideComboSteps[sideComboIndex];
                 AdvanceSideCombo();
             }
             else
             {
-                comboIndex = -1; // Non-side attacks don't use combo index
+                comboIndex = -1;
                 ResetSideCombo();
                 step = dir == AttackDirection.Up
                     ? weaponData.comboData.upAttack
@@ -99,29 +97,6 @@ namespace junklite
         // ==================================================
         // COMBO STEP SELECTION
         // ==================================================
-        private WeaponComboData.ComboStep GetComboStep(AttackDirection dir)
-        {
-            WeaponComboData combo = weaponData.comboData;
-
-            if (dir == AttackDirection.Side)
-            {
-                int currentStep = sideComboIndex + 1; 
-                Debug.Log($"[WEAPON COMBO] Side Attack Step: {currentStep}");
-
-                WeaponComboData.ComboStep step =
-                    combo.sideComboSteps[sideComboIndex];
-
-                AdvanceSideCombo();
-                return step;
-            }
-
-            // Up / Down → always single hit
-            ResetSideCombo();
-
-            return dir == AttackDirection.Up
-                ? combo.upAttack
-                : combo.downAttack;
-        }
 
         private void AdvanceSideCombo()
         {
@@ -138,48 +113,71 @@ namespace junklite
             comboTimer = 0f;
         }
 
-#region mod system
         // ==================================================
-        // MOD SYSTEM 
+        // MOD SYSTEM (Simplified)
         // ==================================================
-        public int MaxActiveSlots =>
-            weaponData != null ? weaponData.maxActiveModSlots : 0;
 
-        public bool HasFreeModSlot =>
-            activeMods.Count < MaxActiveSlots;
+        public int MaxModSlots => weaponData != null ? weaponData.maxActiveModSlots : 0;
+        public bool HasFreeSlot => activeMods.Count < MaxModSlots;
+        public IReadOnlyList<ActiveMod> GetMods() => activeMods;
 
-        public IReadOnlyList<ModRuntimeInstance> GetActiveMods() =>
-            activeMods;
-
-        public bool TryAddMod(Mod_Data data)
+        /// <summary>
+        /// Add a mod to this weapon.
+        /// </summary>
+        public bool TryAddMod(ModData modData)
         {
-            if (!HasFreeModSlot)
+            if (modData == null || !HasFreeSlot)
                 return false;
 
-            var runtime = new ModRuntimeInstance(data);
-            activeMods.Add(runtime);
+            var activeMod = new ActiveMod(modData);
+            activeMods.Add(activeMod);
 
-            runtime.logic.OnEquip(this);
+            modData.OnEquip(this);
             OnModsChanged?.Invoke();
+
+            Debug.Log($"[Weapon] Mod added: {modData.modName}");
             return true;
         }
 
-        public void RemoveMod(ModRuntimeInstance runtime)
+        /// <summary>
+        /// Remove a mod from this weapon.
+        /// </summary>
+        public void RemoveMod(ActiveMod mod)
         {
-            runtime.logic.OnUnequip(this);
-            activeMods.Remove(runtime);
-            OnModsChanged?.Invoke();
-        }
-
-        public void ConsumeModDurability(ModRuntimeInstance runtime, float amount)
-        {
-            if (!activeMods.Contains(runtime))
+            if (!activeMods.Contains(mod))
                 return;
 
-            runtime.Consume(amount);
+            mod.data.OnUnequip(this);
+            activeMods.Remove(mod);
+            OnModsChanged?.Invoke();
 
-            if (runtime.IsBroken)
-                RemoveMod(runtime);
+            Debug.Log($"[Weapon] Mod removed: {mod.data.modName}");
+        }
+
+        /// <summary>
+        /// Called by WeaponManager when weapon hits something.
+        /// Triggers all mod OnHit effects and consumes durability.
+        /// </summary>
+        public void TriggerModsOnHit(EnemyCharacter enemy, PlayerCharacter player)
+        {
+            // Iterate backwards in case a mod breaks and gets removed
+            for (int i = activeMods.Count - 1; i >= 0; i--)
+            {
+                var mod = activeMods[i];
+
+                // Trigger effect
+                mod.data.OnHit(this, enemy, player);
+
+                // Consume durability
+                mod.ConsumeDurability(mod.data.durabilityPerHit);
+
+                // Remove if broken
+                if (mod.IsBroken)
+                {
+                    Debug.Log($"[Weapon] Mod broke: {mod.data.modName}");
+                    RemoveMod(mod);
+                }
+            }
 
             OnModsChanged?.Invoke();
         }
@@ -192,4 +190,3 @@ namespace junklite
         Environment
     }
 }
-#endregion

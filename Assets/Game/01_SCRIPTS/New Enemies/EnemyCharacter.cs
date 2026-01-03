@@ -1,5 +1,5 @@
-using System.Collections;
 using UnityEngine;
+
 namespace junklite
 {
     /// <summary>
@@ -14,6 +14,7 @@ namespace junklite
     /// </summary>
     [RequireComponent(typeof(StateMachine))]
     [RequireComponent(typeof(EnemyMovement))]
+    [RequireComponent(typeof(StatusEffectHandler))]
     public class EnemyCharacter : CharacterBase
     {
         [Header("Enemy Config")]
@@ -36,16 +37,17 @@ namespace junklite
         [SerializeField] public float speed = 60f;
         [SerializeField] public float life = 100f;
 
+        [Header("Knockback")]
+        [Tooltip("If false, this enemy cannot be knocked back")]
+        [SerializeField] protected bool canBeKnockedBack = true;
+
         [Header("Debug")]
         [SerializeField] protected bool showGizmos = true;
-
-        [Header("status effect system")]
-        private Coroutine statusCoroutine;
-        protected SpriteRenderer activeVFX;
 
         // Components
         protected StateMachine stateMachine;
         protected EnemyMovement movement;
+        protected StatusEffectHandler statusEffects;
 
         // Target tracking
         protected Transform target;
@@ -58,6 +60,9 @@ namespace junklite
         // Combat state - prevents detection events from interrupting combat
         protected bool isInCombat = false;
 
+        // Current state reference for quick access
+        protected EnemyStateBase state => stateMachine?.CurrentState as EnemyStateBase;
+
         public bool IsInCombat => isInCombat;
 
         // Public accessors - Components
@@ -66,6 +71,7 @@ namespace junklite
         public EnemyMovement Movement => movement;
         public DetectionZone DetectionZone => detectionZone;
         public Hitbox DashHitbox => dashHitbox;
+        public StatusEffectHandler StatusEffects => statusEffects;
 
         // Public accessors - Target
         public Transform Target => target;
@@ -79,6 +85,7 @@ namespace junklite
         public Vector3 PatrolLeftPoint => spawnPosition + Vector3.left * patrolDistance;
         public Vector3 PatrolRightPoint => spawnPosition + Vector3.right * patrolDistance;
         public bool HasPatrol => patrolDistance > 0f;
+        public bool CanBeKnockedBack => canBeKnockedBack;
 
         // Virtual properties for attacks - override in subclasses
         public virtual float DashChargeTime => 1f;
@@ -99,7 +106,14 @@ namespace junklite
             base.Awake();
             stateMachine = GetComponent<StateMachine>();
             movement = GetComponent<EnemyMovement>();
+            statusEffects = GetComponent<StatusEffectHandler>();
             spawnPosition = transform.position;
+
+            // Sync knockback setting to movement component
+            if (movement != null)
+            {
+                movement.IgnoreKnockback = !canBeKnockedBack;
+            }
 
             // Setup detection zone events
             if (detectionZone != null)
@@ -120,6 +134,22 @@ namespace junklite
         {
             base.Start();
             InitializeStateMachine();
+        }
+
+        /// <summary>
+        /// Called when the component is enabled. Override to subscribe to events.
+        /// </summary>
+        protected virtual void OnEnable()
+        {
+            // Subclasses can subscribe to movement events here
+        }
+
+        /// <summary>
+        /// Called when the component is disabled. Override to unsubscribe from events.
+        /// </summary>
+        protected virtual void OnDisable()
+        {
+            // Subclasses can unsubscribe from movement events here
         }
 
         /// <summary>
@@ -214,6 +244,16 @@ namespace junklite
         {
             // Default: no behavior defined
             Debug.Log($"{gameObject.name}: Recovery complete but no behavior defined!");
+        }
+
+        /// <summary>
+        /// DECISION: Called when stun/knockback state completes. What should enemy do?
+        /// Override in subclass to define behavior.
+        /// </summary>
+        public virtual void OnStunComplete()
+        {
+            // Default: no behavior defined
+            Debug.Log($"{gameObject.name}: Stun complete but no behavior defined!");
         }
 
         /// <summary>
@@ -320,6 +360,10 @@ namespace junklite
         protected override void HandleDeath()
         {
             Debug.Log($"[{gameObject.name}] HandleDeath called!");
+
+            // Clear status effects first
+            if (statusEffects != null)
+                statusEffects.ClearAllEffects();
 
             // Disable hitbox first
             if (dashHitbox != null)
@@ -469,44 +513,5 @@ namespace junklite
         }
 
         #endregion
-
-        #region status effect system
-	/// <summary>
-	/// Applies a status effect to the enemy.
-	public void ApplyStatusEffect(StatusEffect effect, SpriteRenderer VFX)
-	{
-		if (effect == null) return;
-
-        // stop any existing status coroutine (optional behaviour)
-        if (statusCoroutine != null)
-        {
-            StopCoroutine(statusCoroutine);
-            statusCoroutine = null;
-        }
-
-        // spawn VFX (if provided) as child so it follows the enemy
-        if (VFX != null)
-        {
-            activeVFX = Instantiate(VFX, transform);
-            activeVFX.transform.localPosition = Vector3.zero;
-        }
-
-        statusCoroutine = StartCoroutine(RunStatus(effect, activeVFX));
-	}
-
-	 private IEnumerator RunStatus(StatusEffect effect, SpriteRenderer vfx)
-    {
-        yield return StartCoroutine(effect.Apply(this));
-
-        if (vfx != null)
-        {
-            Destroy(vfx.gameObject);
-                activeVFX = null;
-        }
-
-        statusCoroutine = null;
-    }
-#endregion status effect system
-
     }
 }

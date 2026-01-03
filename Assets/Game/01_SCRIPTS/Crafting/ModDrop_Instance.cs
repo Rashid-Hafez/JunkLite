@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class ModDrop_Instance : MonoBehaviour
 {
+    /*
     public Mod_Data modData;
     public float CurrentDurability;
 
@@ -32,4 +33,6 @@ public class ModDrop_Instance : MonoBehaviour
     {
         return CurrentDurability <= 0;
     }
+
+    */
 }

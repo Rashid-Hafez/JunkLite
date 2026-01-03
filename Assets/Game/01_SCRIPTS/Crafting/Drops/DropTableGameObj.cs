@@ -1,13 +1,14 @@
 using System.Collections.Generic;
+using junklite;
 using UnityEngine;
 
 public class DropTableGameObj : MonoBehaviour
 {
-
+    /*
     public static DropTableGameObj Instance; //make class singleton and only one instance
 
     [Header("Drop Table")]
-    public List<Mod_Data> allMods;
+    public List<ModData> allMods;
 
     [Header ("Rarity Drop Chances")]
     [SerializeField]
@@ -40,26 +41,26 @@ public class DropTableGameObj : MonoBehaviour
     /// Calls another method @GetRandomModOfRarity
     /// </summary>
     /// <returns></returns>
-    public Mod_Data GetRandomDrop()
+    public ModData GetRandomDrop()
     {
-        Mod_Data dropData;
+        ModData dropData;
         float roll = Random.Range(0f, 1f);
 
         if (roll < commonChance)
         {
-            dropData = GetRandomModOfRarity(Mod_Data.Rarity.Common);
+            dropData = GetRandomModOfRarity(ModData.Rarity.Common);
         }
         else if (roll < commonChance + uncommonChance)
         {
-            dropData = GetRandomModOfRarity(Mod_Data.Rarity.Uncommon);
+            dropData = GetRandomModOfRarity(ModData.Rarity.Uncommon);
         }
         else if (roll < commonChance + uncommonChance + rareChance)
         {
-            dropData = GetRandomModOfRarity(Mod_Data.Rarity.Rare);
+            dropData = GetRandomModOfRarity(ModData.Rarity.Rare);
         }
         else
         {
-            dropData = GetRandomModOfRarity(Mod_Data.Rarity.Legendary);
+            dropData = GetRandomModOfRarity(ModData.Rarity.Legendary);
         }
 
         return dropData;
@@ -86,5 +87,7 @@ public class DropTableGameObj : MonoBehaviour
         Mod_Data randomMod = filteredMods[Mathf.Abs(rando)];
         return randomMod;
     }
+
+    */
 
 }

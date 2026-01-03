@@ -2,7 +2,6 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 
 namespace junklite
 {
@@ -22,10 +21,7 @@ namespace junklite
         public void Bind(WeaponManager weaponManager)
         {
             _manager = weaponManager;
-
             _manager.OnWeaponChanged += RefreshWeapon;
-
-            // Subscribe for weapon equip changes if needed later
             RefreshWeapon();
         }
 
@@ -40,7 +36,6 @@ namespace junklite
             weaponPanel.gameObject.SetActive(false);
         }
 
-        // Call whenever weapon changes
         public void RefreshWeapon()
         {
             if (_manager == null || _manager.CurrentWeapon == null)
@@ -50,7 +45,6 @@ namespace junklite
             }
 
             weaponPanel.gameObject.SetActive(true);
-
             BindToWeapon(_manager.CurrentWeapon);
         }
 
@@ -81,7 +75,7 @@ namespace junklite
         private void CreateSlots()
         {
             int slotCount = currentWeapon.weaponData.maxActiveModSlots;
-            var mods = currentWeapon.GetActiveMods();
+            var mods = currentWeapon.GetMods();
 
             for (int i = 0; i < slotCount; i++)
             {
@@ -95,18 +89,17 @@ namespace junklite
         {
             foreach (var ui in slotUIs)
                 Destroy(ui.gameObject);
-
             slotUIs.Clear();
         }
 
         private void RefreshSlots()
         {
-            var mods = currentWeapon.GetActiveMods();
+            var mods = currentWeapon.GetMods();
 
             for (int i = 0; i < slotUIs.Count; i++)
             {
-                ModRuntimeInstance runtime = i < mods.Count ? mods[i] : null;
-                slotUIs[i].Bind(runtime, currentWeapon);
+                ActiveMod mod = i < mods.Count ? mods[i] : null;
+                slotUIs[i].Bind(mod, currentWeapon);
             }
         }
     }

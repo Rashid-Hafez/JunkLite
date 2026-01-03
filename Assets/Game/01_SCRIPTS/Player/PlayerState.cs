@@ -42,6 +42,7 @@ namespace junklite
 
         // Drone feature (existing)
         [SerializeField] private bool hasDrone;
+
         public bool HasDrone
         {
             get => hasDrone;
@@ -105,6 +106,10 @@ namespace junklite
         {
             if (IsDashing == dashing) return;
             IsDashing = dashing;
+
+            // Dash grants invulnerability
+            SetVulnerable(!dashing);
+
             OnDashingChanged?.Invoke(dashing);
         }
 

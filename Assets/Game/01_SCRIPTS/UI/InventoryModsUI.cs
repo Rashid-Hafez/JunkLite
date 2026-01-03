@@ -35,7 +35,7 @@ namespace junklite
         {
             Clear();
 
-            foreach (var mod in inventory.GetOwnedMods())
+            foreach (var mod in inventory.StoredMods)
             {
                 var icon = Instantiate(iconPrefab, contentParent);
                 icon.Bind(mod, inventory);
