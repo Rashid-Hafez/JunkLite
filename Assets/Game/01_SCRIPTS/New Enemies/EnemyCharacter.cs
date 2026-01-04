@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 namespace junklite
@@ -607,43 +608,6 @@ namespace junklite
 
         #endregion
 
-        #region Status Effect System
-        /// <summary>
-        /// Applies a status effect to the enemy.
-        public void ApplyStatusEffect(StatusEffect effect, SpriteRenderer VFX)
-        {
-            if (effect == null) return;
-
-            // stop any existing status coroutine (optional behaviour)
-            if (statusCoroutine != null)
-            {
-                StopCoroutine(statusCoroutine);
-                statusCoroutine = null;
-            }
-
-            // spawn VFX (if provided) as child so it follows the enemy
-            if (VFX != null)
-            {
-                activeVFX = Instantiate(VFX, transform);
-                activeVFX.transform.localPosition = Vector3.zero;
-            }
-
-            statusCoroutine = StartCoroutine(RunStatus(effect, activeVFX));
-        }
-
-        private IEnumerator RunStatus(StatusEffect effect, SpriteRenderer vfx)
-        {
-            yield return StartCoroutine(effect.Apply(this));
-
-            if (vfx != null)
-            {
-                Destroy(vfx.gameObject);
-                activeVFX = null;
-            }
-
-            statusCoroutine = null;
-        }
-        #endregion status effect system
 
         #region Combat VFX Methods
 

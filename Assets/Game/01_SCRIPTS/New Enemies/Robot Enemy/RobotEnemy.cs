@@ -16,6 +16,10 @@ namespace junklite
     /// </summary>
     public class RobotEnemy : EnemyCharacter
     {
+        [Header("Robot - Damage and Hurt VFX")]
+        public GameObject hurtParticles;
+        public GameObject deathParticles;
+
         [Header("Robot - Dash Attack")]
         [SerializeField] private float dashChargeTime = 1f;
         [SerializeField] private float dashSpeed = 15f;
@@ -59,7 +63,7 @@ namespace junklite
                 stateMachine.SetInitialState<IdleState>();
         }
 
-        // === DAMAGE HANDLING ===
+        // === DAMAGE and Death HANDLING ===
 
         public override void TakeDamage(DamageInfo info)
         {
@@ -68,17 +72,24 @@ namespace junklite
             base.TakeDamage(info);
         }
 
+        protected override void HandleDeath()
+        {
+            base.HandleDeath();
+
+
+        }
+
         // === ROBOT BRAIN - All decisions live here ===
 
         public override void OnPlayerSpotted()
         {
+            // Dead enemies don't respond
             if (!IsAlive) return;
+
+            // Don't interrupt if already in combat
             if (isInCombat) return;
 
             EnterCombat();
-
-
-
             stateMachine.ChangeState<ChargeState>();
         }
 
@@ -101,6 +112,7 @@ namespace junklite
         public override void OnChargeComplete()
         {
             if (!IsAlive) return;
+
             stateMachine.ChangeState<DashState>();
         }
 
@@ -123,7 +135,6 @@ namespace junklite
 
             if (HasTarget)
             {
-
                 // Continue combat - charge again
                 stateMachine.ChangeState<ChargeState>();
             }
@@ -206,6 +217,5 @@ namespace junklite
             damageable.TakeDamage(info);
             Debug.Log($"{gameObject.name} hit {other.name} for {dashDamage} damage");
         }
-
     }
 }

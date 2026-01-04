@@ -84,7 +84,7 @@ namespace junklite
             playerCharacter = GetComponentInParent<PlayerCharacter>();
 
             // ensure we have a FeedbackManager instance
-            feedbackManager = FeedbackManager.instance ?? FindObjectOfType<FeedbackManager>();
+            feedbackManager = FeedbackManager.instance;
             if (feedbackManager == null)
                 Debug.LogWarning("FeedbackManager not found in scene");
 
@@ -655,8 +655,8 @@ namespace junklite
 
         private void PlayFeedback()
         {
-            feedbackManager.HitStop(0.08f);
-            feedbackManager.CinemachineShake(impulseSource);
+           // feedbackManager.HitStop(0.08f);
+          //  feedbackManager.CinemachineShake(impulseSource);
         }
         #endregion Effects
 

@@ -9973,6 +9973,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   rumbleDuration: 0.2
   rumbleIntensity: 0.5
+  MAINCAMERA: {fileID: 0}
+  deathCamera: {fileID: 0}
+  pauseCamera: {fileID: 0}
+  gameOverCamera: {fileID: 0}
+  gameWinCamera: {fileID: 0}
+  gameLoseCamera: {fileID: 0}
+  gamePauseCamera: {fileID: 0}
+  gameResumeCamera: {fileID: 0}
+  gameRestartCamera: {fileID: 0}
 --- !u!4 &534381224
 Transform:
   m_ObjectHideFlags: 0
@@ -12504,11 +12513,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a9414762d43da4c60be01d222cdfb21d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  allMods: []
-  commonChance: 0.7
-  uncommonChance: 0.2
-  rareChance: 0.09
-  mythicChance: 0.01
 --- !u!222 &1124278410971409101
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -14387,7 +14391,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &2189523004705253746
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -39584,7 +39588,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a9ac92cc302d0046afdc0b9ee405945, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.WorldModPickup
-  modData: {fileID: 11400000, guid: 8c9a2a79de5dfd249a1453fb7ba987f5, type: 2}
+  modData: {fileID: 11400000, guid: b1036ee54b12d1548abae30ea8df5074, type: 2}
 --- !u!65 &5325606054989635771
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -39924,18 +39928,6 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 3734515324607090471, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 0.80846184
-      objectReference: {fileID: 0}
-    - target: {fileID: 3734515324607090471, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 0.80846184
-      objectReference: {fileID: 0}
-    - target: {fileID: 3734515324607090471, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 0.80846184
-      objectReference: {fileID: 0}
-    - target: {fileID: 3734515324607090471, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: m_LocalPosition.x
       value: 18.89
       objectReference: {fileID: 0}
@@ -39974,38 +39966,6 @@ PrefabInstance:
     - target: {fileID: 3734515324607090471, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4580324285353963223, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: ChargeVFX
-      value: 
-      objectReference: {fileID: 7761031033666763820, guid: 1eb833340b41fb444b576c4dced8d4dc, type: 3}
-    - target: {fileID: 4580324285353963223, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: dashVFXPrefab
-      value: 
-      objectReference: {fileID: 7761031033666763820, guid: 1eb833340b41fb444b576c4dced8d4dc, type: 3}
-    - target: {fileID: 4580324285353963223, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: chargeVFXPrefab
-      value: 
-      objectReference: {fileID: 1289543790355709915, guid: b99922c2f59b1a542bdd06ae8bee47ae, type: 3}
-    - target: {fileID: 4580324285353963223, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: damageFlashColor.b
-      value: 0.24056602
-      objectReference: {fileID: 0}
-    - target: {fileID: 4580324285353963223, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: damageFlashColor.g
-      value: 0.24056602
-      objectReference: {fileID: 0}
-    - target: {fileID: 4580324285353963223, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: damageFlashColor.r
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4580324285353963223, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: damageFlashDuration
-      value: 0.05
-      objectReference: {fileID: 0}
-    - target: {fileID: 4606069892618623333, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: m_SortingOrder
-      value: 16
       objectReference: {fileID: 0}
     - target: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: m_Name
@@ -60445,7 +60405,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f8d24f6039bfbc46b0207edfadf554a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerPrefab: {fileID: 5850090766314225882, guid: 2c322f9622b9d1543860dc377a82afda, type: 3}
+  playerPrefab: {fileID: 7038683931279381878, guid: 2c322f9622b9d1543860dc377a82afda, type: 3}
   spawnPoints:
   - {fileID: 1004551717}
   respawnDelay: 2
