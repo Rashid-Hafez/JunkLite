@@ -1,5 +1,5 @@
 ﻿using System.Collections;
-using UnityEditor.Experimental.GraphView;
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -8,6 +8,7 @@ namespace junklite
     [RequireComponent(typeof(Character2D5Controller))]
     [RequireComponent(typeof(PlayerState))]
     [DefaultExecutionOrder(5)]
+    [RequireComponent(typeof(CinemachineImpulseSource))]
     public class PlayerCharacter : CharacterBase, IGrabbable
     {
         [Header("Player Settings")]
@@ -26,6 +27,17 @@ namespace junklite
         [Header("Respawn Settings")]
         [SerializeField] private float reviveInvulnerability = 1.25f;
         [SerializeField] private bool disableCollidersOnDeactivate = true;
+
+        [Header("Damage Feedback")]
+        [SerializeField] private float damageInvulnerability = 0.5f;
+        [SerializeField] private SpriteRenderer[] damageFlashRenderers;
+        [SerializeField] private bool autoFindFlashRenderers = true;
+        [SerializeField] private Color damageFlashColor = Color.white;
+        [SerializeField] private float damageFlashDuration = 0.12f;
+        [SerializeField] private float damageFlashInterval = 0.04f;
+        [SerializeField] private GameObject damageHitVFXPrefab;
+        [SerializeField] private float damageHitVFXLifetime = 0.5f;
+        [SerializeField] private CinemachineImpulseSource damageImpulseSource;
 
         public bool JumpHeld => inputManager != null && inputManager.IsJumpHeld;
 
@@ -59,6 +71,11 @@ namespace junklite
         // Attached Comps
         private WeaponManager _weaponManager;
 
+        // Damage flash runtime
+        private Coroutine _damageFlashCo;
+        private Color[] _damageFlashOriginalColors;
+        private FeedbackManager feedbackManager = FeedbackManager.instance;
+
         protected override void Awake()
         {
             base.Awake();
@@ -69,6 +86,9 @@ namespace junklite
             inputManager = GameInputManager.Instance;
             _cachedColliders = GetComponentsInChildren<Collider>(includeInactive: true);
             _rb = GetComponent<Rigidbody>();
+
+            if (autoFindFlashRenderers && (damageFlashRenderers == null || damageFlashRenderers.Length == 0))
+                damageFlashRenderers = GetComponentsInChildren<SpriteRenderer>(includeInactive: true);
 
             Deactivate();
         }
@@ -85,6 +105,12 @@ namespace junklite
 
             if (CameraManager.Instance != null)
                 CameraManager.Instance.SetPlayerTarget(transform);
+
+            ////// SCREENSHAKE AND FEEDBACK, VIBRATION CONTROLLER, FLASH VFX ETC
+            if (feedbackManager == null)
+                feedbackManager = FeedbackManager.instance;
+            if (damageImpulseSource == null)
+                damageImpulseSource = GetComponent<CinemachineImpulseSource>();
 
             _weaponManager = GetComponent<WeaponManager>();
 
@@ -237,13 +263,17 @@ namespace junklite
         }
 
         //  void OnEnable() => SubscribeToInput();
-        void OnDisable() => UnsubscribeFromInput();
+        void OnDisable()
+        {
+            UnsubscribeFromInput();
+            StopDamageFlash();
+        }
 
         // ====================================================================
         // INPUT
         // ====================================================================
 
-        void Update()
+        void Update() //PLEASE REMOVE THIS
         {
             HandleInput();
 
@@ -546,7 +576,33 @@ namespace junklite
         {
             if (playerState != null && !playerState.CanTakeDamage) return;
 
+            float hpBefore = attributes != null && attributes.Health != null ? attributes.Health.Current : -1f;
             base.TakeDamage(info);
+
+            // Only do feedback if damage actually applied (HP decreased)
+            bool tookDamage = true;
+            if (hpBefore >= 0f && attributes != null && attributes.Health != null)
+                tookDamage = attributes.Health.Current < (hpBefore - 0.0001f);
+
+            if (!tookDamage)
+                return;
+
+            // i-frames on hit
+            if (playerState != null && damageInvulnerability > 0f)
+                playerState.ApplyInvulnerability(damageInvulnerability);
+
+            // Optional hit VFX
+            if (damageHitVFXPrefab != null)
+            {
+                Vector3 spawnPos = feet != null ? feet.position : transform.position;
+                GameObject vfx = Instantiate(damageHitVFXPrefab, spawnPos, Quaternion.identity);
+                if (damageHitVFXLifetime > 0f)
+                    Destroy(vfx, damageHitVFXLifetime);
+            }
+
+            feedbackManager.CinemachineShake(damageImpulseSource, 5f);
+
+            StartDamageFlash();
 
             // Apply knockback
             if (info.Source != null && Controller != null && info.KnockbackForce.sqrMagnitude > 0f)
@@ -563,6 +619,79 @@ namespace junklite
             // Stun duration covers knockback time
             if (playerState != null)
                 playerState.ApplyStun(0.25f);
+        }
+
+        private void StartDamageFlash()
+        {
+            if (damageFlashRenderers == null || damageFlashRenderers.Length == 0) return;
+            if (damageFlashDuration <= 0f) return;
+
+            if (_damageFlashCo != null)
+                StopCoroutine(_damageFlashCo);
+
+            _damageFlashOriginalColors = new Color[damageFlashRenderers.Length];
+            for (int i = 0; i < damageFlashRenderers.Length; i++)
+                _damageFlashOriginalColors[i] = damageFlashRenderers[i] ? damageFlashRenderers[i].color : Color.white;
+
+            _damageFlashCo = StartCoroutine(DamageFlashRoutine());
+        }
+
+        private void StopDamageFlash()
+        {
+            if (_damageFlashCo != null)
+            {
+                StopCoroutine(_damageFlashCo);
+                _damageFlashCo = null;
+            }
+
+            if (damageFlashRenderers == null || _damageFlashOriginalColors == null) return;
+
+            for (int i = 0; i < damageFlashRenderers.Length; i++)
+            {
+                if (damageFlashRenderers[i])
+                {
+                    // Safety: always restore fully visible
+                    Color c = _damageFlashOriginalColors[i];
+                    c.a = 1f;
+                    damageFlashRenderers[i].color = c;
+                }
+            }
+        }
+
+        private IEnumerator DamageFlashRoutine()
+        {
+            float interval = Mathf.Max(0.01f, damageFlashInterval);
+            float half = interval * 0.5f;
+            float endTime = Time.unscaledTime + damageFlashDuration;
+
+            while (Time.unscaledTime < endTime)
+            {
+                // flash
+                for (int i = 0; i < damageFlashRenderers.Length; i++)
+                {
+                    if (!damageFlashRenderers[i]) continue;
+                    Color c = damageFlashColor;
+                    damageFlashRenderers[i].color = c;
+                }
+
+                yield return new WaitForSecondsRealtime(half);
+
+                // restore
+                for (int i = 0; i < damageFlashRenderers.Length; i++)
+                {
+                    if (!damageFlashRenderers[i]) continue;
+                    Color c = _damageFlashOriginalColors[i];
+                    c.a = 1f; // Safety: always restore fully visible
+                    c.r = 1f;
+                    c.g = 1f;
+                    c.b = 1f;
+                    damageFlashRenderers[i].color = c;
+                }
+
+                yield return new WaitForSecondsRealtime(half);
+            }
+
+            StopDamageFlash();
         }
 
         // ====================================================================

@@ -26,6 +26,9 @@ namespace junklite
             if (HasTarget)
                 movement?.FaceTarget(Target.position);
 
+            // Play charge VFX
+            enemy.SpawnChargeVFX();
+
             // TODO: Play charge animation
             // enemy.Animator?.SetTrigger("Charge");
 
@@ -49,7 +52,8 @@ namespace junklite
 
         public override void Exit()
         {
-            // Cleanup if needed
+            // Stop charge VFX
+            enemy.DestroyChargeVFX();
         }
     }
 }

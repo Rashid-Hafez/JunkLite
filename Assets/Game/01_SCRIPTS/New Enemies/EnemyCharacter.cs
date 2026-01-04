@@ -44,6 +44,46 @@ namespace junklite
         [Header("Debug")]
         [SerializeField] protected bool showGizmos = true;
 
+        [Header("Damage Flash VFX")]
+        [SerializeField] protected SpriteRenderer spriteRenderer;
+        [SerializeField] protected Color damageFlashColor = Color.white;
+        [SerializeField] protected float damageFlashDuration = 0.1f;
+
+        [Header("Status Effect System")]
+        private Coroutine statusCoroutine;
+        protected SpriteRenderer activeVFX;
+
+        [Header("Combat VFX")]
+        [SerializeField] protected GameObject chargeVFXPrefab;
+        [SerializeField] protected GameObject dashVFXPrefab;
+        [SerializeField] protected GameObject grabVFXPrefab;
+        [SerializeField] protected GameObject recoveryVFXPrefab;
+        [SerializeField] protected float vfxScale = 2f;
+
+
+        [Header("MOD VFX")]
+        [SerializeField] protected GameObject fireVFXPrefab;
+        [SerializeField] protected GameObject iceVFXPrefab;
+        [SerializeField] protected GameObject electricVFXPrefab;
+        [SerializeField] protected GameObject poisonVFXPrefab;
+        [SerializeField] protected GameObject holyVFXPrefab;
+        [SerializeField] protected GameObject darkVFXPrefab;
+        [SerializeField] protected GameObject lightVFXPrefab;
+        [SerializeField] protected GameObject shadowVFXPrefab;
+        [SerializeField] protected float ModParticleScale = 2f;
+        [SerializeField] protected float ModParticleRotation = 0f;
+        [SerializeField] protected float duration = 0f;
+
+        // Active VFX instances (don't overwrite the prefabs!)
+        protected GameObject activeChargeVFX;
+        protected GameObject activeDashVFX;
+        protected GameObject activeGrabVFX;
+        protected GameObject activeRecoveryVFX;
+
+        // Damage flash state
+        private Coroutine damageFlashCoroutine;
+        private Color originalSpriteColor;
+
         // Components
         protected StateMachine stateMachine;
         protected EnemyMovement movement;
@@ -128,6 +168,13 @@ namespace junklite
                 dashHitbox.OnHit += OnDashHitboxHit;
                 dashHitbox.Deactivate();
             }
+
+            // Setup damage flash VFX
+            if (spriteRenderer != null)
+                originalSpriteColor = spriteRenderer.color;
+
+            if (damageable != null)
+                damageable.OnDamaged += OnDamagedFlash;
         }
 
         protected override void Start()
@@ -364,6 +411,12 @@ namespace junklite
             // Clear status effects first
             if (statusEffects != null)
                 statusEffects.ClearAllEffects();
+            // Stop damage flash if active
+            if (damageFlashCoroutine != null)
+            {
+                StopCoroutine(damageFlashCoroutine);
+                damageFlashCoroutine = null;
+            }
 
             // Disable hitbox first
             if (dashHitbox != null)
@@ -474,8 +527,10 @@ namespace junklite
             }
         }
 
-        protected virtual void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
+
             // Unsubscribe from detection zone events
             if (detectionZone != null)
             {
@@ -487,6 +542,12 @@ namespace junklite
             if (dashHitbox != null)
             {
                 dashHitbox.OnHit -= OnDashHitboxHit;
+            }
+
+            // Unsubscribe from damage flash event
+            if (damageable != null)
+            {
+                damageable.OnDamaged -= OnDamagedFlash;
             }
         }
 
@@ -513,5 +574,156 @@ namespace junklite
         }
 
         #endregion
+
+        #region Damage Flash VFX
+
+        /// <summary>
+        /// Called when this enemy takes damage - triggers flash VFX.
+        /// Override in subclasses to customize flash behavior.
+        /// </summary>
+        protected virtual void OnDamagedFlash(float damage, GameObject source)
+        {
+            if (spriteRenderer == null || !IsAlive) return;
+
+            Debug.Log($"[{gameObject.name}] Damage flash triggered! Color: {damageFlashColor}");
+
+            if (damageFlashCoroutine != null)
+                StopCoroutine(damageFlashCoroutine);
+
+            damageFlashCoroutine = StartCoroutine(DamageFlashRoutine());
+        }
+
+        private IEnumerator DamageFlashRoutine()
+        {
+            spriteRenderer.color = damageFlashColor;
+            yield return new WaitForSeconds(damageFlashDuration);
+
+            // Only restore if still alive (death might change color)
+            if (IsAlive && spriteRenderer != null)
+                spriteRenderer.color = originalSpriteColor;
+
+            damageFlashCoroutine = null;
+        }
+
+        #endregion
+
+        #region Status Effect System
+        /// <summary>
+        /// Applies a status effect to the enemy.
+        public void ApplyStatusEffect(StatusEffect effect, SpriteRenderer VFX)
+        {
+            if (effect == null) return;
+
+            // stop any existing status coroutine (optional behaviour)
+            if (statusCoroutine != null)
+            {
+                StopCoroutine(statusCoroutine);
+                statusCoroutine = null;
+            }
+
+            // spawn VFX (if provided) as child so it follows the enemy
+            if (VFX != null)
+            {
+                activeVFX = Instantiate(VFX, transform);
+                activeVFX.transform.localPosition = Vector3.zero;
+            }
+
+            statusCoroutine = StartCoroutine(RunStatus(effect, activeVFX));
+        }
+
+        private IEnumerator RunStatus(StatusEffect effect, SpriteRenderer vfx)
+        {
+            yield return StartCoroutine(effect.Apply(this));
+
+            if (vfx != null)
+            {
+                Destroy(vfx.gameObject);
+                activeVFX = null;
+            }
+
+            statusCoroutine = null;
+        }
+        #endregion status effect system
+
+        #region Combat VFX Methods
+
+        // === CHARGE VFX ===
+        public virtual void SpawnChargeVFX()
+        {
+            if (chargeVFXPrefab == null) return;
+            DestroyChargeVFX();
+            activeChargeVFX = Instantiate(chargeVFXPrefab, transform);
+            activeChargeVFX.transform.localPosition = Vector3.zero;
+            activeChargeVFX.transform.localScale = Vector3.one * vfxScale;
+        }
+
+        public virtual void DestroyChargeVFX()
+        {
+            if (activeChargeVFX != null)
+            {
+                Destroy(activeChargeVFX);
+                activeChargeVFX = null;
+            }
+        }
+
+        // === DASH VFX ===
+        public virtual void SpawnDashVFX()//can be overriden in specific enemies subclassess
+        {
+            if (dashVFXPrefab == null) return;
+            DestroyDashVFX();
+            activeDashVFX = Instantiate(dashVFXPrefab, transform);
+            activeDashVFX.transform.localPosition = Vector3.zero;
+            activeDashVFX.transform.localScale = Vector3.one * vfxScale;
+        }
+
+        public virtual void DestroyDashVFX()
+        {
+            if (activeDashVFX != null)
+            {
+                Destroy(activeDashVFX);
+                activeDashVFX = null;
+            }
+        }
+
+        // === GRAB VFX ===
+        public virtual void SpawnGrabVFX()
+        {
+            if (grabVFXPrefab == null) return;
+            DestroyGrabVFX();
+            activeGrabVFX = Instantiate(grabVFXPrefab, transform);
+            activeGrabVFX.transform.localPosition = Vector3.zero;
+            activeGrabVFX.transform.localScale = Vector3.one * vfxScale;
+        }
+
+        public virtual void DestroyGrabVFX()
+        {
+            if (activeGrabVFX != null)
+            {
+                Destroy(activeGrabVFX);
+                activeGrabVFX = null;
+            }
+        }
+
+        // === RECOVERY VFX ===
+        public virtual void SpawnRecoveryVFX()
+        {
+            if (recoveryVFXPrefab == null) return;
+            DestroyRecoveryVFX();
+            activeRecoveryVFX = Instantiate(recoveryVFXPrefab, transform);
+            activeRecoveryVFX.transform.localPosition = Vector3.zero;
+            activeRecoveryVFX.transform.localScale = Vector3.one * vfxScale;
+        }
+
+        public virtual void DestroyRecoveryVFX()
+        {
+            if (activeRecoveryVFX != null)
+            {
+                Destroy(activeRecoveryVFX);
+                activeRecoveryVFX = null;
+            }
+        }
+
+        #endregion
+
     }
 }

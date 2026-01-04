@@ -56,5 +56,18 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "JunkLite.slnx"
+    "dotnet.defaultSolution": "JunkLite.sln",
+    "dotrush.roslyn.projectOrSolutionFiles": [
+        "/Users/rashid/Documents/GitHub/JunkLite/JunkLite.sln"
+    ],
+    // Enable OmniSharp for better Unity support
+    "dotnet.server.useOmnisharp": true,
+    "omnisharp.useModernNet": true,
+    "omnisharp.enableEditorConfigSupport": true,
+    "csharp.implementationsCodeLens.enabled": true,
+    "editor.formatOnSave": true,
+    "editor.semanticHighlighting.enabled": true,
+    "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true,
+    "dotnet.codeLens.enableReferencesCodeLens": true,
+    "dotnet.formatting.organizeImportsOnFormat": true
 }
