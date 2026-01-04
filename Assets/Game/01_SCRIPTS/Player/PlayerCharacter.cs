@@ -671,7 +671,6 @@ namespace junklite
                 {
                     if (!damageFlashRenderers[i]) continue;
                     Color c = damageFlashColor;
-                    c.a = 0.3f; // Safety: never flash to full transparent
                     damageFlashRenderers[i].color = c;
                 }
 

@@ -6430,8 +6430,8 @@ MonoBehaviour:
   - {fileID: 4533226404628163199}
   - {fileID: 2839215335330261262}
   autoFindFlashRenderers: 0
-  damageFlashColor: {r: 1, g: 0.07075471, b: 0.07075471, a: 0.5176471}
-  damageFlashDuration: 0.2
+  damageFlashColor: {r: 1, g: 0.07075471, b: 0.07075471, a: 0}
+  damageFlashDuration: 0.5
   damageFlashInterval: 0.3
   damageHitVFXPrefab: {fileID: 5435998012328932994, guid: d8703a33a4eb0b84a875202fde23e8f7, type: 3}
   damageHitVFXLifetime: 1
