@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 namespace junklite
 {
@@ -16,9 +17,17 @@ namespace junklite
     /// </summary>
     public class RobotEnemy : EnemyCharacter
     {
-        [Header("Robot - Damage and Hurt VFX")]
-        public GameObject hurtParticles;
-        public GameObject deathParticles;
+        [Header("Robot - VFX")]
+        [SerializeField] private GameObject hitParticlePrefab;
+        [SerializeField] private GameObject hurtParticlePrefab;
+        [SerializeField] private int hurtParticlePoolSize = 4;
+        [SerializeField] private float hurtParticleLifetime = 0.5f;
+        [SerializeField] private GameObject deathParticlePrefab;
+        [SerializeField] private float deathParticleLifetime = 2f;
+        [SerializeField] private GameObject robotVisual;
+
+        [Header("Robot - Hitstop")]
+        [SerializeField] private float hitstopDuration = 0.05f;
 
         [Header("Robot - Dash Attack")]
         [SerializeField] private float dashChargeTime = 1f;
@@ -35,6 +44,10 @@ namespace junklite
         [SerializeField] private float throwDamage = 5f;
         [SerializeField] private Vector3 grabOffset = new Vector3(0f, 1.5f, 0f);
 
+        // Hurt particle pool
+        private readonly Queue<GameObject> hurtParticlePool = new();
+        private Transform hurtParticlePoolRoot;
+
         // Override base class properties
         public override float DashChargeTime => dashChargeTime;
         public override float DashSpeed => dashSpeed;
@@ -44,6 +57,12 @@ namespace junklite
 
         // Expose grab duration for GrabState
         public float GrabDuration => grabDuration;
+
+        protected override void Awake()
+        {
+            base.Awake();
+            InitializeHurtParticlePool();
+        }
 
         protected override void InitializeStateMachine()
         {
@@ -63,30 +82,117 @@ namespace junklite
                 stateMachine.SetInitialState<IdleState>();
         }
 
+        #region Hurt Particle Pool
+
+        private void InitializeHurtParticlePool()
+        {
+            if (hurtParticlePrefab == null)
+                return;
+
+            var poolObj = new GameObject("HurtParticlePool");
+            poolObj.transform.SetParent(transform);
+            hurtParticlePoolRoot = poolObj.transform;
+
+            for (int i = 0; i < hurtParticlePoolSize; i++)
+            {
+                GameObject go = Instantiate(hurtParticlePrefab, hurtParticlePoolRoot);
+                go.SetActive(false);
+                hurtParticlePool.Enqueue(go);
+            }
+        }
+
+        private GameObject GetHurtParticle()
+        {
+            if (hurtParticlePool.Count > 0)
+                return hurtParticlePool.Dequeue();
+
+            return Instantiate(hurtParticlePrefab, hurtParticlePoolRoot);
+        }
+
+        private void ReturnHurtParticle(GameObject go)
+        {
+            go.SetActive(false);
+            go.transform.SetParent(hurtParticlePoolRoot, false);
+            hurtParticlePool.Enqueue(go);
+        }
+
+        private void SpawnHurtParticle()
+        {
+            if (hurtParticlePrefab == null)
+                return;
+
+            GameObject go = GetHurtParticle();
+            go.transform.SetParent(null);
+            go.transform.position = transform.position;
+            go.transform.rotation = Quaternion.identity;
+            go.SetActive(true);
+
+            var ps = go.GetComponent<ParticleSystem>();
+            if (ps != null)
+            {
+                ps.Clear(true);
+                ps.Play(true);
+            }
+
+            StartCoroutine(ReturnHurtParticleAfterDelay(go, hurtParticleLifetime));
+        }
+
+        private System.Collections.IEnumerator ReturnHurtParticleAfterDelay(GameObject go, float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            ReturnHurtParticle(go);
+        }
+
+        #endregion
+
+        #region Death Particles
+
+        private void SpawnDeathParticles()
+        {
+            if (deathParticlePrefab == null)
+                return;
+
+            GameObject go = Instantiate(deathParticlePrefab, transform.position, Quaternion.identity);
+
+            if (deathParticleLifetime > 0f)
+                Destroy(go, deathParticleLifetime);
+        }
+
+        private void DisableRobotVisual()
+        {
+            if (robotVisual != null)
+                robotVisual.SetActive(false);
+        }
+
+        #endregion
+
         // === DAMAGE and Death HANDLING ===
 
         public override void TakeDamage(DamageInfo info)
         {
-            if (state != null && !state.CanTakeDamage) return;
+            if (state != null && !state.CanTakeDamage)
+                return;
 
             base.TakeDamage(info);
+
+            // Spawn hurt particle on damage
+            SpawnHurtParticle();
         }
 
         protected override void HandleDeath()
         {
+            // Spawn death particles and hide visual
+            SpawnDeathParticles();
+            DisableRobotVisual();
+
             base.HandleDeath();
-
-
         }
 
         // === ROBOT BRAIN - All decisions live here ===
 
         public override void OnPlayerSpotted()
         {
-            // Dead enemies don't respond
             if (!IsAlive) return;
-
-            // Don't interrupt if already in combat
             if (isInCombat) return;
 
             EnterCombat();
@@ -95,10 +201,8 @@ namespace junklite
 
         public override void OnPlayerLost()
         {
-            // Dead enemies don't respond
             if (!IsAlive) return;
 
-            // Only exit combat and return to patrol if not in active combat
             if (!isInCombat)
             {
                 if (HasPatrol)
@@ -106,20 +210,17 @@ namespace junklite
                 else
                     stateMachine.ChangeState<IdleState>();
             }
-            // If in combat, let the combat sequence finish naturally
         }
 
         public override void OnChargeComplete()
         {
             if (!IsAlive) return;
-
             stateMachine.ChangeState<DashState>();
         }
 
         public override void OnDashComplete()
         {
             if (!IsAlive) return;
-            // Dash finished without grab - go to recovery
             stateMachine.ChangeState<RecoverState>();
         }
 
@@ -135,12 +236,10 @@ namespace junklite
 
             if (HasTarget)
             {
-                // Continue combat - charge again
                 stateMachine.ChangeState<ChargeState>();
             }
             else
             {
-                // Combat over - exit and return to patrol
                 ExitCombat();
                 if (HasPatrol)
                     stateMachine.ChangeState<PatrolState>();
@@ -163,10 +262,8 @@ namespace junklite
 
         protected override void OnDashHitboxHit(Collider other, Hitbox hitbox)
         {
-            // Immediately deactivate hitbox to prevent multiple hits
             hitbox?.Deactivate();
 
-            // Get damageable component
             var damageable = other.GetComponent<IDamageable>();
             if (damageable == null)
                 damageable = other.GetComponentInParent<IDamageable>();
@@ -174,26 +271,25 @@ namespace junklite
             if (damageable == null || !damageable.IsAlive)
                 return;
 
-            // Get facing direction
+            // Hitstop when hitting enemy
+            if (FeedbackManager.Instance != null)
+                FeedbackManager.Instance.DoHitstop(hitstopDuration);
+
             int throwDir = Movement != null ? Movement.FacingDirection : 1;
 
-            // Roll for grab
             bool doGrab = canGrab && Random.value <= grabChance;
 
             if (doGrab)
             {
-                // Check if target can be grabbed
                 var grabbable = other.GetComponent<IGrabbable>();
                 if (grabbable == null)
                     grabbable = other.GetComponentInParent<IGrabbable>();
 
                 if (grabbable != null && grabbable.CanBeGrabbed)
                 {
-                    // Apply initial grab damage
                     var damageInfo = new DamageInfo(dashDamage, gameObject, DamageType.Physical);
                     damageable.TakeDamage(damageInfo);
 
-                    // Start grab on player
                     var grabInfo = new GrabInfo(
                         gameObject,
                         grabDuration,
@@ -204,7 +300,6 @@ namespace junklite
                     );
                     grabbable.GetGrabbed(grabInfo);
 
-                    // Transition enemy to GrabState (waits for grab to finish)
                     stateMachine.ChangeState<GrabState>();
 
                     Debug.Log($"{gameObject.name} GRABBED {other.name}!");
@@ -212,7 +307,6 @@ namespace junklite
                 }
             }
 
-            // Normal knockback attack
             var info = new DamageInfo(dashDamage, gameObject, DamageType.Physical, dashKnockback);
             damageable.TakeDamage(info);
             Debug.Log($"{gameObject.name} hit {other.name} for {dashDamage} damage");

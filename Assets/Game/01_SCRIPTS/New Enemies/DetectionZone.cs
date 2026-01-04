@@ -130,7 +130,7 @@ namespace junklite
             if (owner == null || !owner.IsInCombat)
             {
                 OnTargetEnter?.Invoke(player);
-                Debug.Log($"[DetectionZone] {owner?.name} detected {player.name}");
+               // Debug.Log($"[DetectionZone] {owner?.name} detected {player.name}");
             }
         }
 

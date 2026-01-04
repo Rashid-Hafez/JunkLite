@@ -347,7 +347,7 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.5
+  m_Radius: 0.711438
   m_Height: 3.26
   m_Direction: 1
   m_Center: {x: 0, y: 0.11, z: 0}
@@ -445,7 +445,7 @@ MonoBehaviour:
   showGizmos: 1
   spriteRenderer: {fileID: 4606069892618623333}
   damageFlashColor: {r: 1, g: 0.24056602, b: 0.24056602, a: 1}
-  damageFlashDuration: 0.05
+  damageFlashDuration: 0.3
   chargeVFXPrefab: {fileID: 1289543790355709915, guid: b99922c2f59b1a542bdd06ae8bee47ae, type: 3}
   dashVFXPrefab: {fileID: 7761031033666763820, guid: 1eb833340b41fb444b576c4dced8d4dc, type: 3}
   grabVFXPrefab: {fileID: 0}
@@ -462,6 +462,7 @@ MonoBehaviour:
   ModParticleScale: 2
   ModParticleRotation: 0
   duration: 0
+  hitParticle: {fileID: 0}
   hurtParticles: {fileID: 0}
   deathParticles: {fileID: 0}
   dashChargeTime: 0.7

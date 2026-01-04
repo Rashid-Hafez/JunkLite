@@ -47,12 +47,8 @@ namespace junklite
 
         [Header("Damage Flash VFX")]
         [SerializeField] protected SpriteRenderer spriteRenderer;
-        [SerializeField] protected Color damageFlashColor = Color.white;
-        [SerializeField] protected float damageFlashDuration = 0.1f;
-
-        [Header("Status Effect System")]
-        private Coroutine statusCoroutine;
-        protected SpriteRenderer activeVFX;
+        [SerializeField] protected Color damageFlashColor = Color.red;
+        [SerializeField] protected float damageFlashDuration = 0.3f;
 
         [Header("Combat VFX")]
         [SerializeField] protected GameObject chargeVFXPrefab;
@@ -586,8 +582,6 @@ namespace junklite
         {
             if (spriteRenderer == null || !IsAlive) return;
 
-            Debug.Log($"[{gameObject.name}] Damage flash triggered! Color: {damageFlashColor}");
-
             if (damageFlashCoroutine != null)
                 StopCoroutine(damageFlashCoroutine);
 
@@ -596,10 +590,20 @@ namespace junklite
 
         private IEnumerator DamageFlashRoutine()
         {
+            // Instantly flash to damage color
             spriteRenderer.color = damageFlashColor;
-            yield return new WaitForSeconds(damageFlashDuration);
 
-            // Only restore if still alive (death might change color)
+            // Gradually fade back to original color
+            float elapsed = 0f;
+            while (elapsed < damageFlashDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / damageFlashDuration;
+                spriteRenderer.color = Color.Lerp(damageFlashColor, originalSpriteColor, t);
+                yield return null;
+            }
+
+            // Ensure we end at exact original color
             if (IsAlive && spriteRenderer != null)
                 spriteRenderer.color = originalSpriteColor;
 

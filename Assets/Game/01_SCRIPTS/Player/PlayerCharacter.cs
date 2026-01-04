@@ -74,7 +74,7 @@ namespace junklite
         // Damage flash runtime
         private Coroutine _damageFlashCo;
         private Color[] _damageFlashOriginalColors;
-        private FeedbackManager feedbackManager = FeedbackManager.instance;
+        private FeedbackManager feedbackManager;
 
         protected override void Awake()
         {
@@ -107,8 +107,8 @@ namespace junklite
                 CameraManager.Instance.SetPlayerTarget(transform);
 
             ////// SCREENSHAKE AND FEEDBACK, VIBRATION CONTROLLER, FLASH VFX ETC
-            if (feedbackManager == null)
-                feedbackManager = FeedbackManager.instance;
+            feedbackManager = FeedbackManager.Instance;
+
             if (damageImpulseSource == null)
                 damageImpulseSource = GetComponent<CinemachineImpulseSource>();
 
@@ -600,7 +600,8 @@ namespace junklite
                     Destroy(vfx, damageHitVFXLifetime);
             }
 
-            feedbackManager.CinemachineShake(damageImpulseSource, 5f);
+            if (feedbackManager != null)
+                feedbackManager.DoCameraShake(damageImpulseSource, 5f);
 
             StartDamageFlash();
 
