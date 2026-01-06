@@ -59,7 +59,7 @@ Material:
     - _FlashAmount: 1
     m_Colors:
     - White: {r: 1, g: 1, b: 1, a: 1}
-    - _FlashColor: {r: 2.670157, g: 2.670157, b: 2.670157, a: 1}
+    - _FlashColor: {r: 5.216477, g: 5.216477, b: 5.216477, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!114 &808652223488848107

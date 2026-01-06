@@ -1,14 +1,16 @@
 using UnityEngine;
 using System.Collections;
-public class DamageFlashUniversal : MonoBehaviour
+namespace junklite
+{
+    public class DamageFlashUniversal : MonoBehaviour
 {
     [SerializeField] private float flashDuration = 0.1f;
-    [SerializeField] private float flashIntensity = 1.0f;
+    [SerializeField] private float flashAmount = 0.8f;
     [SerializeField] private Color flashColor = Color.white;
-    private float flashAmount = 0.0f;
     private SpriteRenderer[] _spriteRendererArray;
     private Material[] _materialArray;
     private Coroutine _flashCoroutine;
+    private float flashamounttemp;
 
     // methods
 
@@ -16,6 +18,7 @@ public class DamageFlashUniversal : MonoBehaviour
     {
         _spriteRendererArray = GetComponentsInChildren<SpriteRenderer>();
         InitializeMaterials();
+        flashamounttemp = flashAmount;
     }
 
     private void InitializeMaterials()
@@ -27,17 +30,16 @@ public class DamageFlashUniversal : MonoBehaviour
         }
     }
 
-    public void DamageFlashUniversal()
+    public void Flash()
     {
         _flashCoroutine = StartCoroutine(FlashCoroutine());
     }
 
     private IEnumerator FlashCoroutine()
     {
-        flashAmount = 0.5f;
         foreach (var material in _materialArray)
         {
-            material.SetFloat("_FlashAmount", flashAmount);
+            material.SetFloat("_FlashAmount", flashamounttemp);
         }
         yield return new WaitForSeconds(flashDuration);
         ResetFlash();
@@ -46,6 +48,10 @@ public class DamageFlashUniversal : MonoBehaviour
     private void ResetFlash()
     {
         flashAmount = 1f;
-        damageFlashMaterial.SetFloat("_FlashAmount", flashAmount);
+        foreach (var material in _materialArray)
+        {
+            material.SetFloat("_FlashAmount", flashAmount);
+        }
     }
+}
 }

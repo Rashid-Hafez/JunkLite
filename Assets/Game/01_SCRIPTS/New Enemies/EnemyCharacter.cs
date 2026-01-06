@@ -46,9 +46,8 @@ namespace junklite
         [SerializeField] protected bool showGizmos = true;
 
         [Header("Damage Flash VFX")]
-        [SerializeField] protected SpriteRenderer spriteRenderer;
-        [SerializeField] protected Color damageFlashColor = Color.white;
-        [SerializeField] protected float damageFlashDuration = 0.1f;
+        [SerializeField] protected DamageFlashUniversal damageFlashUniversal;
+        private bool warnedMissingDamageFlash;
 
         [Header("Status Effect System")]
         private Coroutine statusCoroutine;
@@ -102,7 +101,7 @@ namespace junklite
         protected bool isInCombat = false;
 
         // Current state reference for quick access
-        protected EnemyStateBase state => stateMachine?.CurrentState as EnemyStateBase;
+        protected new EnemyStateBase state => stateMachine?.CurrentState as EnemyStateBase;
 
         public bool IsInCombat => isInCombat;
 
@@ -150,6 +149,13 @@ namespace junklite
             statusEffects = GetComponent<StatusEffectHandler>();
             spawnPosition = transform.position;
 
+            // Auto-wire DamageFlashUniversal if not set in the inspector (prevents null refs on damage).
+            if (damageFlashUniversal == null)
+            {
+                // includeInactive: true so prefabs with disabled VFX children still get found
+                damageFlashUniversal = GetComponentInChildren<DamageFlashUniversal>(true);
+            }
+
             // Sync knockback setting to movement component
             if (movement != null)
             {
@@ -170,13 +176,21 @@ namespace junklite
                 dashHitbox.Deactivate();
             }
 
-            // Setup damage flash VFX
-            if (spriteRenderer != null)
-                originalSpriteColor = spriteRenderer.color;
-
+            //////////// DAMAGE FLASH VFX ////////////
+            /// MUST BE SETUP IN THE INSPECTOR FOR EACH ENEMY
+            /// AND MUST HAVE A DamageFlashUniversal COMPONENT
+            /// 
+            if (damageFlashUniversal != null && damageable != null){
+                Debug.Log($"{gameObject.name} has DamageFlashUniversal and Damageable components");
+            }
             if (damageable != null)
+            {
                 damageable.OnDamaged += OnDamagedFlash;
-        }
+                Debug.Log($"{gameObject.name} has Damageable component and is subscribed to OnDamaged event");
+            }
+            else
+                Debug.LogError($"[{gameObject.name}] Damageable component not found!");
+            }
 
         protected override void Start()
         {
@@ -584,26 +598,23 @@ namespace junklite
         /// </summary>
         protected virtual void OnDamagedFlash(float damage, GameObject source)
         {
-            if (spriteRenderer == null || !IsAlive) return;
+            string srcName = source != null ? source.name : "(unknown)";
+            Debug.Log($"{gameObject.name} took {damage} damage from {srcName}");
 
-            Debug.Log($"[{gameObject.name}] Damage flash triggered! Color: {damageFlashColor}");
+            if (damageFlashUniversal != null)
+            {
+                damageFlashUniversal.Flash();
+                return;
+            }
 
-            if (damageFlashCoroutine != null)
-                StopCoroutine(damageFlashCoroutine);
-
-            damageFlashCoroutine = StartCoroutine(DamageFlashRoutine());
-        }
-
-        private IEnumerator DamageFlashRoutine()
-        {
-            spriteRenderer.color = damageFlashColor;
-            yield return new WaitForSeconds(damageFlashDuration);
-
-            // Only restore if still alive (death might change color)
-            if (IsAlive && spriteRenderer != null)
-                spriteRenderer.color = originalSpriteColor;
-
-            damageFlashCoroutine = null;
+            if (!warnedMissingDamageFlash)
+            {
+                warnedMissingDamageFlash = true;
+                Debug.LogWarning(
+                    $"[{gameObject.name}] Missing DamageFlashUniversal reference/component; skipping damage flash VFX.",
+                    this
+                );
+            }
         }
 
         #endregion
