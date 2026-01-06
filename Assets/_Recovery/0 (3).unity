@@ -10952,7 +10952,7 @@ PrefabInstance:
     - target: {fileID: 4606069892618623333, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 56e52a3e1addd49bdbf2035a39c0887a, type: 2}
+      objectReference: {fileID: 2100000, guid: d45d016b30ff341938aa1850c92f0508, type: 2}
     - target: {fileID: 6375267258549122715, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: m_Enabled
       value: 0
@@ -11783,7 +11783,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolumePerSceneData
   serializedBakingSet: {fileID: 0}
-  sceneGUID: 848b9b1b8932a23458a2f42503d8be28
+  sceneGUID: 33fc30aa865804e2c881be962cdbef28
   obsoleteAsset: {fileID: 0}
   obsoleteCellSharedDataAsset: {fileID: 0}
   obsoleteCellSupportDataAsset: {fileID: 0}
@@ -13268,7 +13268,7 @@ Transform:
   m_GameObject: {fileID: 1198378943074442645}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7071068, y: 0, z: 0, w: 0.7071067}
-  m_LocalPosition: {x: 10.47, y: 0, z: 4.85}
+  m_LocalPosition: {x: -0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -40098,10 +40098,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 4606069892618623333, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 2100000, guid: 87d7299f86aeb42ba9241e92e3ba87b5, type: 2}
     - target: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: m_Name
       value: Robot Enemy
