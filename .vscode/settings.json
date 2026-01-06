@@ -3,5 +3,17 @@
   "omnisharp.useModernNet": true,
   "omnisharp.useGlobalMono": "never",
   "omnisharp.enableEditorConfigSupport": true,
-  "omnisharp.enableImportCompletion": true
+  "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true,
+  "dotrush.roslyn.projectOrSolutionFiles": [
+    "/Users/rashid/Documents/GitHub/JunkLite/JunkLite.sln",
+    "/Users/rashid/Documents/GitHub/JunkLite/JunkLite.slnx",
+    "/Users/rashid/Documents/GitHub/JunkLite/Assembly-CSharp-Editor.csproj",
+    "/Users/rashid/Documents/GitHub/JunkLite/Assembly-CSharp.csproj",
+    "/Users/rashid/Documents/GitHub/JunkLite/Gentleland.SteampunkUI.DemoAndExample.csproj",
+    "/Users/rashid/Documents/GitHub/JunkLite/spine-csharp.csproj",
+    "/Users/rashid/Documents/GitHub/JunkLite/spine-unity-editor.csproj",
+    "/Users/rashid/Documents/GitHub/JunkLite/spine-unity-examples-editor.csproj",
+    "/Users/rashid/Documents/GitHub/JunkLite/spine-unity-examples.csproj",
+    "/Users/rashid/Documents/GitHub/JunkLite/spine-unity.csproj"
+  ]
 }

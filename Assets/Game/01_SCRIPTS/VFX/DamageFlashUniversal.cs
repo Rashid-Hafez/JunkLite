@@ -1,5 +1,5 @@
 using UnityEngine;
-
+using System.Collections;
 public class DamageFlashUniversal : MonoBehaviour
 {
     [SerializeField] private float flashDuration = 0.1f;

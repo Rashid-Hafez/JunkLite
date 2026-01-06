@@ -12322,6 +12322,22 @@ MonoBehaviour:
     DissipationDistance: 100
     PropagationSpeed: 343
   DefaultVelocity: {x: 0, y: -1, z: 0}
+--- !u!114 &1912217789
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1912217769}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f7f90d1fda7e41c4b36cce21c3ed434, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DamageFlashUniversal
+  damageFlashMaterial: {fileID: 0}
+  flashDuration: 0.1
+  flashIntensity: 1
+  flashColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &2037050914
 GameObject:
   m_ObjectHideFlags: 0
@@ -29539,7 +29555,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 9dfc825aed78fcd4ba02077103263b40, type: 2}
+  - {fileID: 2100000, guid: d45d016b30ff341938aa1850c92f0508, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -40101,7 +40117,7 @@ PrefabInstance:
     - target: {fileID: 4606069892618623333, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: -876546973899608171, guid: a4cc4383c4633472793c29b5923c2c20, type: 3}
+      objectReference: {fileID: 2100000, guid: 56e52a3e1addd49bdbf2035a39c0887a, type: 2}
     - target: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: m_Name
       value: Robot Enemy
@@ -40113,6 +40129,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1912217779}
+    - targetCorrespondingSourceObject: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1912217789}
   m_SourcePrefab: {fileID: 100100000, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
 --- !u!4 &6984060909813093587
 Transform:
