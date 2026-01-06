@@ -2,25 +2,20 @@ using UnityEngine;
 
 public class DamageFlashUniversal : MonoBehaviour
 {
-    [SerializeField] private Material damageFlashMaterial;
     [SerializeField] private float flashDuration = 0.1f;
     [SerializeField] private float flashIntensity = 1.0f;
     [SerializeField] private Color flashColor = Color.white;
     private float flashAmount = 0.0f;
-
     private SpriteRenderer[] _spriteRendererArray;
     private Material[] _materialArray;
+    private Coroutine _flashCoroutine;
 
+    // methods
 
     private void Awake()
     {
-        spriteRendererArray = GetComponentsInChildren<SpriteRenderer>();
+        _spriteRendererArray = GetComponentsInChildren<SpriteRenderer>();
         InitializeMaterials();
-    }
-
-    private void Start()
-    {
-        _
     }
 
     private void InitializeMaterials()
@@ -32,17 +27,25 @@ public class DamageFlashUniversal : MonoBehaviour
         }
     }
 
-    public void Flash()
+    public void DamageFlashUniversal()
     {
-        // TODO: Implement flash effect
-        flashAmount = 1.0f;
-        damageFlashMaterial.SetFloat("_FlashAmount", flashAmount);
-        Invoke(nameof(ResetFlash), flashDuration);
+        _flashCoroutine = StartCoroutine(FlashCoroutine());
+    }
+
+    private IEnumerator FlashCoroutine()
+    {
+        flashAmount = 0.5f;
+        foreach (var material in _materialArray)
+        {
+            material.SetFloat("_FlashAmount", flashAmount);
+        }
+        yield return new WaitForSeconds(flashDuration);
+        ResetFlash();
     }
 
     private void ResetFlash()
     {
-        flashAmount = 0.0f;
+        flashAmount = 1f;
         damageFlashMaterial.SetFloat("_FlashAmount", flashAmount);
     }
 }

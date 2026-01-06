@@ -40101,7 +40101,7 @@ PrefabInstance:
     - target: {fileID: 4606069892618623333, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 87d7299f86aeb42ba9241e92e3ba87b5, type: 2}
+      objectReference: {fileID: -876546973899608171, guid: a4cc4383c4633472793c29b5923c2c20, type: 3}
     - target: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: m_Name
       value: Robot Enemy
