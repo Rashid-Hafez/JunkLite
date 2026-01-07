@@ -37,8 +37,10 @@ namespace junklite
         [SerializeField] private float damageFlashInterval = 0.04f;
         [SerializeField] private GameObject damageHitVFXPrefab;
         [SerializeField] private float damageHitVFXLifetime = 0.5f;
+        [SerializeField] private float cameraShakeOnHit = 5f;
         [SerializeField] private CinemachineImpulseSource damageImpulseSource;
 
+        public AttackDirection LastAttackDirection { get; set; }
         public bool JumpHeld => inputManager != null && inputManager.IsJumpHeld;
 
         // Movement input
@@ -550,6 +552,7 @@ namespace junklite
                 dir = AttackDirection.Down;
             }
 
+            LastAttackDirection = dir;
             _weaponManager.Attack(dir);
         }
 
@@ -601,7 +604,7 @@ namespace junklite
             }
 
             if (feedbackManager != null)
-                feedbackManager.DoCameraShake(damageImpulseSource, 5f);
+                feedbackManager.DoCameraShake(damageImpulseSource, cameraShakeOnHit);
 
             StartDamageFlash();
 

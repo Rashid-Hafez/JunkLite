@@ -14,7 +14,7 @@ namespace junklite
         bool CanBeGrabbed { get; }
     }
 
-    public enum DamageType { Physical, Fire, Magic }
+    public enum DamageType { Physical, Fire, Magic, Electric }
 
     /// <summary>
     /// Damage data - kept lean and focused only on damage.

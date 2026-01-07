@@ -20,6 +20,10 @@ namespace junklite
         public ModRarity rarity;
         public ModElement element;
 
+        [Header("Visuals")]
+        [Tooltip("Prefab spawned by WorldModPickup to represent this mod in the world")]
+        public GameObject visualPrefab;
+
         [Header("Durability")]
         public float maxDurability = 20f;
         public float durabilityPerHit = 1f;
@@ -36,7 +40,8 @@ namespace junklite
         /// <param name="weapon">The weapon that hit</param>
         /// <param name="enemy">The enemy that was hit (for status effects)</param>
         /// <param name="player">The player who attacked (for player buffs like pogo)</param>
-        public virtual void OnHit(WeaponInstance weapon, EnemyCharacter enemy, PlayerCharacter player) { }
+        /// <returns>True if the effect was used (consumes durability), false otherwise</returns>
+        public virtual bool OnHit(WeaponInstance weapon, EnemyCharacter enemy, PlayerCharacter player) => false;
 
         /// <summary>
         /// Called when mod is equipped to a weapon.

@@ -34,6 +34,7 @@ namespace junklite
         public bool JumpHeldExternally = false;
         private float becameAirborneTime = 0f;
         private bool hasJumpBeenCut = false;  // ensures velocity cut happens only once per jump
+        private bool isExternalBounce = false; // true when bounce comes from pogo/trampoline/etc (ignores jump hold)
 
         [Header("Double Jump Settings")]
         [SerializeField] private int maxAirJumps = 1;
@@ -198,6 +199,7 @@ namespace junklite
             {
                 airJumpCount = 0;
                 hasJumpBeenCut = false;  // reset for next jump
+                isExternalBounce = false; // reset external bounce flag
             }
             else
             {
@@ -308,6 +310,26 @@ namespace junklite
         public void SetJumpHeld(bool held)
         {
             JumpHeldExternally = held;
+        }
+
+        /// <summary>
+        /// Apply an external bounce (pogo, trampoline, enemy stomp, etc).
+        /// This bounce has fixed height and ignores jump-hold input.
+        /// </summary>
+        public void ApplyExternalBounce(float bounceForce)
+        {
+            // Cancel any downward velocity first
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+
+            // Apply the bounce force
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, bounceForce, rb.linearVelocity.z);
+
+            // Mark as external bounce - gravity system will ignore jump hold
+            isExternalBounce = true;
+            hasJumpBeenCut = true; // Prevent the one-time velocity cut from triggering
+
+            // Reset air jump count so player can still double jump after pogo
+            airJumpCount = 0;
         }
 
         private void StartMinJumpHoldWindow()
@@ -675,10 +697,13 @@ namespace junklite
 
             float yVel = rb.linearVelocity.y;
             bool minHoldActive = Time.time < minJumpHoldEndTime;
-            bool canCutJump = !JumpHeldExternally && !minHoldActive;
+
+            // External bounces ignore jump hold entirely - always act as if jump was released
+            bool canCutJump = isExternalBounce || (!JumpHeldExternally && !minHoldActive);
 
             // --- ONE-TIME HARD JUMP CUT (Hollow Knight / Celeste style) ---
-            if (yVel > 0.1f && canCutJump && !hasJumpBeenCut)
+            // Skip the hard cut for external bounces - we just want consistent gravity
+            if (yVel > 0.1f && canCutJump && !hasJumpBeenCut && !isExternalBounce)
             {
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, yVel * jumpCutMultiplier, rb.linearVelocity.z);
                 hasJumpBeenCut = true;
@@ -687,7 +712,7 @@ namespace junklite
 
             // --- WALL COLLISION: Extra gravity when hitting wall while jumping ---
             bool touchingWall = CheckWall();
-            if (yVel > 0f && touchingWall && JumpHeldExternally)
+            if (yVel > 0f && touchingWall && JumpHeldExternally && !isExternalBounce)
             {
                 rb.AddForce(Physics.gravity * gravityMultiplier * lowJumpMultiplier * 1.5f, ForceMode.Acceleration);
                 return;
@@ -702,9 +727,9 @@ namespace junklite
                 // At apex or falling - snap down immediately with fall gravity
                 rb.AddForce(Physics.gravity * gravityMultiplier * fallGravityMultiplier, ForceMode.Acceleration);
             }
-            else if (canCutJump)
+            else if (canCutJump || isExternalBounce)
             {
-                // Rising fast but jump released - strong gravity to shorten arc
+                // Rising fast but jump released OR external bounce - strong gravity to shorten arc
                 rb.AddForce(Physics.gravity * gravityMultiplier * lowJumpMultiplier, ForceMode.Acceleration);
             }
             else

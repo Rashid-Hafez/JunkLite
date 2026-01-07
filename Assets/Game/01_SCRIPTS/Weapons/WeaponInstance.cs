@@ -165,17 +165,18 @@ namespace junklite
             {
                 var mod = activeMods[i];
 
-                // Trigger effect
-                mod.data.OnHit(this, enemy, player);
+                // Only consume durability if effect was actually used
+                bool effectUsed = mod.data.OnHit(this, enemy, player);
 
-                // Consume durability
-                mod.ConsumeDurability(mod.data.durabilityPerHit);
-
-                // Remove if broken
-                if (mod.IsBroken)
+                if (effectUsed)
                 {
-                    Debug.Log($"[Weapon] Mod broke: {mod.data.modName}");
-                    RemoveMod(mod);
+                    mod.ConsumeDurability(mod.data.durabilityPerHit);
+
+                    if (mod.IsBroken)
+                    {
+                        Debug.Log($"[Weapon] Mod broke: {mod.data.modName}");
+                        RemoveMod(mod);
+                    }
                 }
             }
 

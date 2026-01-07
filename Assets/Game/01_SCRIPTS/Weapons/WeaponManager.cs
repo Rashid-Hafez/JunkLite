@@ -27,37 +27,10 @@ namespace junklite
         [Header("Knockback")]
         [SerializeField] private Vector2 defaultKnockback = new Vector2(8f, 4f);
 
-        [Header("Environment Hit VFX")]
-        [SerializeField] private GameObject hitParticlePrefab;
-        [SerializeField] private int hitParticlePoolSize = 8;
-        [SerializeField] private float hitParticleLifetime = 0.2f;
-        [SerializeField] private Transform hitParticlePoolRoot;
-
-        private readonly Queue<GameObject> hitParticlePool = new();
-
-        [Header("Enemy Hit VFX")]
-        [SerializeField] private GameObject enemyHitVFXPrefab;
-        [SerializeField] private int enemyHitVFXPoolSize = 8;
-        [SerializeField] private float enemyHitVFXLifetime = 0.3f;
-        [SerializeField] private Transform enemyHitVFXPoolRoot;
-
-        private readonly Queue<GameObject> enemyHitVFXPool = new();
-
-        [Header("Hit Cross VFX")]
-        [SerializeField] private GameObject hitCrossPrefab;
-        [SerializeField] private int hitCrossPoolSize = 8;
-        [SerializeField] private float hitCrossLifetime = 0.12f;
-        [SerializeField] private float hitCrossSize = 4f;
-        [SerializeField] private Transform hitCrossPoolRoot;
-
-        private readonly Queue<GameObject> hitCrossPool = new();
-
         [Header("Feedback Settings")]
         [SerializeField] private Unity.Cinemachine.CinemachineImpulseSource impulseSource;
         [SerializeField] private float enemyHitHitstopDuration = 0.06f;
         [SerializeField] private float enemyHitShakeForce = 0.8f;
-        [SerializeField] private float environmentHitHitstopDuration = 0.03f;
-        [SerializeField] private float environmentHitShakeForce = 0.4f;
 
         [Header("Recoil")]
         [SerializeField] private float sideRecoil = 6f;
@@ -93,7 +66,6 @@ namespace junklite
             playerState = GetComponentInParent<PlayerState>();
             playerCharacter = GetComponentInParent<PlayerCharacter>();
 
-            // Find impulse source if not assigned
             if (impulseSource == null)
             {
                 impulseSource = GetComponent<Unity.Cinemachine.CinemachineImpulseSource>()
@@ -156,59 +128,86 @@ namespace junklite
             );
 
             AttackHitResult result = AttackHitResult.None;
-            Collider hitCollider = null;
+            Collider closestEnemy = null;
+            float closestEnemyDist = float.MaxValue;
+            bool hitEnvironment = false;
 
+            // Find closest enemy and check for environment hits
             for (int i = 0; i < hits.Length; i++)
             {
                 int mask = 1 << hits[i].gameObject.layer;
 
                 if ((mask & enemyLayer) != 0)
                 {
-                    result = AttackHitResult.Enemy;
-                    hitCollider = hits[i];
-
-                    DealDamageToTarget(hits[i], step);
-                    break;
+                    float dist = Vector3.Distance(playerTransform.position, hits[i].transform.position);
+                    if (dist < closestEnemyDist)
+                    {
+                        closestEnemyDist = dist;
+                        closestEnemy = hits[i];
+                    }
                 }
-
-                if ((mask & environmentLayer) != 0)
+                else if ((mask & environmentLayer) != 0)
                 {
-                    result = AttackHitResult.Environment;
-                    hitCollider = hits[i];
+                    hitEnvironment = true;
                 }
             }
 
-            // --- IMPACT POINT ---
-            Vector3 impactPoint = anchor.position;
+            // Hit the closest enemy if found
+            if (closestEnemy != null)
+            {
+                result = AttackHitResult.Enemy;
+                PlayHitFeedback();
+                DealDamageToTarget(closestEnemy, step);
+            }
+            else if (hitEnvironment)
+            {
+                result = AttackHitResult.Environment;
+            }
 
+            // --- IMPACT POINT & VFX ---
             if (result != AttackHitResult.None)
             {
-                impactPoint = ResolveImpactPoint(dir, anchor.position, finalRadius);
+                Vector3 impactPoint = ResolveImpactPoint(dir, anchor.position, finalRadius);
+                Vector3 attackDir = GetAttackDirection(dir);
 
-                // Spawn appropriate VFX based on hit type
-                if (result == AttackHitResult.Environment)
+                // Spawn VFX via CombatEffectsManager
+                if (CombatEffectsManager.Instance != null)
                 {
-                    PlayHitParticle(impactPoint, dir);
-                }
-                else if (result == AttackHitResult.Enemy)
-                {
-                    PlayEnemyHitVFX(impactPoint, dir);
+                    if (result == AttackHitResult.Environment)
+                    {
+                        CombatEffectsManager.Instance.SpawnEnvHitParticle(impactPoint, attackDir);
+                    }
+                    else if (result == AttackHitResult.Enemy)
+                    {
+                        CombatEffectsManager.Instance.SpawnEnemyHitVFX(impactPoint, attackDir);
+                        CombatEffectsManager.Instance.SpawnEnemyHurtParticle(impactPoint, attackDir);
+                    }
+
+                    CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
                 }
 
-                PlayHitCross(impactPoint);
-                PlayHitFeedback(result);
-            }
-
-            // --- SLASH ---
-            if (step.slashPrefab != null)
-            {
-                if (result != AttackHitResult.None)
+                // Slash at impact point
+                if (step.slashPrefab != null)
                     PlaySlashAt(step.slashPrefab, anchor, impactPoint);
-                else
+            }
+            else
+            {
+                // Slash at default position (no hit)
+                if (step.slashPrefab != null)
                     PlaySlash(step.slashPrefab, anchor);
             }
 
             ApplyRecoil(dir, result);
+        }
+
+        private Vector3 GetAttackDirection(AttackDirection dir)
+        {
+            return dir switch
+            {
+                AttackDirection.Up => Vector3.up,
+                AttackDirection.Down => Vector3.down,
+                _ => Vector3.right * Facing
+            };
         }
 
         #endregion Attack
@@ -253,20 +252,7 @@ namespace junklite
 
         private Vector3 ResolveImpactPoint(AttackDirection dir, Vector3 origin, float radius)
         {
-            Vector3 rayDir;
-
-            switch (dir)
-            {
-                case AttackDirection.Up:
-                    rayDir = Vector3.up;
-                    break;
-                case AttackDirection.Down:
-                    rayDir = Vector3.down;
-                    break;
-                default:
-                    rayDir = Vector3.right * Facing;
-                    break;
-            }
+            Vector3 rayDir = GetAttackDirection(dir);
 
             Vector3 rayStart = origin - rayDir * (radius + 0.25f);
             float rayLength = (radius + 0.25f) + (radius + 0.5f);
@@ -290,10 +276,8 @@ namespace junklite
                 point = origin + rayDir * radius;
             }
 
-            // Push out of surface
             point += normal * 0.06f;
 
-            // Push toward camera for 2.5D visibility
             Camera cam = Camera.main;
             if (cam != null)
                 point += (-cam.transform.forward) * 0.1f;
@@ -303,22 +287,22 @@ namespace junklite
 
         public Transform GetAttackTransform(AttackDirection dir)
         {
-            switch (dir)
+            return dir switch
             {
-                case AttackDirection.Up: return upAttack;
-                case AttackDirection.Down: return downAttack;
-                default: return sideAttack;
-            }
+                AttackDirection.Up => upAttack,
+                AttackDirection.Down => downAttack,
+                _ => sideAttack
+            };
         }
 
         private float GetFallbackRadius(AttackDirection dir)
         {
-            switch (dir)
+            return dir switch
             {
-                case AttackDirection.Up: return upRadius;
-                case AttackDirection.Down: return downRadius;
-                default: return sideRadius;
-            }
+                AttackDirection.Up => upRadius,
+                AttackDirection.Down => downRadius,
+                _ => sideRadius
+            };
         }
 
         private void ApplyRecoil(AttackDirection dir, AttackHitResult result)
@@ -337,131 +321,15 @@ namespace junklite
 
         #region Feedback
 
-        private void PlayHitFeedback(AttackHitResult result)
+        private void PlayHitFeedback()
         {
-            if (FeedbackManager.Instance == null)
-                return;
-
-            switch (result)
-            {
-                case AttackHitResult.Enemy:
-                    FeedbackManager.Instance.DoHitFeedback(impulseSource, enemyHitHitstopDuration, enemyHitShakeForce);
-                    break;
-
-                case AttackHitResult.Environment:
-                    FeedbackManager.Instance.DoHitFeedback(impulseSource, environmentHitHitstopDuration, environmentHitShakeForce);
-                    break;
-            }
+            if (FeedbackManager.Instance != null)
+                FeedbackManager.Instance.DoHitFeedback(impulseSource, enemyHitHitstopDuration, enemyHitShakeForce);
         }
 
         #endregion Feedback
 
-        #region Object Pools
-
-        private void InitializeHitParticlePool()
-        {
-            if (hitParticlePrefab == null)
-                return;
-
-            if (hitParticlePoolRoot == null)
-            {
-                var poolObj = new GameObject("HitParticlePool");
-                poolObj.transform.SetParent(transform);
-                hitParticlePoolRoot = poolObj.transform;
-            }
-
-            for (int i = 0; i < hitParticlePoolSize; i++)
-            {
-                GameObject go = Instantiate(hitParticlePrefab, hitParticlePoolRoot);
-                go.SetActive(false);
-                hitParticlePool.Enqueue(go);
-            }
-        }
-
-        private GameObject GetPooledHitParticle()
-        {
-            if (hitParticlePool.Count > 0)
-                return hitParticlePool.Dequeue();
-
-            return Instantiate(hitParticlePrefab, hitParticlePoolRoot);
-        }
-
-        private void ReturnHitParticle(GameObject go)
-        {
-            go.SetActive(false);
-            go.transform.SetParent(hitParticlePoolRoot, false);
-            hitParticlePool.Enqueue(go);
-        }
-
-        private void InitializeEnemyHitVFXPool()
-        {
-            if (enemyHitVFXPrefab == null)
-                return;
-
-            if (enemyHitVFXPoolRoot == null)
-            {
-                var poolObj = new GameObject("EnemyHitVFXPool");
-                poolObj.transform.SetParent(transform);
-                enemyHitVFXPoolRoot = poolObj.transform;
-            }
-
-            for (int i = 0; i < enemyHitVFXPoolSize; i++)
-            {
-                GameObject go = Instantiate(enemyHitVFXPrefab, enemyHitVFXPoolRoot);
-                go.SetActive(false);
-                enemyHitVFXPool.Enqueue(go);
-            }
-        }
-
-        private GameObject GetPooledEnemyHitVFX()
-        {
-            if (enemyHitVFXPool.Count > 0)
-                return enemyHitVFXPool.Dequeue();
-
-            return Instantiate(enemyHitVFXPrefab, enemyHitVFXPoolRoot);
-        }
-
-        private void ReturnEnemyHitVFX(GameObject go)
-        {
-            go.SetActive(false);
-            go.transform.SetParent(enemyHitVFXPoolRoot, false);
-            enemyHitVFXPool.Enqueue(go);
-        }
-
-        private void InitializeHitCrossPool()
-        {
-            if (hitCrossPrefab == null)
-                return;
-
-            if (hitCrossPoolRoot == null)
-            {
-                var poolObj = new GameObject("HitCrossPool");
-                poolObj.transform.SetParent(transform);
-                hitCrossPoolRoot = poolObj.transform;
-            }
-
-            for (int i = 0; i < hitCrossPoolSize; i++)
-            {
-                GameObject go = Instantiate(hitCrossPrefab, hitCrossPoolRoot);
-                go.SetActive(false);
-                hitCrossPool.Enqueue(go);
-            }
-        }
-
-        private GameObject GetPooledHitCross()
-        {
-            if (hitCrossPool.Count > 0)
-                return hitCrossPool.Dequeue();
-
-            return Instantiate(hitCrossPrefab, hitCrossPoolRoot);
-        }
-
-        private void ReturnHitCross(GameObject cross)
-        {
-            cross.SetActive(false);
-            cross.transform.SetParent(hitCrossPoolRoot, false);
-            hitCrossPool.Enqueue(cross);
-        }
+        #region Slash Pool
 
         private void InitializeSlashPools(WeaponComboData comboData)
         {
@@ -520,16 +388,12 @@ namespace junklite
                 pool.Enqueue(slash);
         }
 
-        #endregion Object Pools
-
-        #region Effects
-
         public void PlaySlash(GameObject prefab, Transform attackAnchor, float lifetime = 0.2f)
         {
             GameObject slash = GetSlash(prefab, attackAnchor);
             if (slash == null) return;
 
-            StartCoroutine(ReturnAfterDelay(slash, prefab, lifetime, ReturnSlash));
+            StartCoroutine(ReturnSlashAfterDelay(slash, prefab, lifetime));
         }
 
         public void PlaySlashAt(GameObject prefab, Transform attackAnchor, Vector3 worldContactPoint, float lifetime = 0.12f)
@@ -540,112 +404,16 @@ namespace junklite
             Vector3 localPoint = attackAnchor.InverseTransformPoint(worldContactPoint);
             slash.transform.localPosition = localPoint;
 
-            StartCoroutine(ReturnAfterDelay(slash, prefab, lifetime, ReturnSlash));
+            StartCoroutine(ReturnSlashAfterDelay(slash, prefab, lifetime));
         }
 
-        private void PlayHitParticle(Vector3 impactPoint, AttackDirection dir)
-        {
-            if (hitParticlePrefab == null)
-                return;
-
-            GameObject go = GetPooledHitParticle();
-
-            Vector3 attackDir = dir switch
-            {
-                AttackDirection.Up => Vector3.up,
-                AttackDirection.Down => Vector3.down,
-                _ => Vector3.right * Facing
-            };
-
-            const float directionalOffset = 0.12f;
-            Vector3 spawnPos = impactPoint + attackDir * directionalOffset;
-
-            go.transform.SetParent(null);
-            go.transform.position = spawnPos;
-            go.transform.rotation = Quaternion.identity;
-            go.SetActive(true);
-
-            ParticleSystem ps = go.GetComponent<ParticleSystem>();
-            if (ps != null)
-            {
-                ps.Clear(true);
-                ps.Play(true);
-            }
-
-            StartCoroutine(ReturnHitParticleAfterDelay(go, hitParticleLifetime));
-        }
-
-        private void PlayEnemyHitVFX(Vector3 impactPoint, AttackDirection dir)
-        {
-            if (enemyHitVFXPrefab == null)
-                return;
-
-            GameObject go = GetPooledEnemyHitVFX();
-
-            Vector3 attackDir = dir switch
-            {
-                AttackDirection.Up => Vector3.up,
-                AttackDirection.Down => Vector3.down,
-                _ => Vector3.right * Facing
-            };
-
-            const float directionalOffset = 0.12f;
-            Vector3 spawnPos = impactPoint + attackDir * directionalOffset;
-
-            go.transform.SetParent(null);
-            go.transform.position = spawnPos;
-            go.transform.rotation = Quaternion.identity;
-            go.SetActive(true);
-
-            ParticleSystem ps = go.GetComponent<ParticleSystem>();
-            if (ps != null)
-            {
-                ps.Clear(true);
-                ps.Play(true);
-            }
-
-            StartCoroutine(ReturnEnemyHitVFXAfterDelay(go, enemyHitVFXLifetime));
-        }
-
-        private void PlayHitCross(Vector3 position)
-        {
-            if (hitCrossPrefab == null)
-                return;
-
-            GameObject cross = GetPooledHitCross();
-            cross.transform.SetParent(null);
-            cross.transform.position = position;
-            cross.transform.localScale = Vector3.one * hitCrossSize;
-            cross.SetActive(true);
-
-            StartCoroutine(ReturnHitCrossAfterDelay(cross, hitCrossLifetime));
-        }
-
-        private IEnumerator ReturnHitParticleAfterDelay(GameObject go, float delay)
+        private IEnumerator ReturnSlashAfterDelay(GameObject slash, GameObject prefab, float delay)
         {
             yield return new WaitForSeconds(delay);
-            ReturnHitParticle(go);
+            ReturnSlash(prefab, slash);
         }
 
-        private IEnumerator ReturnEnemyHitVFXAfterDelay(GameObject go, float delay)
-        {
-            yield return new WaitForSeconds(delay);
-            ReturnEnemyHitVFX(go);
-        }
-
-        private IEnumerator ReturnHitCrossAfterDelay(GameObject cross, float delay)
-        {
-            yield return new WaitForSeconds(delay);
-            ReturnHitCross(cross);
-        }
-
-        private IEnumerator ReturnAfterDelay(GameObject obj, GameObject prefab, float delay, System.Action<GameObject, GameObject> returnAction)
-        {
-            yield return new WaitForSeconds(delay);
-            returnAction(prefab, obj);
-        }
-
-        #endregion Effects
+        #endregion Slash Pool
 
         #region Weapon and Mod Pickup
 
@@ -670,9 +438,6 @@ namespace junklite
                 inventory.EquipAllPossible();
 
             InitializeSlashPools(CurrentWeapon.weaponData.comboData);
-            InitializeHitParticlePool();
-            InitializeEnemyHitVFXPool();
-            InitializeHitCrossPool();
             OnWeaponChanged?.Invoke();
         }
 
@@ -746,4 +511,5 @@ namespace junklite
         Up,
         Down
     }
+
 }

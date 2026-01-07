@@ -34,10 +34,6 @@ namespace junklite
         [SerializeField] protected float wallCheckDistance = 0.5f;
         [SerializeField] protected LayerMask wallLayer;
 
-        [Header("Stats")]
-        [SerializeField] public float speed = 60f;
-        [SerializeField] public float life = 100f;
-
         [Header("Knockback")]
         [Tooltip("If false, this enemy cannot be knocked back")]
         [SerializeField] protected bool canBeKnockedBack = true;
@@ -50,6 +46,11 @@ namespace junklite
         [SerializeField] protected Color damageFlashColor = Color.red;
         [SerializeField] protected float damageFlashDuration = 0.3f;
 
+        [Header("Death VFX")]
+        [SerializeField] protected GameObject deathParticlePrefab;
+        [SerializeField] protected float deathParticleLifetime = 2f;
+        [SerializeField] protected GameObject enemyVisual;
+
         [Header("Combat VFX")]
         [SerializeField] protected GameObject chargeVFXPrefab;
         [SerializeField] protected GameObject dashVFXPrefab;
@@ -57,19 +58,9 @@ namespace junklite
         [SerializeField] protected GameObject recoveryVFXPrefab;
         [SerializeField] protected float vfxScale = 2f;
 
-
-        [Header("MOD VFX")]
-        [SerializeField] protected GameObject fireVFXPrefab;
-        [SerializeField] protected GameObject iceVFXPrefab;
-        [SerializeField] protected GameObject electricVFXPrefab;
-        [SerializeField] protected GameObject poisonVFXPrefab;
-        [SerializeField] protected GameObject holyVFXPrefab;
-        [SerializeField] protected GameObject darkVFXPrefab;
-        [SerializeField] protected GameObject lightVFXPrefab;
-        [SerializeField] protected GameObject shadowVFXPrefab;
-        [SerializeField] protected float ModParticleScale = 2f;
-        [SerializeField] protected float ModParticleRotation = 0f;
-        [SerializeField] protected float duration = 0f;
+        [Header("Drops")]
+        [SerializeField] protected DropTable customDropTable;
+        [SerializeField][Range(0f, 1f)] protected float dropChance = 1f;
 
         // Active VFX instances (don't overwrite the prefabs!)
         protected GameObject activeChargeVFX;
@@ -171,7 +162,7 @@ namespace junklite
                 originalSpriteColor = spriteRenderer.color;
 
             if (damageable != null)
-                damageable.OnDamaged += OnDamagedFlash;
+                damageable.OnDamaged += OnDamagedVFX;
         }
 
         protected override void Start()
@@ -405,9 +396,23 @@ namespace junklite
         {
             Debug.Log($"[{gameObject.name}] HandleDeath called!");
 
+            // Spawn death VFX and hide visual
+            SpawnDeathParticles();
+            DisableEnemyVisual();
+
+            // Request drop from DropManager
+            if (DropManager.Instance != null)
+            {
+                if (customDropTable != null)
+                    DropManager.Instance.RequestDrop(transform.position, customDropTable, dropChance);
+                else
+                    DropManager.Instance.RequestDrop(transform.position, dropChance);
+            }
+
             // Clear status effects first
             if (statusEffects != null)
                 statusEffects.ClearAllEffects();
+
             // Stop damage flash if active
             if (damageFlashCoroutine != null)
             {
@@ -427,11 +432,7 @@ namespace junklite
             if (detectionZone != null)
                 detectionZone.enabled = false;
 
-            // Disable all colliders and physics so player can't interact with dead enemy
-            DisablePhysics();
-
             // Clear target references WITHOUT calling OnTargetLost
-            // (OnTargetLost would trigger state changes which we don't want)
             target = null;
             targetCharacter = null;
             isInCombat = false;
@@ -541,10 +542,10 @@ namespace junklite
                 dashHitbox.OnHit -= OnDashHitboxHit;
             }
 
-            // Unsubscribe from damage flash event
+            // Unsubscribe from damage VFX event
             if (damageable != null)
             {
-                damageable.OnDamaged -= OnDamagedFlash;
+                damageable.OnDamaged -= OnDamagedVFX;
             }
         }
 
@@ -572,28 +573,34 @@ namespace junklite
 
         #endregion
 
-        #region Damage Flash VFX
+        #region Damage VFX
 
         /// <summary>
-        /// Called when this enemy takes damage - triggers flash VFX.
-        /// Override in subclasses to customize flash behavior.
+        /// Called when this enemy takes damage - triggers damage popup and flash.
+        /// Hit particles are handled by WeaponManager at point of impact.
         /// </summary>
-        protected virtual void OnDamagedFlash(float damage, GameObject source)
+        protected virtual void OnDamagedVFX(float damage, GameObject source)
         {
-            if (spriteRenderer == null || !IsAlive) return;
+            if (!IsAlive) return;
 
-            if (damageFlashCoroutine != null)
-                StopCoroutine(damageFlashCoroutine);
+            // Spawn damage popup
+            if (DamagePopupManager.Instance != null)
+                DamagePopupManager.Instance.SpawnPopup(transform.position, damage);
 
-            damageFlashCoroutine = StartCoroutine(DamageFlashRoutine());
+            // Damage flash
+            if (spriteRenderer != null)
+            {
+                if (damageFlashCoroutine != null)
+                    StopCoroutine(damageFlashCoroutine);
+
+                damageFlashCoroutine = StartCoroutine(DamageFlashRoutine());
+            }
         }
 
         private IEnumerator DamageFlashRoutine()
         {
-            // Instantly flash to damage color
             spriteRenderer.color = damageFlashColor;
 
-            // Gradually fade back to original color
             float elapsed = 0f;
             while (elapsed < damageFlashDuration)
             {
@@ -603,11 +610,31 @@ namespace junklite
                 yield return null;
             }
 
-            // Ensure we end at exact original color
             if (IsAlive && spriteRenderer != null)
                 spriteRenderer.color = originalSpriteColor;
 
             damageFlashCoroutine = null;
+        }
+
+        #endregion
+
+        #region Death VFX
+
+        protected virtual void SpawnDeathParticles()
+        {
+            if (deathParticlePrefab == null)
+                return;
+
+            GameObject go = Instantiate(deathParticlePrefab, transform.position, Quaternion.identity);
+
+            if (deathParticleLifetime > 0f)
+                Destroy(go, deathParticleLifetime);
+        }
+
+        protected virtual void DisableEnemyVisual()
+        {
+            if (enemyVisual != null)
+                enemyVisual.SetActive(false);
         }
 
         #endregion

@@ -10,10 +10,10 @@ namespace junklite
         public float tickInterval = 0.5f;
         public float burnDuration = 3f;
 
-        public override void OnHit(WeaponInstance weapon, EnemyCharacter enemy, PlayerCharacter player)
+        public override bool OnHit(WeaponInstance weapon, EnemyCharacter enemy, PlayerCharacter player)
         {
             if (enemy == null || enemy.StatusEffects == null)
-                return;
+                return false;
 
             var burn = new StatusEffectInstance(
                 type: StatusEffectType.Burn,
@@ -25,18 +25,17 @@ namespace junklite
             );
 
             enemy.StatusEffects.Apply(burn);
+            return true;
         }
 
         public override void OnEquip(WeaponInstance weapon)
         {
             Debug.Log($"[FireMod] Equipped - weapon now deals fire damage!");
-            // Enable fire VFX on weapon if you have one
         }
 
         public override void OnUnequip(WeaponInstance weapon)
         {
             Debug.Log($"[FireMod] Unequipped");
-            // Disable fire VFX
         }
     }
 }
