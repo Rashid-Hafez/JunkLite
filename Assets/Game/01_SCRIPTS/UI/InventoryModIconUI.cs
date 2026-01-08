@@ -7,20 +7,22 @@ namespace junklite
     {
         [SerializeField] private Image icon;
 
-        private ModData mod;
+        private ActiveMod mod;
         private InventoryComponent inventory;
 
-        public void Bind(ModData data, InventoryComponent inv)
+        public void Bind(ActiveMod activeMod, InventoryComponent inv)
         {
-            mod = data;
+            mod = activeMod;
             inventory = inv;
 
-            icon.sprite = data.icon;
+            if (activeMod != null && activeMod.data != null)
+                icon.sprite = activeMod.data.icon;
         }
 
         public void OnClick()
         {
-            inventory.EquipMod(mod);
+            if (mod != null && inventory != null)
+                inventory.EquipMod(mod);
         }
     }
 }

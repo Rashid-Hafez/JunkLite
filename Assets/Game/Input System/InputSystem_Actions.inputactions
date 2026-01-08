@@ -1,4 +1,5 @@
 {
+    "version": 1,
     "name": "InputSystem_Actions",
     "maps": [
         {
@@ -99,6 +100,15 @@
                     "name": "Roll",
                     "type": "Button",
                     "id": "4c48c641-9f00-4c88-bb21-556077a8af9b",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Inventory",
+                    "type": "Button",
+                    "id": "d011d665-9246-493b-831b-97ee71cb8fcd",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -532,6 +542,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "Roll",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "bfdbde65-520c-43df-8c39-c6edb2cdb1d9",
+                    "path": "<Keyboard>/i",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Inventory",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

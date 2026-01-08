@@ -122,7 +122,8 @@ namespace junklite
         public IReadOnlyList<ActiveMod> GetMods() => activeMods;
 
         /// <summary>
-        /// Add a mod to this weapon.
+        /// Add a NEW mod to this weapon (creates ActiveMod with full durability).
+        /// Use for fresh pickups.
         /// </summary>
         public bool TryAddMod(ModData modData)
         {
@@ -136,6 +137,24 @@ namespace junklite
             OnModsChanged?.Invoke();
 
             Debug.Log($"[Weapon] Mod added: {modData.modName}");
+            return true;
+        }
+
+        /// <summary>
+        /// Add an EXISTING ActiveMod to this weapon (preserves durability).
+        /// Use when moving mods from inventory.
+        /// </summary>
+        public bool TryAddActiveMod(ActiveMod mod)
+        {
+            if (mod == null || !HasFreeSlot)
+                return false;
+
+            activeMods.Add(mod);
+
+            mod.data.OnEquip(this);
+            OnModsChanged?.Invoke();
+
+            Debug.Log($"[Weapon] Mod equipped: {mod.data.modName} (durability: {mod.DurabilityPercent:P0})");
             return true;
         }
 

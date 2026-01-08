@@ -20,14 +20,25 @@ namespace junklite
         [SerializeField] private TMP_Text playerNameText;
 
         [Header("UI Extensions (Weapon + Inventory)")]
-        [SerializeField] private WeaponUI weaponUI;               // new
-        [SerializeField] private InventoryModsUI inventoryModsUI; // optional new UI
+        [SerializeField] private WeaponUI weaponUI;
+        [SerializeField] private InventoryModsUI inventoryModsUI;
+
+        [Header("Inventory Panel")]
+        [Tooltip("The root GameObject of the inventory panel to show/hide")]
+        [SerializeField] private GameObject inventoryPanel;
+        [Tooltip("The InventoryUI component (usually on the inventory panel or its parent)")]
+        [SerializeField] private InventoryUI inventoryUI;
 
         // Runtime
         private CharacterBase player;
         private AttributeManager attributes;
         private WeaponManager _weaponManager;
         private InventoryComponent inventory;
+        private bool isInventoryOpen = false;
+
+        // -----------------------------------------------------------------------
+
+        public bool IsInventoryOpen => isInventoryOpen;
 
         // -----------------------------------------------------------------------
 
@@ -134,6 +145,13 @@ namespace junklite
 
                 GameManager.Instance.OnPlayerSpawned += HandlePlayerSpawned;
             }
+
+            // Subscribe to inventory toggle
+            if (GameInputManager.Instance != null)
+                GameInputManager.Instance.OnInventoryToggle += HandleInventoryToggle;
+
+            // Ensure inventory starts closed
+            CloseInventory();
         }
 
         private void OnDisable()
@@ -141,11 +159,23 @@ namespace junklite
             if (autoBindToGameManager && GameManager.Instance != null)
                 GameManager.Instance.OnPlayerSpawned -= HandlePlayerSpawned;
 
+            // Unsubscribe from inventory toggle
+            if (GameInputManager.Instance != null)
+                GameInputManager.Instance.OnInventoryToggle -= HandleInventoryToggle;
+
+            // Re-enable gameplay input if we're disabled while inventory is open
+            if (isInventoryOpen && GameInputManager.Instance != null)
+                GameInputManager.Instance.SetGameplayInputEnabled(true);
+
             Unbind();
         }
 
         private void OnDestroy()
         {
+            // Re-enable gameplay input if destroyed while inventory is open
+            if (isInventoryOpen && GameInputManager.Instance != null)
+                GameInputManager.Instance.SetGameplayInputEnabled(true);
+
             Unbind();
         }
 
@@ -158,8 +188,79 @@ namespace junklite
 
         private void HandlePlayerDeath()
         {
+            // Close inventory on death
+            if (isInventoryOpen)
+                CloseInventory();
+
             if (hideOnDeath)
                 SetVisible(false);
+        }
+
+        // -----------------------------------------------------------------------
+        // INVENTORY TOGGLE
+        // -----------------------------------------------------------------------
+
+        private void HandleInventoryToggle()
+        {
+            if (isInventoryOpen)
+                CloseInventory();
+            else
+                OpenInventory();
+        }
+
+        /// <summary>
+        /// Opens the inventory panel and pauses gameplay input.
+        /// </summary>
+        public void OpenInventory()
+        {
+            if (isInventoryOpen) return;
+
+            isInventoryOpen = true;
+
+            // Show inventory panel
+            if (inventoryPanel != null)
+                inventoryPanel.SetActive(true);
+
+            // Bind InventoryUI to player's inventory and weapon manager
+            if (inventoryUI != null && player != null)
+            {
+                inventoryUI.Bind(inventory, _weaponManager);
+            }
+
+            // Pause gameplay input
+            if (GameInputManager.Instance != null)
+                GameInputManager.Instance.SetGameplayInputEnabled(false);
+
+            Debug.Log("[PlayerUI] Inventory opened - gameplay input paused");
+        }
+
+        /// <summary>
+        /// Closes the inventory panel and resumes gameplay input.
+        /// </summary>
+        public void CloseInventory()
+        {
+            if (!isInventoryOpen && inventoryPanel != null && !inventoryPanel.activeSelf)
+            {
+                // Just ensure it's hidden on initial setup
+                inventoryPanel.SetActive(false);
+                return;
+            }
+
+            isInventoryOpen = false;
+
+            // Unbind InventoryUI
+            if (inventoryUI != null)
+                inventoryUI.Unbind();
+
+            // Hide inventory panel
+            if (inventoryPanel != null)
+                inventoryPanel.SetActive(false);
+
+            // Resume gameplay input
+            if (GameInputManager.Instance != null)
+                GameInputManager.Instance.SetGameplayInputEnabled(true);
+
+            Debug.Log("[PlayerUI] Inventory closed - gameplay input resumed");
         }
 
         // -----------------------------------------------------------------------

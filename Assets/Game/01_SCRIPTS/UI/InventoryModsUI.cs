@@ -14,9 +14,7 @@ namespace junklite
 
         public void Bind(InventoryComponent inv)
         {
-            // Unbind previous just in case
             Unbind();
-
             inventory = inv;
             inventory.OnInventoryChanged += Refresh;
             Refresh();
@@ -26,7 +24,6 @@ namespace junklite
         {
             if (inventory != null)
                 inventory.OnInventoryChanged -= Refresh;
-
             Clear();
             inventory = null;
         }
@@ -35,8 +32,15 @@ namespace junklite
         {
             Clear();
 
+            if (inventory == null)
+                return;
+
             foreach (var mod in inventory.StoredMods)
             {
+                // Skip null entries
+                if (mod == null || mod.data == null)
+                    continue;
+
                 var icon = Instantiate(iconPrefab, contentParent);
                 icon.Bind(mod, inventory);
             }

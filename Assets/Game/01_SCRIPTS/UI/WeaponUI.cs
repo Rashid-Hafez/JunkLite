@@ -15,12 +15,14 @@ namespace junklite
         [SerializeField] private ModSlotUI modSlotPrefab;
 
         private WeaponManager _manager;
+        private InventoryComponent _inventory;
         private WeaponInstance currentWeapon;
         private List<ModSlotUI> slotUIs = new();
 
         public void Bind(WeaponManager weaponManager)
         {
             _manager = weaponManager;
+            _inventory = _manager?.GetComponent<InventoryComponent>();
             _manager.OnWeaponChanged += RefreshWeapon;
             RefreshWeapon();
         }
@@ -32,6 +34,7 @@ namespace junklite
 
             ClearSlots();
             _manager = null;
+            _inventory = null;
             currentWeapon = null;
             weaponPanel.gameObject.SetActive(false);
         }
@@ -80,7 +83,8 @@ namespace junklite
             for (int i = 0; i < slotCount; i++)
             {
                 var ui = Instantiate(modSlotPrefab, modSlotsParent);
-                ui.Bind(i < mods.Count ? mods[i] : null, currentWeapon);
+                ActiveMod mod = i < mods.Count ? mods[i] : null;
+                ui.Bind(mod, currentWeapon, _inventory, i);
                 slotUIs.Add(ui);
             }
         }
@@ -99,7 +103,7 @@ namespace junklite
             for (int i = 0; i < slotUIs.Count; i++)
             {
                 ActiveMod mod = i < mods.Count ? mods[i] : null;
-                slotUIs[i].Bind(mod, currentWeapon);
+                slotUIs[i].Bind(mod, currentWeapon, _inventory, i);
             }
         }
     }
