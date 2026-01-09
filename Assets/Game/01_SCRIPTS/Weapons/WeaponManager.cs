@@ -96,6 +96,19 @@ namespace junklite
             if (modPickup != null)
                 PickupMod(modPickup);
         }
+        public void SetWeaponVisible(bool visible)
+        {
+            if (CurrentWeapon == null)
+                return;
+
+            var renderers = CurrentWeapon.GetComponentsInChildren<SpriteRenderer>(true);
+            foreach (var sr in renderers)
+            {
+                if (sr != null)
+                    sr.enabled = visible;
+            }
+        }
+
 
         #region Attack
 

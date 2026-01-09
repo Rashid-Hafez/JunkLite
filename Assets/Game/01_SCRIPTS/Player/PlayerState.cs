@@ -1,27 +1,28 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System;
-using UnityEngine.Splines;
 
 namespace junklite
 {
     /// <summary>
     /// Player-specific runtime state & capability gatekeeper.
-    /// Extended to support Hollow Knight�style movement states.
+    /// Extended to support Hollow Knight–style movement states.
     /// </summary>
     public class PlayerState : CharacterState
     {
-        public override bool CanMove => IsAlive && !IsStunned;
-        public override bool CanJump => IsAlive && !IsStunned;
-        public bool CanDash => IsAlive && !IsDashing && !IsStunned;
-        public override bool CanAttack => IsAlive && !IsAttacking && !IsStunned;
-        public bool CanRoll => IsAlive && !IsStunned && !IsRolling;
-
+        // === Core Capability Checks (updated to include IsInputLocked) ===
+        public override bool CanMove => IsAlive && !IsStunned && !IsInputLocked;
+        public override bool CanJump => IsAlive && !IsStunned && !IsInputLocked;
+        public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsInputLocked;
+        public override bool CanAttack => IsAlive && !IsAttacking && !IsStunned && !IsInputLocked;
+        public bool CanRoll => IsAlive && !IsStunned && !IsRolling && !IsInputLocked;
 
         // ==== Player State Flags ====
         public bool IsDashing { get; private set; }
         public bool IsRolling { get; private set; }
+
+        // ==== Input Lock (for special moves, cutscenes, etc.) ====
+        public bool IsInputLocked { get; private set; }
 
         // ==== Movement States ====
         public bool IsWallSliding { get; private set; }
@@ -31,6 +32,7 @@ namespace junklite
         // ==== Events ====
         public event Action<bool> OnDashingChanged;
         public event Action<bool> OnRollingChanged;
+        public event Action<bool> OnInputLockedChanged;
 
         // Movement state events
         public event Action<bool> OnWallSlideChanged;
@@ -66,6 +68,7 @@ namespace junklite
             SetWallSliding(false);
             SetWallJumping(false);
             SetDoubleJumping(false);
+            SetInputLocked(false);
         }
 
         // ===== Clear momentary action flags =====
@@ -118,6 +121,16 @@ namespace junklite
             if (IsRolling == rolling) return;
             IsRolling = rolling;
             OnRollingChanged?.Invoke(rolling);
+        }
+
+        /// <summary>
+        /// Lock/unlock player input. Use for special moves, cutscenes, etc.
+        /// </summary>
+        public void SetInputLocked(bool locked)
+        {
+            if (IsInputLocked == locked) return;
+            IsInputLocked = locked;
+            OnInputLockedChanged?.Invoke(locked);
         }
 
         // ===== Player movement states =====
@@ -224,6 +237,7 @@ namespace junklite
             if (IsAttacking) list.Add("Attacking");
             if (IsRolling) list.Add("Rolling");
             if (IsStunned) list.Add("Stunned");
+            if (IsInputLocked) list.Add("InputLocked");
             return string.Join(", ", list);
         }
     }

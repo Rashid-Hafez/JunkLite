@@ -400,6 +400,8 @@ namespace junklite
             SpawnDeathParticles();
             DisableEnemyVisual();
 
+            DisablePhysics();
+
             // Request drop from DropManager
             if (DropManager.Instance != null)
             {

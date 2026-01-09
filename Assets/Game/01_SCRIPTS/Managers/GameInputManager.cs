@@ -17,6 +17,7 @@ namespace junklite
         public event Action OnAttack = delegate { };
         public event Action OnDash = delegate { };
         public event Action OnRoll = delegate { };
+        public event Action OnSpecialAttack = delegate { };
 
         // UI events (always active)
         public event Action OnInventoryToggle = delegate { };
@@ -66,13 +67,13 @@ namespace junklite
             // === MOVE ===
             controls.Player.Move.performed += ctx =>
             {
-                if (!IsGameplayInputEnabled) return; // Block input entirely
+                if (!IsGameplayInputEnabled) return;
                 MoveDirection = ctx.ReadValue<Vector2>();
                 OnMove(MoveDirection);
             };
             controls.Player.Move.canceled += _ =>
             {
-                if (!IsGameplayInputEnabled) return; // Block input entirely
+                if (!IsGameplayInputEnabled) return;
                 MoveDirection = Vector2.zero;
                 OnMove(MoveDirection);
             };
@@ -117,6 +118,13 @@ namespace junklite
             {
                 if (!IsGameplayInputEnabled) return;
                 OnRoll();
+            };
+
+            // === SPECIAL ATTACK (Press Only) ===
+            controls.Player.SpecialAttack.performed += _ =>
+            {
+                if (!IsGameplayInputEnabled) return;
+                OnSpecialAttack();
             };
 
             // === INVENTORY TOGGLE (Always active - UI input) ===

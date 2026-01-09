@@ -20,6 +20,12 @@ namespace junklite
         // Camera dictionary for easy access
         private Dictionary<string, CinemachineCamera> cameras;
 
+        // Current player reference for event subscription
+        private PlayerCharacter currentPlayer;
+
+        // Cached tracking target
+        private Transform cachedTrackingTarget;
+
 
         private void Awake()
         {
@@ -31,27 +37,73 @@ namespace junklite
             Instance = this;
 
             InitializeCameras();
+            
+            GameManager.Instance.OnPlayerSpawned += ConnectToPlayer;
         }
 
         private void Start()
         {
 
-            GameManager.Instance.OnPlayerSpawned += connectToPlayer;
-
-
             // Set player as follow target and activate main camera
             if (mainCamera != null && playerTransform != null)
             {
-                mainCamera.Follow = playerTransform;
+                mainCamera.Target.TrackingTarget = playerTransform;
                 SwitchToMainCamera();
             }
         }
 
-        private void connectToPlayer(PlayerCharacter character)
+        private void OnDestroy()
         {
+            if (GameManager.Instance != null)
+                GameManager.Instance.OnPlayerSpawned -= ConnectToPlayer;
+
+            UnsubscribeFromPlayer();
+        }
+
+        private void ConnectToPlayer(PlayerCharacter character)
+        {
+            UnsubscribeFromPlayer();
+
+            currentPlayer = character;
             playerTransform = character.gameObject.transform;
 
+            // Subscribe to camera follow requests
+            currentPlayer.OnCameraFollowRequested += HandleCameraFollowRequested;
+
             SetPlayerTarget(playerTransform);
+        }
+
+        private void UnsubscribeFromPlayer()
+        {
+            if (currentPlayer != null)
+            {
+                currentPlayer.OnCameraFollowRequested -= HandleCameraFollowRequested;
+                currentPlayer = null;
+            }
+        }
+
+        /// <summary>
+        /// Handles camera follow requests from the player.
+        /// When disabled, camera freezes at current position by setting TrackingTarget to null.
+        /// </summary>
+        private void HandleCameraFollowRequested(bool follow)
+        {
+            if (mainCamera == null)
+                return;
+
+            if (follow)
+            {
+                // Resume following player
+                mainCamera.Target.TrackingTarget = cachedTrackingTarget;
+                Debug.Log("[CameraManager] Camera follow enabled");
+            }
+            else
+            {
+                // Cache current target and set to null to freeze
+                cachedTrackingTarget = mainCamera.Target.TrackingTarget;
+                mainCamera.Target.TrackingTarget = null;
+                Debug.Log("[CameraManager] Camera follow disabled (frozen)");
+            }
         }
 
         private void InitializeCameras()
@@ -71,7 +123,7 @@ namespace junklite
             }
         }
 
-        
+
         public void SwitchToMainCamera()
         {
             SwitchToCamera("Main");
@@ -83,7 +135,7 @@ namespace junklite
             SwitchToCamera("Death");
         }
 
-      
+
         public void SwitchToCamera(string cameraName)
         {
             if (cameras.ContainsKey(cameraName) && cameras[cameraName] != null)
@@ -100,12 +152,14 @@ namespace junklite
             }
         }
 
-       
+
         public void SetPlayerTarget(Transform player)
         {
             playerTransform = player;
+            cachedTrackingTarget = player;
+
             if (mainCamera != null)
-                mainCamera.Follow = playerTransform;
+                mainCamera.Target.TrackingTarget = playerTransform;
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -42,12 +43,14 @@ namespace junklite
 
         public AttackDirection LastAttackDirection { get; set; }
         public bool JumpHeld => inputManager != null && inputManager.IsJumpHeld;
+        public event Action<bool> OnCameraFollowRequested;
 
         // Movement input
         float horizontalAxis = 0f;
 
         // Cached
         Collider[] _cachedColliders;
+        private SpriteRenderer[] _spriteRenderers;
         Rigidbody _rb;
         GameInputManager inputManager;
 
@@ -88,6 +91,7 @@ namespace junklite
             inputManager = GameInputManager.Instance;
             _cachedColliders = GetComponentsInChildren<Collider>(includeInactive: true);
             _rb = GetComponent<Rigidbody>();
+            _spriteRenderers = GetComponentsInChildren<SpriteRenderer>(includeInactive: true);
 
             if (autoFindFlashRenderers && (damageFlashRenderers == null || damageFlashRenderers.Length == 0))
                 damageFlashRenderers = GetComponentsInChildren<SpriteRenderer>(includeInactive: true);
@@ -104,9 +108,6 @@ namespace junklite
 
             // Apply movement stats to controller
             UpdateControllerStats();
-
-            if (CameraManager.Instance != null)
-                CameraManager.Instance.SetPlayerTarget(transform);
 
             ////// SCREENSHAKE AND FEEDBACK, VIBRATION CONTROLLER, FLASH VFX ETC
             feedbackManager = FeedbackManager.Instance;
@@ -556,6 +557,31 @@ namespace junklite
             _weaponManager.Attack(dir);
         }
 
+        public void RequestCameraFollow(bool follow)
+        {
+            OnCameraFollowRequested?.Invoke(follow);
+        }
+
+        public void SetVisible(bool visible)
+        {
+            // Hide/show player sprites
+            if (_spriteRenderers != null)
+            {
+                foreach (var sr in _spriteRenderers)
+                {
+                    if (sr != null)
+                        sr.enabled = visible;
+                }
+            }
+
+            // Hide/show weapon
+            if (_weaponManager != null)
+                _weaponManager.SetWeaponVisible(visible);
+        }
+        public Vector3 GetGroundPosition()
+        {
+            return feet != null ? feet.position : transform.position;
+        }
 
         void OnGroundedStateChanged(bool grounded)
         {
