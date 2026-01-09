@@ -49,6 +49,10 @@ namespace junklite
         [SerializeField] protected DamageFlashUniversal damageFlashUniversal;
         private bool warnedMissingDamageFlash;
 
+        [Header("Animation (Enemy)")]
+        [SerializeField] private EnemyAnimationController enemyAnimation;
+        public EnemyAnimationController Anim => enemyAnimation;
+
         [Header("Status Effect System")]
         private Coroutine statusCoroutine;
         protected SpriteRenderer activeVFX;
@@ -148,6 +152,9 @@ namespace junklite
             movement = GetComponent<EnemyMovement>();
             statusEffects = GetComponent<StatusEffectHandler>();
             spawnPosition = transform.position;
+
+            if (enemyAnimation == null)
+                enemyAnimation = GetComponentInChildren<EnemyAnimationController>(true);
 
             // Auto-wire DamageFlashUniversal if not set in the inspector (prevents null refs on damage).
             if (damageFlashUniversal == null)
