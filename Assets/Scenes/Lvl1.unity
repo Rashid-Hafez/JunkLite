@@ -4955,6 +4955,11 @@ ParticleSystem:
         m_PostInfinity: 2
         m_RotationOrder: 4
     vectorLabel1_3: W
+--- !u!95 &75926240 stripped
+Animator:
+  m_CorrespondingSourceObject: {fileID: 18555259661755230, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
+  m_PrefabInstance: {fileID: 6898209875623595677}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &149548730
 GameObject:
   m_ObjectHideFlags: 0
@@ -9905,6 +9910,52 @@ Transform:
   m_Children: []
   m_Father: {fileID: 502200488}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &265667166 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1323751776439138188, guid: 9e6ca11ea1f5348f8890a1ad05f3fd3e, type: 3}
+  m_PrefabInstance: {fileID: 4559081789172449163}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &265667176
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 265667166}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5265b146ae70477598a42b59cfe4f28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.SpineEnemyMovement
+  moveSpeed: 3
+  stoppingDistance: 0.1
+  movementPlane: 0
+  useScaleFlip: 1
+  defaultFacing: 1
+  ignoreKnockback: 0
+  knockbackDecay: 8
+  horizontalDrag: 5
+  groundCheckDistance: 0.1
+  groundLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+--- !u!114 &265667177
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 265667166}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3c6ce31feb0d49889b887c3b77f50e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyAnimationController
+  animator: {fileID: 813468666}
+  autoFindAnimator: 1
+  autoUpdateLocomotion: 1
+  movingSpeedThreshold: 0.05
+  driveFromStateMachine: 0
 --- !u!1 &502200487
 GameObject:
   m_ObjectHideFlags: 0
@@ -10318,6 +10369,77 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!1 &813468660 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7278256221503723293, guid: 9e6ca11ea1f5348f8890a1ad05f3fd3e, type: 3}
+  m_PrefabInstance: {fileID: 4559081789172449163}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &813468665
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 813468660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9db98c60740638449864eb028fbe7ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: spine-unity::Spine.Unity.SkeletonMecanim
+  skeletonDataAsset: {fileID: 11400000, guid: 2bf8c52da1bb340ae88e244f763b35c3, type: 2}
+  initialSkinName: 
+  fixPrefabOverrideViaMeshFilter: 2
+  initialFlipX: 0
+  initialFlipY: 0
+  updateWhenInvisible: 3
+  separatorSlotNames: []
+  zSpacing: 0
+  useClipping: 1
+  immutableTriangles: 0
+  pmaVertexColors: 1
+  clearStateOnDisable: 0
+  tintBlack: 0
+  singleSubmesh: 0
+  fixDrawOrder: 0
+  addNormals: 0
+  calculateTangents: 0
+  maskInteraction: 0
+  maskMaterials:
+    materialsMaskDisabled: []
+    materialsInsideMask: []
+    materialsOutsideMask: []
+  disableRenderingOnOverride: 1
+  physicsPositionInheritanceFactor: {x: 1, y: 1}
+  physicsRotationInheritanceFactor: 1
+  physicsMovementRelativeTo: {fileID: 0}
+  translator:
+    autoReset: 1
+    useCustomMixMode: 1
+    layerMixModes: 01000000
+    layerBlendModes: 01000000
+  updateTiming: 1
+--- !u!95 &813468666
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 813468660}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 86639ce07da714310aa28b14a2286a51, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &876535117
 GameObject:
   m_ObjectHideFlags: 0
@@ -12370,6 +12492,23 @@ MonoBehaviour:
   flashDuration: 0.1
   flashAmount: 0.6
   flashColor: {r: 1, g: 1, b: 1, a: 1}
+--- !u!114 &1912217799
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1912217769}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3c6ce31feb0d49889b887c3b77f50e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyAnimationController
+  animator: {fileID: 75926240}
+  autoFindAnimator: 1
+  autoUpdateLocomotion: 1
+  movingSpeedThreshold: 0.05
+  driveFromStateMachine: 0
 --- !u!1001 &1947842813
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -30300,7 +30439,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3658355964135889321, guid: 9e6ca11ea1f5348f8890a1ad05f3fd3e, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: -0.83
       objectReference: {fileID: 0}
     - target: {fileID: 3658355964135889321, guid: 9e6ca11ea1f5348f8890a1ad05f3fd3e, type: 3}
       propertyPath: m_LocalPosition.z
@@ -30338,10 +30477,27 @@ PrefabInstance:
       propertyPath: m_Mesh
       value: 
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    - target: {fileID: 4689812970590350533, guid: 9e6ca11ea1f5348f8890a1ad05f3fd3e, type: 3}
+      propertyPath: _animationName
+      value: Run
+      objectReference: {fileID: 0}
+    m_RemovedComponents:
+    - {fileID: 4689812970590350533, guid: 9e6ca11ea1f5348f8890a1ad05f3fd3e, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 1323751776439138188, guid: 9e6ca11ea1f5348f8890a1ad05f3fd3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 265667176}
+    - targetCorrespondingSourceObject: {fileID: 1323751776439138188, guid: 9e6ca11ea1f5348f8890a1ad05f3fd3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 265667177}
+    - targetCorrespondingSourceObject: {fileID: 7278256221503723293, guid: 9e6ca11ea1f5348f8890a1ad05f3fd3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 813468666}
+    - targetCorrespondingSourceObject: {fileID: 7278256221503723293, guid: 9e6ca11ea1f5348f8890a1ad05f3fd3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 813468665}
   m_SourcePrefab: {fileID: 100100000, guid: 9e6ca11ea1f5348f8890a1ad05f3fd3e, type: 3}
 --- !u!114 &4615949213569153912
 MonoBehaviour:
@@ -40815,6 +40971,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1912217789}
+    - targetCorrespondingSourceObject: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1912217799}
   m_SourcePrefab: {fileID: 100100000, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
 --- !u!4 &6984060909813093587
 Transform:
