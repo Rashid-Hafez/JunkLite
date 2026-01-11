@@ -119,6 +119,26 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &1541455 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
+  m_PrefabInstance: {fileID: 6898209875623595677}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1541465
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1541455}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f7f90d1fda7e41c4b36cce21c3ed434, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
+  flashDuration: 0.1
+  flashAmount: 0.8
+  flashColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &68849781
 GameObject:
   m_ObjectHideFlags: 0
@@ -15313,7 +15333,7 @@ SpriteRenderer:
   m_SmallMeshCulling: 1
   m_ForceMeshLod: -1
   m_MeshLodSelectionBias: 0
-  m_RenderingLayerMask: 1
+  m_RenderingLayerMask: 4294967295
   m_RendererPriority: 0
   m_Materials:
   - {fileID: 2100000, guid: d45d016b30ff341938aa1850c92f0508, type: 2}
@@ -60982,6 +61002,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4580324285353963223, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
+      propertyPath: chargeVFXPrefab
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 4606069892618623333, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 56e52a3e1addd49bdbf2035a39c0887a, type: 2}
     - target: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: m_Name
       value: Robot Enemy
@@ -60989,7 +61017,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1541465}
   m_SourcePrefab: {fileID: 100100000, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
 --- !u!4 &6984060909813093587
 Transform:
