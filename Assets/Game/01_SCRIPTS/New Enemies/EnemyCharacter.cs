@@ -179,7 +179,7 @@ namespace junklite
             }
             if (damageable != null)
             {
-                damageable.OnDamaged += OnDamagedFlash;
+                damageable.OnDamaged += OnDamagedVFX;
                 Debug.Log($"{gameObject.name} has Damageable component and is subscribed to OnDamaged event");
             }
             else
@@ -596,16 +596,22 @@ namespace junklite
 
         #endregion
 
-        #region Damage VFX
+       
+        #region Damage Flash VFX
 
         /// <summary>
-        /// Called when this enemy takes damage - triggers damage popup and flash.
-        /// Hit particles are handled by WeaponManager at point of impact.
+        /// Called when this enemy takes damage - triggers flash VFX.
+        /// Override in subclasses to customize flash behavior.
         /// </summary>
         protected virtual void OnDamagedVFX(float damage, GameObject source)
         {
             string srcName = source != null ? source.name : "(unknown)";
             Debug.Log($"{gameObject.name} took {damage} damage from {srcName}");
+
+            if(DamagePopupManager.Instance != null)
+            {
+                DamagePopupManager.Instance.SpawnPopup(transform.position, damage);
+            }
 
             if (damageFlashUniversal != null)
             {
