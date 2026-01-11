@@ -37,9 +37,7 @@ namespace junklite
             // Deactivate any active hitboxes (safety measure)
             enemy.DashHitbox?.Deactivate();
 
-            // TODO: Play stun/hit animation
-            // enemy.Animator?.SetTrigger("Stunned");
-            // enemy.Animator?.SetBool("IsStunned", true);
+            // Animation is driven via EnemyAnimationController subscribing to StateMachine.OnStateChanged.
 
             Debug.Log($"{enemy.gameObject.name}: Entered StunnedState");
         }
@@ -66,7 +64,7 @@ namespace junklite
         public override void Exit()
         {
             // TODO: Clear stun animation state
-            // enemy.Animator?.SetBool("IsStunned", false);
+            // Animation is driven via EnemyAnimationController subscribing to StateMachine.OnStateChanged.
 
             Debug.Log($"{enemy.gameObject.name}: Exited StunnedState");
         }

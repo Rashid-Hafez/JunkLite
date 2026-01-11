@@ -29,8 +29,7 @@ namespace junklite
             // Play charge VFX
             enemy.SpawnChargeVFX();
 
-            // TODO: Play charge animation
-            // enemy.Animator?.SetTrigger("Charge");
+            // Animation is driven via EnemyAnimationController subscribing to StateMachine.OnStateChanged.
 
             Debug.Log($"{enemy.gameObject.name}: Charging! ({timer}s)");
         }

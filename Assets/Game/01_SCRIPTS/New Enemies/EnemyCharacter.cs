@@ -42,9 +42,12 @@ namespace junklite
         [SerializeField] protected bool showGizmos = true;
 
         [Header("Damage Flash VFX")]
-        [SerializeField] protected SpriteRenderer spriteRenderer;
-        [SerializeField] protected Color damageFlashColor = Color.red;
-        [SerializeField] protected float damageFlashDuration = 0.3f;
+        [SerializeField] protected DamageFlashUniversal damageFlashUniversal;
+        private bool warnedMissingDamageFlash;
+
+        [Header("Animation (Enemy)")]
+        [SerializeField] private EnemyAnimationController enemyAnimation;
+        public EnemyAnimationController Anim => enemyAnimation;
 
         [Header("Death VFX")]
         [SerializeField] protected GameObject deathParticlePrefab;
@@ -89,7 +92,7 @@ namespace junklite
         protected bool isInCombat = false;
 
         // Current state reference for quick access
-        protected EnemyStateBase state => stateMachine?.CurrentState as EnemyStateBase;
+        protected new EnemyStateBase state => stateMachine?.CurrentState as EnemyStateBase;
 
         public bool IsInCombat => isInCombat;
 
@@ -137,6 +140,16 @@ namespace junklite
             statusEffects = GetComponent<StatusEffectHandler>();
             spawnPosition = transform.position;
 
+            if (enemyAnimation == null)
+                enemyAnimation = GetComponentInChildren<EnemyAnimationController>(true);
+
+            // Auto-wire DamageFlashUniversal if not set in the inspector (prevents null refs on damage).
+            if (damageFlashUniversal == null)
+            {
+                // includeInactive: true so prefabs with disabled VFX children still get found
+                damageFlashUniversal = GetComponentInChildren<DamageFlashUniversal>(true);
+            }
+
             // Sync knockback setting to movement component
             if (movement != null)
             {
@@ -157,13 +170,21 @@ namespace junklite
                 dashHitbox.Deactivate();
             }
 
-            // Setup damage flash VFX
-            if (spriteRenderer != null)
-                originalSpriteColor = spriteRenderer.color;
-
+            //////////// DAMAGE FLASH VFX ////////////
+            /// MUST BE SETUP IN THE INSPECTOR FOR EACH ENEMY
+            /// AND MUST HAVE A DamageFlashUniversal COMPONENT
+            /// 
+            if (damageFlashUniversal != null && damageable != null){
+                Debug.Log($"{gameObject.name} has DamageFlashUniversal and Damageable components");
+            }
             if (damageable != null)
-                damageable.OnDamaged += OnDamagedVFX;
-        }
+            {
+                damageable.OnDamaged += OnDamagedFlash;
+                Debug.Log($"{gameObject.name} has Damageable component and is subscribed to OnDamaged event");
+            }
+            else
+                Debug.LogError($"[{gameObject.name}] Damageable component not found!");
+            }
 
         protected override void Start()
         {
@@ -583,39 +604,23 @@ namespace junklite
         /// </summary>
         protected virtual void OnDamagedVFX(float damage, GameObject source)
         {
-            if (!IsAlive) return;
+            string srcName = source != null ? source.name : "(unknown)";
+            Debug.Log($"{gameObject.name} took {damage} damage from {srcName}");
 
-            // Spawn damage popup
-            if (DamagePopupManager.Instance != null)
-                DamagePopupManager.Instance.SpawnPopup(transform.position, damage);
-
-            // Damage flash
-            if (spriteRenderer != null)
+            if (damageFlashUniversal != null)
             {
-                if (damageFlashCoroutine != null)
-                    StopCoroutine(damageFlashCoroutine);
-
-                damageFlashCoroutine = StartCoroutine(DamageFlashRoutine());
-            }
-        }
-
-        private IEnumerator DamageFlashRoutine()
-        {
-            spriteRenderer.color = damageFlashColor;
-
-            float elapsed = 0f;
-            while (elapsed < damageFlashDuration)
-            {
-                elapsed += Time.deltaTime;
-                float t = elapsed / damageFlashDuration;
-                spriteRenderer.color = Color.Lerp(damageFlashColor, originalSpriteColor, t);
-                yield return null;
+                damageFlashUniversal.Flash();
+                return;
             }
 
-            if (IsAlive && spriteRenderer != null)
-                spriteRenderer.color = originalSpriteColor;
-
-            damageFlashCoroutine = null;
+            if (!warnedMissingDamageFlash)
+            {
+                warnedMissingDamageFlash = true;
+                Debug.LogWarning(
+                    $"[{gameObject.name}] Missing DamageFlashUniversal reference/component; skipping damage flash VFX.",
+                    this
+                );
+            }
         }
 
         #endregion

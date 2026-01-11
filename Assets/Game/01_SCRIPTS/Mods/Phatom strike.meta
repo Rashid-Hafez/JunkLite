@@ -1,5 +1,9 @@
 fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/Game/01_SCRIPTS/Mods/Phatom strike.meta
 guid: bc81b07dcdcf00f4a9577ea3bdf2e2aa
+========
+guid: 6073472ff727343dca9a3ad76a4ad794
+>>>>>>>> origin/Milestone-2.3:Assets/Game/SPINE ENEMIES.meta
 folderAsset: yes
 DefaultImporter:
   externalObjects: {}

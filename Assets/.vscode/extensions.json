@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "ms-dotnettools.csharp",
+    "ms-dotnettools.csdevkit"
+  ]
+}
+
+{
+    "recommendations": [
+        "tobiah.unity-tools"
+    ]
+}

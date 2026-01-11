@@ -126,7 +126,18 @@ namespace junklite
             currentState = newState;
             currentState.Enter();
 
-            OnStateChanged?.Invoke(previousState, currentState);
+            // IMPORTANT: This is where the state machine is notified that the state has changed. 
+            // AND WE CAN CHANGE ANIMATIONS HERE.  
+            
+            // example for EnemyAnimationController:
+            // private void OnEnable()
+            // {
+            //     if (driveFromStateMachine && stateMachine != null)
+            //         stateMachine.OnStateChanged += HandleStateChanged;
+            // }
+
+            OnStateChanged?.Invoke(previousState, currentState); 
+            ///------------------------------------------------------------------------------------------------
         }
 
         /// <summary>

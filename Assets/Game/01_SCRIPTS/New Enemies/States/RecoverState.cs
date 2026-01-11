@@ -20,8 +20,7 @@ namespace junklite
             // Stop all movement
             enemy.Movement?.Stop();
 
-            // TODO: Play recovery animation
-            // enemy.Animator?.SetTrigger("Recover");
+            // Animation is driven via EnemyAnimationController subscribing to StateMachine.OnStateChanged.
 
             Debug.Log($"{enemy.gameObject.name}: Recovering ({timer}s)");
         }

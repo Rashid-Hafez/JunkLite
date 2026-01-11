@@ -58,8 +58,7 @@ namespace junklite
             // Start dash movement
             movement?.DashTo(dashTarget, enemy.DashSpeed);
 
-            // TODO: Play dash animation
-            // enemy.Animator?.SetTrigger("Dash");
+            // Animation is driven via EnemyAnimationController subscribing to StateMachine.OnStateChanged.
 
             Debug.Log($"{enemy.gameObject.name}: Dashing! (speed: {enemy.DashSpeed})");
         }
