@@ -31,6 +31,7 @@ namespace junklite
         [SerializeField] private Unity.Cinemachine.CinemachineImpulseSource impulseSource;
         [SerializeField] private float enemyHitHitstopDuration = 0.06f;
         [SerializeField] private float enemyHitShakeForce = 0.8f;
+        [SerializeField] private float enemyHitDelay = 0.3f;
 
         [Header("Recoil")]
         [SerializeField] private float sideRecoil = 6f;
@@ -169,8 +170,7 @@ namespace junklite
             if (closestEnemy != null)
             {
                 result = AttackHitResult.Enemy;
-                PlayHitFeedback();
-                DealDamageToTarget(closestEnemy, step);
+                StartCoroutine(DelayDealDamage(closestEnemy, step));
             }
             else if (hitEnvironment)
             {
@@ -226,6 +226,19 @@ namespace junklite
         #endregion Attack
 
         #region Damage
+
+        private IEnumerator DelayDealDamage(Collider targetCollider, WeaponComboData.ComboStep step)
+        {
+            if (enemyHitDelay > 0f)
+                yield return new WaitForSeconds(enemyHitDelay);
+
+            // Target might have been destroyed / disabled during the delay.
+            if (targetCollider == null)
+                yield break;
+
+            PlayHitFeedback();
+            DealDamageToTarget(targetCollider, step);
+        }
 
         private void DealDamageToTarget(Collider targetCollider, WeaponComboData.ComboStep step)
         {

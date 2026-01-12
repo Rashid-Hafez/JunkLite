@@ -16718,7 +16718,7 @@ MonoBehaviour:
   sideAttack: {fileID: 128506076357536208}
   upAttack: {fileID: 7039884645192212358}
   downAttack: {fileID: 2881757924107890758}
-  sideRadius: 1
+  sideRadius: 0.9
   upRadius: 0.95
   downRadius: 1
   enemyLayer:
@@ -16731,12 +16731,13 @@ MonoBehaviour:
   impulseSource: {fileID: 0}
   enemyHitHitstopDuration: 0.06
   enemyHitShakeForce: 0.5
+  enemyHitDelay: 0.15
   sideRecoil: 23
   poolSizePerSlash: 12
   slashPoolRoot: {fileID: 3708428653336801813}
   slashOffsetDirection: 0.5
   slashOffsetDistance: 0.5
-  slashScale: 3
+  slashScale: 2
 --- !u!114 &7181291251784971520
 MonoBehaviour:
   m_ObjectHideFlags: 0
