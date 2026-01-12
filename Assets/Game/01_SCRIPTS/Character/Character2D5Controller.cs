@@ -15,12 +15,6 @@ namespace junklite
         [Header("Weapon Socket Settings")]
         [SerializeField] private Transform TargetParent;
         [SerializeField] private Transform weaponSocket;
-        [SerializeField] private float weaponSocketOffset = 0.5f;
-        [SerializeField] private float weaponSocketRotation = 0f;
-        [SerializeField] private float weaponSocketScale = 1f;
-        [SerializeField] private int weaponSocketSortingOrder = 10;
-        [SerializeField] private int weaponSocketSortingLayer = 0;
-        [SerializeField] private int weaponSocketSortingLayerID = 0;
         [SerializeField] private string weaponSocketSortingLayerName;
 
         [Header("Jump Tuning")]
