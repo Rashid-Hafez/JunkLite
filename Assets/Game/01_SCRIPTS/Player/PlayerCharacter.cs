@@ -16,6 +16,9 @@ namespace junklite
         [SerializeField] private float attackRange = 1.5f;
         [SerializeField] private LayerMask enemyLayerMask = 1;
 
+        [Header("Attack Settings")]
+        [SerializeField] private float attackFacingLockDuration = 0.25f;
+
         [Header("VFX")]
         [SerializeField] private ParticleSystem particleJumpUp;
         [SerializeField] private ParticleSystem particleJumpDown;
@@ -552,6 +555,10 @@ namespace junklite
             {
                 dir = AttackDirection.Down;
             }
+
+            // Lock facing direction during attack
+            if (Controller != null && attackFacingLockDuration > 0f)
+                Controller.LockFacing(attackFacingLockDuration);
 
             LastAttackDirection = dir;
             _weaponManager.Attack(dir);

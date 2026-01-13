@@ -116,6 +116,10 @@ namespace junklite
         private Vector3 dashDirection;
         private bool wasDashOnCooldown = false;
 
+        // Facing lock (prevents flipping during attacks)
+        private bool facingLocked = false;
+        private float facingLockEndTime = 0f;
+
 
         // Events
         public System.Action<bool> OnGroundedStateChanged;
@@ -151,6 +155,26 @@ namespace junklite
 
         public bool IsDashing => isDashing;
         public bool CanDash => dashCooldownTimer <= 0f && (isGrounded || canDashInAir) && canMove;
+        public bool IsFacingLocked => facingLocked;
+
+        /// <summary>
+        /// Locks facing direction for the specified duration. 
+        /// Used during attacks to prevent mid-swing flipping.
+        /// </summary>
+        public void LockFacing(float duration)
+        {
+            facingLocked = true;
+            facingLockEndTime = Time.time + duration;
+        }
+
+        /// <summary>
+        /// Immediately unlocks facing direction.
+        /// </summary>
+        public void UnlockFacing()
+        {
+            facingLocked = false;
+            facingLockEndTime = 0f;
+        }
 
         private void Awake()
         {
@@ -234,6 +258,10 @@ namespace junklite
 
             if (isDashing && Time.time >= dashEndTime)
                 EndDash();
+
+            // --- Facing lock expiry ---
+            if (facingLocked && Time.time >= facingLockEndTime)
+                UnlockFacing();
 
             // If roaming on Z, clamp position in Update (visual) – physics stays in FixedUpdate
             if (!snapToZPosition && allowZMovement)
@@ -737,6 +765,9 @@ namespace junklite
 
         private void HandleFacingDirectionFixed(float horizontalInput)
         {
+            // Don't flip if facing is locked (during attacks)
+            if (facingLocked) return;
+
             bool facingRight = horizontalInput > 0f;
 
             switch (facingMode)

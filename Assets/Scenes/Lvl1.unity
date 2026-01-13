@@ -61948,7 +61948,7 @@ AudioListener:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7093325802339153998}
-  m_Enabled: 0
+  m_Enabled: 1
 --- !u!1 &7474828361886955965
 GameObject:
   m_ObjectHideFlags: 0
@@ -72721,7 +72721,6 @@ GameObject:
   - component: {fileID: 2843836145363672196}
   - component: {fileID: 7508064127486040028}
   - component: {fileID: 3154979607244673046}
-  - component: {fileID: 9031354129162377466}
   m_Layer: 0
   m_Name: CinemachineBrain
   m_TagString: Untagged
@@ -72729,14 +72728,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!81 &9031354129162377466
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9031354129162377465}
-  m_Enabled: 1
 --- !u!114 &9048274676938964585
 MonoBehaviour:
   m_ObjectHideFlags: 0

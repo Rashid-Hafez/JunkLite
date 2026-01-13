@@ -16660,6 +16660,7 @@ MonoBehaviour:
   enemyLayerMask:
     serializedVersion: 2
     m_Bits: 0
+  attackFacingLockDuration: 0.15
   particleJumpUp: {fileID: 0}
   particleJumpDown: {fileID: 9116952141988312691}
   particleDashBurst: {fileID: 0}
