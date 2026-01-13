@@ -119,26 +119,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &1541455 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-  m_PrefabInstance: {fileID: 6898209875623595677}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1541465
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1541455}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f7f90d1fda7e41c4b36cce21c3ed434, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
-  flashDuration: 0.1
-  flashAmount: 0.8
-  flashColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &68849781
 GameObject:
   m_ObjectHideFlags: 0
@@ -26581,6 +26561,55 @@ Transform:
   - {fileID: 1619157638}
   - {fileID: 1883404637}
   - {fileID: 1204119883003701097}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1477303921
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1477303923}
+  - component: {fileID: 1477303922}
+  m_Layer: 0
+  m_Name: Audio Manger
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1477303922
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1477303921}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba63431944873c746b32676adfebaf2d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.AudioManager
+  library: {fileID: 11400000, guid: 7fecf20c607bd4d4099904de59cc49a6, type: 2}
+  poolSize: 8
+  masterGroup: {fileID: 24300002, guid: cfcd47a2f38120e4391189a08b846990, type: 2}
+  musicGroup: {fileID: 8602809312970926745, guid: cfcd47a2f38120e4391189a08b846990, type: 2}
+  sfxGroup: {fileID: -4282266937555009576, guid: cfcd47a2f38120e4391189a08b846990, type: 2}
+--- !u!4 &1477303923
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1477303921}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 2.68144, y: -1.86871, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1488050963
@@ -61674,14 +61703,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 4580324285353963223, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: chargeVFXPrefab
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 4606069892618623333, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 2100000, guid: 56e52a3e1addd49bdbf2035a39c0887a, type: 2}
     - target: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: m_Name
       value: Robot Enemy
@@ -61689,10 +61710,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1541465}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
 --- !u!4 &6984060909813093587
 Transform:
@@ -61730,9 +61748,9 @@ GameObject:
   - component: {fileID: 1525610267253736868}
   - component: {fileID: 5046013121523631984}
   - component: {fileID: 6804730193276140009}
-  - component: {fileID: 7463669349803538004}
   - component: {fileID: 5439230423213017180}
   - component: {fileID: 7463669349803538005}
+  - component: {fileID: 7463669349803538006}
   m_Layer: 0
   m_Name: CinemachineCamera
   m_TagString: MainCamera
@@ -61899,14 +61917,6 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
---- !u!81 &7463669349803538004
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7093325802339153998}
-  m_Enabled: 1
 --- !u!114 &7463669349803538005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -61931,6 +61941,14 @@ MonoBehaviour:
     FrequencyGain: 0.2
     Duration: 0.2
     m_NoiseOffsets: {x: 0, y: 0, z: 0}
+--- !u!81 &7463669349803538006
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7093325802339153998}
+  m_Enabled: 0
 --- !u!1 &7474828361886955965
 GameObject:
   m_ObjectHideFlags: 0
@@ -72703,6 +72721,7 @@ GameObject:
   - component: {fileID: 2843836145363672196}
   - component: {fileID: 7508064127486040028}
   - component: {fileID: 3154979607244673046}
+  - component: {fileID: 9031354129162377466}
   m_Layer: 0
   m_Name: CinemachineBrain
   m_TagString: Untagged
@@ -72710,6 +72729,14 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!81 &9031354129162377466
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9031354129162377465}
+  m_Enabled: 1
 --- !u!114 &9048274676938964585
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -72877,6 +72904,7 @@ SceneRoots:
   - {fileID: 502200488}
   - {fileID: 1336238123}
   - {fileID: 1820418862}
+  - {fileID: 1477303923}
   - {fileID: 397577186}
   - {fileID: 217546191}
   - {fileID: 4236188474072214778}

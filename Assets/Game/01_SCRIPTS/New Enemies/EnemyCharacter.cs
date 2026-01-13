@@ -65,6 +65,8 @@ namespace junklite
         [SerializeField] protected DropTable customDropTable;
         [SerializeField][Range(0f, 1f)] protected float dropChance = 1f;
 
+        protected EnemyType enemyType;
+
         // Active VFX instances (don't overwrite the prefabs!)
         protected GameObject activeChargeVFX;
         protected GameObject activeDashVFX;
@@ -131,6 +133,7 @@ namespace junklite
         public float DistanceToTarget => HasTarget ? Vector3.Distance(transform.position, target.position) : float.MaxValue;
         public bool IsTargetInAttackRange => DistanceToTarget <= attackRange;
         public Vector3 DirectionToTarget => HasTarget ? (target.position - transform.position).normalized : Vector3.zero;
+        public EnemyType EnemyType => enemyType;
 
         protected override void Awake()
         {
@@ -733,5 +736,12 @@ namespace junklite
 
         #endregion
 
+    }
+
+    public enum EnemyType
+    {
+        Dummy,
+        Robot,
+        Hyena
     }
 }

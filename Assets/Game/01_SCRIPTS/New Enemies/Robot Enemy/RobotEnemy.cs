@@ -41,8 +41,16 @@ namespace junklite
         // Expose grab duration for GrabState
         public float GrabDuration => grabDuration;
 
+
+        protected override void Awake()
+        {
+            base.Awake();
+
+            enemyType = EnemyType.Robot;
+        }
         protected override void InitializeStateMachine()
         {
+            
             stateMachine.RegisterStates(
                 new PatrolState(this),
                 new IdleState(this),

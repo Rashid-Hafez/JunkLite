@@ -18,6 +18,8 @@ namespace junklite
         {
             base.Awake();
             rb = GetComponent<Rigidbody>();
+
+            enemyType = EnemyType.Dummy;
         }
 
         protected override void InitializeStateMachine()

@@ -47,8 +47,8 @@ namespace junklite
             float planarSpeed = new Vector2(v.x, v.z).magnitude;
 
             // Locomotion params (common across most enemies)
-            animator.SetFloat("Speed", planarSpeed);
-            animator.SetBool("IsMoving", planarSpeed > movingSpeedThreshold);
+            //animator.SetFloat("Speed", planarSpeed);
+            //animator.SetBool("IsMoving", planarSpeed > movingSpeedThreshold);
         }
 
         private void OnEnable()
