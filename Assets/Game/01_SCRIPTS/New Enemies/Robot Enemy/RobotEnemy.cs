@@ -6,6 +6,8 @@ namespace junklite
     /// Robot enemy - dashes at player when spotted.
     /// Has a chance to grab and throw the player on hit.
     /// 
+    /// CAPABILITIES: ICharger, IDasher, IGrabber, IRecoverer
+    /// 
     /// BEHAVIOR (decisions defined here):
     /// - Player spotted → Enter combat, start charging
     /// - Charge complete → Dash to player position
@@ -14,14 +16,18 @@ namespace junklite
     /// - Dash complete (miss) → Recover
     /// - Recovery complete → If player still visible, charge again; else exit combat and patrol
     /// </summary>
-    public class RobotEnemy : EnemyCharacter
+    public class RobotEnemy : EnemyCharacter, ICharger, IDasher, IGrabber, IRecoverer
     {
+        [Header("Robot - Charge")]
+        [SerializeField] private float chargeTime = 1f;
+        [SerializeField] private GameObject chargeVFXPrefab;
+
         [Header("Robot - Dash Attack")]
-        [SerializeField] private float dashChargeTime = 1f;
         [SerializeField] private float dashSpeed = 15f;
-        [SerializeField] private float dashRecoveryTime = 0.3f;
         [SerializeField] private float dashDamage = 10f;
         [SerializeField] private Vector2 dashKnockback = new Vector2(15f, 5f);
+        [SerializeField] private Hitbox dashHitbox;
+        [SerializeField] private GameObject dashVFXPrefab;
 
         [Header("Robot - Grab Attack")]
         [SerializeField] private bool canGrab = true;
@@ -30,96 +36,74 @@ namespace junklite
         [SerializeField] private Vector2 throwForce = new Vector2(25f, 10f);
         [SerializeField] private float throwDamage = 5f;
         [SerializeField] private Vector3 grabOffset = new Vector3(0f, 1.5f, 0f);
+        [SerializeField] private GameObject grabVFXPrefab;
 
-        // Override base class properties
-        public override float DashChargeTime => dashChargeTime;
-        public override float DashSpeed => dashSpeed;
-        public override float DashRecoveryTime => dashRecoveryTime;
-        public override float DashDamage => dashDamage;
-        public override Vector2 DashKnockback => dashKnockback;
+        [Header("Robot - Recovery")]
+        [SerializeField] private float recoveryTime = 0.3f;
+        [SerializeField] private GameObject recoveryVFXPrefab;
 
-        // Expose grab duration for GrabState
-        public float GrabDuration => grabDuration;
+        [Header("Robot - VFX Settings")]
+        [SerializeField] private float vfxScale = 2f;
 
+        // Active VFX instances
+        private GameObject activeChargeVFX;
+        private GameObject activeDashVFX;
+        private GameObject activeGrabVFX;
+        private GameObject activeRecoveryVFX;
 
-        protected override void Awake()
-        {
-            base.Awake();
+        #region ICharger Implementation
 
-            enemyType = EnemyType.Robot;
-        }
-        protected override void InitializeStateMachine()
-        {
-            
-            stateMachine.RegisterStates(
-                new PatrolState(this),
-                new IdleState(this),
-                new ChargeState(this),
-                new DashState(this),
-                new GrabState(this),
-                new RecoverState(this),
-                new DeadState(this)
-            );
+        public float ChargeTime => chargeTime;
+        public GameObject ChargeVFXPrefab => chargeVFXPrefab;
 
-            if (HasPatrol)
-                stateMachine.SetInitialState<PatrolState>();
-            else
-                stateMachine.SetInitialState<IdleState>();
-        }
-
-        // === DAMAGE HANDLING ===
-
-        public override void TakeDamage(DamageInfo info)
-        {
-            if (state != null && !state.CanTakeDamage)
-                return;
-
-            base.TakeDamage(info);
-        }
-
-        // === ROBOT BRAIN - All decisions live here ===
-
-        public override void OnPlayerSpotted()
-        {
-            if (!IsAlive) return;
-            if (isInCombat) return;
-
-            EnterCombat();
-            stateMachine.ChangeState<ChargeState>();
-        }
-
-        public override void OnPlayerLost()
-        {
-            if (!IsAlive) return;
-
-            if (!isInCombat)
-            {
-                if (HasPatrol)
-                    stateMachine.ChangeState<PatrolState>();
-                else
-                    stateMachine.ChangeState<IdleState>();
-            }
-        }
-
-        public override void OnChargeComplete()
+        public void OnChargeComplete()
         {
             if (!IsAlive) return;
             stateMachine.ChangeState<DashState>();
         }
 
-        public override void OnDashComplete()
+        #endregion
+
+        #region IDasher Implementation
+
+        public float DashSpeed => dashSpeed;
+        public float DashDamage => dashDamage;
+        public Vector2 DashKnockback => dashKnockback;
+        public Hitbox DashHitbox => dashHitbox;
+        public GameObject DashVFXPrefab => dashVFXPrefab;
+
+        public void OnDashComplete()
         {
             if (!IsAlive) return;
             stateMachine.ChangeState<RecoverState>();
         }
 
-        public override void OnGrabComplete()
+        #endregion
+
+        #region IGrabber Implementation
+
+        public bool CanGrab => canGrab;
+        public float GrabChance => grabChance;
+        public float GrabDuration => grabDuration;
+        public Vector3 GrabOffset => grabOffset;
+        public Vector2 ThrowForce => throwForce;
+        public float ThrowDamage => throwDamage;
+        public GameObject GrabVFXPrefab => grabVFXPrefab;
+
+        public void OnGrabComplete()
         {
             if (!IsAlive) return;
             stateMachine.ChangeState<RecoverState>();
         }
 
-        public override void OnRecoveryComplete()
+        #endregion
+
+        #region IRecoverer Implementation
+
+        public float RecoveryTime => recoveryTime;
+        public GameObject RecoveryVFXPrefab => recoveryVFXPrefab;
+
+        public void OnRecoveryComplete()
         {
             if (!IsAlive) return;
 
@@ -137,6 +121,94 @@ namespace junklite
             }
         }
 
+        #endregion
+
+        #region Lifecycle
+
+        protected override void Awake()
+        {
+            base.Awake();
+            enemyType = EnemyType.Robot;
+
+            // Setup dash hitbox events
+            if (dashHitbox != null)
+            {
+                dashHitbox.OnHit += OnDashHitboxHit;
+                dashHitbox.Deactivate();
+            }
+        }
+
+        protected override void InitializeStateMachine()
+        {
+            stateMachine.RegisterStates(
+                new PatrolState(this),
+                new IdleState(this),
+                new ChargeState(this),
+                new DashState(this),
+                new GrabState(this),
+                new RecoverState(this),
+                new DeadState(this)
+            );
+
+            if (HasPatrol)
+                stateMachine.SetInitialState<PatrolState>();
+            else
+                stateMachine.SetInitialState<IdleState>();
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+
+            if (dashHitbox != null)
+                dashHitbox.OnHit -= OnDashHitboxHit;
+
+            // Release VFX back to pool
+            VFXPool.Release(ref activeChargeVFX);
+            VFXPool.Release(ref activeDashVFX);
+            VFXPool.Release(ref activeGrabVFX);
+            VFXPool.Release(ref activeRecoveryVFX);
+        }
+
+        #endregion
+
+        #region Damage Handling
+
+        public override void TakeDamage(DamageInfo info)
+        {
+            if (state != null && !state.CanTakeDamage)
+                return;
+
+            base.TakeDamage(info);
+        }
+
+        #endregion
+
+        #region Robot Brain - Core Decisions
+
+        public override void OnPlayerSpotted()
+        {
+            if (!IsAlive) return;
+            if (isInCombat) return;
+
+            EnterCombat();
+            stateMachine.ChangeState<ChargeState>();
+        }
+
+        public override void OnPlayerLost()
+        {
+            if (!IsAlive) return;
+
+            // Only return to patrol if not in combat
+            if (!isInCombat)
+            {
+                if (HasPatrol)
+                    stateMachine.ChangeState<PatrolState>();
+                else
+                    stateMachine.ChangeState<IdleState>();
+            }
+        }
+
         protected override void OnTargetAcquired()
         {
             Debug.Log($"{gameObject.name}: Target acquired!");
@@ -147,9 +219,11 @@ namespace junklite
             Debug.Log($"{gameObject.name}: Target lost.");
         }
 
-        // === ROBOT-SPECIFIC HIT BEHAVIOR ===
+        #endregion
 
-        protected override void OnDashHitboxHit(Collider other, Hitbox hitbox)
+        #region Dash Hit Behavior
+
+        private void OnDashHitboxHit(Collider other, Hitbox hitbox)
         {
             hitbox?.Deactivate();
 
@@ -162,6 +236,7 @@ namespace junklite
 
             int throwDir = Movement != null ? Movement.FacingDirection : 1;
 
+            // Check for grab
             bool doGrab = canGrab && Random.value <= grabChance;
 
             if (doGrab)
@@ -172,9 +247,11 @@ namespace junklite
 
                 if (grabbable != null && grabbable.CanBeGrabbed)
                 {
+                    // Deal damage first
                     var damageInfo = new DamageInfo(dashDamage, gameObject, DamageType.Physical);
                     damageable.TakeDamage(damageInfo);
 
+                    // Then grab
                     var grabInfo = new GrabInfo(
                         gameObject,
                         grabDuration,
@@ -192,9 +269,60 @@ namespace junklite
                 }
             }
 
+            // Normal hit - damage + knockback
             var info = new DamageInfo(dashDamage, gameObject, DamageType.Physical, dashKnockback);
             damageable.TakeDamage(info);
             Debug.Log($"{gameObject.name} hit {other.name} for {dashDamage} damage");
         }
+
+        #endregion
+
+        #region VFX Methods (Pooled)
+
+        public void SpawnChargeVFX()
+        {
+            ReleaseChargeVFX();
+            activeChargeVFX = VFXPool.Get(chargeVFXPrefab, transform, vfxScale);
+        }
+
+        public void ReleaseChargeVFX()
+        {
+            VFXPool.Release(ref activeChargeVFX);
+        }
+
+        public void SpawnDashVFX()
+        {
+            ReleaseDashVFX();
+            activeDashVFX = VFXPool.Get(dashVFXPrefab, transform, vfxScale);
+        }
+
+        public void ReleaseDashVFX()
+        {
+            VFXPool.Release(ref activeDashVFX);
+        }
+
+        public void SpawnGrabVFX()
+        {
+            ReleaseGrabVFX();
+            activeGrabVFX = VFXPool.Get(grabVFXPrefab, transform, vfxScale);
+        }
+
+        public void ReleaseGrabVFX()
+        {
+            VFXPool.Release(ref activeGrabVFX);
+        }
+
+        public void SpawnRecoveryVFX()
+        {
+            ReleaseRecoveryVFX();
+            activeRecoveryVFX = VFXPool.Get(recoveryVFXPrefab, transform, vfxScale);
+        }
+
+        public void ReleaseRecoveryVFX()
+        {
+            VFXPool.Release(ref activeRecoveryVFX);
+        }
+
+        #endregion
     }
 }

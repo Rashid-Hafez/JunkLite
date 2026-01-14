@@ -5,6 +5,8 @@ namespace junklite
     /// <summary>
     /// Simple dummy enemy that only takes damage. Used for testing.
     /// No AI, no states, no movement - just stands there and gets hit.
+    /// 
+    /// CAPABILITIES: None - it's a dummy!
     /// </summary>
     public class DummyEnemy : EnemyCharacter
     {
@@ -18,7 +20,6 @@ namespace junklite
         {
             base.Awake();
             rb = GetComponent<Rigidbody>();
-
             enemyType = EnemyType.Dummy;
         }
 
@@ -45,7 +46,7 @@ namespace junklite
 
             base.TakeDamage(info);
 
-            // Apply knockback - KnockbackForce.x is already signed for direction
+            // Apply knockback
             if (rb != null && info.KnockbackForce.sqrMagnitude > 0f)
             {
                 Vector3 knockback = new Vector3(
@@ -61,13 +62,9 @@ namespace junklite
                 attributes.RestoreHealthToMax();
         }
 
-        // Disable all behavior responses
+        // Disable all behavior responses - dummy does nothing
         public override void OnPlayerSpotted() { }
         public override void OnPlayerLost() { }
-        public override void OnChargeComplete() { }
-        public override void OnDashComplete() { }
-        public override void OnGrabComplete() { }
-        public override void OnRecoveryComplete() { }
         public override void OnStunComplete() { }
         public override void OnAttackFinished() { }
         public override void OnPlayerInAttackRange() { }

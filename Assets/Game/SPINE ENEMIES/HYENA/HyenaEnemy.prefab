@@ -39,6 +39,8 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6006736110498369533}
+  - {fileID: 912657825070910280}
+  - {fileID: 6605452486919180107}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &4409706428379079327
@@ -135,7 +137,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyMovement
   moveSpeed: 3
   stoppingDistance: 0.1
-  movementPlane: 0
+  movementPlane: 1
   useScaleFlip: 1
   defaultFacing: 1
   ignoreKnockback: 0
@@ -144,7 +146,7 @@ MonoBehaviour:
   groundCheckDistance: 0.1
   groundLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 2048
 --- !u!114 &3623083972437533626
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -195,51 +197,130 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1323751776439138188}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a7c72c7d3ae3a408c93d119a77bdc432, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.HyenaEnemy
   baseStats: {fileID: 11400000, guid: 9c39cce83670844f5962f7f58c983a10, type: 2}
   config: {fileID: 11400000, guid: f4a3bfab74d414d9a9895cec1db3c591, type: 2}
-  detectionZone: {fileID: 0}
+  detectionZone: {fileID: 7183850550453990006}
   attackRange: 2
   targetLayer:
     serializedVersion: 2
-    m_Bits: 0
-  dashHitbox: {fileID: 0}
+    m_Bits: 1
+  dashHitbox: {fileID: 3800878039402089531}
   patrolDistance: 5
   wallCheckDistance: 0.5
   wallLayer:
     serializedVersion: 2
-    m_Bits: 0
-  speed: 60
-  life: 100
+    m_Bits: 4096
   canBeKnockedBack: 1
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
   enemyAnimation: {fileID: 0}
+  deathParticlePrefab: {fileID: 0}
+  deathParticleLifetime: 2
+  enemyVisual: {fileID: 0}
   chargeVFXPrefab: {fileID: 0}
   dashVFXPrefab: {fileID: 0}
   grabVFXPrefab: {fileID: 0}
   recoveryVFXPrefab: {fileID: 0}
   vfxScale: 2
-  fireVFXPrefab: {fileID: 0}
-  iceVFXPrefab: {fileID: 0}
-  electricVFXPrefab: {fileID: 0}
-  poisonVFXPrefab: {fileID: 0}
-  holyVFXPrefab: {fileID: 0}
-  darkVFXPrefab: {fileID: 0}
-  lightVFXPrefab: {fileID: 0}
-  shadowVFXPrefab: {fileID: 0}
-  ModParticleScale: 2
-  ModParticleRotation: 0
-  duration: 0
+  customDropTable: {fileID: 0}
+  dropChance: 1
+  meleeAttackDuration: 0.4
+  meleeDamage: 8
+  meleeKnockback: {x: 8, y: 3}
+  meleeHitbox: {fileID: 0}
   dashChargeTime: 0.75
   dashSpeed: 14
   dashRecoveryTime: 0.35
   dashDamage: 12
   dashKnockback: {x: 14, y: 5}
+  dodgeDistance: 4
+  dodgeDuration: 0.35
+  dodgeHeight: 2
+  dodgeHasIFrames: 1
+  baseDodgeChance: 0.2
+  lowHpDodgeBonus: 0.4
+  meleeWeight: 1
+  dashWeight: 0.6
+  farDistanceThreshold: 5
+--- !u!1 &3629229793261663558
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 912657825070910280}
+  - component: {fileID: 449263385587746095}
+  - component: {fileID: 7183850550453990006}
+  m_Layer: 0
+  m_Name: Detection Zone
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &912657825070910280
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3629229793261663558}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1.24, z: 0.175}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3658355964135889321}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!135 &449263385587746095
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3629229793261663558}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 7.84
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &7183850550453990006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3629229793261663558}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 074b548b6f92e4e43aa567bd186f57a8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.DetectionZone
+  targetLayers:
+    serializedVersion: 2
+    m_Bits: 1
+  requireLineOfSight: 1
+  losBlockingLayers:
+    serializedVersion: 2
+    m_Bits: 6144
+  showGizmos: 1
 --- !u!1 &7278256221503723293
 GameObject:
   m_ObjectHideFlags: 0
@@ -398,3 +479,73 @@ MonoBehaviour:
     layerMixModes: 01000000
     layerBlendModes: 01000000
   updateTiming: 1
+--- !u!1 &8485428170692726044
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6605452486919180107}
+  - component: {fileID: 4680275442309368792}
+  - component: {fileID: 3800878039402089531}
+  m_Layer: 0
+  m_Name: Dashhitbox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6605452486919180107
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8485428170692726044}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.713, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3658355964135889321}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &4680275442309368792
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8485428170692726044}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.6443882, y: 2.0810027, z: 0.96183014}
+  m_Center: {x: 0, y: 0.4566069, z: 0}
+--- !u!114 &3800878039402089531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8485428170692726044}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98ec56f88f91517478199942c46e6dee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.Hitbox
+  targetLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  hitOnce: 1

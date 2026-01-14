@@ -4,17 +4,15 @@ namespace junklite
 {
     /// <summary>
     /// Dash state - enemy dashes to a target position.
+    /// 
+    /// REQUIRES: Enemy must implement IDasher
+    /// 
     /// Pure ACTION state: moves enemy, enables hitbox, ends when destination reached.
-    /// Calls enemy.OnDashComplete() when done - enemy DECIDES what to do next.
-    /// 
-    /// Requires a Hitbox component reference for damage (set via enemy.DashHitbox).
-    /// 
-    /// NOTE: The hitbox is activated on dash start. If the enemy's OnDashHitboxHit
-    /// handler wants single-hit behavior (e.g., for grabs), it should deactivate
-    /// the hitbox in that handler to prevent multiple damage ticks.
+    /// Calls IDasher.OnDashComplete() when done - enemy decides what to do next.
     /// </summary>
     public class DashState : EnemyStateBase
     {
+        private IDasher dasher;
         private EnemyMovement movement;
         private Hitbox hitbox;
 
@@ -22,14 +20,25 @@ namespace junklite
         private bool hasStarted;
         private bool dashComplete;
 
+        // Cached VFX instance
+        private GameObject activeVFX;
+
         private const float STOP_THRESHOLD = 0.5f;
 
         public DashState(EnemyCharacter enemy) : base(enemy) { }
 
         public override void Enter()
         {
+            // Get capability interface
+            dasher = enemy as IDasher;
+            if (dasher == null)
+            {
+                Debug.LogError($"{enemy.gameObject.name}: DashState requires IDasher interface!");
+                return;
+            }
+
             movement = enemy.Movement;
-            hitbox = enemy.DashHitbox;
+            hitbox = dasher.DashHitbox;
             hasStarted = false;
             dashComplete = false;
 
@@ -37,13 +46,13 @@ namespace junklite
             if (HasTarget)
             {
                 dashTarget = Target.position;
-                enemy.SpawnDashVFX();
+                activeVFX = VFXPool.Get(dasher.DashVFXPrefab, enemy.transform);
                 StartDash();
             }
             else
             {
                 // No target - can't dash, let enemy decide
-                enemy.OnDashComplete();
+                dasher.OnDashComplete();
             }
         }
 
@@ -51,21 +60,18 @@ namespace junklite
         {
             hasStarted = true;
 
-            // Activate hitbox - enemy's OnDashHitboxHit handler decides what happens on hit
-            // Handler can deactivate hitbox early if needed (e.g., for grab attacks)
+            // Activate hitbox
             hitbox?.Activate();
 
             // Start dash movement
-            movement?.DashTo(dashTarget, enemy.DashSpeed);
+            movement?.DashTo(dashTarget, dasher.DashSpeed);
 
-            // Animation is driven via EnemyAnimationController subscribing to StateMachine.OnStateChanged.
-
-            Debug.Log($"{enemy.gameObject.name}: Dashing! (speed: {enemy.DashSpeed})");
+            Debug.Log($"{enemy.gameObject.name}: Dashing! (speed: {dasher.DashSpeed})");
         }
 
         public override void Update()
         {
-            if (!hasStarted || dashComplete) return;
+            if (dasher == null || !hasStarted || dashComplete) return;
 
             // Check if reached destination
             float distance = Vector3.Distance(Transform.position, dashTarget);
@@ -73,24 +79,15 @@ namespace junklite
             if (distance <= STOP_THRESHOLD || (movement != null && movement.HasReachedDestination))
             {
                 dashComplete = true;
-
-                // Deactivate hitbox immediately when dash ends
                 hitbox?.Deactivate();
-
-                // Dash complete - let enemy decide what to do
-                enemy.OnDashComplete();
+                dasher.OnDashComplete();
             }
         }
 
         public override void Exit()
         {
-            // Ensure hitbox is disabled (safety, in case we exit early)
             hitbox?.Deactivate();
-
-            // Stop dash VFX
-            enemy.DestroyDashVFX();
-
-            // Stop movement
+            VFXPool.Release(ref activeVFX);
             movement?.Stop();
         }
     }

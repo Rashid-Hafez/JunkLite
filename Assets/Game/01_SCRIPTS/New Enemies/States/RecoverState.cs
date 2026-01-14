@@ -3,42 +3,59 @@ using UnityEngine;
 namespace junklite
 {
     /// <summary>
-    /// Recover state - enemy recovers after an attack.
-    /// Pure ACTION state: plays animation, waits for timer.
-    /// Calls enemy.OnRecoveryComplete() when done - enemy DECIDES what to do next.
+    /// Recovery state - enemy recovers after an action (cooldown/stagger).
+    /// 
+    /// REQUIRES: Enemy must implement IRecoverer
+    /// 
+    /// Pure ACTION state: waits for recovery duration.
+    /// Calls IRecoverer.OnRecoveryComplete() when done - enemy decides what to do next.
     /// </summary>
     public class RecoverState : EnemyStateBase
     {
+        private IRecoverer recoverer;
         private float timer;
+
+        // Cached VFX instance
+        private GameObject activeVFX;
 
         public RecoverState(EnemyCharacter enemy) : base(enemy) { }
 
         public override void Enter()
         {
-            timer = enemy.DashRecoveryTime;
+            // Get capability interface
+            recoverer = enemy as IRecoverer;
+            if (recoverer == null)
+            {
+                Debug.LogError($"{enemy.gameObject.name}: RecoverState requires IRecoverer interface!");
+                return;
+            }
 
-            // Stop all movement
+            timer = recoverer.RecoveryTime;
+
+            // Stop movement during recovery
             enemy.Movement?.Stop();
 
-            // Animation is driven via EnemyAnimationController subscribing to StateMachine.OnStateChanged.
+            // Spawn VFX
+            activeVFX = VFXPool.Get(recoverer.RecoveryVFXPrefab, enemy.transform);
 
-            Debug.Log($"{enemy.gameObject.name}: Recovering ({timer}s)");
+            Debug.Log($"{enemy.gameObject.name}: Recovering! ({timer}s)");
         }
 
         public override void Update()
         {
+            if (recoverer == null) return;
+
             timer -= Time.deltaTime;
 
             if (timer <= 0f)
             {
-                // Recovery complete - let enemy decide what to do
-                enemy.OnRecoveryComplete();
+                recoverer.OnRecoveryComplete();
             }
         }
 
         public override void Exit()
         {
-            // Cleanup if needed
+            VFXPool.Release(ref activeVFX);
         }
     }
 }

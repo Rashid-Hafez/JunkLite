@@ -7,11 +7,19 @@ namespace junklite
     /// Base class for all enemy characters.
     /// 
     /// ARCHITECTURE:
-    /// - States handle ACTIONS (move, animate, enable hitboxes)
-    /// - Enemy handles DECISIONS (what state to go to next)
+    /// - This base class contains ONLY universal enemy functionality
+    /// - Capability-specific behavior is defined via interfaces (IDasher, IGrabber, etc.)
+    /// - States check for interfaces to access capability-specific data
+    /// - Enemy subclasses implement interfaces to declare their capabilities
     /// 
-    /// States call transition methods (OnChargeComplete, OnDashComplete, etc.)
-    /// Enemy overrides these to define behavior/personality.
+    /// UNIVERSAL (lives here):
+    /// - Detection, patrol, target tracking
+    /// - Combat state management
+    /// - Death handling, VFX basics
+    /// - State machine reference
+    /// 
+    /// CAPABILITY-SPECIFIC (lives in interfaces):
+    /// - Dash, Grab, Melee, Dodge, Chase, Ranged, etc.
     /// </summary>
     [RequireComponent(typeof(StateMachine))]
     [RequireComponent(typeof(EnemyMovement))]
@@ -25,9 +33,6 @@ namespace junklite
         [SerializeField] protected DetectionZone detectionZone;
         [SerializeField] protected float attackRange = 2f;
         [SerializeField] protected LayerMask targetLayer;
-
-        [Header("Combat")]
-        [SerializeField] protected Hitbox dashHitbox;
 
         [Header("Patrol")]
         [SerializeField] protected float patrolDistance = 5f;
@@ -54,28 +59,14 @@ namespace junklite
         [SerializeField] protected float deathParticleLifetime = 2f;
         [SerializeField] protected GameObject enemyVisual;
 
-        [Header("Combat VFX")]
-        [SerializeField] protected GameObject chargeVFXPrefab;
-        [SerializeField] protected GameObject dashVFXPrefab;
-        [SerializeField] protected GameObject grabVFXPrefab;
-        [SerializeField] protected GameObject recoveryVFXPrefab;
-        [SerializeField] protected float vfxScale = 2f;
-
         [Header("Drops")]
         [SerializeField] protected DropTable customDropTable;
         [SerializeField][Range(0f, 1f)] protected float dropChance = 1f;
 
         protected EnemyType enemyType;
 
-        // Active VFX instances (don't overwrite the prefabs!)
-        protected GameObject activeChargeVFX;
-        protected GameObject activeDashVFX;
-        protected GameObject activeGrabVFX;
-        protected GameObject activeRecoveryVFX;
-
         // Damage flash state
         private Coroutine damageFlashCoroutine;
-        private Color originalSpriteColor;
 
         // Components
         protected StateMachine stateMachine;
@@ -103,7 +94,6 @@ namespace junklite
         public StateMachine StateMachine => stateMachine;
         public EnemyMovement Movement => movement;
         public DetectionZone DetectionZone => detectionZone;
-        public Hitbox DashHitbox => dashHitbox;
         public StatusEffectHandler StatusEffects => statusEffects;
 
         // Public accessors - Target
@@ -119,14 +109,6 @@ namespace junklite
         public Vector3 PatrolRightPoint => spawnPosition + Vector3.right * patrolDistance;
         public bool HasPatrol => patrolDistance > 0f;
         public bool CanBeKnockedBack => canBeKnockedBack;
-
-        // Virtual properties for attacks - override in subclasses
-        public virtual float DashChargeTime => 1f;
-        public virtual float DashSpeed => 15f;
-        public virtual float DashRecoveryTime => 0.3f;
-        public virtual float DashDamage => 10f;
-        public virtual Vector2 DashKnockback => new Vector2(15f, 5f); // x = horizontal, y = vertical
-        public virtual float DashKnockbackUpward => 5f;
 
         // Computed properties - Target
         public bool HasTarget => target != null && targetCharacter != null && targetCharacter.IsAlive;
@@ -146,18 +128,13 @@ namespace junklite
             if (enemyAnimation == null)
                 enemyAnimation = GetComponentInChildren<EnemyAnimationController>(true);
 
-            // Auto-wire DamageFlashUniversal if not set in the inspector (prevents null refs on damage).
+            // Auto-wire DamageFlashUniversal if not set in inspector
             if (damageFlashUniversal == null)
-            {
-                // includeInactive: true so prefabs with disabled VFX children still get found
                 damageFlashUniversal = GetComponentInChildren<DamageFlashUniversal>(true);
-            }
 
             // Sync knockback setting to movement component
             if (movement != null)
-            {
                 movement.IgnoreKnockback = !canBeKnockedBack;
-            }
 
             // Setup detection zone events
             if (detectionZone != null)
@@ -166,28 +143,10 @@ namespace junklite
                 detectionZone.OnTargetExit += OnDetectionZoneExit;
             }
 
-            // Setup hitbox events - enemy decides what happens on hit
-            if (dashHitbox != null)
-            {
-                dashHitbox.OnHit += OnDashHitboxHit;
-                dashHitbox.Deactivate();
-            }
-
-            //////////// DAMAGE FLASH VFX ////////////
-            /// MUST BE SETUP IN THE INSPECTOR FOR EACH ENEMY
-            /// AND MUST HAVE A DamageFlashUniversal COMPONENT
-            /// 
-            if (damageFlashUniversal != null && damageable != null){
-                Debug.Log($"{gameObject.name} has DamageFlashUniversal and Damageable components");
-            }
+            // Setup damage VFX event
             if (damageable != null)
-            {
                 damageable.OnDamaged += OnDamagedVFX;
-                Debug.Log($"{gameObject.name} has Damageable component and is subscribed to OnDamaged event");
-            }
-            else
-                Debug.LogError($"[{gameObject.name}] Damageable component not found!");
-            }
+        }
 
         protected override void Start()
         {
@@ -195,48 +154,23 @@ namespace junklite
             InitializeStateMachine();
         }
 
-        /// <summary>
-        /// Called when the component is enabled. Override to subscribe to events.
-        /// </summary>
-        protected virtual void OnEnable()
-        {
-            // Subclasses can subscribe to movement events here
-        }
-
-        /// <summary>
-        /// Called when the component is disabled. Override to unsubscribe from events.
-        /// </summary>
-        protected virtual void OnDisable()
-        {
-            // Subclasses can unsubscribe from movement events here
-        }
+        protected virtual void OnEnable() { }
+        protected virtual void OnDisable() { }
+        protected virtual void Update() { }
 
         /// <summary>
         /// Override to register states and set initial state.
         /// </summary>
         protected virtual void InitializeStateMachine() { }
 
-        protected virtual void Update()
-        {
-            if (!IsAlive) return;
-            // Detection is now handled by DetectionZone trigger events
-            // No per-frame scanning needed
-        }
-
         #region Detection Zone Events
 
-        /// <summary>
-        /// Called when DetectionZone detects a player entering.
-        /// </summary>
         protected virtual void OnDetectionZoneEnter(PlayerCharacter player)
         {
             if (!IsAlive) return;
             OnPlayerSpotted();
         }
 
-        /// <summary>
-        /// Called when DetectionZone detects a player leaving.
-        /// </summary>
         protected virtual void OnDetectionZoneExit(PlayerCharacter player)
         {
             if (!IsAlive) return;
@@ -245,7 +179,7 @@ namespace junklite
 
         #endregion
 
-        #region Behavior Decisions - Override these in subclasses
+        #region Core Behavior Decisions - Override in subclasses
 
         /// <summary>
         /// DECISION: Called when player is spotted. What should enemy do?
@@ -270,48 +204,18 @@ namespace junklite
         }
 
         /// <summary>
-        /// DECISION: Called when charge state completes. What should enemy do?
+        /// DECISION: Called when player enters attack range.
         /// </summary>
-        public virtual void OnChargeComplete()
+        public virtual void OnPlayerInAttackRange()
         {
-            // Default: no behavior defined
-            Debug.Log($"{gameObject.name}: Charge complete but no behavior defined!");
+            OnPlayerSpotted();
         }
 
         /// <summary>
-        /// DECISION: Called when dash state completes. What should enemy do?
-        /// </summary>
-        public virtual void OnDashComplete()
-        {
-            // Default: no behavior defined
-            Debug.Log($"{gameObject.name}: Dash complete but no behavior defined!");
-        }
-
-        /// <summary>
-        /// DECISION: Called when grab state completes (after throw). What should enemy do?
-        /// </summary>
-        public virtual void OnGrabComplete()
-        {
-            // Default: no behavior defined
-            Debug.Log($"{gameObject.name}: Grab complete but no behavior defined!");
-        }
-
-        /// <summary>
-        /// DECISION: Called when recovery state completes. What should enemy do?
-        /// </summary>
-        public virtual void OnRecoveryComplete()
-        {
-            // Default: no behavior defined
-            Debug.Log($"{gameObject.name}: Recovery complete but no behavior defined!");
-        }
-
-        /// <summary>
-        /// DECISION: Called when stun/knockback state completes. What should enemy do?
-        /// Override in subclass to define behavior.
+        /// DECISION: Called when stun/knockback state completes.
         /// </summary>
         public virtual void OnStunComplete()
         {
-            // Default: no behavior defined
             Debug.Log($"{gameObject.name}: Stun complete but no behavior defined!");
         }
 
@@ -320,38 +224,21 @@ namespace junklite
         /// </summary>
         public virtual void OnAttackFinished()
         {
-            // Default: if player still there, attack again; else patrol
             if (HasTarget)
                 OnPlayerSpotted();
             else
                 OnPlayerLost();
         }
 
-        /// <summary>
-        /// DECISION: Called when player enters attack range.
-        /// </summary>
-        public virtual void OnPlayerInAttackRange()
-        {
-            OnPlayerSpotted();
-        }
-
         #endregion
 
         #region Combat State
 
-        /// <summary>
-        /// Call when entering a combat sequence (charge, dash, grab, etc.)
-        /// Prevents detection events from interrupting.
-        /// </summary>
         public virtual void EnterCombat()
         {
             isInCombat = true;
         }
 
-        /// <summary>
-        /// Call when combat sequence ends (recovery complete, player lost, etc.)
-        /// Allows detection events to trigger again.
-        /// </summary>
         public virtual void ExitCombat()
         {
             isInCombat = false;
@@ -408,7 +295,7 @@ namespace junklite
 
         #endregion
 
-        #region Combat
+        #region Combat & Death
 
         public virtual void Attack()
         {
@@ -420,10 +307,8 @@ namespace junklite
         {
             Debug.Log($"[{gameObject.name}] HandleDeath called!");
 
-            // Spawn death VFX and hide visual
             SpawnDeathParticles();
             DisableEnemyVisual();
-
             DisablePhysics();
 
             // Request drop from DropManager
@@ -435,7 +320,7 @@ namespace junklite
                     DropManager.Instance.RequestDrop(transform.position, dropChance);
             }
 
-            // Clear status effects first
+            // Clear status effects
             if (statusEffects != null)
                 statusEffects.ClearAllEffects();
 
@@ -446,15 +331,11 @@ namespace junklite
                 damageFlashCoroutine = null;
             }
 
-            // Disable hitbox first
-            if (dashHitbox != null)
-                dashHitbox.Deactivate();
-
             // Stop movement
             if (movement != null)
                 movement.Stop();
 
-            // Disable detection zone to prevent further events
+            // Disable detection zone
             if (detectionZone != null)
                 detectionZone.enabled = false;
 
@@ -465,24 +346,14 @@ namespace junklite
 
             // Change to dead state
             if (stateMachine != null)
-            {
                 stateMachine.ChangeState<DeadState>();
-                Debug.Log($"[{gameObject.name}] Changed to DeadState");
-            }
 
-            // Call base implementation
             base.HandleDeath();
-
-            // Disable this component
             enabled = false;
         }
 
-        /// <summary>
-        /// Disables all colliders and gravity so enemy can't be interacted with and won't fall.
-        /// </summary>
         protected virtual void DisablePhysics()
         {
-            // Disable gravity and freeze rigidbody
             var rb = GetComponent<Rigidbody>();
             if (rb != null)
             {
@@ -491,15 +362,51 @@ namespace junklite
                 rb.isKinematic = true;
             }
 
-            // Disable all colliders
             var colliders = GetComponentsInChildren<Collider>();
             foreach (var col in colliders)
-            {
                 col.enabled = false;
-            }
         }
 
         #endregion
+
+        #region VFX - Universal
+
+        protected virtual void OnDamagedVFX(float damage, GameObject source)
+        {
+            if (DamagePopupManager.Instance != null)
+                DamagePopupManager.Instance.SpawnPopup(transform.position, damage);
+
+            if (damageFlashUniversal != null)
+            {
+                damageFlashUniversal.Flash();
+                return;
+            }
+
+            if (!warnedMissingDamageFlash)
+            {
+                warnedMissingDamageFlash = true;
+                Debug.LogWarning($"[{gameObject.name}] Missing DamageFlashUniversal; skipping damage flash.", this);
+            }
+        }
+
+        protected virtual void SpawnDeathParticles()
+        {
+            if (deathParticlePrefab == null) return;
+
+            GameObject go = Instantiate(deathParticlePrefab, transform.position, Quaternion.identity);
+            if (deathParticleLifetime > 0f)
+                Destroy(go, deathParticleLifetime);
+        }
+
+        protected virtual void DisableEnemyVisual()
+        {
+            if (enemyVisual != null)
+                enemyVisual.SetActive(false);
+        }
+
+        #endregion
+
+        #region Lifecycle
 
         public override void Activate()
         {
@@ -515,11 +422,29 @@ namespace junklite
             stateMachine?.Pause();
         }
 
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+
+            if (detectionZone != null)
+            {
+                detectionZone.OnTargetEnter -= OnDetectionZoneEnter;
+                detectionZone.OnTargetExit -= OnDetectionZoneExit;
+            }
+
+            if (damageable != null)
+                damageable.OnDamaged -= OnDamagedVFX;
+        }
+
+        #endregion
+
+        #region Debug Gizmos
+
         protected virtual void OnDrawGizmosSelected()
         {
             if (!showGizmos) return;
 
-            // Attack range (red)
+            // Attack range
             Gizmos.color = new Color(1f, 0f, 0f, 0.3f);
             Gizmos.DrawWireSphere(transform.position, attackRange);
 
@@ -551,191 +476,7 @@ namespace junklite
             }
         }
 
-        protected override void OnDestroy()
-        {
-            base.OnDestroy();
-
-            // Unsubscribe from detection zone events
-            if (detectionZone != null)
-            {
-                detectionZone.OnTargetEnter -= OnDetectionZoneEnter;
-                detectionZone.OnTargetExit -= OnDetectionZoneExit;
-            }
-
-            // Unsubscribe from hitbox events
-            if (dashHitbox != null)
-            {
-                dashHitbox.OnHit -= OnDashHitboxHit;
-            }
-
-            // Unsubscribe from damage VFX event
-            if (damageable != null)
-            {
-                damageable.OnDamaged -= OnDamagedVFX;
-            }
-        }
-
-        #region Hitbox Events
-
-        /// <summary>
-        /// Called when dash hitbox hits something. Override to define damage behavior.
-        /// Default: applies DashDamage + DashKnockback.
-        /// </summary>
-        protected virtual void OnDashHitboxHit(Collider other, Hitbox hitbox)
-        {
-            var damageable = other.GetComponent<IDamageable>();
-            if (damageable == null)
-                damageable = other.GetComponentInParent<IDamageable>();
-
-            if (damageable == null || !damageable.IsAlive)
-                return;
-
-            // Default behavior: simple damage + knockback
-            var info = new DamageInfo(DashDamage, gameObject, DamageType.Physical, DashKnockback);
-            damageable.TakeDamage(info);
-
-            Debug.Log($"{gameObject.name} hit {other.name} for {DashDamage} damage");
-        }
-
         #endregion
-
-       
-        #region Damage Flash VFX
-
-        /// <summary>
-        /// Called when this enemy takes damage - triggers flash VFX.
-        /// Override in subclasses to customize flash behavior.
-        /// </summary>
-        protected virtual void OnDamagedVFX(float damage, GameObject source)
-        {
-            string srcName = source != null ? source.name : "(unknown)";
-            Debug.Log($"{gameObject.name} took {damage} damage from {srcName}");
-
-            if(DamagePopupManager.Instance != null)
-            {
-                DamagePopupManager.Instance.SpawnPopup(transform.position, damage);
-            }
-
-            if (damageFlashUniversal != null)
-            {
-                damageFlashUniversal.Flash();
-                return;
-            }
-
-            if (!warnedMissingDamageFlash)
-            {
-                warnedMissingDamageFlash = true;
-                Debug.LogWarning(
-                    $"[{gameObject.name}] Missing DamageFlashUniversal reference/component; skipping damage flash VFX.",
-                    this
-                );
-            }
-        }
-
-        #endregion
-
-        #region Death VFX
-
-        protected virtual void SpawnDeathParticles()
-        {
-            if (deathParticlePrefab == null)
-                return;
-
-            GameObject go = Instantiate(deathParticlePrefab, transform.position, Quaternion.identity);
-
-            if (deathParticleLifetime > 0f)
-                Destroy(go, deathParticleLifetime);
-        }
-
-        protected virtual void DisableEnemyVisual()
-        {
-            if (enemyVisual != null)
-                enemyVisual.SetActive(false);
-        }
-
-        #endregion
-
-
-        #region Combat VFX Methods
-
-        // === CHARGE VFX ===
-        public virtual void SpawnChargeVFX()
-        {
-            if (chargeVFXPrefab == null) return;
-            DestroyChargeVFX();
-            activeChargeVFX = Instantiate(chargeVFXPrefab, transform);
-            activeChargeVFX.transform.localPosition = Vector3.zero;
-            activeChargeVFX.transform.localScale = Vector3.one * vfxScale;
-        }
-
-        public virtual void DestroyChargeVFX()
-        {
-            if (activeChargeVFX != null)
-            {
-                Destroy(activeChargeVFX);
-                activeChargeVFX = null;
-            }
-        }
-
-        // === DASH VFX ===
-        public virtual void SpawnDashVFX()//can be overriden in specific enemies subclassess
-        {
-            if (dashVFXPrefab == null) return;
-            DestroyDashVFX();
-            activeDashVFX = Instantiate(dashVFXPrefab, transform);
-            activeDashVFX.transform.localPosition = Vector3.zero;
-            activeDashVFX.transform.localScale = Vector3.one * vfxScale;
-        }
-
-        public virtual void DestroyDashVFX()
-        {
-            if (activeDashVFX != null)
-            {
-                Destroy(activeDashVFX);
-                activeDashVFX = null;
-            }
-        }
-
-        // === GRAB VFX ===
-        public virtual void SpawnGrabVFX()
-        {
-            if (grabVFXPrefab == null) return;
-            DestroyGrabVFX();
-            activeGrabVFX = Instantiate(grabVFXPrefab, transform);
-            activeGrabVFX.transform.localPosition = Vector3.zero;
-            activeGrabVFX.transform.localScale = Vector3.one * vfxScale;
-        }
-
-        public virtual void DestroyGrabVFX()
-        {
-            if (activeGrabVFX != null)
-            {
-                Destroy(activeGrabVFX);
-                activeGrabVFX = null;
-            }
-        }
-
-        // === RECOVERY VFX ===
-        public virtual void SpawnRecoveryVFX()
-        {
-            if (recoveryVFXPrefab == null) return;
-            DestroyRecoveryVFX();
-            activeRecoveryVFX = Instantiate(recoveryVFXPrefab, transform);
-            activeRecoveryVFX.transform.localPosition = Vector3.zero;
-            activeRecoveryVFX.transform.localScale = Vector3.one * vfxScale;
-        }
-
-        public virtual void DestroyRecoveryVFX()
-        {
-            if (activeRecoveryVFX != null)
-            {
-                Destroy(activeRecoveryVFX);
-                activeRecoveryVFX = null;
-            }
-        }
-
-        #endregion
-
     }
 
     public enum EnemyType

@@ -6,7 +6,7 @@ namespace junklite
     /// Patrol state - enemy walks back and forth within patrol distance.
     /// Reverses direction at boundaries or when hitting walls.
     /// 
-    /// Pure ACTION state: just handles movement.
+    /// Universal state - works with any enemy that has patrol distance set.
     /// Detection is handled by DetectionZone trigger events.
     /// </summary>
     public class PatrolState : EnemyStateBase
@@ -29,7 +29,6 @@ namespace junklite
 
         public override void Update()
         {
-            // Check for wall - instant reverse
             if (enemy.IsWallAhead())
             {
                 enemy.ReverseDirection();
@@ -37,7 +36,6 @@ namespace junklite
                 return;
             }
 
-            // Check if reached patrol boundary - instant reverse
             if (enemy.IsAtPatrolBoundary())
             {
                 enemy.ReverseDirection();
