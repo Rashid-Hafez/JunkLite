@@ -8,18 +8,18 @@ namespace junklite
     /// 
     /// ARCHITECTURE:
     /// - This base class contains ONLY universal enemy functionality
-    /// - Capability-specific behavior is defined via interfaces (IDasher, IGrabber, etc.)
+    /// - Capability-specific behavior is defined via interfaces (IDasher, IGrabber, IPatroller, etc.)
     /// - States check for interfaces to access capability-specific data
     /// - Enemy subclasses implement interfaces to declare their capabilities
     /// 
     /// UNIVERSAL (lives here):
-    /// - Detection, patrol, target tracking
+    /// - Detection, target tracking
     /// - Combat state management
     /// - Death handling, VFX basics
     /// - State machine reference
     /// 
     /// CAPABILITY-SPECIFIC (lives in interfaces):
-    /// - Dash, Grab, Melee, Dodge, Chase, Ranged, etc.
+    /// - Patrol, Dash, Grab, Melee, Dodge, Chase, Ranged, etc.
     /// </summary>
     [RequireComponent(typeof(StateMachine))]
     [RequireComponent(typeof(EnemyMovement))]
@@ -33,11 +33,6 @@ namespace junklite
         [SerializeField] protected DetectionZone detectionZone;
         [SerializeField] protected float attackRange = 2f;
         [SerializeField] protected LayerMask targetLayer;
-
-        [Header("Patrol")]
-        [SerializeField] protected float patrolDistance = 5f;
-        [SerializeField] protected float wallCheckDistance = 0.5f;
-        [SerializeField] protected LayerMask wallLayer;
 
         [Header("Knockback")]
         [Tooltip("If false, this enemy cannot be knocked back")]
@@ -77,10 +72,6 @@ namespace junklite
         protected Transform target;
         protected PlayerCharacter targetCharacter;
 
-        // Patrol state
-        protected Vector3 spawnPosition;
-        protected int patrolDirection = 1;
-
         // Combat state - prevents detection events from interrupting combat
         protected bool isInCombat = false;
 
@@ -100,14 +91,6 @@ namespace junklite
         public Transform Target => target;
         public PlayerCharacter TargetCharacter => targetCharacter;
         public float AttackRange => attackRange;
-
-        // Public accessors - Patrol
-        public float PatrolDistance => patrolDistance;
-        public Vector3 SpawnPosition => spawnPosition;
-        public int PatrolDirection { get => patrolDirection; set => patrolDirection = value; }
-        public Vector3 PatrolLeftPoint => spawnPosition + Vector3.left * patrolDistance;
-        public Vector3 PatrolRightPoint => spawnPosition + Vector3.right * patrolDistance;
-        public bool HasPatrol => patrolDistance > 0f;
         public bool CanBeKnockedBack => canBeKnockedBack;
 
         // Computed properties - Target
@@ -123,7 +106,6 @@ namespace junklite
             stateMachine = GetComponent<StateMachine>();
             movement = GetComponent<EnemyMovement>();
             statusEffects = GetComponent<StatusEffectHandler>();
-            spawnPosition = transform.position;
 
             if (enemyAnimation == null)
                 enemyAnimation = GetComponentInChildren<EnemyAnimationController>(true);
@@ -195,12 +177,7 @@ namespace junklite
         public virtual void OnPlayerLost()
         {
             if (!IsAlive) return;
-
-            // Default: return to patrol or idle
-            if (HasPatrol)
-                stateMachine.ChangeState<PatrolState>();
-            else
-                stateMachine.ChangeState<IdleState>();
+            stateMachine.ChangeState<IdleState>();
         }
 
         /// <summary>
@@ -246,33 +223,6 @@ namespace junklite
 
         #endregion
 
-        #region Patrol Helpers
-
-        public bool IsWallAhead()
-        {
-            Vector3 direction = patrolDirection > 0 ? Vector3.right : Vector3.left;
-            return Physics.Raycast(transform.position, direction, wallCheckDistance, wallLayer);
-        }
-
-        public bool IsAtPatrolBoundary()
-        {
-            float distanceFromSpawn = transform.position.x - spawnPosition.x;
-
-            if (patrolDirection > 0 && distanceFromSpawn >= patrolDistance)
-                return true;
-            if (patrolDirection < 0 && distanceFromSpawn <= -patrolDistance)
-                return true;
-
-            return false;
-        }
-
-        public void ReverseDirection()
-        {
-            patrolDirection *= -1;
-        }
-
-        #endregion
-
         #region Target Management
 
         public virtual void SetTarget(PlayerCharacter newTarget)
@@ -296,6 +246,23 @@ namespace junklite
         #endregion
 
         #region Combat & Death
+
+        /// <summary>
+        /// Override to check state-based damage blocking.
+        /// Returns true if damage was actually dealt.
+        /// </summary>
+        public override bool TakeDamage(DamageInfo info)
+        {
+            // Check if current state allows taking damage (e.g., during dodge)
+            if (state != null && !state.CanTakeDamage)
+            {
+                Debug.Log($"{gameObject.name}: Damage blocked by state!");
+                return false;
+            }
+
+            // Let base class attempt damage
+            return base.TakeDamage(info);
+        }
 
         public virtual void Attack()
         {
@@ -453,26 +420,6 @@ namespace junklite
             {
                 Gizmos.color = IsTargetInAttackRange ? Color.red : Color.yellow;
                 Gizmos.DrawLine(transform.position, target.position);
-            }
-
-            // Patrol range
-            if (patrolDistance > 0f)
-            {
-                Vector3 origin = Application.isPlaying ? spawnPosition : transform.position;
-                Vector3 leftPoint = origin + Vector3.left * patrolDistance;
-                Vector3 rightPoint = origin + Vector3.right * patrolDistance;
-
-                Gizmos.color = Color.cyan;
-                Gizmos.DrawLine(leftPoint, rightPoint);
-                Gizmos.DrawWireSphere(leftPoint, 0.3f);
-                Gizmos.DrawWireSphere(rightPoint, 0.3f);
-
-                Gizmos.color = Color.green;
-                Gizmos.DrawWireCube(origin, Vector3.one * 0.2f);
-
-                Gizmos.color = Color.red;
-                Vector3 wallDir = patrolDirection > 0 ? Vector3.right : Vector3.left;
-                Gizmos.DrawRay(transform.position, wallDir * wallCheckDistance);
             }
         }
 

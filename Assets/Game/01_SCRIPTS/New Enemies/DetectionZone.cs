@@ -37,6 +37,10 @@ namespace junklite
         public Transform Target => detectedTarget;
         public PlayerCharacter TargetPlayer => detectedPlayer;
 
+        // Radius management
+        private SphereCollider sphereCollider;
+        private float originalRadius;
+
         private void Awake()
         {
             // Ensure collider is a trigger
@@ -44,9 +48,41 @@ namespace junklite
             if (col != null)
                 col.isTrigger = true;
 
+            // Cache sphere collider for radius resizing
+            sphereCollider = col as SphereCollider;
+            if (sphereCollider != null)
+                originalRadius = sphereCollider.radius;
+
             // Find owner
             owner = GetComponentInParent<EnemyCharacter>();
         }
+
+        #region Radius Management
+
+        /// <summary>
+        /// Expand detection radius (e.g., for pursuit mode).
+        /// </summary>
+        public void SetRadius(float radius)
+        {
+            if (sphereCollider != null)
+                sphereCollider.radius = radius;
+        }
+
+        /// <summary>
+        /// Reset to original radius (e.g., when exiting combat).
+        /// </summary>
+        public void ResetRadius()
+        {
+            if (sphereCollider != null && originalRadius > 0f)
+                sphereCollider.radius = originalRadius;
+        }
+
+        /// <summary>
+        /// Get the original radius.
+        /// </summary>
+        public float OriginalRadius => originalRadius;
+
+        #endregion
 
         private void OnTriggerEnter(Collider other)
         {
@@ -130,7 +166,7 @@ namespace junklite
             if (owner == null || !owner.IsInCombat)
             {
                 OnTargetEnter?.Invoke(player);
-               // Debug.Log($"[DetectionZone] {owner?.name} detected {player.name}");
+                // Debug.Log($"[DetectionZone] {owner?.name} detected {player.name}");
             }
         }
 

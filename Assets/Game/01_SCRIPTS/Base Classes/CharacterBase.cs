@@ -53,11 +53,18 @@ namespace junklite
         }
 
         // --- IDamageable implementation (single entry)
-        public virtual void TakeDamage(DamageInfo info)
+        /// <summary>
+        /// Attempt to deal damage. Returns true if damage was actually dealt.
+        /// </summary>
+        public virtual bool TakeDamage(DamageInfo info)
         {
-            if (state != null && !state.CanTakeDamage) return;
+            if (state != null && !state.CanTakeDamage)
+                return false;
+
             if (damageable != null)
-                damageable.TakeDamage(info);
+                return damageable.TakeDamage(info);
+
+            return false;
         }
 
         // Convenience healing (health math is in AttributeManager)

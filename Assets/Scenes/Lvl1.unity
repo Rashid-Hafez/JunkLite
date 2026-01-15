@@ -15703,6 +15703,76 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &970346136
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 970346139}
+  - component: {fileID: 970346138}
+  - component: {fileID: 970346137}
+  m_Layer: 14
+  m_Name: Dashhitbox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &970346137
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 970346136}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98ec56f88f91517478199942c46e6dee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.Hitbox
+  targetLayers:
+    serializedVersion: 2
+    m_Bits: 1
+  hitOnce: 1
+--- !u!65 &970346138
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 970346136}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.0820189, y: 2.0810027, z: 0.96183014}
+  m_Center: {x: 0.21881533, y: 0.45660686, z: 0}
+--- !u!4 &970346139
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 970346136}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.896, y: -0.252, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1888653607}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &973945540
 GameObject:
   m_ObjectHideFlags: 0
@@ -25787,11 +25857,6 @@ MonoBehaviour:
   targetLayer:
     serializedVersion: 2
     m_Bits: 0
-  patrolDistance: 0
-  wallCheckDistance: 0
-  wallLayer:
-    serializedVersion: 2
-    m_Bits: 0
   canBeKnockedBack: 1
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
@@ -25992,11 +26057,6 @@ MonoBehaviour:
   detectionZone: {fileID: 0}
   attackRange: 0
   targetLayer:
-    serializedVersion: 2
-    m_Bits: 0
-  patrolDistance: 0
-  wallCheckDistance: 0
-  wallLayer:
     serializedVersion: 2
     m_Bits: 0
   canBeKnockedBack: 1
@@ -33439,11 +33499,6 @@ MonoBehaviour:
   targetLayer:
     serializedVersion: 2
     m_Bits: 1
-  patrolDistance: 5
-  wallCheckDistance: 0.5
-  wallLayer:
-    serializedVersion: 2
-    m_Bits: 4096
   canBeKnockedBack: 1
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
@@ -33453,31 +33508,40 @@ MonoBehaviour:
   enemyVisual: {fileID: 0}
   customDropTable: {fileID: 0}
   dropChance: 1
-  chargeTime: 0.3
-  chargeVFXPrefab: {fileID: 0}
-  dashSpeed: 18
-  dashDamage: 12
-  dashKnockback: {x: 12, y: 4}
-  dashHitbox: {fileID: 3800878037905379685}
-  dashVFXPrefab: {fileID: 0}
+  patrolDistance: 5
+  patrolSpeed: 3
+  wallCheckDistance: 0.5
+  wallLayer:
+    serializedVersion: 2
+    m_Bits: 4096
   meleeAttackDuration: 0.4
+  attackCooldown: 0.5
   meleeDamage: 8
-  meleeKnockback: {x: 8, y: 3}
+  meleeKnockback: {x: 0, y: 0}
   meleeHitbox: {fileID: 3800878037905379685}
   meleeVFXPrefab: {fileID: 0}
-  dodgeDistance: 4
-  dodgeDuration: 0.35
-  dodgeHeight: 2
+  chargeTime: 0.2
+  chargeVFXPrefab: {fileID: 0}
+  dashSpeed: 50
+  dashDamage: 12
+  dashKnockback: {x: 12, y: 4}
+  dashHitbox: {fileID: 970346137}
+  dashVFXPrefab: {fileID: 0}
+  dashStopDistance: 0.5
+  maxDashChance: 1
+  chaseSpeed: 8
+  dodgeDistance: 5
+  dodgeSpeed: 30
+  dodgeHeight: 0.5
   dodgeHasIFrames: 1
   dodgeVFXPrefab: {fileID: 0}
-  baseDodgeChance: 0.2
-  lowHpDodgeBonus: 0.4
-  recoveryTime: 0.2
+  dodgeChance: 0.592
+  dodgeCheckRange: 4
+  dodgeCooldown: 1
+  pursuitRadius: 15
+  postDodgeRecoveryTime: 0.3
+  counterAttackChance: 0.594
   recoveryVFXPrefab: {fileID: 0}
-  chaseSpeed: 8
-  farDistanceThreshold: 5
-  meleeWeight: 1
-  dashWeight: 0.6
   vfxScale: 2
 --- !u!114 &1888653600
 MonoBehaviour:
@@ -33599,7 +33663,7 @@ CapsuleCollider:
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 16385
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
@@ -33625,6 +33689,7 @@ Transform:
   - {fileID: 6006736108976493219}
   - {fileID: 912657823683253782}
   - {fileID: 6605452488290325013}
+  - {fileID: 970346139}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1900628442
@@ -45785,11 +45850,6 @@ MonoBehaviour:
   targetLayer:
     serializedVersion: 2
     m_Bits: 1
-  patrolDistance: 5
-  wallCheckDistance: 3.35
-  wallLayer:
-    serializedVersion: 2
-    m_Bits: 4096
   canBeKnockedBack: 1
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
@@ -45799,31 +45859,40 @@ MonoBehaviour:
   enemyVisual: {fileID: 0}
   customDropTable: {fileID: 0}
   dropChance: 1
-  chargeTime: 0.3
-  chargeVFXPrefab: {fileID: 0}
-  dashSpeed: 14
-  dashDamage: 12
-  dashKnockback: {x: 14, y: 5}
-  dashHitbox: {fileID: 3800878037905379685}
-  dashVFXPrefab: {fileID: 0}
+  patrolDistance: 5
+  patrolSpeed: 3
+  wallCheckDistance: 3.35
+  wallLayer:
+    serializedVersion: 2
+    m_Bits: 4096
   meleeAttackDuration: 0.4
+  attackCooldown: 0.3
   meleeDamage: 8
   meleeKnockback: {x: 8, y: 3}
   meleeHitbox: {fileID: 0}
   meleeVFXPrefab: {fileID: 0}
-  dodgeDistance: 4
-  dodgeDuration: 0.35
-  dodgeHeight: 2
+  chargeTime: 0.2
+  chargeVFXPrefab: {fileID: 0}
+  dashSpeed: 18
+  dashDamage: 12
+  dashKnockback: {x: 12, y: 4}
+  dashHitbox: {fileID: 0}
+  dashVFXPrefab: {fileID: 0}
+  dashStopDistance: 0.5
+  maxDashChance: 0.5
+  chaseSpeed: 8
+  dodgeDistance: 3
+  dodgeSpeed: 10
+  dodgeHeight: 0.5
   dodgeHasIFrames: 1
   dodgeVFXPrefab: {fileID: 0}
-  baseDodgeChance: 0.2
-  lowHpDodgeBonus: 0.4
-  recoveryTime: 0.2
+  dodgeChance: 0.3
+  dodgeCheckRange: 4
+  dodgeCooldown: 1
+  pursuitRadius: 15
+  postDodgeRecoveryTime: 0.3
+  counterAttackChance: 0.4
   recoveryVFXPrefab: {fileID: 0}
-  chaseSpeed: 8
-  farDistanceThreshold: 5
-  meleeWeight: 1
-  dashWeight: 0.6
   vfxScale: 2
 --- !u!1 &1952637200074556952
 GameObject:
@@ -60893,7 +60962,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.Hitbox
   targetLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 1
   hitOnce: 1
 --- !u!1 &3812854430213512420
 GameObject:
@@ -61208,8 +61277,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.6443882, y: 2.0810027, z: 0.96183014}
-  m_Center: {x: 0, y: 0.4566069, z: 0}
+  m_Size: {x: 1.0820189, y: 2.0810027, z: 0.96183014}
+  m_Center: {x: 0.21881533, y: 0.45660686, z: 0}
 --- !u!4 &4808534660528726484
 Transform:
   m_ObjectHideFlags: 0
@@ -62175,7 +62244,7 @@ Transform:
   m_GameObject: {fileID: 8485428172013277250}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.59, y: -0.252, z: 0}
+  m_LocalPosition: {x: 0.896, y: -0.252, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

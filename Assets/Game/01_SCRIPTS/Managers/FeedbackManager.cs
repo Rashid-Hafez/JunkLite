@@ -79,9 +79,9 @@ namespace junklite
             float originalTimeScale = Time.timeScale;
             Time.timeScale = 0f;
 
-            Debug.Log("Hit stop active");
+            //Debug.Log("Hit stop active");
             yield return new WaitForSecondsRealtime(duration);
-            Debug.Log("Hit stop inactive");
+            //Debug.Log("Hit stop inactive");
             Time.timeScale = originalTimeScale;
             hitstopCoroutine = null;
         }

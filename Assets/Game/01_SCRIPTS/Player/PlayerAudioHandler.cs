@@ -98,7 +98,7 @@ namespace junklite
         private void Play(SoundEntry entry)
         {
             audio?.PlaySpatial(entry, source);
-            Debug.Log("Playing sound: " + entry.clip);
+           // Debug.Log("Playing sound: " + entry.clip);
         }
     }
 }

@@ -540,6 +540,8 @@ namespace junklite
             if (playerState == null || !playerState.CanAttack || _weaponManager == null)
                 return;
 
+            playerState.SetAttacking(true); 
+
             Vector2 move = inputManager.MoveDirection;
 
             AttackDirection dir = AttackDirection.Side;
@@ -608,20 +610,15 @@ namespace junklite
         // DAMAGE
         // ====================================================================
 
-        public override void TakeDamage(DamageInfo info)
+        public override bool TakeDamage(DamageInfo info)
         {
-            if (playerState != null && !playerState.CanTakeDamage) return;
+            if (playerState != null && !playerState.CanTakeDamage)
+                return false;
 
-            float hpBefore = attributes != null && attributes.Health != null ? attributes.Health.Current : -1f;
-            base.TakeDamage(info);
+            bool damageDealt = base.TakeDamage(info);
 
-            // Only do feedback if damage actually applied (HP decreased)
-            bool tookDamage = true;
-            if (hpBefore >= 0f && attributes != null && attributes.Health != null)
-                tookDamage = attributes.Health.Current < (hpBefore - 0.0001f);
-
-            if (!tookDamage)
-                return;
+            if (!damageDealt)
+                return false;
 
             // i-frames on hit
             if (playerState != null && damageInvulnerability > 0f)
@@ -656,6 +653,8 @@ namespace junklite
             // Stun duration covers knockback time
             if (playerState != null)
                 playerState.ApplyStun(0.25f);
+
+            return true;
         }
 
         private void StartDamageFlash()

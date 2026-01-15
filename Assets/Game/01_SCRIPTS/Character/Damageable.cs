@@ -4,7 +4,10 @@ namespace junklite
 {
     public interface IDamageable
     {
-        void TakeDamage(DamageInfo info);
+        /// <summary>
+        /// Attempt to deal damage. Returns true if damage was actually dealt.
+        /// </summary>
+        bool TakeDamage(DamageInfo info);
         bool IsAlive { get; }
     }
 
@@ -61,6 +64,7 @@ namespace junklite
     /// <summary>
     /// Single entry point for damage. Computes final damage using Stats,
     /// subtracts from Health via AttributeManager, and can trigger stun via CharacterState.
+    /// Returns true if damage was actually dealt.
     /// </summary>
     public sealed class Damageable : MonoBehaviour
     {
@@ -77,16 +81,22 @@ namespace junklite
             if (myTeam == null) myTeam = GetComponent<TeamMember>();
         }
 
-        public void TakeDamage(DamageInfo info)
+        /// <summary>
+        /// Attempt to deal damage. Returns true if damage was actually dealt.
+        /// </summary>
+        public bool TakeDamage(DamageInfo info)
         {
             // 1) must be alive
-            if (attributes == null || attributes.Health == null || !attributes.IsAlive) return;
+            if (attributes == null || attributes.Health == null || !attributes.IsAlive)
+                return false;
 
             // 2) no self-hits
-            if (info.Source == gameObject) return;
+            if (info.Source == gameObject)
+                return false;
 
             // 3) team check
-            if (!IsHostile(info.Source)) return;
+            if (!IsHostile(info.Source))
+                return false;
 
             // 4) compute final damage
             float armor = stats != null ? stats.armor : 0f;
@@ -98,6 +108,8 @@ namespace junklite
 
             // 6) optional brief hit-stun
             state?.ApplyStun(0.1f);
+
+            return true; // Damage was dealt
         }
 
         bool IsHostile(GameObject source)

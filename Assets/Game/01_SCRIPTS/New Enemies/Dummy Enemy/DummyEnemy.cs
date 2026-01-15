@@ -39,27 +39,32 @@ namespace junklite
             // Do nothing - dummy just stands there
         }
 
-        public override void TakeDamage(DamageInfo info)
+        public override bool TakeDamage(DamageInfo info)
         {
             if (invincible)
-                return;
+                return false;
 
-            base.TakeDamage(info);
+            bool damageDealt = base.TakeDamage(info);
 
-            // Apply knockback
-            if (rb != null && info.KnockbackForce.sqrMagnitude > 0f)
+            if (damageDealt)
             {
-                Vector3 knockback = new Vector3(
-                    info.KnockbackForce.x,
-                    info.KnockbackForce.y,
-                    0f
-                );
-                rb.AddForce(knockback, ForceMode.Impulse);
+                // Apply knockback
+                if (rb != null && info.KnockbackForce.sqrMagnitude > 0f)
+                {
+                    Vector3 knockback = new Vector3(
+                        info.KnockbackForce.x,
+                        info.KnockbackForce.y,
+                        0f
+                    );
+                    rb.AddForce(knockback, ForceMode.Impulse);
+                }
+
+                // Reset health after hit if enabled
+                if (resetHealthOnHit && IsAlive && attributes != null && attributes.Health != null)
+                    attributes.RestoreHealthToMax();
             }
 
-            // Reset health after hit if enabled
-            if (resetHealthOnHit && IsAlive && attributes != null && attributes.Health != null)
-                attributes.RestoreHealthToMax();
+            return damageDealt;
         }
 
         // Disable all behavior responses - dummy does nothing

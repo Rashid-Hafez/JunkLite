@@ -15,6 +15,11 @@ namespace junklite
         [SerializeField] private Transform upAttack;
         [SerializeField] private Transform downAttack;
 
+        [Header("Attack State")]
+        [SerializeField] private float attackDuration = 0.3f;
+
+        private Coroutine _attackStateCo;
+
         [Header("Fallback Hit Radii")]
         [SerializeField] private float sideRadius = 1f;
         [SerializeField] private float upRadius = 1f;
@@ -117,8 +122,25 @@ namespace junklite
         {
             if (CurrentWeapon == null)
                 return;
+            if (playerState != null)
+                playerState.SetAttacking(true);
+
+            // Reset after duration
+            if (_attackStateCo != null)
+                StopCoroutine(_attackStateCo);
+            _attackStateCo = StartCoroutine(ResetAttackingAfterDuration());
 
             CurrentWeapon.ExecuteAttack(dir);
+        }
+
+        private IEnumerator ResetAttackingAfterDuration()
+        {
+            yield return new WaitForSeconds(attackDuration);
+
+            if (playerState != null)
+                playerState.SetAttacking(false);
+
+            _attackStateCo = null;
         }
 
         private void HandleWeaponAttack(AttackDirection dir, WeaponComboData.ComboStep step, int comboIndex)
@@ -189,14 +211,9 @@ namespace junklite
                     if (result == AttackHitResult.Environment)
                     {
                         CombatEffectsManager.Instance.SpawnEnvHitParticle(impactPoint, attackDir);
+                        CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
                     }
-                    else if (result == AttackHitResult.Enemy)
-                    {
-                        CombatEffectsManager.Instance.SpawnEnemyHitVFX(impactPoint, attackDir);
-                        CombatEffectsManager.Instance.SpawnEnemyHurtParticle(impactPoint, attackDir);
-                    }
-
-                    CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
+                    // Enemy hit VFX is now handled in DealDamageToTarget (only if damage was dealt)
                 }
 
                 // Slash at impact point
@@ -261,15 +278,30 @@ namespace junklite
 
             var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
 
-            if (CurrentWeapon != null)
+            // Only spawn VFX and trigger mods if damage was actually dealt
+            bool damageDealt = damageable.TakeDamage(damageInfo);
+
+            if (damageDealt)
             {
-                var enemy = targetCollider.GetComponent<EnemyCharacter>()
-                         ?? targetCollider.GetComponentInParent<EnemyCharacter>();
+                // Trigger weapon mods (status effects, etc.) only on successful hit
+                if (CurrentWeapon != null)
+                {
+                    var enemy = targetCollider.GetComponent<EnemyCharacter>()
+                             ?? targetCollider.GetComponentInParent<EnemyCharacter>();
 
-                CurrentWeapon.TriggerModsOnHit(enemy, playerCharacter);
+                    CurrentWeapon.TriggerModsOnHit(enemy, playerCharacter);
+                }
+
+                // Spawn hit VFX
+                if (CombatEffectsManager.Instance != null)
+                {
+                    Vector3 hitPoint = targetCollider.ClosestPoint(playerTransform.position);
+                    Vector3 attackDir = (targetCollider.transform.position - playerTransform.position).normalized;
+
+                    CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, attackDir);
+                    CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, attackDir);
+                }
             }
-
-            damageable.TakeDamage(damageInfo);
         }
 
         #endregion Damage

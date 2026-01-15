@@ -1,24 +1,29 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace junklite
 {
     /// <summary>
-    /// Melee Attack state - enemy performs a quick close-range attack.
+    /// Melee Attack state - enemy performs close-range slashes with wind-up.
     /// 
     /// REQUIRES: Enemy must implement IMeleeAttacker
     /// 
-    /// Pure ACTION state: activates hitbox, waits for duration, then completes.
-    /// Calls IMeleeAttacker.OnMeleeComplete() when done - enemy decides what to do next.
+    /// FLOW:
+    /// 1. Enter → Face target, stop moving
+    /// 2. Cooldown/Wind-up (wait before attacking - gives player time to react)
+    /// 3. Slash (activate hitbox for duration)
+    /// 4. Call OnMeleeComplete() → Enemy decides: stay (loop back to step 2) or transition out
     /// </summary>
     public class MeleeAttackState : EnemyStateBase
     {
+        private enum Phase { WindUp, Slashing }
+
         private IMeleeAttacker meleeAttacker;
         private EnemyMovement movement;
         private Hitbox hitbox;
 
+        private Phase currentPhase;
         private float timer;
-        private bool hasStarted;
-        private bool attackComplete;
+        private bool isInitialized;
 
         // Cached VFX instance
         private GameObject activeVFX;
@@ -37,44 +42,94 @@ namespace junklite
 
             movement = enemy.Movement;
             hitbox = meleeAttacker.MeleeHitbox;
-            hasStarted = false;
-            attackComplete = false;
-            timer = 0f;
+            isInitialized = true;
+
+            // Stop movement during attack
+            movement?.Stop();
 
             // Face the target before attacking
             if (HasTarget && movement != null)
                 movement.FaceTarget(Target.position);
 
-            StartAttack();
+            // Start with wind-up (cooldown before first attack)
+            StartWindUp();
         }
 
-        private void StartAttack()
+        private void StartWindUp()
         {
-            hasStarted = true;
+            currentPhase = Phase.WindUp;
+            timer = 0f;
 
-            // Stop movement during attack
-            movement?.Stop();
+            // Face target during wind-up
+            if (HasTarget && movement != null)
+                movement.FaceTarget(Target.position);
+
+            // Hitbox stays OFF during wind-up
+            hitbox?.Deactivate();
+
+            Debug.Log($"{enemy.gameObject.name}: Winding up... (duration: {meleeAttacker.AttackCooldown}s)");
+        }
+
+        private void StartSlash()
+        {
+            currentPhase = Phase.Slashing;
+            timer = 0f;
+
+            // Face target at moment of slash
+            if (HasTarget && movement != null)
+                movement.FaceTarget(Target.position);
 
             // Activate hitbox
             hitbox?.Activate();
 
             // Spawn VFX
+            VFXPool.Release(ref activeVFX);
             activeVFX = VFXPool.Get(meleeAttacker.MeleeVFXPrefab, enemy.transform);
 
-            Debug.Log($"{enemy.gameObject.name}: MELEE ATTACK! (duration: {meleeAttacker.MeleeAttackDuration}s)");
+            Debug.Log($"{enemy.gameObject.name}: SLASH! (duration: {meleeAttacker.MeleeAttackDuration}s)");
         }
 
         public override void Update()
         {
-            if (meleeAttacker == null || !hasStarted || attackComplete) return;
+            if (!isInitialized || meleeAttacker == null) return;
 
             timer += Time.deltaTime;
 
-            if (timer >= meleeAttacker.MeleeAttackDuration)
+            switch (currentPhase)
             {
-                attackComplete = true;
-                hitbox?.Deactivate();
-                meleeAttacker.OnMeleeComplete();
+                case Phase.WindUp:
+                    // During wind-up, check if player went out of range - exit early
+                    if (!IsTargetInAttackRange)
+                    {
+                        Debug.Log($"{enemy.gameObject.name}: Target out of range during wind-up → exiting attack state");
+                        meleeAttacker.OnMeleeComplete();
+                        return;
+                    }
+
+                    if (timer >= meleeAttacker.AttackCooldown)
+                    {
+                        // Wind-up complete - ATTACK!
+                        StartSlash();
+                    }
+                    break;
+
+                case Phase.Slashing:
+                    if (timer >= meleeAttacker.MeleeAttackDuration)
+                    {
+                        // Slash complete - deactivate hitbox
+                        hitbox?.Deactivate();
+
+                        // Let enemy decide what to do next
+                        meleeAttacker.OnMeleeComplete();
+
+                        // Check if we're still in this state (enemy didn't transition)
+                        if (enemy.StateMachine.CurrentState == this)
+                        {
+                            // Loop back to wind-up for next attack
+                            StartWindUp();
+                        }
+                    }
+                    break;
             }
         }
 
@@ -83,6 +138,7 @@ namespace junklite
             hitbox?.Deactivate();
             VFXPool.Release(ref activeVFX);
             timer = 0f;
+            isInitialized = false;
         }
     }
 }

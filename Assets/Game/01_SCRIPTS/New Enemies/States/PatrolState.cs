@@ -6,39 +6,52 @@ namespace junklite
     /// Patrol state - enemy walks back and forth within patrol distance.
     /// Reverses direction at boundaries or when hitting walls.
     /// 
-    /// Universal state - works with any enemy that has patrol distance set.
+    /// REQUIRES: Enemy must implement IPatroller
+    /// 
+    /// Pure ACTION state: just handles movement.
     /// Detection is handled by DetectionZone trigger events.
     /// </summary>
     public class PatrolState : EnemyStateBase
     {
+        private IPatroller patroller;
         private EnemyMovement movement;
-        private EnemyConfig config;
 
         public PatrolState(EnemyCharacter enemy) : base(enemy) { }
 
         public override void Enter()
         {
-            movement = enemy.Movement;
-            config = enemy.Config;
+            // Get capability interface
+            patroller = enemy as IPatroller;
+            if (patroller == null)
+            {
+                Debug.LogError($"{enemy.gameObject.name}: PatrolState requires IPatroller interface!");
+                return;
+            }
 
-            if (movement != null && config != null)
-                movement.MoveSpeed = config.patrolSpeed;
+            movement = enemy.Movement;
+
+            if (movement != null)
+                movement.MoveSpeed = patroller.PatrolSpeed;
 
             StartMoving();
         }
 
         public override void Update()
         {
-            if (enemy.IsWallAhead())
+            if (patroller == null) return;
+
+            // Check for wall - instant reverse
+            if (patroller.IsWallAhead())
             {
-                enemy.ReverseDirection();
+                patroller.ReverseDirection();
                 StartMoving();
                 return;
             }
 
-            if (enemy.IsAtPatrolBoundary())
+            // Check if reached patrol boundary - instant reverse
+            if (patroller.IsAtPatrolBoundary())
             {
-                enemy.ReverseDirection();
+                patroller.ReverseDirection();
                 StartMoving();
             }
         }
@@ -50,9 +63,9 @@ namespace junklite
 
         private void StartMoving()
         {
-            if (movement == null) return;
+            if (movement == null || patroller == null) return;
 
-            Vector3 direction = enemy.PatrolDirection > 0 ? Vector3.right : Vector3.left;
+            Vector3 direction = patroller.PatrolDirection > 0 ? Vector3.right : Vector3.left;
             movement.MoveInDirection(direction);
         }
     }

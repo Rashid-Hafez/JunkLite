@@ -16715,6 +16715,7 @@ MonoBehaviour:
   sideAttack: {fileID: 128506076357536208}
   upAttack: {fileID: 7039884645192212358}
   downAttack: {fileID: 2881757924107890758}
+  attackDuration: 0.3
   sideRadius: 0.9
   upRadius: 0.95
   downRadius: 1
@@ -16728,7 +16729,7 @@ MonoBehaviour:
   impulseSource: {fileID: 0}
   enemyHitHitstopDuration: 0.06
   enemyHitShakeForce: 0.5
-  enemyHitDelay: 0.15
+  enemyHitDelay: 0.07
   sideRecoil: 23
   poolSizePerSlash: 12
   slashPoolRoot: {fileID: 3708428653336801813}

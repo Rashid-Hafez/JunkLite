@@ -6,7 +6,7 @@ namespace junklite
     /// Robot enemy - dashes at player when spotted.
     /// Has a chance to grab and throw the player on hit.
     /// 
-    /// CAPABILITIES: ICharger, IDasher, IGrabber, IRecoverer
+    /// CAPABILITIES: IPatroller, ICharger, IDasher, IGrabber, IRecoverer
     /// 
     /// BEHAVIOR (decisions defined here):
     /// - Player spotted → Enter combat, start charging
@@ -16,8 +16,14 @@ namespace junklite
     /// - Dash complete (miss) → Recover
     /// - Recovery complete → If player still visible, charge again; else exit combat and patrol
     /// </summary>
-    public class RobotEnemy : EnemyCharacter, ICharger, IDasher, IGrabber, IRecoverer
+    public class RobotEnemy : EnemyCharacter, IPatroller, ICharger, IDasher, IGrabber, IRecoverer
     {
+        [Header("Robot - Patrol")]
+        [SerializeField] private float patrolDistance = 5f;
+        [SerializeField] private float patrolSpeed = 2f;
+        [SerializeField] private float wallCheckDistance = 0.5f;
+        [SerializeField] private LayerMask wallLayer;
+
         [Header("Robot - Charge")]
         [SerializeField] private float chargeTime = 1f;
         [SerializeField] private GameObject chargeVFXPrefab;
@@ -25,6 +31,7 @@ namespace junklite
         [Header("Robot - Dash Attack")]
         [SerializeField] private float dashSpeed = 15f;
         [SerializeField] private float dashDamage = 10f;
+        [SerializeField] private float dashStopDistance = 0.5f;
         [SerializeField] private Vector2 dashKnockback = new Vector2(15f, 5f);
         [SerializeField] private Hitbox dashHitbox;
         [SerializeField] private GameObject dashVFXPrefab;
@@ -45,11 +52,50 @@ namespace junklite
         [Header("Robot - VFX Settings")]
         [SerializeField] private float vfxScale = 2f;
 
+        // Patrol state
+        private Vector3 spawnPosition;
+        private int patrolDirection = 1;
+
         // Active VFX instances
         private GameObject activeChargeVFX;
         private GameObject activeDashVFX;
         private GameObject activeGrabVFX;
         private GameObject activeRecoveryVFX;
+
+        // Helper for checking if patrol is enabled
+        public bool HasPatrol => patrolDistance > 0f;
+
+        #region IPatroller Implementation
+
+        public float PatrolDistance => patrolDistance;
+        public float PatrolSpeed => patrolSpeed;
+        public Vector3 SpawnPosition => spawnPosition;
+        public int PatrolDirection { get => patrolDirection; set => patrolDirection = value; }
+
+        public bool IsWallAhead()
+        {
+            Vector3 direction = patrolDirection > 0 ? Vector3.right : Vector3.left;
+            return Physics.Raycast(transform.position, direction, wallCheckDistance, wallLayer);
+        }
+
+        public bool IsAtPatrolBoundary()
+        {
+            float distanceFromSpawn = transform.position.x - spawnPosition.x;
+
+            if (patrolDirection > 0 && distanceFromSpawn >= patrolDistance)
+                return true;
+            if (patrolDirection < 0 && distanceFromSpawn <= -patrolDistance)
+                return true;
+
+            return false;
+        }
+
+        public void ReverseDirection()
+        {
+            patrolDirection *= -1;
+        }
+
+        #endregion
 
         #region ICharger Implementation
 
@@ -68,6 +114,7 @@ namespace junklite
 
         public float DashSpeed => dashSpeed;
         public float DashDamage => dashDamage;
+        public float DashStopDistance => dashStopDistance;
         public Vector2 DashKnockback => dashKnockback;
         public Hitbox DashHitbox => dashHitbox;
         public GameObject DashVFXPrefab => dashVFXPrefab;
@@ -129,6 +176,7 @@ namespace junklite
         {
             base.Awake();
             enemyType = EnemyType.Robot;
+            spawnPosition = transform.position;
 
             // Setup dash hitbox events
             if (dashHitbox != null)
@@ -174,12 +222,12 @@ namespace junklite
 
         #region Damage Handling
 
-        public override void TakeDamage(DamageInfo info)
+        public override bool TakeDamage(DamageInfo info)
         {
             if (state != null && !state.CanTakeDamage)
-                return;
+                return false;
 
-            base.TakeDamage(info);
+            return base.TakeDamage(info);
         }
 
         #endregion
@@ -321,6 +369,35 @@ namespace junklite
         public void ReleaseRecoveryVFX()
         {
             VFXPool.Release(ref activeRecoveryVFX);
+        }
+
+        #endregion
+
+        #region Debug Gizmos
+
+        protected override void OnDrawGizmosSelected()
+        {
+            base.OnDrawGizmosSelected();
+
+            // Patrol range
+            if (patrolDistance > 0f)
+            {
+                Vector3 origin = Application.isPlaying ? spawnPosition : transform.position;
+                Vector3 leftPoint = origin + Vector3.left * patrolDistance;
+                Vector3 rightPoint = origin + Vector3.right * patrolDistance;
+
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawLine(leftPoint, rightPoint);
+                Gizmos.DrawWireSphere(leftPoint, 0.3f);
+                Gizmos.DrawWireSphere(rightPoint, 0.3f);
+
+                Gizmos.color = Color.green;
+                Gizmos.DrawWireCube(origin, Vector3.one * 0.2f);
+
+                Gizmos.color = Color.red;
+                Vector3 wallDir = patrolDirection > 0 ? Vector3.right : Vector3.left;
+                Gizmos.DrawRay(transform.position, wallDir * wallCheckDistance);
+            }
         }
 
         #endregion

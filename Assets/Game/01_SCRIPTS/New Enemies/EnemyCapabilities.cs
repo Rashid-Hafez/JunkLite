@@ -9,6 +9,22 @@ namespace junklite
     // ============================================================
 
     /// <summary>
+    /// Enemy can patrol back and forth.
+    /// Used by: PatrolState
+    /// </summary>
+    public interface IPatroller
+    {
+        float PatrolDistance { get; }
+        float PatrolSpeed { get; }
+        Vector3 SpawnPosition { get; }
+        int PatrolDirection { get; set; }
+
+        bool IsWallAhead();
+        bool IsAtPatrolBoundary();
+        void ReverseDirection();
+    }
+
+    /// <summary>
     /// Enemy can perform a charge-up before attacking.
     /// Used by: ChargeState
     /// </summary>
@@ -31,6 +47,7 @@ namespace junklite
         float DashDamage { get; }
         Vector2 DashKnockback { get; }
         Hitbox DashHitbox { get; }
+        float DashStopDistance { get; }
         GameObject DashVFXPrefab { get; }
 
         // Callback when dash completes - enemy decides what to do next
@@ -75,6 +92,7 @@ namespace junklite
     public interface IMeleeAttacker
     {
         float MeleeAttackDuration { get; }
+        float AttackCooldown { get; }  // ADD THIS - time between slashes
         float MeleeDamage { get; }
         Vector2 MeleeKnockback { get; }
         Hitbox MeleeHitbox { get; }
