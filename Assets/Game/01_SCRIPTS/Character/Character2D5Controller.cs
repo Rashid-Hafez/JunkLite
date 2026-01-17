@@ -92,7 +92,8 @@ namespace junklite
         [SerializeField] private bool faceMovementDirection = true;
         [SerializeField] private FacingMode facingMode = FacingMode.ScaleFlip;
         [SerializeField] private float rotationSpeed = 10f;
-
+      
+        private bool physicsOverride = false;
         public enum FacingMode { ScaleFlip, YAxisRotation }
 
         // Components
@@ -288,6 +289,8 @@ namespace junklite
 
         private void FixedUpdate()
         {
+            if (physicsOverride)
+                return;
 
             if (!IsGrounded)
                 coyoteTimer -= Time.fixedDeltaTime;
@@ -328,6 +331,12 @@ namespace junklite
         }
 
         #region Public Methods
+
+        public void SetPhysicsOverride(bool enabled)
+        {
+            physicsOverride = enabled;
+        }
+
 
         public void SetJumpHeld(bool held)
         {
@@ -789,7 +798,7 @@ namespace junklite
 
         private void ClampFallSpeedFixed()
         {
-            if (isWallSliding) return;
+            if (isWallSliding || physicsOverride) return;
 
             if (rb.linearVelocity.y < maxFallSpeed)
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, maxFallSpeed, rb.linearVelocity.z);

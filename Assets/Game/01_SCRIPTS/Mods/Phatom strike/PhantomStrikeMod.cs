@@ -13,6 +13,8 @@ namespace junklite
         [Tooltip("Number of hits required to charge special attack")]
         public int hitsRequired = 3;
 
+        public LayerMask groundLayerMask;
+
         [Header("Slam Attack")]
         [Tooltip("Base damage of the slam attack")]
         public float slamDamage = 50f;
@@ -29,6 +31,8 @@ namespace junklite
         [Header("Timing")]
         [Tooltip("Time spent invisible before descending")]
         public float hangTime = 0.8f;
+
+        public float descentSpeed = 10f;
 
         [Tooltip("Duration of the descent (slam) animation")]
         public float descentDuration = 0.25f;
