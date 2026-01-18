@@ -161,7 +161,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: b8e98bd2906ddde459cd82548528c2fe
+    spriteID: 5e70535b841f94d77a9b969517c6ea76
     internalID: 1537655665
     vertices: []
     indices: 
@@ -175,7 +175,7 @@ TextureImporter:
       - key: SpriteEditor.SliceOnImport
         value: True
     nameFileIdTable:
-      1_2_0: 18097479
+      1_2_0: -1213828933
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
