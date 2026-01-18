@@ -5,13 +5,14 @@ using System.Collections;
 namespace junklite
 {
     /// <summary>
-    /// Runtime tracker for Phantom Strike mod. Attached to player.
-    /// Tracks successful hits, resets on damage taken, and executes the special slam attack.
+    /// Tracks hits for Phantom Strike mod and executes the special slam attack.
     /// </summary>
+    [DefaultExecutionOrder(6)]
     public class PhantomStrikeTracker : MonoBehaviour
     {
-        [Header("Debug")]
-        [SerializeField] private bool debugMode = false;
+        [SerializeField] private Transform impactVFXSpawnPoint;
+
+        private const float MAX_DESCENT_TIME = 5f;
 
         private PhantomStrikeMod modData;
         private PlayerCharacter player;
@@ -23,13 +24,13 @@ namespace junklite
         private bool isActive;
         private bool isExecutingSpecial;
 
-        // Events for UI
+        private static readonly Collider[] overlapBuffer = new Collider[32];
+
         public event Action<int, int> OnHitsChanged;
         public event Action OnSpecialReady;
         public event Action OnSpecialUsed;
         public event Action OnHitsReset;
 
-        // Properties
         public int CurrentHits => currentHits;
         public int HitsRequired => modData != null ? modData.hitsRequired : 3;
         public bool IsSpecialReady => currentHits >= HitsRequired && !isExecutingSpecial;
@@ -37,13 +38,9 @@ namespace junklite
         public bool IsExecutingSpecial => isExecutingSpecial;
         public PhantomStrikeMod ModData => modData;
 
-        // Non-alloc buffer for overlap checks
-        private static readonly Collider[] overlapBuffer = new Collider[32];
-
         public void Initialize(PhantomStrikeMod mod)
         {
             modData = mod;
-
             player = GetComponent<PlayerCharacter>();
             playerState = GetComponent<PlayerState>();
             damageable = GetComponent<Damageable>();
@@ -52,72 +49,48 @@ namespace junklite
 
         public void SetActive(bool active)
         {
-            if (isActive == active)
-                return;
+            if (isActive == active) return;
 
             isActive = active;
 
             if (active)
             {
-                // Subscribe to damage events
                 if (damageable != null)
                     damageable.OnDamaged += HandleDamageTaken;
 
-                // Subscribe to special attack input
                 if (GameInputManager.Instance != null)
                     GameInputManager.Instance.OnSpecialAttack += HandleSpecialAttackInput;
 
                 OnHitsChanged?.Invoke(currentHits, HitsRequired);
-
-                if (debugMode)
-                    Debug.Log("[PhantomStrike] Activated");
             }
             else
             {
-                // Unsubscribe
                 if (damageable != null)
                     damageable.OnDamaged -= HandleDamageTaken;
 
                 if (GameInputManager.Instance != null)
                     GameInputManager.Instance.OnSpecialAttack -= HandleSpecialAttackInput;
-
-                if (debugMode)
-                    Debug.Log("[PhantomStrike] Deactivated");
             }
         }
 
         public void AddHit()
         {
-            if (!isActive || isExecutingSpecial)
-                return;
-
-            if (IsSpecialReady)
-                return;
+            if (!isActive || isExecutingSpecial || IsSpecialReady) return;
 
             currentHits++;
             OnHitsChanged?.Invoke(currentHits, HitsRequired);
 
-            if (debugMode)
-                Debug.Log($"[PhantomStrike] Hit count: {currentHits}/{HitsRequired}");
-
             if (IsSpecialReady)
-            {
                 OnSpecialReady?.Invoke();
-                Debug.Log("[PhantomStrike] SPECIAL READY! Press Special Attack to execute.");
-            }
         }
 
         public void ResetHits()
         {
-            if (currentHits == 0)
-                return;
+            if (currentHits == 0) return;
 
             currentHits = 0;
             OnHitsReset?.Invoke();
             OnHitsChanged?.Invoke(currentHits, HitsRequired);
-
-            if (debugMode)
-                Debug.Log("[PhantomStrike] Hits reset");
         }
 
         private void HandleDamageTaken(float damage, GameObject source)
@@ -128,15 +101,9 @@ namespace junklite
 
         private void HandleSpecialAttackInput()
         {
-            if (!isActive || !IsSpecialReady || isExecutingSpecial)
-                return;
-
+            if (!isActive || !IsSpecialReady || isExecutingSpecial) return;
             StartCoroutine(ExecuteSpecialAttack());
         }
-
-        // -----------------------------------------------------------------------
-        // SPECIAL ATTACK EXECUTION
-        // -----------------------------------------------------------------------
 
         private IEnumerator ExecuteSpecialAttack()
         {
@@ -144,28 +111,19 @@ namespace junklite
                 yield break;
 
             isExecutingSpecial = true;
-
-            // Store initial position for slam target
-            Vector3 slamTarget = player.GetGroundPosition();
             Vector3 startPosition = player.transform.position;
 
-            // ===== PHASE 1: VANISH =====
-            if (debugMode) Debug.Log("[PhantomStrike] Phase 1: Vanish");
-
-            // Lock input
+            // Phase 1: Vanish
             playerState.SetInputLocked(true);
-
-            // Make invulnerable
             playerState.SetVulnerable(false);
 
-            // Stop all velocity
             if (player.Controller != null)
             {
                 player.Controller.StopAllVelocity();
                 player.Controller.CanMove = false;
+                player.Controller.SetPhysicsOverride(true);
             }
 
-            // Disable gravity
             bool wasKinematic = false;
             if (rb != null)
             {
@@ -174,67 +132,47 @@ namespace junklite
                 rb.linearVelocity = Vector3.zero;
             }
 
-            // Disconnect camera
             player.RequestCameraFollow(false);
-
-            // Hide player
             player.SetVisible(false);
 
-            // Spawn vanish VFX (optional)
             if (modData.vanishVFX != null)
                 Instantiate(modData.vanishVFX, startPosition, Quaternion.identity);
 
-            // ===== PHASE 2: HANG TIME =====
-            if (debugMode) Debug.Log("[PhantomStrike] Phase 2: Hang Time");
-
-            // Teleport player high above (off-screen)
-            float spawnHeight = modData.spawnHeight;
-            Vector3 airPosition = slamTarget + Vector3.up * spawnHeight;
+            // Phase 2: Hang Time
+            Vector3 airPosition = new Vector3(startPosition.x, startPosition.y + modData.spawnHeight, startPosition.z);
             player.transform.position = airPosition;
+            playerState.SetGrounded(false);
 
-            // Wait while invisible
             yield return new WaitForSeconds(modData.hangTime);
 
-            // ===== PHASE 3: DESCEND =====
-            if (debugMode) Debug.Log("[PhantomStrike] Phase 3: Descend");
-
-            // Show player
+            // Phase 3: Descend
             player.SetVisible(true);
 
-            // Spawn descent VFX (optional)
             if (modData.descentVFX != null)
-                Instantiate(modData.descentVFX, airPosition, Quaternion.identity);
+                Instantiate(modData.descentVFX, player.transform.position, Quaternion.identity);
 
-            // Rapid descent to slam target
-            float descentDuration = modData.descentDuration;
             float elapsed = 0f;
+            float speed = modData.descentSpeed;
 
-            while (elapsed < descentDuration)
+            while (!playerState.IsGrounded && elapsed < MAX_DESCENT_TIME)
             {
+                player.transform.position += Vector3.down * speed * Time.deltaTime;
                 elapsed += Time.deltaTime;
-                float t = elapsed / descentDuration;
-
-                // Ease-in for acceleration effect
-                float easedT = t * t;
-
-                player.transform.position = Vector3.Lerp(airPosition, slamTarget, easedT);
                 yield return null;
             }
 
-            // Snap to exact position
-            player.transform.position = slamTarget;
+            // Phase 4: Impact
+            Vector3 impactPosition = player.transform.position;
 
-            // ===== PHASE 4: IMPACT =====
-            if (debugMode) Debug.Log("[PhantomStrike] Phase 4: Impact");
-
-            // Deal damage to all enemies in radius
-            DealSlamDamage(slamTarget);
-
-            // Spawn impact VFX (optional)
             if (modData.impactVFX != null)
-                Instantiate(modData.impactVFX, slamTarget, Quaternion.identity);
+            {
+                Vector3 vfxPos = impactVFXSpawnPoint != null ? impactVFXSpawnPoint.position : impactPosition;
+                Quaternion vfxRot = impactVFXSpawnPoint != null ? impactVFXSpawnPoint.rotation : Quaternion.identity;
+                Instantiate(modData.impactVFX, vfxPos, vfxRot);
+            }
 
-            // Camera shake (optional)
+            DealSlamDamage(impactPosition);
+
             if (modData.cameraShakeIntensity > 0f)
             {
                 var impulse = player.GetComponent<Unity.Cinemachine.CinemachineImpulseSource>();
@@ -242,80 +180,44 @@ namespace junklite
                     FeedbackManager.Instance.DoCameraShake(impulse, modData.cameraShakeIntensity);
             }
 
-            // ===== PHASE 5: RECOVERY =====
-            if (debugMode) Debug.Log("[PhantomStrike] Phase 5: Recovery");
-
-            // Short recovery delay
+            // Phase 5: Recovery
             yield return new WaitForSeconds(modData.recoveryTime);
 
-            // Re-enable physics
             if (rb != null)
                 rb.isKinematic = wasKinematic;
 
-            // Re-enable controller
             if (player.Controller != null)
+            {
+                player.Controller.SetPhysicsOverride(false);
                 player.Controller.CanMove = true;
+            }
 
-            // Reconnect camera
             player.RequestCameraFollow(true);
-
-            // Make vulnerable again (with brief invulnerability)
             playerState.ApplyInvulnerability(0.2f);
-
-            // Unlock input
             playerState.SetInputLocked(false);
 
-            // Consume special
             currentHits = 0;
             OnSpecialUsed?.Invoke();
             OnHitsChanged?.Invoke(currentHits, HitsRequired);
 
             isExecutingSpecial = false;
-
-            Debug.Log("[PhantomStrike] Special attack complete!");
         }
 
         private void DealSlamDamage(Vector3 position)
         {
-            float radius = modData.slamRadius;
             float damage = modData.slamDamage * modData.criticalMultiplier;
-            LayerMask enemyMask = modData.enemyLayerMask;
-
-            int hitCount = Physics.OverlapSphereNonAlloc(position, radius, overlapBuffer, enemyMask);
+            int hitCount = Physics.OverlapSphereNonAlloc(position, modData.slamRadius, overlapBuffer, modData.enemyLayerMask);
 
             for (int i = 0; i < hitCount; i++)
             {
-                var collider = overlapBuffer[i];
+                var col = overlapBuffer[i];
+                if (col.gameObject == gameObject) continue;
 
-                // Skip self
-                if (collider.gameObject == gameObject)
-                    continue;
-
-                // Try to deal damage
-                var damageable = collider.GetComponentInParent<IDamageable>();
-                if (damageable != null && damageable.IsAlive)
-                {
-                    var damageInfo = new DamageInfo(
-                        damage,
-                        gameObject,
-                        DamageType.Physical,
-                        Vector2.zero
-                    );
-
-                    damageable.TakeDamage(damageInfo);
-
-                    if (debugMode)
-                        Debug.Log($"[PhantomStrike] Hit {collider.name} for {damage} damage");
-                }
+                var target = col.GetComponentInParent<IDamageable>();
+                if (target != null && target.IsAlive)
+                    target.TakeDamage(new DamageInfo(damage, gameObject, DamageType.Physical, Vector2.zero));
             }
-
-            if (debugMode)
-                Debug.Log($"[PhantomStrike] Slam hit {hitCount} targets");
         }
-
-        // -----------------------------------------------------------------------
-        // CLEANUP
-        // -----------------------------------------------------------------------
 
         private void OnDestroy()
         {
@@ -328,24 +230,25 @@ namespace junklite
 
         private void OnDisable()
         {
-            // Safety: if disabled during special, reset state
-            if (isExecutingSpecial)
+            if (!isExecutingSpecial) return;
+
+            isExecutingSpecial = false;
+
+            if (playerState != null)
             {
-                isExecutingSpecial = false;
+                playerState.SetInputLocked(false);
+                playerState.SetVulnerable(true);
+            }
 
-                if (playerState != null)
+            if (player != null)
+            {
+                player.SetVisible(true);
+                player.RequestCameraFollow(true);
+
+                if (player.Controller != null)
                 {
-                    playerState.SetInputLocked(false);
-                    playerState.SetVulnerable(true);
-                }
-
-                if (player != null)
-                {
-                    player.SetVisible(true);
-                    player.RequestCameraFollow(true);
-
-                    if (player.Controller != null)
-                        player.Controller.CanMove = true;
+                    player.Controller.SetPhysicsOverride(false);
+                    player.Controller.CanMove = true;
                 }
             }
         }

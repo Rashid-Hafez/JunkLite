@@ -15481,7 +15481,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1247947898183578266, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -30.61688
+      value: -6.47
       objectReference: {fileID: 0}
     - target: {fileID: 1247947898183578266, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
       propertyPath: m_LocalPosition.y
@@ -33517,32 +33517,31 @@ MonoBehaviour:
   meleeAttackDuration: 0.4
   attackCooldown: 0.5
   meleeDamage: 8
-  meleeKnockback: {x: 0, y: 0}
+  meleeKnockback: {x: 4, y: 1}
   meleeHitbox: {fileID: 3800878037905379685}
   meleeVFXPrefab: {fileID: 0}
   chargeTime: 0.2
   chargeVFXPrefab: {fileID: 0}
-  dashSpeed: 50
+  dashSpeed: 30
   dashDamage: 12
-  dashKnockback: {x: 12, y: 4}
+  dashKnockback: {x: 16, y: 4}
   dashHitbox: {fileID: 970346137}
   dashVFXPrefab: {fileID: 0}
-  dashStopDistance: 0.5
+  dashStopDistance: 0.7
   maxDashChance: 1
   chaseSpeed: 8
+  pursuitRadius: 15
   dodgeDistance: 5
   dodgeSpeed: 30
-  dodgeHeight: 0.5
+  dodgeHeight: 0
   dodgeHasIFrames: 1
   dodgeVFXPrefab: {fileID: 0}
-  dodgeChance: 0.592
+  dodgeChance: 0.5
   dodgeCheckRange: 4
   dodgeCooldown: 1
-  pursuitRadius: 15
   postDodgeRecoveryTime: 0.3
   counterAttackChance: 0.594
   recoveryVFXPrefab: {fileID: 0}
-  vfxScale: 2
 --- !u!114 &1888653600
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -45881,6 +45880,7 @@ MonoBehaviour:
   dashStopDistance: 0.5
   maxDashChance: 0.5
   chaseSpeed: 8
+  pursuitRadius: 15
   dodgeDistance: 3
   dodgeSpeed: 10
   dodgeHeight: 0.5
@@ -45889,11 +45889,9 @@ MonoBehaviour:
   dodgeChance: 0.3
   dodgeCheckRange: 4
   dodgeCooldown: 1
-  pursuitRadius: 15
   postDodgeRecoveryTime: 0.3
   counterAttackChance: 0.4
   recoveryVFXPrefab: {fileID: 0}
-  vfxScale: 2
 --- !u!1 &1952637200074556952
 GameObject:
   m_ObjectHideFlags: 0
@@ -61909,6 +61907,67 @@ MonoBehaviour:
   AmplitudeGain: 0.2
   FrequencyGain: 0.2
   m_NoiseOffsets: {x: -299.61267, y: -248.28491, z: 430.9301}
+--- !u!1001 &5454145124766033958
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 3206121661325814171, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -4.379
+      objectReference: {fileID: 0}
+    - target: {fileID: 3206121661325814171, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -1.09
+      objectReference: {fileID: 0}
+    - target: {fileID: 3206121661325814171, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.11
+      objectReference: {fileID: 0}
+    - target: {fileID: 3206121661325814171, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3206121661325814171, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3206121661325814171, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3206121661325814171, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3206121661325814171, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3206121661325814171, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3206121661325814171, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8615637430519484148, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
+      propertyPath: m_Name
+      value: 'Smoke AOE explosion '
+      objectReference: {fileID: 0}
+    - target: {fileID: 8615637430519484148, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 8fed83ba6dfee2b46ae7116b970c2960, type: 3}
 --- !u!1 &5521678460699970172
 GameObject:
   m_ObjectHideFlags: 0
@@ -62450,7 +62509,7 @@ MonoBehaviour:
   targetLayers:
     serializedVersion: 2
     m_Bits: 1
-  requireLineOfSight: 1
+  requireLineOfSight: 0
   losBlockingLayers:
     serializedVersion: 2
     m_Bits: 6144
@@ -73719,4 +73778,5 @@ SceneRoots:
   - {fileID: 208225622}
   - {fileID: 3655636342562562787}
   - {fileID: 3658355962765001975}
+  - {fileID: 5454145124766033958}
   - {fileID: 1888653607}

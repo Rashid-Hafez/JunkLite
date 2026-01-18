@@ -30,12 +30,12 @@ namespace junklite
 
         public override void OnEquip(WeaponInstance weapon)
         {
-            Debug.Log($"[FireMod] Equipped - weapon now deals fire damage!");
+            //Debug.Log($"[FireMod] Equipped - weapon now deals fire damage!");
         }
 
         public override void OnUnequip(WeaponInstance weapon)
         {
-            Debug.Log($"[FireMod] Unequipped");
+            //Debug.Log($"[FireMod] Unequipped");
         }
     }
 }
