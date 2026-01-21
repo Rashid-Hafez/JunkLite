@@ -6,18 +6,31 @@ namespace junklite
 {
     [SerializeField] private float flashDuration = 0.1f;
     [SerializeField] private float flashAmount = 0.8f;
+    [SerializeField] private bool isSpine = false;
     [SerializeField] private Color flashColor = Color.white;
     private SpriteRenderer[] _spriteRendererArray;
     private Material[] _materialArray;
     private Coroutine _flashCoroutine;
     private float flashamounttemp;
+    private MeshRenderer meshRenderer;
 
     // methods
 
     private void Awake()
     {
-        _spriteRendererArray = GetComponentsInChildren<SpriteRenderer>();
-        InitializeMaterials();
+        if (isSpine)
+        {
+            meshRenderer = GetComponentInChildren<MeshRenderer>();
+            meshRenderer.materials = meshRenderer.materials;
+
+        }
+        else
+        {
+            _spriteRendererArray = GetComponentsInChildren<SpriteRenderer>();
+            InitializeMaterials();
+            
+        }
+        
         flashamounttemp = flashAmount;
     }
 

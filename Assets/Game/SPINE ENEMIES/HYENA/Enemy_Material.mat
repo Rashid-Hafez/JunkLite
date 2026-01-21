@@ -60,6 +60,7 @@ Material:
     - _BUILTIN_Blend: 1
     - _BUILTIN_CullMode: 0
     - _BUILTIN_QueueControl: -1
+    - _FlashAmount: 1
     m_Colors:
     - _FlashColor: {r: 2.670157, g: 2.670157, b: 2.670157, a: 1}
   m_BuildTextureStacks: []
