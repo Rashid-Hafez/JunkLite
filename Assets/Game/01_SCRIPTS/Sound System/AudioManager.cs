@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.Audio;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace junklite
 {
@@ -33,6 +35,7 @@ namespace junklite
         private AudioSource musicSource;
         private AudioSource[] spatialPool;
         private int spatialPoolIndex;
+        private readonly Dictionary<AudioSource, Coroutine> effectResetters = new();
 
         // Direct access to library sections
         public PlayerSounds Player => library?.player;
@@ -107,7 +110,9 @@ namespace junklite
             source.clip = entry.clip;
             source.volume = entry.volume;
             source.pitch = entry.GetRandomPitch();
+            ApplyRandomEffect(entry, source);
             source.Play();
+            ScheduleEffectReset(source, entry.clip);
         }
 
         /// <summary>
@@ -132,7 +137,12 @@ namespace junklite
 
             spatial.volume = entry.volume * source.volume;
             spatial.pitch = entry.GetRandomPitch() * source.pitch;
+            spatial.dopplerLevel = source.dopplerLevel;
+            spatial.spread = source.spread;
+
+            ApplyRandomEffect(entry, spatial);
             spatial.PlayOneShot(entry.clip, entry.volume);
+            ScheduleEffectReset(spatial, entry.clip);
         }
 
         /// <summary>
@@ -211,6 +221,61 @@ namespace junklite
             var fallback = spatialPool[spatialPoolIndex];
             spatialPoolIndex = (spatialPoolIndex + 1) % spatialPool.Length;
             return fallback;
+        }
+
+        private void ApplyRandomEffect(SoundEntry entry, AudioSource source)
+        {
+            ResetEffects(source);
+            var effect = entry.GetRandomEffect();
+            if (effect == null) return;
+
+            switch (effect.type)
+            {
+                case SoundEffectType.Reverb:
+                    var reverb = GetOrAddFilter<AudioReverbFilter>(source);
+                    reverb.reverbPreset = effect.reverbPreset;
+                    reverb.enabled = effect.reverbPreset != AudioReverbPreset.Off;
+                    break;
+                case SoundEffectType.Distortion:
+                    var distortion = GetOrAddFilter<AudioDistortionFilter>(source);
+                    distortion.distortionLevel = effect.distortionLevel;
+                    distortion.enabled = effect.distortionLevel > 0f;
+                    break;
+            }
+        }
+
+        private void ResetEffects(AudioSource source)
+        {
+            if (source.TryGetComponent(out AudioReverbFilter reverb))
+                reverb.enabled = false;
+            if (source.TryGetComponent(out AudioDistortionFilter distortion))
+                distortion.enabled = false;
+        }
+
+        private void ScheduleEffectReset(AudioSource source, AudioClip clip)
+        {
+            if (clip == null || source == null) return;
+
+            if (effectResetters.TryGetValue(source, out var existing) && existing != null)
+                StopCoroutine(existing);
+
+            float pitch = Mathf.Abs(source.pitch) < 0.001f ? 1f : Mathf.Abs(source.pitch);
+            float duration = clip.length / pitch;
+            effectResetters[source] = StartCoroutine(ResetEffectsAfter(source, duration));
+        }
+
+        private IEnumerator ResetEffectsAfter(AudioSource source, float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            ResetEffects(source);
+            effectResetters[source] = null;
+        }
+
+        private static T GetOrAddFilter<T>(AudioSource source) where T : Behaviour
+        {
+            if (!source.TryGetComponent(out T filter))
+                filter = source.gameObject.AddComponent<T>();
+            return filter;
         }
     }
 }

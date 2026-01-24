@@ -102,10 +102,11 @@ namespace junklite
 
         // Public methods for manual triggering
         public void PlayHurt() => Play(audioManager?.Player?.hurt);
-        public void PlayAttack() => Play(audioManager?.Player?.attack);
+        public void PlayAttack() => Play(GetVariantOrFallback(audioManager?.Player?.attackVariants, audioManager?.Player?.attack));
+        public void PlayFootstep() => Play(GetVariantOrFallback(audioManager?.Player?.footstepVariants, audioManager?.Player?.footstep));
 
         // Event handlers
-        private void OnJump() => Play(audioManager?.Player?.jump);
+        private void OnJump() => Play(GetVariantOrFallback(audioManager?.Player?.jumpVariants, audioManager?.Player?.jump));
         private void OnDoubleJump() => Play(audioManager?.Player?.doubleJump);
         private void OnWallJump() => Play(audioManager?.Player?.wallJump);
         // Landing SFX is separate from jump: it fires when the controller reports fall ended.
@@ -127,6 +128,17 @@ namespace junklite
         {
             audioManager?.PlaySpatial(entry, source);
            // Debug.Log("Playing sound: " + entry.clip);
+        }
+
+        private static SoundEntry GetVariantOrFallback(SoundEntryGroup group, SoundEntry fallback)
+        {
+            if (group != null && group.HasEntries)
+            {
+                var entry = group.GetRandomEntry();
+                if (entry != null && entry.IsValid)
+                    return entry;
+            }
+            return fallback;
         }
     }
 }
