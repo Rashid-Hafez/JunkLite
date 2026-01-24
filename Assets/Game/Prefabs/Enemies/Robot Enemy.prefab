@@ -184,6 +184,37 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1
   hitOnce: 1
+--- !u!1 &5870449926906009762
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8750412993510978982}
+  m_Layer: 14
+  m_Name: Wallcheck
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8750412993510978982
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5870449926906009762}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.465, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3734515324607090471}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6019179272345234445
 GameObject:
   m_ObjectHideFlags: 0
@@ -302,6 +333,7 @@ Transform:
   - {fileID: 3501995897602966440}
   - {fileID: 4078921973861079460}
   - {fileID: 1826708996752931702}
+  - {fileID: 8750412993510978982}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &8058610614710305391
@@ -436,12 +468,6 @@ MonoBehaviour:
   targetLayer:
     serializedVersion: 2
     m_Bits: 1
-  dashHitbox: {fileID: 4642887769960604419}
-  patrolDistance: 6.2
-  wallCheckDistance: 1.08
-  wallLayer:
-    serializedVersion: 2
-    m_Bits: 4096
   canBeKnockedBack: 1
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
@@ -449,24 +475,38 @@ MonoBehaviour:
   deathParticlePrefab: {fileID: 358637981425055526, guid: 8eb503696b886e04faff8fc0f480d473, type: 3}
   deathParticleLifetime: 2
   enemyVisual: {fileID: 1930341714758770327}
-  chargeVFXPrefab: {fileID: 0}
-  dashVFXPrefab: {fileID: 7761031033666763820, guid: 1eb833340b41fb444b576c4dced8d4dc, type: 3}
-  grabVFXPrefab: {fileID: 0}
-  recoveryVFXPrefab: {fileID: 0}
-  vfxScale: 2
   customDropTable: {fileID: 0}
   dropChance: 1
-  dashChargeTime: 0.7
-  dashSpeed: 20
-  dashRecoveryTime: 0.3
-  dashDamage: 10
-  dashKnockback: {x: 15, y: 5}
-  canGrab: 1
-  grabChance: 0.213
-  grabDuration: 1.5
-  throwForce: {x: 20, y: 50}
-  throwDamage: 20
-  grabOffset: {x: 0.5, y: 1.5, z: 0}
+  patrol:
+    patrolDistance: 5
+    patrolSpeed: 2
+    wallCheckDistance: 0.5
+    wallLayer:
+      serializedVersion: 2
+      m_Bits: 6144
+    wallCheckPoint: {fileID: 8750412993510978982}
+  charge:
+    chargeTime: 1
+    chargeVFXPrefab: {fileID: 0}
+  dash:
+    dashSpeed: 20
+    dashDamage: 10
+    dashStopDistance: 1
+    dashKnockback: {x: 15, y: 5}
+    dashHitbox: {fileID: 4642887769960604419}
+    dashVFXPrefab: {fileID: 0}
+  grab:
+    canGrab: 1
+    grabChance: 0.3
+    grabDuration: 1
+    grabOffset: {x: 0, y: 2, z: 0}
+    throwForce: {x: 25, y: 10}
+    throwDamage: 5
+    grabVFXPrefab: {fileID: 0}
+  recovery:
+    recoveryTime: 0.3
+    recoveryVFXPrefab: {fileID: 0}
+  vfxScale: 2
 --- !u!114 &6397509013019191404
 MonoBehaviour:
   m_ObjectHideFlags: 0

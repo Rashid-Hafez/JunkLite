@@ -261,43 +261,31 @@ namespace junklite
         {
             var damageable = targetCollider.GetComponent<IDamageable>()
                           ?? targetCollider.GetComponentInParent<IDamageable>();
-
             if (damageable == null || !damageable.IsAlive)
                 return;
 
             float damage = CurrentWeapon != null ? CurrentWeapon.baseDamage : 10f;
-
             if (step.damageMultiplier > 0f)
                 damage *= step.damageMultiplier;
 
-            Vector3 knockbackDir = (targetCollider.transform.position - playerTransform.position).normalized;
-            Vector2 knockback = new Vector2(
-                knockbackDir.x * defaultKnockback.x,
-                defaultKnockback.y
-            );
+            // Pass raw knockback - let the target calculate direction from Source
+            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, defaultKnockback);
 
-            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
-
-            // Only spawn VFX and trigger mods if damage was actually dealt
             bool damageDealt = damageable.TakeDamage(damageInfo);
 
             if (damageDealt)
             {
-                // Trigger weapon mods (status effects, etc.) only on successful hit
                 if (CurrentWeapon != null)
                 {
                     var enemy = targetCollider.GetComponent<EnemyCharacter>()
                              ?? targetCollider.GetComponentInParent<EnemyCharacter>();
-
                     CurrentWeapon.TriggerModsOnHit(enemy, playerCharacter);
                 }
 
-                // Spawn hit VFX
                 if (CombatEffectsManager.Instance != null)
                 {
                     Vector3 hitPoint = targetCollider.ClosestPoint(playerTransform.position);
                     Vector3 attackDir = (targetCollider.transform.position - playerTransform.position).normalized;
-
                     CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, attackDir);
                     CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, attackDir);
                 }

@@ -20,7 +20,6 @@ namespace junklite
         public override void Update()
         {
             // Detection is handled by DetectionZone events
-            // This state just waits
         }
     }
 }

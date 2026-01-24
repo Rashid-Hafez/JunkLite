@@ -20,8 +20,7 @@ namespace junklite
 
         public override void Enter()
         {
-            // Get capability interface
-            patroller = enemy as IPatroller;
+            patroller = GetCapability<IPatroller>();
             if (patroller == null)
             {
                 Debug.LogError($"{enemy.gameObject.name}: PatrolState requires IPatroller interface!");
@@ -40,7 +39,6 @@ namespace junklite
         {
             if (patroller == null) return;
 
-            // Check for wall - instant reverse
             if (patroller.IsWallAhead())
             {
                 patroller.ReverseDirection();
@@ -48,7 +46,6 @@ namespace junklite
                 return;
             }
 
-            // Check if reached patrol boundary - instant reverse
             if (patroller.IsAtPatrolBoundary())
             {
                 patroller.ReverseDirection();

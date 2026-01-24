@@ -540,8 +540,6 @@ namespace junklite
             if (playerState == null || !playerState.CanAttack || _weaponManager == null)
                 return;
 
-            playerState.SetAttacking(true); 
-
             Vector2 move = inputManager.MoveDirection;
 
             AttackDirection dir = AttackDirection.Side;

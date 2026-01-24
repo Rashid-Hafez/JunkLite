@@ -18,10 +18,8 @@ namespace junklite
         {
             Debug.Log($"[DeadState] {enemy.gameObject.name} entered DeadState");
 
-            // Stop all movement
             enemy.Movement?.Stop();
 
-            // Disable detection
             if (enemy.DetectionZone != null)
                 enemy.DetectionZone.enabled = false;
         }
@@ -33,7 +31,6 @@ namespace junklite
 
         public override void Exit()
         {
-            // Typically won't exit this state unless respawning
             Debug.Log($"[DeadState] {enemy.gameObject.name} exiting DeadState (respawn?)");
         }
     }

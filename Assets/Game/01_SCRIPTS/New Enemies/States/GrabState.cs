@@ -15,16 +15,13 @@ namespace junklite
         private IGrabber grabber;
         private float timer;
         private bool hasThrown;
-
-        // Cached VFX instance
         private GameObject activeVFX;
 
         public GrabState(EnemyCharacter enemy) : base(enemy) { }
 
         public override void Enter()
         {
-            // Get capability interface
-            grabber = enemy as IGrabber;
+            grabber = GetCapability<IGrabber>();
             if (grabber == null)
             {
                 Debug.LogError($"{enemy.gameObject.name}: GrabState requires IGrabber interface!");
@@ -34,10 +31,8 @@ namespace junklite
             timer = 0f;
             hasThrown = false;
 
-            // Stop movement during grab
             enemy.Movement?.Stop();
 
-            // Spawn VFX
             activeVFX = VFXPool.Get(grabber.GrabVFXPrefab, enemy.transform);
 
             Debug.Log($"{enemy.gameObject.name}: Grabbing! (duration: {grabber.GrabDuration}s)");
