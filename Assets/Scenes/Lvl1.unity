@@ -10103,6 +10103,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
   flashDuration: 0.1
   flashAmount: 0.8
+  isSpine: 0
   flashColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1001 &208225622
 PrefabInstance:
@@ -26391,6 +26392,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
   flashDuration: 0.1
   flashAmount: 0.8
+  isSpine: 0
   flashColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &1305499144
 GameObject:
@@ -27973,7 +27975,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolumePerSceneData
   serializedBakingSet: {fileID: 0}
-  sceneGUID: 848b9b1b8932a23458a2f42503d8be28
+  sceneGUID: f25197ed0bc68d74eab94e2e49509ef2
   obsoleteAsset: {fileID: 0}
   obsoleteCellSharedDataAsset: {fileID: 0}
   obsoleteCellSupportDataAsset: {fileID: 0}
@@ -61426,13 +61428,17 @@ PrefabInstance:
       propertyPath: m_Name
       value: Dummy
       objectReference: {fileID: 0}
+    - target: {fileID: 1700822433783552845, guid: e342e19659f764d44b9b71da3f06f3f0, type: 3}
+      propertyPath: m_UseGravity
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5021938507132515343, guid: e342e19659f764d44b9b71da3f06f3f0, type: 3}
       propertyPath: m_LocalPosition.x
       value: -4.39
       objectReference: {fileID: 0}
     - target: {fileID: 5021938507132515343, guid: e342e19659f764d44b9b71da3f06f3f0, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.33
+      value: 3.25
       objectReference: {fileID: 0}
     - target: {fileID: 5021938507132515343, guid: e342e19659f764d44b9b71da3f06f3f0, type: 3}
       propertyPath: m_LocalPosition.z
@@ -68268,6 +68274,14 @@ PrefabInstance:
     - target: {fileID: 7209808592452888717, guid: da62f858ec9da58439236c128ce7eabb, type: 3}
       propertyPath: m_Name
       value: Flying Dummy
+      objectReference: {fileID: 0}
+    - target: {fileID: 7209808592452888717, guid: da62f858ec9da58439236c128ce7eabb, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8392230989692702776, guid: da62f858ec9da58439236c128ce7eabb, type: 3}
+      propertyPath: m_ExcludeLayers.m_Bits
+      value: 81921
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

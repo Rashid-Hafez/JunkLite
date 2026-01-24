@@ -34,9 +34,9 @@ namespace junklite
 
         [Header("Feedback Settings")]
         [SerializeField] private Unity.Cinemachine.CinemachineImpulseSource impulseSource;
-        [SerializeField] private float enemyHitHitstopDuration = 0.06f;
+        [SerializeField] private float enemyHitHitstopDuration = 0.08f;
         [SerializeField] private float enemyHitShakeForce = 0.8f;
-        [SerializeField] private float enemyHitDelay = 0.3f;
+        [SerializeField] private float enemyHitDelay = 0.05f;
 
         [Header("Recoil")]
         [SerializeField] private float sideRecoil = 6f;
@@ -47,10 +47,11 @@ namespace junklite
         [SerializeField] private float slashOffsetDirection = 0.5f;
         [SerializeField] private float slashOffsetDistance = 0.5f;
         [SerializeField] private float slashScale = 1f;
+        [SerializeField] private float slashLifetime = 0.15f;
 
         private readonly Dictionary<GameObject, Queue<GameObject>> slashPools = new();
 
-        // ================== INTERNAL ==================
+        // Internal refs
         private Rigidbody playerRb;
         private Transform playerTransform;
         private PlayerState playerState;
@@ -61,10 +62,10 @@ namespace junklite
 
         public event System.Action OnWeaponChanged;
 
-        // ================== PROPERTIES ==================
         public float Facing => Mathf.Sign(playerTransform.localScale.x);
 
-        // ================== UNITY ==================
+        #region Unity
+
         private void Awake()
         {
             playerRb = GetComponentInParent<Rigidbody>();
@@ -78,15 +79,6 @@ namespace junklite
                                 ?? GetComponentInParent<Unity.Cinemachine.CinemachineImpulseSource>()
                                 ?? GetComponentInChildren<Unity.Cinemachine.CinemachineImpulseSource>();
             }
-
-            if (impulseSource == null)
-                Debug.LogWarning("WeaponManager: CinemachineImpulseSource not found. Camera shake will be disabled.");
-        }
-
-        private void Update()
-        {
-            if (UnityEngine.InputSystem.Keyboard.current?.gKey.wasPressedThisFrame == true)
-                DropWeapon();
         }
 
         private void OnTriggerEnter(Collider other)
@@ -102,6 +94,51 @@ namespace junklite
             if (modPickup != null)
                 PickupMod(modPickup);
         }
+
+        #endregion Unity
+
+        #region Public API
+
+        public void Attack(AttackDirection dir)
+        {
+            if (CurrentWeapon == null)
+                return;
+
+            if (!CurrentWeapon.TryGetComboStep(dir, out var step, out int comboIndex))
+                return;
+
+            // Set attacking state
+            if (playerState != null)
+            {
+                playerState.SetAttacking(true);
+                if (comboIndex >= 0)
+                    playerState.TriggerComboAttack(comboIndex);
+            }
+
+            if (_attackStateCo != null)
+                StopCoroutine(_attackStateCo);
+            _attackStateCo = StartCoroutine(ResetAttackingAfterDuration());
+
+            // Execute attack
+            ExecuteAttack(dir, step);
+        }
+
+        public void DropWeapon()
+        {
+            if (CurrentWeapon == null || storedPickup == null)
+                return;
+
+            CurrentWeapon.transform.SetParent(storedPickup.transform, false);
+            CurrentWeapon.gameObject.SetActive(false);
+            CurrentWeapon = null;
+
+            storedPickup.transform.position = transform.position + Vector3.right * Facing * 1.2f;
+            storedPickup.gameObject.SetActive(true);
+            storedPickup = null;
+
+            OnWeaponChanged?.Invoke();
+        }
+
         public void SetWeaponVisible(bool visible)
         {
             if (CurrentWeapon == null)
@@ -115,22 +152,98 @@ namespace junklite
             }
         }
 
-
-        #region Attack
-
-        public void Attack(AttackDirection dir)
+        public Transform GetAttackTransform(AttackDirection dir)
         {
-            if (CurrentWeapon == null)
+            return dir switch
+            {
+                AttackDirection.Up => upAttack,
+                AttackDirection.Down => downAttack,
+                _ => sideAttack
+            };
+        }
+
+        #endregion Public API
+
+        #region Attack Execution
+
+        private void ExecuteAttack(AttackDirection dir, WeaponComboData.ComboStep step)
+        {
+            Transform anchor = GetAttackTransform(dir);
+            if (anchor == null)
                 return;
-            if (playerState != null)
-                playerState.SetAttacking(true);
 
-            // Reset after duration
-            if (_attackStateCo != null)
-                StopCoroutine(_attackStateCo);
-            _attackStateCo = StartCoroutine(ResetAttackingAfterDuration());
+            float radius = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
 
-            CurrentWeapon.ExecuteAttack(dir);
+            // Detect hits
+            var hitResult = DetectHit(anchor.position, radius);
+
+            // Handle hit results
+            if (hitResult.type == AttackHitResult.Enemy && hitResult.target != null)
+            {
+                StartCoroutine(DelayedDamage(hitResult.target, step));
+            }
+
+            // Spawn VFX
+            SpawnAttackVFX(dir, step, anchor, hitResult);
+
+            // Apply recoil
+            if (hitResult.type != AttackHitResult.None)
+                ApplyRecoil(dir);
+        }
+
+        private struct HitDetectionResult
+        {
+            public AttackHitResult type;
+            public Collider target;
+            public Vector3 point;
+        }
+
+        private HitDetectionResult DetectHit(Vector3 origin, float radius)
+        {
+            var result = new HitDetectionResult { type = AttackHitResult.None };
+
+            Collider[] hits = Physics.OverlapSphere(
+                origin,
+                radius,
+                enemyLayer | environmentLayer,
+                QueryTriggerInteraction.Ignore
+            );
+
+            Collider closestEnemy = null;
+            float closestDist = float.MaxValue;
+            bool hitEnvironment = false;
+
+            for (int i = 0; i < hits.Length; i++)
+            {
+                int mask = 1 << hits[i].gameObject.layer;
+
+                if ((mask & enemyLayer) != 0)
+                {
+                    float dist = Vector3.Distance(playerTransform.position, hits[i].transform.position);
+                    if (dist < closestDist)
+                    {
+                        closestDist = dist;
+                        closestEnemy = hits[i];
+                    }
+                }
+                else if ((mask & environmentLayer) != 0)
+                {
+                    hitEnvironment = true;
+                }
+            }
+
+            if (closestEnemy != null)
+            {
+                result.type = AttackHitResult.Enemy;
+                result.target = closestEnemy;
+                result.point = closestEnemy.ClosestPoint(origin);
+            }
+            else if (hitEnvironment)
+            {
+                result.type = AttackHitResult.Environment;
+            }
+
+            return result;
         }
 
         private IEnumerator ResetAttackingAfterDuration()
@@ -143,124 +256,27 @@ namespace junklite
             _attackStateCo = null;
         }
 
-        private void HandleWeaponAttack(AttackDirection dir, WeaponComboData.ComboStep step, int comboIndex)
-        {
-            if (playerState != null && comboIndex >= 0)
-                playerState.TriggerComboAttack(comboIndex);
-
-            Transform anchor = GetAttackTransform(dir);
-            if (anchor == null)
-                return;
-
-            float fallbackRadius = GetFallbackRadius(dir);
-            float finalRadius = step.hitRadius > 0f ? step.hitRadius : fallbackRadius;
-
-            // --- HIT DETECTION ---
-            Collider[] hits = Physics.OverlapSphere(
-                anchor.position,
-                finalRadius,
-                enemyLayer | environmentLayer,
-                QueryTriggerInteraction.Ignore
-            );
-
-            AttackHitResult result = AttackHitResult.None;
-            Collider closestEnemy = null;
-            float closestEnemyDist = float.MaxValue;
-            bool hitEnvironment = false;
-
-            // Find closest enemy and check for environment hits
-            for (int i = 0; i < hits.Length; i++)
-            {
-                int mask = 1 << hits[i].gameObject.layer;
-
-                if ((mask & enemyLayer) != 0)
-                {
-                    float dist = Vector3.Distance(playerTransform.position, hits[i].transform.position);
-                    if (dist < closestEnemyDist)
-                    {
-                        closestEnemyDist = dist;
-                        closestEnemy = hits[i];
-                    }
-                }
-                else if ((mask & environmentLayer) != 0)
-                {
-                    hitEnvironment = true;
-                }
-            }
-
-            // Hit the closest enemy if found
-            if (closestEnemy != null)
-            {
-                result = AttackHitResult.Enemy;
-                StartCoroutine(DelayDealDamage(closestEnemy, step));
-            }
-            else if (hitEnvironment)
-            {
-                result = AttackHitResult.Environment;
-            }
-
-            // --- IMPACT POINT & VFX ---
-            if (result != AttackHitResult.None)
-            {
-                Vector3 impactPoint = ResolveImpactPoint(dir, anchor.position, finalRadius);
-                Vector3 attackDir = GetAttackDirection(dir);
-
-                // Spawn VFX via CombatEffectsManager
-                if (CombatEffectsManager.Instance != null)
-                {
-                    if (result == AttackHitResult.Environment)
-                    {
-                        CombatEffectsManager.Instance.SpawnEnvHitParticle(impactPoint, attackDir);
-                        CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
-                    }
-                    // Enemy hit VFX is now handled in DealDamageToTarget (only if damage was dealt)
-                }
-
-                // Slash at impact point
-                if (step.slashPrefab != null)
-                    PlaySlashAt(step.slashPrefab, anchor, impactPoint);
-            }
-            else
-            {
-                // Slash at default position (no hit)
-                if (step.slashPrefab != null)
-                    PlaySlash(step.slashPrefab, anchor);
-            }
-
-            ApplyRecoil(dir, result);
-        }
-
-        private Vector3 GetAttackDirection(AttackDirection dir)
-        {
-            return dir switch
-            {
-                AttackDirection.Up => Vector3.up,
-                AttackDirection.Down => Vector3.down,
-                _ => Vector3.right * Facing
-            };
-        }
-
-        #endregion Attack
+        #endregion Attack Execution
 
         #region Damage
 
-        private IEnumerator DelayDealDamage(Collider targetCollider, WeaponComboData.ComboStep step)
+        private IEnumerator DelayedDamage(Collider target, WeaponComboData.ComboStep step)
         {
             if (enemyHitDelay > 0f)
                 yield return new WaitForSeconds(enemyHitDelay);
 
-            // Target might have been destroyed / disabled during the delay.
-            if (targetCollider == null)
+            if (target == null)
                 yield break;
 
             PlayHitFeedback();
-            DealDamageToTarget(targetCollider, step);
+            DealDamage(target, step);
         }
 
-        private void DealDamageToTarget(Collider targetCollider, WeaponComboData.ComboStep step)
+        private void DealDamage(Collider target, WeaponComboData.ComboStep step)
         {
-            var damageable = targetCollider.GetComponent<IDamageable>()
-                          ?? targetCollider.GetComponentInParent<IDamageable>();
+            var damageable = target.GetComponent<IDamageable>()
+                          ?? target.GetComponentInParent<IDamageable>();
+
             if (damageable == null || !damageable.IsAlive)
                 return;
 
@@ -268,51 +284,76 @@ namespace junklite
             if (step.damageMultiplier > 0f)
                 damage *= step.damageMultiplier;
 
-            // Pass raw knockback - let the target calculate direction from Source
             var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, defaultKnockback);
-
             bool damageDealt = damageable.TakeDamage(damageInfo);
 
             if (damageDealt)
             {
+                // Trigger mods
                 if (CurrentWeapon != null)
                 {
-                    var enemy = targetCollider.GetComponent<EnemyCharacter>()
-                             ?? targetCollider.GetComponentInParent<EnemyCharacter>();
+                    var enemy = target.GetComponent<EnemyCharacter>()
+                             ?? target.GetComponentInParent<EnemyCharacter>();
                     CurrentWeapon.TriggerModsOnHit(enemy, playerCharacter);
                 }
 
+                // Enemy hit VFX
                 if (CombatEffectsManager.Instance != null)
                 {
-                    Vector3 hitPoint = targetCollider.ClosestPoint(playerTransform.position);
-                    Vector3 attackDir = (targetCollider.transform.position - playerTransform.position).normalized;
-                    CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, attackDir);
-                    CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, attackDir);
+                    Vector3 hitPoint = target.ClosestPoint(playerTransform.position);
+                    Vector3 hitDir = (target.transform.position - playerTransform.position).normalized;
+                    CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDir);
+                    CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, hitDir);
                 }
             }
         }
 
+        private void PlayHitFeedback()
+        {
+            if (FeedbackManager.Instance != null)
+                FeedbackManager.Instance.DoHitFeedback(impulseSource, enemyHitHitstopDuration, enemyHitShakeForce);
+        }
+
         #endregion Damage
 
-        #region Impact Resolution
+        #region VFX
+
+        private void SpawnAttackVFX(AttackDirection dir, WeaponComboData.ComboStep step, Transform anchor, HitDetectionResult hit)
+        {
+            if (hit.type != AttackHitResult.None)
+            {
+                Vector3 impactPoint = ResolveImpactPoint(dir, anchor.position, step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir));
+                Vector3 attackDir = GetAttackDirection(dir);
+
+                // Environment VFX
+                if (hit.type == AttackHitResult.Environment && CombatEffectsManager.Instance != null)
+                {
+                    CombatEffectsManager.Instance.SpawnEnvHitParticle(impactPoint, attackDir);
+                    CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
+                }
+
+                // Slash at impact
+                if (step.slashPrefab != null)
+                    PlaySlashAt(step.slashPrefab, anchor, impactPoint);
+            }
+            else
+            {
+                // Slash at default position
+                if (step.slashPrefab != null)
+                    PlaySlash(step.slashPrefab, anchor);
+            }
+        }
 
         private Vector3 ResolveImpactPoint(AttackDirection dir, Vector3 origin, float radius)
         {
             Vector3 rayDir = GetAttackDirection(dir);
-
             Vector3 rayStart = origin - rayDir * (radius + 0.25f);
             float rayLength = (radius + 0.25f) + (radius + 0.5f);
 
             Vector3 point = origin;
             Vector3 normal = -rayDir;
 
-            if (Physics.Raycast(
-                rayStart,
-                rayDir,
-                out RaycastHit hit,
-                rayLength,
-                enemyLayer | environmentLayer,
-                QueryTriggerInteraction.Ignore))
+            if (Physics.Raycast(rayStart, rayDir, out RaycastHit hit, rayLength, enemyLayer | environmentLayer, QueryTriggerInteraction.Ignore))
             {
                 point = hit.point;
                 normal = hit.normal;
@@ -331,49 +372,17 @@ namespace junklite
             return point;
         }
 
-        public Transform GetAttackTransform(AttackDirection dir)
+        private Vector3 GetAttackDirection(AttackDirection dir)
         {
             return dir switch
             {
-                AttackDirection.Up => upAttack,
-                AttackDirection.Down => downAttack,
-                _ => sideAttack
+                AttackDirection.Up => Vector3.up,
+                AttackDirection.Down => Vector3.down,
+                _ => Vector3.right * Facing
             };
         }
 
-        private float GetFallbackRadius(AttackDirection dir)
-        {
-            return dir switch
-            {
-                AttackDirection.Up => upRadius,
-                AttackDirection.Down => downRadius,
-                _ => sideRadius
-            };
-        }
-
-        private void ApplyRecoil(AttackDirection dir, AttackHitResult result)
-        {
-            if (playerRb == null || result == AttackHitResult.None)
-                return;
-
-            if (dir == AttackDirection.Side)
-            {
-                float recoilDir = -Facing;
-                playerRb.AddForce(Vector3.right * recoilDir * sideRecoil, ForceMode.Impulse);
-            }
-        }
-
-        #endregion Impact Resolution
-
-        #region Feedback
-
-        private void PlayHitFeedback()
-        {
-            if (FeedbackManager.Instance != null)
-                FeedbackManager.Instance.DoHitFeedback(impulseSource, enemyHitHitstopDuration, enemyHitShakeForce);
-        }
-
-        #endregion Feedback
+        #endregion VFX
 
         #region Slash Pool
 
@@ -387,14 +396,12 @@ namespace junklite
                     return;
 
                 Queue<GameObject> pool = new();
-
                 for (int i = 0; i < poolSizePerSlash; i++)
                 {
                     GameObject slash = Instantiate(prefab, slashPoolRoot);
                     slash.SetActive(false);
                     pool.Enqueue(slash);
                 }
-
                 slashPools.Add(prefab, pool);
             }
 
@@ -405,7 +412,7 @@ namespace junklite
             Register(comboData.downAttack.slashPrefab);
         }
 
-        public GameObject GetSlash(GameObject prefab, Transform attackAnchor)
+        private GameObject GetSlash(GameObject prefab, Transform attackAnchor)
         {
             if (prefab == null || !slashPools.TryGetValue(prefab, out var pool))
                 return null;
@@ -418,14 +425,14 @@ namespace junklite
 
             Vector3 offsetToBody = new Vector3(-Facing * slashOffsetDirection, 0f, 0f);
             slash.transform.localPosition = offsetToBody * slashOffsetDistance;
-
             slash.transform.localRotation = Quaternion.identity;
             slash.transform.localScale = Vector3.one * slashScale;
             slash.SetActive(true);
+
             return slash;
         }
 
-        public void ReturnSlash(GameObject prefab, GameObject slash)
+        private void ReturnSlash(GameObject prefab, GameObject slash)
         {
             slash.SetActive(false);
             slash.transform.SetParent(slashPoolRoot, false);
@@ -434,23 +441,34 @@ namespace junklite
                 pool.Enqueue(slash);
         }
 
-        public void PlaySlash(GameObject prefab, Transform attackAnchor, float lifetime = 0.2f)
+        private void PlaySlash(GameObject prefab, Transform attackAnchor)
         {
             GameObject slash = GetSlash(prefab, attackAnchor);
             if (slash == null) return;
 
-            StartCoroutine(ReturnSlashAfterDelay(slash, prefab, lifetime));
+            StartCoroutine(ReturnSlashAfterDelay(slash, prefab, slashLifetime));
         }
 
-        public void PlaySlashAt(GameObject prefab, Transform attackAnchor, Vector3 worldContactPoint, float lifetime = 0.12f)
+        private void PlaySlashAt(GameObject prefab, Transform attackAnchor, Vector3 worldContactPoint)
         {
-            GameObject slash = GetSlash(prefab, attackAnchor);
-            if (slash == null) return;
+            if (prefab == null || !slashPools.TryGetValue(prefab, out var pool))
+                return;
 
-            Vector3 localPoint = attackAnchor.InverseTransformPoint(worldContactPoint);
-            slash.transform.localPosition = localPoint;
+            GameObject slash = pool.Count > 0
+                ? pool.Dequeue()
+                : Instantiate(prefab, slashPoolRoot);
 
-            StartCoroutine(ReturnSlashAfterDelay(slash, prefab, lifetime));
+            slash.transform.SetParent(slashPoolRoot, false);
+            slash.transform.position = worldContactPoint;
+            slash.transform.rotation = attackAnchor.rotation;
+
+            Vector3 scale = Vector3.one * slashScale;
+            scale.x *= Facing;
+            slash.transform.localScale = scale;
+
+            slash.SetActive(true);
+
+            StartCoroutine(ReturnSlashAfterDelay(slash, prefab, slashLifetime));
         }
 
         private IEnumerator ReturnSlashAfterDelay(GameObject slash, GameObject prefab, float delay)
@@ -461,7 +479,7 @@ namespace junklite
 
         #endregion Slash Pool
 
-        #region Weapon and Mod Pickup
+        #region Pickups
 
         private void PickupWeapon(WorldWeaponPickup pickup)
         {
@@ -477,33 +495,11 @@ namespace junklite
             CurrentWeapon.GetComponent<SpriteRenderer>().sortingOrder = 11;
             CurrentWeapon.SetOwnerRigidbody(playerRb);
 
-            CurrentWeapon.OnAttack += HandleWeaponAttack;
-
             var inventory = GetComponent<InventoryComponent>();
             if (inventory != null)
                 inventory.EquipAllPossible();
 
             InitializeSlashPools(CurrentWeapon.weaponData.comboData);
-            OnWeaponChanged?.Invoke();
-        }
-
-        public void DropWeapon()
-        {
-            if (CurrentWeapon == null || storedPickup == null)
-                return;
-
-            CurrentWeapon.OnAttack -= HandleWeaponAttack;
-
-            CurrentWeapon.transform.SetParent(storedPickup.transform, false);
-            CurrentWeapon.gameObject.SetActive(false);
-            CurrentWeapon = null;
-
-            storedPickup.transform.position =
-                transform.position + Vector3.right * Facing * 1.2f;
-
-            storedPickup.gameObject.SetActive(true);
-            storedPickup = null;
-
             OnWeaponChanged?.Invoke();
         }
 
@@ -529,7 +525,33 @@ namespace junklite
             }
         }
 
-        #endregion Weapon and Mod Pickup
+        #endregion Pickups
+
+        #region Helpers
+
+        private float GetFallbackRadius(AttackDirection dir)
+        {
+            return dir switch
+            {
+                AttackDirection.Up => upRadius,
+                AttackDirection.Down => downRadius,
+                _ => sideRadius
+            };
+        }
+
+        private void ApplyRecoil(AttackDirection dir)
+        {
+            if (playerRb == null)
+                return;
+
+            if (dir == AttackDirection.Side)
+            {
+                float recoilDir = -Facing;
+                playerRb.AddForce(Vector3.right * recoilDir * sideRecoil, ForceMode.Impulse);
+            }
+        }
+
+        #endregion Helpers
 
         #region Debug
 
@@ -557,5 +579,4 @@ namespace junklite
         Up,
         Down
     }
-
 }

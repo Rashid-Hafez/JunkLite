@@ -26,11 +26,9 @@ namespace junklite
 
         private Rigidbody ownerRb;
 
-        // Simplified mod system
+        // Mod system
         private readonly List<ActiveMod> activeMods = new();
         public System.Action OnModsChanged;
-
-        public event System.Action<AttackDirection, WeaponComboData.ComboStep, int> OnAttack;
 
         private void Start()
         {
@@ -60,21 +58,26 @@ namespace junklite
         }
 
         // ==================================================
-        // MAIN ATTACK ENTRY (CALLED BY WEAPON HOLDER)
+        // COMBO STEP RETRIEVAL
         // ==================================================
 
-        public void ExecuteAttack(AttackDirection dir)
+        /// <summary>
+        /// Gets the current combo step for the attack direction.
+        /// Returns the step data and combo index (-1 for up/down attacks).
+        /// Returns false if attack is on cooldown.
+        /// </summary>
+        public bool TryGetComboStep(AttackDirection dir, out WeaponComboData.ComboStep step, out int comboIndex)
         {
+            step = default;
+            comboIndex = -1;
+
             if (weaponData == null || weaponData.comboData == null)
-                return;
+                return false;
 
             if (!CanAttack)
-                return;
+                return false;
 
             lastAttackTime = Time.time;
-
-            WeaponComboData.ComboStep step;
-            int comboIndex;
 
             if (dir == AttackDirection.Side)
             {
@@ -84,19 +87,14 @@ namespace junklite
             }
             else
             {
-                comboIndex = -1;
                 ResetSideCombo();
                 step = dir == AttackDirection.Up
                     ? weaponData.comboData.upAttack
                     : weaponData.comboData.downAttack;
             }
 
-            OnAttack?.Invoke(dir, step, comboIndex);
+            return true;
         }
-
-        // ==================================================
-        // COMBO STEP SELECTION
-        // ==================================================
 
         private void AdvanceSideCombo()
         {
@@ -114,17 +112,13 @@ namespace junklite
         }
 
         // ==================================================
-        // MOD SYSTEM (Simplified)
+        // MOD SYSTEM
         // ==================================================
 
         public int MaxModSlots => weaponData != null ? weaponData.maxActiveModSlots : 0;
         public bool HasFreeSlot => activeMods.Count < MaxModSlots;
         public IReadOnlyList<ActiveMod> GetMods() => activeMods;
 
-        /// <summary>
-        /// Add a NEW mod to this weapon (creates ActiveMod with full durability).
-        /// Use for fresh pickups.
-        /// </summary>
         public bool TryAddMod(ModData modData)
         {
             if (modData == null || !HasFreeSlot)
@@ -140,10 +134,6 @@ namespace junklite
             return true;
         }
 
-        /// <summary>
-        /// Add an EXISTING ActiveMod to this weapon (preserves durability).
-        /// Use when moving mods from inventory.
-        /// </summary>
         public bool TryAddActiveMod(ActiveMod mod)
         {
             if (mod == null || !HasFreeSlot)
@@ -158,9 +148,6 @@ namespace junklite
             return true;
         }
 
-        /// <summary>
-        /// Remove a mod from this weapon.
-        /// </summary>
         public void RemoveMod(ActiveMod mod)
         {
             if (!activeMods.Contains(mod))
@@ -173,18 +160,12 @@ namespace junklite
             Debug.Log($"[Weapon] Mod removed: {mod.data.modName}");
         }
 
-        /// <summary>
-        /// Called by WeaponManager when weapon hits something.
-        /// Triggers all mod OnHit effects and consumes durability.
-        /// </summary>
         public void TriggerModsOnHit(EnemyCharacter enemy, PlayerCharacter player)
         {
-            // Iterate backwards in case a mod breaks and gets removed
             for (int i = activeMods.Count - 1; i >= 0; i--)
             {
                 var mod = activeMods[i];
 
-                // Only consume durability if effect was actually used
                 bool effectUsed = mod.data.OnHit(this, enemy, player);
 
                 if (effectUsed)
