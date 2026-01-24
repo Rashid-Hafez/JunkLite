@@ -44,6 +44,7 @@ namespace junklite
 
         // Combat
         Attack,
+        AttackHitResult,
         Hurt,
         Death,
         Hit,

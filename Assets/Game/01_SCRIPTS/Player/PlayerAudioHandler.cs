@@ -3,7 +3,12 @@ using UnityEngine;
 namespace junklite
 {
     /// <summary>
-    /// Attach to Player. Listens to player events and triggers spatial sounds.
+    /// Attach to Player. Listens to gameplay/state events and plays SFX through AudioManager.
+    ///
+    /// How it works:
+    /// - Jump/DoubleJump/etc come from Character2D5Controller events
+    /// - Attack woosh comes from PlayerState.OnAttackingChanged (fires when SetAttacking(true) is called)
+    /// - All SFX ultimately go through AudioManager.PlaySpatial(entry, this AudioSource)
     /// </summary>
 
     [DefaultExecutionOrder(6)]
@@ -16,13 +21,15 @@ namespace junklite
 
         private Character2D5Controller controller;
         private PlayerState state;
-        private AudioManager audio;
+        private WeaponManager weaponManager;
+        private AudioManager audioManager;
         private AudioSource source;
 
         void Awake()
         {
             controller = GetComponent<Character2D5Controller>();
             state = GetComponent<PlayerState>();
+            weaponManager = GetComponentInParent<WeaponManager>() ?? GetComponent<WeaponManager>();
             source = GetComponent<AudioSource>();
 
             // Configure for 3D spatial sound
@@ -35,17 +42,18 @@ namespace junklite
 
         void Start()
         {
-            audio = AudioManager.Instance;
+            audioManager = AudioManager.Instance;
 
             // Assign mixer group
-            if (audio != null && audio.SFXGroup != null)
-                source.outputAudioMixerGroup = audio.SFXGroup;
+            if (audioManager != null && audioManager.SFXGroup != null)
+                source.outputAudioMixerGroup = audioManager.SFXGroup;
         }
 
         void OnEnable()
         {
             if (controller != null)
             {
+                // Movement SFX (controller-driven)
                 controller.OnJumpStarted += OnJump;
                 controller.OnDoubleJumpPerformed += OnDoubleJump;
                 controller.OnWallJumped += OnWallJump;
@@ -57,6 +65,14 @@ namespace junklite
             if (state != null)
             {
                 state.OnDeath += OnDeath;
+                // Attack woosh: plays when attack actually starts (SetAttacking(true)), not just on input press.
+                state.OnAttackingChanged += OnAttackingChanged;
+            }
+
+            if (weaponManager != null)
+            {
+                // Hit confirm SFX (only when damage is actually dealt)
+                weaponManager.OnEnemyHit += OnEnemyHit;
             }
         }
 
@@ -75,29 +91,41 @@ namespace junklite
             if (state != null)
             {
                 state.OnDeath -= OnDeath;
+                state.OnAttackingChanged -= OnAttackingChanged;
+            }
+
+            if (weaponManager != null)
+            {
+                weaponManager.OnEnemyHit -= OnEnemyHit;
             }
         }
 
         // Public methods for manual triggering
-        public void PlayHurt() => Play(audio?.Player?.hurt);
-        public void PlayAttack() => Play(audio?.Player?.attack);
+        public void PlayHurt() => Play(audioManager?.Player?.hurt);
+        public void PlayAttack() => Play(audioManager?.Player?.attack);
 
         // Event handlers
-        private void OnJump() => Play(audio?.Player?.jump);
-        private void OnDoubleJump() => Play(audio?.Player?.doubleJump);
-        private void OnWallJump() => Play(audio?.Player?.wallJump);
-        private void OnLand() => Play(audio?.Player?.land);
-        private void OnDash() => Play(audio?.Player?.dash);
-        private void OnDeath() => Play(audio?.Player?.death);
+        private void OnJump() => Play(audioManager?.Player?.jump);
+        private void OnDoubleJump() => Play(audioManager?.Player?.doubleJump);
+        private void OnWallJump() => Play(audioManager?.Player?.wallJump);
+        // Landing SFX is separate from jump: it fires when the controller reports fall ended.
+        private void OnLand() => Play(audioManager?.Player?.land);
+        private void OnDash() => Play(audioManager?.Player?.dash);
+        private void OnDeath() => Play(audioManager?.Player?.death);
+        private void OnAttackingChanged(bool attacking)
+        {
+            if (attacking) PlayAttack();
+        }
+        private void OnEnemyHit() => Play(audioManager?.Player?.hit);
 
         private void OnWallSlide(bool sliding)
         {
-            if (sliding) Play(audio?.Player?.wallSlide);
+            if (sliding) Play(audioManager?.Player?.wallSlide);
         }
 
         private void Play(SoundEntry entry)
         {
-            audio?.PlaySpatial(entry, source);
+            audioManager?.PlaySpatial(entry, source);
            // Debug.Log("Playing sound: " + entry.clip);
         }
     }

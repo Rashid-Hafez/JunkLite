@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System;
 using System.Collections.Generic;
 using System.Collections;
 
@@ -60,6 +61,8 @@ namespace junklite
         private WorldWeaponPickup storedPickup;
 
         public event System.Action OnWeaponChanged;
+        // Fired when we successfully deal damage to an enemy (true hit confirm)
+        public event Action OnEnemyHit;
 
         // ================== PROPERTIES ==================
         public float Facing => Mathf.Sign(playerTransform.localScale.x);
@@ -283,6 +286,8 @@ namespace junklite
 
             if (damageDealt)
             {
+                OnEnemyHit?.Invoke();
+
                 // Trigger weapon mods (status effects, etc.) only on successful hit
                 if (CurrentWeapon != null)
                 {

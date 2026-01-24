@@ -23,6 +23,7 @@ namespace junklite
 
         [Header("Combat")]
         public SoundEntry attack;
+        public SoundEntry hit; // plays when an attack actually connects with an enemy
         public SoundEntry hurt;
         public SoundEntry death;
     }
