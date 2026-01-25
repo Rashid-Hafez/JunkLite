@@ -33,11 +33,8 @@ namespace junklite
         public virtual bool CanTakeDamage => true;
 
         public virtual void Enter() { }
-
         public virtual void Update() { }
-
         public virtual void FixedUpdate() { }
-
         public virtual void Exit() { }
 
         /// <summary>
@@ -46,6 +43,40 @@ namespace junklite
         protected void ChangeState<T>() where T : IState
         {
             stateMachine.ChangeState<T>();
+        }
+
+        // ============================================================
+        // CAPABILITY HELPERS
+        // Use these to safely access capability interfaces.
+        // Returns null if enemy doesn't have the capability.
+        // ============================================================
+
+        /// <summary>
+        /// Get a capability interface from the enemy.
+        /// Usage: var patroller = GetCapability<IPatroller>();
+        /// </summary>
+        protected T GetCapability<T>() where T : class
+        {
+            return enemy as T;
+        }
+
+        /// <summary>
+        /// Check if enemy has a capability.
+        /// Usage: if (HasCapability<IDasher>()) { ... }
+        /// </summary>
+        protected bool HasCapability<T>() where T : class
+        {
+            return enemy is T;
+        }
+
+        /// <summary>
+        /// Try to get a capability, returns success bool.
+        /// Usage: if (TryGetCapability<IPatroller>(out var patroller)) { ... }
+        /// </summary>
+        protected bool TryGetCapability<T>(out T capability) where T : class
+        {
+            capability = enemy as T;
+            return capability != null;
         }
     }
 }

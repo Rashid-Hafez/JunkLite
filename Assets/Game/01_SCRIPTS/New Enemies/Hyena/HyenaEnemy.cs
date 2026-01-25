@@ -1,211 +1,138 @@
 ﻿using UnityEngine;
-
 namespace junklite
 {
     /// <summary>
     /// Hyena enemy - aggressive predator with dodge and counter-attack.
+    /// 
+    /// CAPABILITIES: IPatroller, IMeleeAttacker, IChaser, IDodger, ICharger, IDasher
+    /// 
+    /// BEHAVIOR:
+    /// - Patrol until player spotted
+    /// - Chase player, attack when in range
+    /// - Can dodge player attacks (reactive)
+    /// - After dodge, chance to counter-attack with dash
+    /// - Dash chance increases as health decreases
     /// </summary>
-    public class HyenaEnemy : EnemyCharacter, IPatroller, IMeleeAttacker, IChaser, IDodger, ICharger, IDasher, IRecoverer
+    public class HyenaEnemy : EnemyCharacter, IPatroller, IMeleeAttacker, IChaser, IDodger, ICharger, IDasher
     {
-        [Header("Patrol")]
-        [SerializeField] private float patrolDistance = 5f;
-        [SerializeField] private float patrolSpeed = 3f;
-        [SerializeField] private float wallCheckDistance = 0.5f;
-        [SerializeField] private LayerMask wallLayer;
-
-        [Header("Melee Attack")]
-        [SerializeField] private float meleeAttackDuration = 0.4f;
-        [SerializeField] private float attackCooldown = 0.3f;
-        [SerializeField] private float meleeDamage = 8f;
-        [SerializeField] private Vector2 meleeKnockback = new Vector2(8f, 3f);
-        [SerializeField] private Hitbox meleeHitbox;
-        [SerializeField] private GameObject meleeVFXPrefab;
-
-        [Header("Dash Attack")]
-        [SerializeField] private float chargeTime = 0.2f;
-        [SerializeField] private GameObject chargeVFXPrefab;
-        [SerializeField] private float dashSpeed = 18f;
-        [SerializeField] private float dashDamage = 12f;
-        [SerializeField] private Vector2 dashKnockback = new Vector2(12f, 4f);
-        [SerializeField] private Hitbox dashHitbox;
-        [SerializeField] private GameObject dashVFXPrefab;
-        [SerializeField] private float dashStopDistance = 0.5f;
-        [SerializeField][Range(0f, 1f)] private float maxDashChance = 0.5f;
-
-        [Header("Chase")]
-        [SerializeField] private float chaseSpeed = 8f;
+        [Header("Hyena - Patrol")]
+        [SerializeField] private PatrolBehavior patrol = new PatrolBehavior();
+        [Header("Hyena - Melee Attack")]
+        [SerializeField] private MeleeAttackBehavior melee = new MeleeAttackBehavior();
+        [Header("Hyena - Chase")]
+        [SerializeField] private ChaseBehavior chase = new ChaseBehavior();
         [SerializeField] private float pursuitRadius = 15f;
-
-        [Header("Dodge")]
-        [SerializeField] private float dodgeDistance = 3f;
-        [SerializeField] private float dodgeSpeed = 10f;
-        [SerializeField] private float dodgeHeight = 0.5f;
-        [SerializeField] private bool dodgeHasIFrames = true;
-        [SerializeField] private GameObject dodgeVFXPrefab;
+        [Header("Hyena - Dodge")]
+        [SerializeField] private DodgeBehavior dodge = new DodgeBehavior();
         [SerializeField][Range(0f, 1f)] private float dodgeChance = 0.3f;
         [SerializeField] private float dodgeCheckRange = 4f;
         [SerializeField] private float dodgeCooldown = 1f;
-
-        [Header("Post-Dodge")]
-        [SerializeField] private float postDodgeRecoveryTime = 0.3f;
         [SerializeField][Range(0f, 1f)] private float counterAttackChance = 0.4f;
-        [SerializeField] private GameObject recoveryVFXPrefab;
-
+        [Header("Hyena - Dash Attack")]
+        [SerializeField] private ChargeBehavior charge = new ChargeBehavior();
+        [SerializeField] private DashBehavior dash = new DashBehavior();
+        [SerializeField][Range(0f, 1f)] private float maxDashChance = 0.5f;
         // State
-        private Vector3 spawnPosition;
-        private int patrolDirection = 1;
-        private Vector3 lastKnownTargetPosition;
-        private bool hasLastKnownPosition;
         private float lastDodgeTime = -999f;
         private bool wasPlayerAttacking;
         private float dodgeInvulnerabilityEndTime;
-        private bool shouldCounterAttack;
         private float currentDashChance;
-
-        public bool HasPatrol => patrolDistance > 0f;
-
-        #region IPatroller
-        public float PatrolDistance => patrolDistance;
-        public float PatrolSpeed => patrolSpeed;
-        public Vector3 SpawnPosition => spawnPosition;
-        public int PatrolDirection { get => patrolDirection; set => patrolDirection = value; }
-
-        public bool IsWallAhead()
-        {
-            Vector3 dir = patrolDirection > 0 ? Vector3.right : Vector3.left;
-            return Physics.Raycast(transform.position, dir, wallCheckDistance, wallLayer);
-        }
-
-        public bool IsAtPatrolBoundary()
-        {
-            float dist = transform.position.x - spawnPosition.x;
-            return (patrolDirection > 0 && dist >= patrolDistance) ||
-                   (patrolDirection < 0 && dist <= -patrolDistance);
-        }
-
-        public void ReverseDirection() => patrolDirection *= -1;
-        #endregion
-
-        #region IMeleeAttacker
-        public float MeleeAttackDuration => meleeAttackDuration;
-        public float AttackCooldown => attackCooldown;
-        public float MeleeDamage => meleeDamage;
-        public Vector2 MeleeKnockback => meleeKnockback;
-        public Hitbox MeleeHitbox => meleeHitbox;
-        public GameObject MeleeVFXPrefab => meleeVFXPrefab;
-
+        public bool HasPatrol => patrol.HasPatrol;
+        // ============================================================
+        // IPatroller
+        // ============================================================
+        public float PatrolDistance => patrol.PatrolDistance;
+        public float PatrolSpeed => patrol.PatrolSpeed;
+        public Vector3 SpawnPosition => patrol.SpawnPosition;
+        public int PatrolDirection { get => patrol.PatrolDirection; set => patrol.PatrolDirection = value; }
+        public bool IsWallAhead() => patrol.IsWallAhead();
+        public bool IsAtPatrolBoundary() => patrol.IsAtPatrolBoundary();
+        public void ReverseDirection() => patrol.ReverseDirection();
+        // ============================================================
+        // IMeleeAttacker
+        // ============================================================
+        public float MeleeAttackDuration => melee.MeleeAttackDuration;
+        public float AttackCooldown => melee.AttackCooldown;
+        public float MeleeDamage => melee.MeleeDamage;
+        public Vector2 MeleeKnockback => melee.MeleeKnockback;
+        public Hitbox MeleeHitbox => melee.MeleeHitbox;
+        public GameObject MeleeVFXPrefab => melee.MeleeVFXPrefab;
         public void OnMeleeComplete()
         {
             if (!IsAlive) return;
             if (HasTarget && IsTargetInAttackRange) return; // Stay in melee
             stateMachine.ChangeState<ChaseState>();
         }
-        #endregion
-
-        #region IChaser
-        public Vector3 LastKnownTargetPosition => lastKnownTargetPosition;
-        public bool HasLastKnownPosition => hasLastKnownPosition;
-        public float ChaseSpeed => chaseSpeed;
-
+        // ============================================================
+        // IChaser
+        // ============================================================
+        public Vector3 LastKnownTargetPosition => chase.LastKnownTargetPosition;
+        public bool HasLastKnownPosition => chase.HasLastKnownPosition;
+        public float ChaseSpeed => chase.ChaseSpeed;
+        public float ChaseStopDistance => chase.ChaseStopDistance;
         public void OnReachedTarget()
         {
             if (!IsAlive) return;
-            hasLastKnownPosition = false;
-            ExitCombat();
-            if (HasPatrol)
-                stateMachine.ChangeState<PatrolState>();
-            else
-                stateMachine.ChangeState<IdleState>();
+            chase.ClearLastKnownPosition();
+            ReturnToPassive();
         }
-
-        public void UpdateLastKnownPosition(Vector3 pos)
-        {
-            lastKnownTargetPosition = pos;
-            hasLastKnownPosition = true;
-        }
-        #endregion
-
-        #region IDodger
-        public float DodgeDistance => dodgeDistance;
-        public float DodgeSpeed => dodgeSpeed;
-        public float DodgeDuration => dodgeSpeed > 0f ? dodgeDistance / dodgeSpeed : 0.3f;
-        public float DodgeHeight => dodgeHeight;
-        public bool DodgeHasIFrames => dodgeHasIFrames;
-        public GameObject DodgeVFXPrefab => dodgeVFXPrefab;
-
+        public void UpdateLastKnownPosition(Vector3 pos) => chase.UpdateLastKnownPosition(pos);
+        // ============================================================
+        // IDodger
+        // ============================================================
+        public float DodgeDistance => dodge.DodgeDistance;
+        public float DodgeDuration => dodge.DodgeDuration;
+        public float DodgeHeight => dodge.DodgeHeight;
+        public bool DodgeHasIFrames => dodge.DodgeHasIFrames;
+        public GameObject DodgeVFXPrefab => dodge.DodgeVFXPrefab;
         public void OnDodgeComplete()
         {
             if (!IsAlive) return;
-            shouldCounterAttack = Random.value <= counterAttackChance;
-            stateMachine.ChangeState<RecoverState>();
+            // Chance to counter-attack immediately after dodge
+            if (HasTarget && Random.value <= counterAttackChance)
+            {
+                stateMachine.ChangeState<ChargeState>();
+                return;
+            }
+            DecideNextAction();
         }
-        #endregion
-
-        #region ICharger
-        public float ChargeTime => chargeTime;
-        public GameObject ChargeVFXPrefab => chargeVFXPrefab;
-
+        // ============================================================
+        // ICharger
+        // ============================================================
+        public float ChargeTime => charge.ChargeTime;
+        public GameObject ChargeVFXPrefab => charge.ChargeVFXPrefab;
         public void OnChargeComplete()
         {
             if (!IsAlive) return;
             stateMachine.ChangeState<DashState>();
         }
-        #endregion
-
-        #region IDasher
-        public float DashSpeed => dashSpeed;
-        public float DashDamage => dashDamage;
-        public Vector2 DashKnockback => dashKnockback;
-        public Hitbox DashHitbox => dashHitbox;
-        public GameObject DashVFXPrefab => dashVFXPrefab;
-        public float DashStopDistance => dashStopDistance;
-
+        // ============================================================
+        // IDasher
+        // ============================================================
+        public float DashSpeed => dash.DashSpeed;
+        public float DashDamage => dash.DashDamage;
+        public Vector2 DashKnockback => dash.DashKnockback;
+        public Hitbox DashHitbox => dash.DashHitbox;
+        public GameObject DashVFXPrefab => dash.DashVFXPrefab;
+        public float DashStopDistance => dash.DashStopDistance;
         public void OnDashComplete()
         {
             if (!IsAlive) return;
-            shouldCounterAttack = false;
-            stateMachine.ChangeState<RecoverState>();
+            DecideNextAction();
         }
-        #endregion
-
-        #region IRecoverer
-        public float RecoveryTime => postDodgeRecoveryTime;
-        public GameObject RecoveryVFXPrefab => recoveryVFXPrefab;
-
-        public void OnRecoveryComplete()
-        {
-            if (!IsAlive) return;
-
-            if (shouldCounterAttack && HasTarget)
-            {
-                shouldCounterAttack = false;
-                stateMachine.ChangeState<ChargeState>();
-                return;
-            }
-
-            shouldCounterAttack = false;
-            DecideNextCombatAction();
-        }
-        #endregion
-
-        #region Combat Logic
-        private void DecideNextCombatAction()
+        // ============================================================
+        // Decision Logic
+        // ============================================================
+        private void DecideNextAction()
         {
             if (!HasTarget)
             {
-                if (hasLastKnownPosition)
+                if (chase.HasLastKnownPosition)
                     stateMachine.ChangeState<ChaseState>();
                 else
-                {
-                    ExitCombat();
-                    if (HasPatrol)
-                        stateMachine.ChangeState<PatrolState>();
-                    else
-                        stateMachine.ChangeState<IdleState>();
-                }
+                    ReturnToPassive();
                 return;
             }
-
             if (IsTargetInAttackRange)
                 stateMachine.ChangeState<MeleeAttackState>();
             else if (ShouldDashAttack())
@@ -213,9 +140,16 @@ namespace junklite
             else
                 stateMachine.ChangeState<ChaseState>();
         }
-
+        private void ReturnToPassive()
+        {
+            ExitCombat();
+            detectionZone?.ResetRadius();
+            if (HasPatrol)
+                stateMachine.ChangeState<PatrolState>();
+            else
+                stateMachine.ChangeState<IdleState>();
+        }
         private bool ShouldDashAttack() => currentDashChance > 0f && Random.value <= currentDashChance;
-
         private void UpdateDashChance()
         {
             if (attributes?.Health == null) return;
@@ -223,43 +157,38 @@ namespace junklite
             if (max <= 0f) return;
             currentDashChance = (1f - attributes.Health.Current / max) * maxDashChance;
         }
-        #endregion
-
-        #region Damage
+        // ============================================================
+        // Damage
+        // ============================================================
         public override bool TakeDamage(DamageInfo info)
         {
-            if (dodgeHasIFrames && Time.time < dodgeInvulnerabilityEndTime)
+            if (dodge.DodgeHasIFrames && Time.time < dodgeInvulnerabilityEndTime)
                 return false;
-
             if (state != null && !state.CanTakeDamage)
                 return false;
-
             bool dealt = base.TakeDamage(info);
             if (dealt) UpdateDashChance();
             return dealt;
         }
-        #endregion
-
-        #region Lifecycle
+        // ============================================================
+        // Lifecycle
+        // ============================================================
         protected override void Awake()
         {
             base.Awake();
             enemyType = EnemyType.Hyena;
-            spawnPosition = transform.position;
-
-            if (meleeHitbox != null)
+            patrol.Initialize(transform);
+            if (melee.MeleeHitbox != null)
             {
-                meleeHitbox.OnHit += OnMeleeHitboxHit;
-                meleeHitbox.Deactivate();
+                melee.MeleeHitbox.OnHit += OnMeleeHitboxHit;
+                melee.MeleeHitbox.Deactivate();
             }
-
-            if (dashHitbox != null)
+            if (dash.DashHitbox != null)
             {
-                dashHitbox.OnHit += OnDashHitboxHit;
-                dashHitbox.Deactivate();
+                dash.DashHitbox.OnHit += OnDashHitboxHit;
+                dash.DashHitbox.Deactivate();
             }
         }
-
         protected override void InitializeStateMachine()
         {
             stateMachine.RegisterStates(
@@ -270,32 +199,28 @@ namespace junklite
                 new DodgeState(this),
                 new ChargeState(this),
                 new DashState(this),
-                new RecoverState(this),
                 new DeadState(this)
             );
-
             if (HasPatrol)
                 stateMachine.SetInitialState<PatrolState>();
             else
                 stateMachine.SetInitialState<IdleState>();
         }
-
         protected override void Update()
         {
             base.Update();
             if (HasTarget) UpdateLastKnownPosition(Target.position);
             CheckForDodgeOpportunity();
         }
-
         protected override void OnDestroy()
         {
             base.OnDestroy();
-            if (meleeHitbox != null) meleeHitbox.OnHit -= OnMeleeHitboxHit;
-            if (dashHitbox != null) dashHitbox.OnHit -= OnDashHitboxHit;
+            if (melee.MeleeHitbox != null) melee.MeleeHitbox.OnHit -= OnMeleeHitboxHit;
+            if (dash.DashHitbox != null) dash.DashHitbox.OnHit -= OnDashHitboxHit;
         }
-        #endregion
-
-        #region Dodge Check
+        // ============================================================
+        // Reactive Dodge
+        // ============================================================
         private void CheckForDodgeOpportunity()
         {
             if (!IsAlive || !HasTarget)
@@ -303,34 +228,31 @@ namespace junklite
                 wasPlayerAttacking = false;
                 return;
             }
-
+            // Don't interrupt dodge
             if (stateMachine.CurrentState is DodgeState)
             {
                 wasPlayerAttacking = IsPlayerAttacking();
                 return;
             }
-
-            if (DistanceToTarget > dodgeCheckRange || Time.time - lastDodgeTime < dodgeCooldown)
+            // Check cooldown and range
+            if (Time.time - lastDodgeTime < dodgeCooldown || DistanceToTarget > dodgeCheckRange)
             {
                 wasPlayerAttacking = IsPlayerAttacking();
                 return;
             }
-
             bool attacking = IsPlayerAttacking();
-
+            // Trigger on attack START (rising edge) when player faces us
             if (attacking && !wasPlayerAttacking && IsPlayerFacingMe())
             {
                 if (Random.value <= dodgeChance)
                 {
-                    dodgeInvulnerabilityEndTime = Time.time + DodgeDuration;
+                    dodgeInvulnerabilityEndTime = Time.time + dodge.DodgeDuration;
                     lastDodgeTime = Time.time;
                     stateMachine.ChangeState<DodgeState>();
                 }
             }
-
             wasPlayerAttacking = attacking;
         }
-
         private bool IsPlayerAttacking()
         {
             if (TargetCharacter == null) return false;
@@ -339,17 +261,16 @@ namespace junklite
             var cs = TargetCharacter.GetComponent<CharacterState>();
             return cs != null && cs.IsAttacking;
         }
-
         private bool IsPlayerFacingMe()
         {
             if (Target == null) return false;
             float facing = Mathf.Sign(Target.localScale.x);
-            float dir = transform.position.x - Target.position.x;
-            return (facing > 0 && dir > 0) || (facing < 0 && dir < 0);
+            float toMe = transform.position.x - Target.position.x;
+            return (facing > 0 && toMe > 0) || (facing < 0 && toMe < 0);
         }
-        #endregion
-
-        #region Brain
+        // ============================================================
+        // Brain - Detection Events
+        // ============================================================
         public override void OnPlayerSpotted()
         {
             if (!IsAlive || isInCombat) return;
@@ -357,19 +278,12 @@ namespace junklite
             detectionZone?.SetRadius(pursuitRadius);
             stateMachine.ChangeState<ChaseState>();
         }
-
         public override void OnPlayerLost()
         {
             if (!IsAlive) return;
-            hasLastKnownPosition = false;
-            ExitCombat();
-            detectionZone?.ResetRadius();
-            if (HasPatrol)
-                stateMachine.ChangeState<PatrolState>();
-            else
-                stateMachine.ChangeState<IdleState>();
+            chase.ClearLastKnownPosition();
+            ReturnToPassive();
         }
-
         public override void OnPlayerInAttackRange()
         {
             if (!IsAlive) return;
@@ -378,40 +292,32 @@ namespace junklite
             else
                 stateMachine.ChangeState<MeleeAttackState>();
         }
-        #endregion
-
-        #region Hitbox Handlers
+        // ============================================================
+        // Hitbox Handlers
+        // ============================================================
         private void OnMeleeHitboxHit(Collider other, Hitbox hitbox)
         {
             var dmg = other.GetComponent<IDamageable>() ?? other.GetComponentInParent<IDamageable>();
             if (dmg == null || !dmg.IsAlive) return;
-            dmg.TakeDamage(new DamageInfo(meleeDamage, gameObject, DamageType.Physical, meleeKnockback));
+            dmg.TakeDamage(new DamageInfo(melee.MeleeDamage, gameObject, DamageType.Physical, melee.MeleeKnockback));
         }
-
         private void OnDashHitboxHit(Collider other, Hitbox hitbox)
         {
             hitbox?.Deactivate();
             var dmg = other.GetComponent<IDamageable>() ?? other.GetComponentInParent<IDamageable>();
             if (dmg == null || !dmg.IsAlive) return;
-
-            Vector3 dir = (other.transform.position - transform.position).normalized;
-            Vector2 kb = new Vector2(dir.x * dashKnockback.x, dashKnockback.y);
-            dmg.TakeDamage(new DamageInfo(dashDamage, gameObject, DamageType.Physical, kb));
+            // Pass raw knockback - player's TakeDamage calculates direction from Source
+            dmg.TakeDamage(new DamageInfo(dash.DashDamage, gameObject, DamageType.Physical, dash.DashKnockback));
         }
-        #endregion
-
+        // ============================================================
+        // Debug Gizmos
+        // ============================================================
 #if UNITY_EDITOR
         protected override void OnDrawGizmosSelected()
         {
             base.OnDrawGizmosSelected();
-
-            if (patrolDistance > 0f)
-            {
-                Vector3 origin = Application.isPlaying ? spawnPosition : transform.position;
-                Gizmos.color = Color.cyan;
-                Gizmos.DrawLine(origin + Vector3.left * patrolDistance, origin + Vector3.right * patrolDistance);
-            }
-
+            patrol.DrawGizmos(transform);
+            // Dodge check range
             Gizmos.color = new Color(1f, 1f, 0f, 0.3f);
             Gizmos.DrawWireSphere(transform.position, dodgeCheckRange);
         }

@@ -15,16 +15,13 @@ namespace junklite
         private ICharger charger;
         private EnemyMovement movement;
         private float timer;
-
-        // Cached VFX instance
         private GameObject activeVFX;
 
         public ChargeState(EnemyCharacter enemy) : base(enemy) { }
 
         public override void Enter()
         {
-            // Get capability interface
-            charger = enemy as ICharger;
+            charger = GetCapability<ICharger>();
             if (charger == null)
             {
                 Debug.LogError($"{enemy.gameObject.name}: ChargeState requires ICharger interface!");
@@ -34,14 +31,11 @@ namespace junklite
             movement = enemy.Movement;
             timer = charger.ChargeTime;
 
-            // Stop moving
             movement?.Stop();
 
-            // Face target at start
             if (HasTarget)
                 movement?.FaceTarget(Target.position);
 
-            // Spawn VFX
             activeVFX = VFXPool.Get(charger.ChargeVFXPrefab, enemy.transform);
 
             Debug.Log($"{enemy.gameObject.name}: Charging! ({timer}s)");
@@ -51,16 +45,13 @@ namespace junklite
         {
             if (charger == null) return;
 
-            // Keep facing target during charge
             if (HasTarget)
                 movement?.FaceTarget(Target.position);
 
             timer -= Time.deltaTime;
 
             if (timer <= 0f)
-            {
                 charger.OnChargeComplete();
-            }
         }
 
         public override void Exit()

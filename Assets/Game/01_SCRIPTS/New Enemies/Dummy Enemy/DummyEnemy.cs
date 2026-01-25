@@ -25,7 +25,6 @@ namespace junklite
 
         protected override void InitializeStateMachine()
         {
-            // Register only idle and dead states
             stateMachine.RegisterStates(
                 new IdleState(this),
                 new DeadState(this)
@@ -36,38 +35,25 @@ namespace junklite
 
         protected override void Update()
         {
-            // Do nothing - dummy just stands there
+            // Dummy just stands there
         }
 
+        // BEFORE: 15+ lines of knockback code
+        // AFTER: Just invincibility check + health reset
         public override bool TakeDamage(DamageInfo info)
         {
             if (invincible)
                 return false;
 
-            bool damageDealt = base.TakeDamage(info);
+            bool damageDealt = base.TakeDamage(info);  // Base handles knockback!
 
-            if (damageDealt)
-            {
-                // Apply knockback
-                if (rb != null && info.KnockbackForce.sqrMagnitude > 0f)
-                {
-                    Vector3 knockback = new Vector3(
-                        info.KnockbackForce.x,
-                        info.KnockbackForce.y,
-                        0f
-                    );
-                    rb.AddForce(knockback, ForceMode.Impulse);
-                }
-
-                // Reset health after hit if enabled
-                if (resetHealthOnHit && IsAlive && attributes != null && attributes.Health != null)
-                    attributes.RestoreHealthToMax();
-            }
+            if (damageDealt && resetHealthOnHit && IsAlive && attributes?.Health != null)
+                attributes.RestoreHealthToMax();
 
             return damageDealt;
         }
 
-        // Disable all behavior responses - dummy does nothing
+        // Dummy does nothing - disable all behavior responses
         public override void OnPlayerSpotted() { }
         public override void OnPlayerLost() { }
         public override void OnStunComplete() { }

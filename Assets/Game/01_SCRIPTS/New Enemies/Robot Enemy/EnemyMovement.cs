@@ -97,7 +97,6 @@ namespace junklite
 
             // Configure Rigidbody for velocity-based movement with gravity
             rb.isKinematic = false;
-            rb.useGravity = true;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic; // Better collision detection at high speeds
 
@@ -170,10 +169,11 @@ namespace junklite
         {
             if (!isMoving)
             {
-                // When not moving, zero out horizontal velocity but keep gravity
+                // When not moving, zero out velocity (preserve Y for gravity-based enemies)
                 Vector3 vel = rb.linearVelocity;
                 vel.x = 0f;
                 vel.z = 0f;
+                if (!rb.useGravity) vel.y = 0f; // Also zero Y for flyers
                 rb.linearVelocity = vel;
                 return;
             }
@@ -193,8 +193,18 @@ namespace junklite
                 desiredVelocity = CalculateTargetVelocity();
             }
 
-            // Apply horizontal velocity while preserving vertical (gravity)
-            Vector3 newVelocity = new Vector3(desiredVelocity.x, rb.linearVelocity.y, desiredVelocity.z);
+            // Apply velocity - preserve Y for gravity-based enemies, use full velocity for flyers
+            Vector3 newVelocity;
+            if (rb.useGravity)
+            {
+                // Ground enemy - apply horizontal velocity, let physics handle Y
+                newVelocity = new Vector3(desiredVelocity.x, rb.linearVelocity.y, desiredVelocity.z);
+            }
+            else
+            {
+                // Flying enemy - apply full velocity including Y
+                newVelocity = desiredVelocity;
+            }
             rb.linearVelocity = newVelocity;
         }
 

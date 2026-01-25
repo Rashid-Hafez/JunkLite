@@ -20,10 +20,6 @@ namespace junklite
 
         public StunnedState(EnemyCharacter enemy) : base(enemy) { }
 
-        /// <summary>
-        /// Whether the enemy can take damage while stunned.
-        /// Set to true to allow stun-locking, false for stun immunity.
-        /// </summary>
         public override bool CanTakeDamage => true;
 
         public override void Enter()
@@ -31,7 +27,6 @@ namespace junklite
             movement = enemy.Movement;
             knockbackEnded = false;
 
-            // Stop any active movement commands (knockback will override)
             movement?.Stop();
 
             Debug.Log($"{enemy.gameObject.name}: Entered StunnedState");
@@ -39,7 +34,6 @@ namespace junklite
 
         public override void Update()
         {
-            // Safety check: if knockback ended but we're still in this state
             if (!knockbackEnded && movement != null && !movement.IsInKnockback)
             {
                 knockbackEnded = true;
@@ -54,7 +48,6 @@ namespace junklite
 
         /// <summary>
         /// Called by the enemy when knockback ends (from OnKnockbackEnd event).
-        /// Marks the knockback as complete so Update can trigger OnStunComplete if needed.
         /// </summary>
         public void NotifyKnockbackEnded()
         {

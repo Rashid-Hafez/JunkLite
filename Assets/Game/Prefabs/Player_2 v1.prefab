@@ -16761,7 +16761,7 @@ MonoBehaviour:
   impulseSource: {fileID: 0}
   enemyHitHitstopDuration: 0.06
   enemyHitShakeForce: 0.5
-  enemyHitDelay: 0.07
+  enemyHitDelay: 0.05
   sideRecoil: 23
   poolSizePerSlash: 12
   slashPoolRoot: {fileID: 3708428653336801813}
@@ -16974,9 +16974,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PhantomStrikeTracker
   impactVFXSpawnPoint: {fileID: 3457783996988696095}
-  descentSpeed: 70
-  maxDescentTime: 5
-  debugMode: 0
 --- !u!82 &1363585882905400157
 AudioSource:
   m_ObjectHideFlags: 0

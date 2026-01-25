@@ -23,7 +23,7 @@ namespace junklite
         {
             movement = enemy.Movement;
             config = enemy.Config;
-            chaser = enemy as IChaser;
+            chaser = GetCapability<IChaser>();
 
             // Set chase speed - prefer IChaser, fallback to config
             if (movement != null)
@@ -41,28 +41,36 @@ namespace junklite
         {
             if (HasTarget)
             {
-                // Update last known position if enemy supports it
                 chaser?.UpdateLastKnownPosition(Target.position);
 
-                // In attack range - let enemy decide what to do
-                if (IsTargetInAttackRange)
+                // Check chase stop distance first (if set)
+                if (chaser != null && chaser.ChaseStopDistance > 0f)
+                {
+                    float distanceToTarget = Vector3.Distance(Transform.position, Target.position);
+                    if (distanceToTarget <= chaser.ChaseStopDistance)
+                    {
+                        movement?.Stop();
+                        movement?.FaceTarget(Target.position);
+                        enemy.OnPlayerInAttackRange();  // Let enemy decide what to do
+                        return;
+                    }
+                }
+                // Then check attack range
+                else if (IsTargetInAttackRange)
                 {
                     enemy.OnPlayerInAttackRange();
                     return;
                 }
 
-                // Keep chasing
                 movement?.MoveTo(Target.position);
                 movement?.FaceTarget(Target.position);
             }
             else if (chaser != null && chaser.HasLastKnownPosition)
             {
-                // No target but have last known position - move there
                 float distanceToLastKnown = Vector3.Distance(Transform.position, chaser.LastKnownTargetPosition);
 
                 if (distanceToLastKnown <= 1f)
                 {
-                    // Reached last known position
                     enemy.OnPlayerLost();
                     return;
                 }
@@ -72,7 +80,6 @@ namespace junklite
             }
             else
             {
-                // Lost target completely
                 enemy.OnPlayerLost();
             }
         }

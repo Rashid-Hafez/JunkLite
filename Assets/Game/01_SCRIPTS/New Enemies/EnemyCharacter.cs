@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 
 namespace junklite
@@ -21,6 +21,15 @@ namespace junklite
     /// CAPABILITY-SPECIFIC (lives in interfaces):
     /// - Patrol, Dash, Grab, Melee, Dodge, Chase, Ranged, etc.
     /// </summary>
+
+    public enum EnemyType
+    {
+        Dummy,
+        Robot,
+        Hyena,
+        FlyingDummy
+    }
+
     [RequireComponent(typeof(StateMachine))]
     [RequireComponent(typeof(EnemyMovement))]
     [RequireComponent(typeof(StatusEffectHandler))]
@@ -253,15 +262,39 @@ namespace junklite
         /// </summary>
         public override bool TakeDamage(DamageInfo info)
         {
-            // Check if current state allows taking damage (e.g., during dodge)
             if (state != null && !state.CanTakeDamage)
-            {
-                Debug.Log($"{gameObject.name}: Damage blocked by state!");
                 return false;
+
+            bool damageDealt = base.TakeDamage(info);
+
+            if (damageDealt)
+                ApplyKnockback(info);  // ← NEW: Auto-apply knockback
+
+            return damageDealt;
+        }
+
+        protected virtual void ApplyKnockback(DamageInfo info)
+        {
+            if (!canBeKnockedBack) return;  // ← Respects inspector setting
+            if (info.KnockbackForce.sqrMagnitude <= 0f) return;
+
+            // Calculate direction away from source
+            Vector3 knockbackDir = Vector3.right;
+            if (info.Source != null)
+            {
+                knockbackDir = (transform.position - info.Source.transform.position).normalized;
+                knockbackDir.z = 0f;
             }
 
-            // Let base class attempt damage
-            return base.TakeDamage(info);
+            Vector3 knockback = new Vector3(
+                knockbackDir.x * info.KnockbackForce.x,
+                info.KnockbackForce.y,
+                0f
+            );
+
+            var rb = GetComponent<Rigidbody>();
+            if (rb != null)
+                rb.AddForce(knockback, ForceMode.Impulse);
         }
 
         public virtual void Attack()
@@ -426,10 +459,4 @@ namespace junklite
         #endregion
     }
 
-    public enum EnemyType
-    {
-        Dummy,
-        Robot,
-        Hyena
-    }
 }

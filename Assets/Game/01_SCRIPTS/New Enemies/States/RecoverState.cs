@@ -14,16 +14,13 @@ namespace junklite
     {
         private IRecoverer recoverer;
         private float timer;
-
-        // Cached VFX instance
         private GameObject activeVFX;
 
         public RecoverState(EnemyCharacter enemy) : base(enemy) { }
 
         public override void Enter()
         {
-            // Get capability interface
-            recoverer = enemy as IRecoverer;
+            recoverer = GetCapability<IRecoverer>();
             if (recoverer == null)
             {
                 Debug.LogError($"{enemy.gameObject.name}: RecoverState requires IRecoverer interface!");
@@ -32,10 +29,8 @@ namespace junklite
 
             timer = recoverer.RecoveryTime;
 
-            // Stop movement during recovery
             enemy.Movement?.Stop();
 
-            // Spawn VFX
             activeVFX = VFXPool.Get(recoverer.RecoveryVFXPrefab, enemy.transform);
 
             Debug.Log($"{enemy.gameObject.name}: Recovering! ({timer}s)");
@@ -48,9 +43,7 @@ namespace junklite
             timer -= Time.deltaTime;
 
             if (timer <= 0f)
-            {
                 recoverer.OnRecoveryComplete();
-            }
         }
 
         public override void Exit()

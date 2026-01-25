@@ -128,6 +128,12 @@ namespace junklite
         bool HasLastKnownPosition { get; }
         float ChaseSpeed { get; }
 
+        /// <summary>
+        /// Distance at which to stop chasing (0 = use attack range instead).
+        /// Useful for non-attacking enemies that just follow.
+        /// </summary>
+        float ChaseStopDistance { get; }
+
         // Called when enemy reaches target or destination
         void OnReachedTarget();
 
