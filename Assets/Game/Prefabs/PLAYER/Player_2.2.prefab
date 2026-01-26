@@ -5152,7 +5152,7 @@ Transform:
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0.7064234, w: 0.7077894}
-  m_LocalPosition: {x: -0.138, y: 0.661, z: -0.1932857}
+  m_LocalPosition: {x: -0.396, y: 1.299, z: -0.1932857}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5215,7 +5215,7 @@ Transform:
   m_GameObject: {fileID: 1837720726168042859}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0.7064234, w: 0.7077894}
-  m_LocalPosition: {x: -0.196, y: 0.595, z: 0.029714286}
+  m_LocalPosition: {x: -0.337, y: 1.146, z: 0.029714286}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5246,7 +5246,7 @@ Transform:
   m_GameObject: {fileID: 1995208205287665060}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.564, y: 0.633, z: 0}
+  m_LocalPosition: {x: 0.633, y: 1.343, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5760,7 +5760,7 @@ Transform:
   m_GameObject: {fileID: 3569891202695748256}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.294, y: 0.729, z: 0}
+  m_LocalPosition: {x: 0.596, y: 1.374, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -16511,7 +16511,7 @@ Transform:
   m_GameObject: {fileID: 6942188552916789910}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.429, z: 0}
+  m_LocalPosition: {x: 0, y: 2.763, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -16560,7 +16560,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 2489384785993987126}
@@ -22839,7 +22839,7 @@ Animator:
   m_GameObject: {fileID: 9150781490048917309}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 0ae0c92894de44edb962b5a6bfd8910e, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -22941,8 +22941,8 @@ MonoBehaviour:
   translator:
     autoReset: 1
     useCustomMixMode: 1
-    layerMixModes: 
-    layerBlendModes: 
+    layerMixModes: 01000000
+    layerBlendModes: 01000000
   updateTiming: 1
 --- !u!33 &329578290283652807
 MeshFilter:
