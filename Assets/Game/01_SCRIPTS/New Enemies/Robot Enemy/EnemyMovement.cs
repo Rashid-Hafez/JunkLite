@@ -1,5 +1,8 @@
 using System;
+using System.IO;
+using System.Text;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace junklite
 {
@@ -62,6 +65,39 @@ namespace junklite
         // Ground state
         private bool isGrounded;
 
+        // #region agent log
+        private static void DebugLog(string hypothesisId, string location, string message, string dataJson)
+        {
+            string log = $"{{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"{hypothesisId}\",\"location\":\"{location}\",\"message\":\"{message}\",\"data\":{dataJson},\"timestamp\":{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}}}";
+            try
+            {
+                File.AppendAllText("/Users/rashid/Documents/GitHub/JunkLite/.cursor/debug.log", log + "\n");
+            }
+            catch
+            {
+                // ignore file write failures; fall back to HTTP
+            }
+            SendDebugLogHttp(log);
+        }
+
+        private static void SendDebugLogHttp(string json)
+        {
+            try
+            {
+                byte[] body = Encoding.UTF8.GetBytes(json);
+                var req = new UnityWebRequest("http://127.0.0.1:7242/ingest/5f70f84a-3640-468c-9971-b69a690c9e8a", "POST");
+                req.uploadHandler = new UploadHandlerRaw(body);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                req.SendWebRequest();
+            }
+            catch
+            {
+                // swallow exceptions to avoid gameplay interruptions
+            }
+        }
+        // #endregion
+
         // Events for FSM integration
         /// <summary>
         /// Fired when knockback starts. FSM can use this to transition to a stunned state.
@@ -119,6 +155,18 @@ namespace junklite
         {
             CheckGrounded();
 
+            // #region agent log
+            if (rb != null && rb.isKinematic && Time.frameCount % 30 == 0)
+            {
+                DebugLog(
+                    "H1",
+                    "EnemyMovement.cs:FixedUpdate",
+                    "Kinematic rigidbody during movement update",
+                    $"{{\"enemyId\":{GetInstanceID()},\"isMoving\":{(isMoving ? "true" : "false")},\"isInKnockback\":{(isInKnockback ? "true" : "false")},\"enabled\":{(enabled ? "true" : "false")}}}"
+                );
+            }
+            // #endregion
+
             if (isInKnockback)
             {
                 HandleKnockback();
@@ -148,6 +196,17 @@ namespace junklite
 
             // Set velocity (gravity is handled by physics)
             Vector3 newVelocity = new Vector3(knockbackVelocity.x, rb.linearVelocity.y, knockbackVelocity.z);
+            // #region agent log
+            if (rb != null && rb.isKinematic)
+            {
+                DebugLog(
+                    "H1",
+                    "EnemyMovement.cs:HandleKnockback",
+                    "Attempting velocity set while kinematic",
+                    $"{{\"enemyId\":{GetInstanceID()},\"velX\":{newVelocity.x},\"velY\":{newVelocity.y},\"velZ\":{newVelocity.z}}}"
+                );
+            }
+            // #endregion
             rb.linearVelocity = newVelocity;
 
             // Check if knockback is finished (horizontal velocity near zero and grounded)
@@ -174,6 +233,17 @@ namespace junklite
                 vel.x = 0f;
                 vel.z = 0f;
                 if (!rb.useGravity) vel.y = 0f; // Also zero Y for flyers
+                // #region agent log
+                if (rb != null && rb.isKinematic)
+                {
+                    DebugLog(
+                        "H1",
+                        "EnemyMovement.cs:HandleMovement",
+                        "Attempting velocity set while kinematic (idle)",
+                        $"{{\"enemyId\":{GetInstanceID()},\"velX\":{vel.x},\"velY\":{vel.y},\"velZ\":{vel.z}}}"
+                    );
+                }
+                // #endregion
                 rb.linearVelocity = vel;
                 return;
             }
@@ -205,6 +275,17 @@ namespace junklite
                 // Flying enemy - apply full velocity including Y
                 newVelocity = desiredVelocity;
             }
+            // #region agent log
+            if (rb != null && rb.isKinematic)
+            {
+                DebugLog(
+                    "H1",
+                    "EnemyMovement.cs:HandleMovement",
+                    "Attempting velocity set while kinematic (moving)",
+                    $"{{\"enemyId\":{GetInstanceID()},\"velX\":{newVelocity.x},\"velY\":{newVelocity.y},\"velZ\":{newVelocity.z}}}"
+                );
+            }
+            // #endregion
             rb.linearVelocity = newVelocity;
         }
 

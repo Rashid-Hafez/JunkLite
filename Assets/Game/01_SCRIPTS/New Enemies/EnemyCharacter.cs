@@ -1,5 +1,8 @@
 ﻿using System.Collections;
+using System.IO;
+using System.Text;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace junklite
 {
@@ -138,6 +141,39 @@ namespace junklite
             if (damageable != null)
                 damageable.OnDamaged += OnDamagedVFX;
         }
+
+        // #region agent log
+        private static void DebugLog(string hypothesisId, string location, string message, string dataJson)
+        {
+            string log = $"{{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"{hypothesisId}\",\"location\":\"{location}\",\"message\":\"{message}\",\"data\":{dataJson},\"timestamp\":{System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}}}";
+            try
+            {
+                File.AppendAllText("/Users/rashid/Documents/GitHub/JunkLite/.cursor/debug.log", log + "\n");
+            }
+            catch
+            {
+                // ignore file write failures; fall back to HTTP
+            }
+            SendDebugLogHttp(log);
+        }
+
+        private static void SendDebugLogHttp(string json)
+        {
+            try
+            {
+                byte[] body = Encoding.UTF8.GetBytes(json);
+                var req = new UnityWebRequest("http://127.0.0.1:7242/ingest/5f70f84a-3640-468c-9971-b69a690c9e8a", "POST");
+                req.uploadHandler = new UploadHandlerRaw(body);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                req.SendWebRequest();
+            }
+            catch
+            {
+                // swallow exceptions to avoid gameplay interruptions
+            }
+        }
+        // #endregion
 
         protected override void Start()
         {
@@ -307,6 +343,15 @@ namespace junklite
         {
             Debug.Log($"[{gameObject.name}] HandleDeath called!");
 
+            // #region agent log
+            DebugLog(
+                "H2",
+                "EnemyCharacter.cs:HandleDeath",
+                "Enemy death handling",
+                $"{{\"enemyId\":{GetInstanceID()},\"movementEnabled\":{(movement != null && movement.enabled ? "true" : "false")}}}"
+            );
+            // #endregion
+
             SpawnDeathParticles();
             DisableEnemyVisual();
             DisablePhysics();
@@ -357,6 +402,14 @@ namespace junklite
             var rb = GetComponent<Rigidbody>();
             if (rb != null)
             {
+                // #region agent log
+                DebugLog(
+                    "H2",
+                    "EnemyCharacter.cs:DisablePhysics",
+                    "Disabling enemy physics",
+                    $"{{\"enemyId\":{GetInstanceID()},\"wasKinematic\":{(rb.isKinematic ? "true" : "false")},\"useGravity\":{(rb.useGravity ? "true" : "false")}}}"
+                );
+                // #endregion
                 rb.useGravity = false;
                 rb.linearVelocity = Vector3.zero;
                 rb.isKinematic = true;

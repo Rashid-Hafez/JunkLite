@@ -41,6 +41,7 @@ namespace junklite
 
         public enum GameState { Playing, Paused, GameOver }
 
+
         // Properties
         public GameState CurrentState => currentState;
         public PlayerCharacter Player => currentPlayer;

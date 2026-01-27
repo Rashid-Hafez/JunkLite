@@ -102,6 +102,7 @@ namespace junklite
             Deactivate();
         }
 
+
         protected override void Start()
         {
             base.Start();
@@ -299,6 +300,7 @@ namespace junklite
 
             // Handle velocity-based state transitions
             UpdateAirborneStates();
+
         }
 
         /// <summary>
@@ -338,6 +340,7 @@ namespace junklite
                 horizontalAxis = inputManager.MoveDirection.x;
             else
                 horizontalAxis = 0f;
+
         }
 
 
