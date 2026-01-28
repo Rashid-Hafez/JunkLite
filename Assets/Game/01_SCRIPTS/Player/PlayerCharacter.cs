@@ -50,6 +50,7 @@ namespace junklite
 
         // Movement input
         float horizontalAxis = 0f;
+        private Vector2 lastLoggedMove = Vector2.zero;
 
         // Cached
         Collider[] _cachedColliders;
