@@ -45,6 +45,12 @@ namespace junklite
         [SerializeField] private float attackMixAttachmentThreshold = 0f;
         [SerializeField] private float attackMixOut = 0.25f;
         [SerializeField] private float attackMixOutDelay = 0.05f;
+        [Header("Attack Per-Entry Overrides (optional)")]
+        [SerializeField] private bool[] attackEntryOverwrite;
+        [SerializeField] private float[] attackEntryMix;
+        [SerializeField] private float[] attackEntryAttachmentThreshold;
+        [SerializeField] private float[] attackEntryMixOut;
+        [SerializeField] private float[] attackEntryMixOutDelay;
 
         [Header("Footsteps")]
         [SerializeField] private EventDataReferenceAsset footstepEvent;
@@ -63,6 +69,8 @@ namespace junklite
         private string currentLocomotionAnim = "";
         private bool attackActive = false;
         private bool attackOverwriteActive = false;
+        private float cachedAttackMixOut = 0.25f;
+        private float cachedAttackMixOutDelay = 0.05f;
 
         private void Awake()
         {
@@ -385,33 +393,43 @@ namespace junklite
         private void OnComboAttackTriggered(int comboIndex)
         {
             string anim = fallbackAttack;
+            int entryIndex = comboIndex - 1;
             if (comboAttacks != null && comboAttacks.Length > 0)
             {
-                int idx = Mathf.Clamp(comboIndex - 1, 0, comboAttacks.Length - 1);
+                int idx = Mathf.Clamp(entryIndex, 0, comboAttacks.Length - 1);
                 if (!string.IsNullOrEmpty(comboAttacks[idx]))
+                {
                     anim = comboAttacks[idx];
+                    entryIndex = idx;
+                }
             }
 
-            StartAttack(anim);
+            StartAttack(anim, entryIndex);
         }
 
-        private void StartAttack(string anim)
+        private void StartAttack(string anim, int entryIndex = -1)
         {
             if (!HasAnimation(anim)) return;
             if (attackActive)
                 return; // wait for completion unless interrupted by dash/stun/death
 
             attackActive = true;
-            attackOverwriteActive = attackOverwrite;
+            bool useOverwrite = GetEntryBool(attackEntryOverwrite, entryIndex, attackOverwrite);
+            float mixIn = GetEntryFloat(attackEntryMix, entryIndex, attackMix);
+            float mixOut = GetEntryFloat(attackEntryMixOut, entryIndex, attackMixOut);
+            float mixOutDelay = GetEntryFloat(attackEntryMixOutDelay, entryIndex, attackMixOutDelay);
+            float attachmentThreshold = GetEntryFloat(attackEntryAttachmentThreshold, entryIndex, attackMixAttachmentThreshold);
 
-            if (attackOverwrite)
+            attackOverwriteActive = useOverwrite;
+
+            if (useOverwrite)
             {
                 var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, anim, false);
-                entry.MixDuration = attackMix;
+                entry.MixDuration = mixIn;
                 entry.MixBlend = MixBlend.Replace;
-                entry.Complete += _ => FinishAttack();
-                entry.Interrupt += _ => FinishAttack();
-                entry.End += _ => FinishAttack();
+                entry.Complete += _ => FinishAttackOverwrite();
+                entry.Interrupt += _ => FinishAttackImmediate();
+                entry.End += _ => FinishAttackImmediate();
 
                 if (logAttacks)
                     Debug.Log($"[SpineAnim] Attack (overwrite): {anim} on track {locomotionTrack}", this);
@@ -419,41 +437,59 @@ namespace junklite
             else
             {
                 var entry = skeletonAnimation.AnimationState.SetAnimation(overlayTrack, anim, false);
-                entry.MixDuration = attackMix;
+                entry.MixDuration = mixIn;
                 entry.MixBlend = MixBlend.Replace;
-                entry.MixAttachmentThreshold = attackMixAttachmentThreshold;
-                entry.Complete += _ => FinishAttack();
-                entry.Interrupt += _ => FinishAttack();
-                entry.End += _ => FinishAttack();
-
-                // Immediately start mixing back to empty
-                skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, attackMixOut, attackMixOutDelay);
+                entry.MixAttachmentThreshold = attachmentThreshold;
+                entry.Complete += _ => FinishAttackOverlay();
+                entry.Interrupt += _ => FinishAttackImmediate();
+                entry.End += _ => FinishAttackImmediate();
 
                 if (logAttacks)
                     Debug.Log($"[SpineAnim] Attack (overlay): {anim} on track {overlayTrack}", this);
             }
+
+            cachedAttackMixOut = mixOut;
+            cachedAttackMixOutDelay = mixOutDelay;
         }
 
-        private void FinishAttack()
+        private void FinishAttackOverlay()
         {
             if (!attackActive) return;
 
             attackActive = false;
             attackOverwriteActive = false;
 
-            // If attack was overwriting locomotion, restore appropriate state
-            if (attackOverwrite)
+            // Blend overlay track out after the attack completes
+            skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, cachedAttackMixOut, cachedAttackMixOutDelay);
+        }
+
+        private void FinishAttackOverwrite()
+        {
+            if (!attackActive) return;
+
+            attackActive = false;
+            attackOverwriteActive = false;
+
+            // Restore appropriate state after overwrite attack
+            if (playerState.IsGrounded)
             {
-                if (playerState.IsGrounded)
-                {
-                    float speed = GetSpeed();
-                    PlayLocomotion(speed > speedThreshold ? run : idle, true);
-                }
-                else
-                {
-                    PlayJumpAir();
-                }
+                float speed = GetSpeed();
+                PlayLocomotion(speed > speedThreshold ? run : idle, true);
             }
+            else
+            {
+                PlayJumpAir();
+            }
+        }
+
+        private void FinishAttackImmediate()
+        {
+            if (!attackActive) return;
+
+            attackActive = false;
+            attackOverwriteActive = false;
+
+            skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
         }
 
         private void InterruptAttack(string reason)
@@ -652,6 +688,19 @@ namespace junklite
                    current == doubleJump ||
                    current == wallSlide ||
                    current == death;
+        }
+
+        private bool GetEntryBool(bool[] values, int index, bool fallback)
+        {
+            if (values == null || index < 0 || index >= values.Length) return fallback;
+            return values[index];
+        }
+
+        private float GetEntryFloat(float[] values, int index, float fallback)
+        {
+            if (values == null || index < 0 || index >= values.Length) return fallback;
+            float value = values[index];
+            return value > 0f ? value : fallback;
         }
 
         private void ClearDoubleJumpFlag()

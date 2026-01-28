@@ -15716,10 +15716,19 @@ MonoBehaviour:
   - Attack_2
   - Attack_3_Dash
   fallbackAttack: Attack_2
-  attackMix: 1
+  attackOverwrite: 0
+  attackMix: 0
   attackMixAttachmentThreshold: 0
   attackMixOut: 0
-  attackMixOutDelay: 1
+  attackMixOutDelay: 0
+  attackEntryOverwrite: 010101
+  attackEntryMix:
+  - 0.1
+  - 0.1
+  - 0.1
+  attackEntryAttachmentThreshold: []
+  attackEntryMixOut: []
+  attackEntryMixOutDelay: []
   footstepEvent: {fileID: 0}
   footstepSource: {fileID: 0}
   footstepPitchOffset: 0.2
