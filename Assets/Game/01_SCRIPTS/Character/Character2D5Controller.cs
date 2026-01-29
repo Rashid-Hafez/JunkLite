@@ -497,8 +497,8 @@ namespace junklite
         /// </summary>
         public void StopAllVelocity()
         {
-            //rb.linearVelocity = Vector3.zero;
-            //rb.angularVelocity = Vector3.zero;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
             moveInput = Vector3.zero;
         }
 

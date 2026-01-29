@@ -52,6 +52,9 @@ namespace junklite
         [SerializeField] private float[] attackEntryMixOut;
         [SerializeField] private float[] attackEntryMixOutDelay;
 
+        [Header("Attack Lock")]
+        [SerializeField] private bool lockMovementDuringAttack = true;
+
         [Header("Footsteps")]
         [SerializeField] private EventDataReferenceAsset footstepEvent;
         [SerializeField] private AudioSource footstepSource;
@@ -71,6 +74,7 @@ namespace junklite
         private bool attackOverwriteActive = false;
         private float cachedAttackMixOut = 0.25f;
         private float cachedAttackMixOutDelay = 0.05f;
+        private bool attackInputLockApplied = false;
 
         private void Awake()
         {
@@ -157,6 +161,8 @@ namespace junklite
 
             if (skeletonAnimation != null)
                 skeletonAnimation.AnimationState.Event -= HandleSpineEvent;
+
+            ReleaseAttackInputLock();
         }
 
         // ========== EVENT HANDLERS ==========
@@ -393,7 +399,7 @@ namespace junklite
         private void OnComboAttackTriggered(int comboIndex)
         {
             string anim = fallbackAttack;
-            int entryIndex = comboIndex - 1;
+            int entryIndex = comboIndex;
             if (comboAttacks != null && comboAttacks.Length > 0)
             {
                 int idx = Mathf.Clamp(entryIndex, 0, comboAttacks.Length - 1);
@@ -414,6 +420,9 @@ namespace junklite
                 return; // wait for completion unless interrupted by dash/stun/death
 
             attackActive = true;
+            ApplyAttackInputLock();
+            if (playerState != null)
+                playerState.SetAttacking(true);
             bool useOverwrite = GetEntryBool(attackEntryOverwrite, entryIndex, attackOverwrite);
             float mixIn = GetEntryFloat(attackEntryMix, entryIndex, attackMix);
             float mixOut = GetEntryFloat(attackEntryMixOut, entryIndex, attackMixOut);
@@ -458,6 +467,9 @@ namespace junklite
 
             attackActive = false;
             attackOverwriteActive = false;
+            ReleaseAttackInputLock();
+            if (playerState != null)
+                playerState.SetAttacking(false);
 
             // Blend overlay track out after the attack completes
             skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, cachedAttackMixOut, cachedAttackMixOutDelay);
@@ -469,6 +481,9 @@ namespace junklite
 
             attackActive = false;
             attackOverwriteActive = false;
+            ReleaseAttackInputLock();
+            if (playerState != null)
+                playerState.SetAttacking(false);
 
             // Restore appropriate state after overwrite attack
             if (playerState.IsGrounded)
@@ -488,6 +503,9 @@ namespace junklite
 
             attackActive = false;
             attackOverwriteActive = false;
+            ReleaseAttackInputLock();
+            if (playerState != null)
+                playerState.SetAttacking(false);
 
             skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
         }
@@ -501,6 +519,9 @@ namespace junklite
 
             attackActive = false;
             attackOverwriteActive = false;
+            ReleaseAttackInputLock();
+            if (playerState != null)
+                playerState.SetAttacking(false);
 
             if (logAttacks)
                 Debug.Log($"[SpineAnim] Attack interrupted: {reason}", this);
@@ -771,6 +792,29 @@ namespace junklite
 
             footstepSource.pitch = 1f + Random.Range(-footstepPitchOffset, footstepPitchOffset);
             footstepSource.Play();
+        }
+
+        private void ApplyAttackInputLock()
+        {
+            if (!lockMovementDuringAttack || playerState == null || attackInputLockApplied)
+                return;
+
+            if (!playerState.IsInputLocked)
+            {
+                playerState.SetInputLocked(true);
+                if (controller != null)
+                    controller.StopAllVelocity();
+                attackInputLockApplied = true;
+            }
+        }
+
+        private void ReleaseAttackInputLock()
+        {
+            if (!lockMovementDuringAttack || playerState == null || !attackInputLockApplied)
+                return;
+
+            playerState.SetInputLocked(false);
+            attackInputLockApplied = false;
         }
 
         private void Log(string message)

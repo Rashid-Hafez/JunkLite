@@ -16,11 +16,6 @@ namespace junklite
         [SerializeField] private Transform upAttack;
         [SerializeField] private Transform downAttack;
 
-        [Header("Attack State")]
-        [SerializeField] private float attackDuration = 0.3f;
-
-        private Coroutine _attackStateCo;
-
         [Header("Fallback Hit Radii")]
         [SerializeField] private float sideRadius = 1f;
         [SerializeField] private float upRadius = 1f;
@@ -117,10 +112,6 @@ namespace junklite
                 if (comboIndex >= 0)
                     playerState.TriggerComboAttack(comboIndex);
             }
-
-            if (_attackStateCo != null)
-                StopCoroutine(_attackStateCo);
-            _attackStateCo = StartCoroutine(ResetAttackingAfterDuration());
 
             // Execute attack
             ExecuteAttack(dir, step);
@@ -247,16 +238,6 @@ namespace junklite
             }
 
             return result;
-        }
-
-        private IEnumerator ResetAttackingAfterDuration()
-        {
-            yield return new WaitForSeconds(attackDuration);
-
-            if (playerState != null)
-                playerState.SetAttacking(false);
-
-            _attackStateCo = null;
         }
 
         #endregion Attack Execution

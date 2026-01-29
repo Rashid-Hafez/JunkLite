@@ -81,8 +81,15 @@ namespace junklite
 
             if (dir == AttackDirection.Side)
             {
+                var sideSteps = weaponData.comboData.sideComboSteps;
+                if (sideSteps == null || sideSteps.Length == 0)
+                    return false;
+
+                if (sideComboIndex >= sideSteps.Length)
+                    sideComboIndex = 0;
+
                 comboIndex = sideComboIndex;
-                step = weaponData.comboData.sideComboSteps[sideComboIndex];
+                step = sideSteps[sideComboIndex];
                 AdvanceSideCombo();
             }
             else
