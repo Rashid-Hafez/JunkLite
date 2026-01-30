@@ -52,6 +52,7 @@ namespace junklite
         private Transform playerTransform;
         private PlayerState playerState;
         private PlayerCharacter playerCharacter;
+        private SpineAnimationController spineAnimController;
 
         public WeaponInstance CurrentWeapon { get; private set; }
         private WorldWeaponPickup storedPickup;
@@ -70,6 +71,7 @@ namespace junklite
             playerTransform = transform.parent ?? transform;
             playerState = GetComponentInParent<PlayerState>();
             playerCharacter = GetComponentInParent<PlayerCharacter>();
+            spineAnimController = GetComponentInParent<SpineAnimationController>();
 
             if (impulseSource == null)
             {
@@ -104,6 +106,13 @@ namespace junklite
 
             if (!CurrentWeapon.TryGetComboStep(dir, out var step, out int comboIndex))
                 return;
+
+            // Try to buffer attack if currently attacking
+            if (spineAnimController != null && spineAnimController.TryBufferAttack(comboIndex))
+            {
+                // Attack was buffered, wait for current attack to finish
+                return;
+            }
 
             // Set attacking state
             if (playerState != null)

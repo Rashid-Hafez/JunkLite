@@ -42,6 +42,20 @@ namespace junklite
         [SerializeField] private bool stunLoop = true;
         [SerializeField] private bool deathLoop = false;
 
+        [Header("Animation Timing (TimeScale)")]
+        [SerializeField, Range(0.1f, 3f)] private float idleTimeScale = 1f;
+        [SerializeField, Range(0.1f, 3f)] private float runTimeScale = 1f;
+        [SerializeField, Range(0.1f, 3f)] private float jumpStartTimeScale = 1f;
+        [SerializeField, Range(0.1f, 3f)] private float jumpAirTimeScale = 1f;
+        [SerializeField, Range(0.1f, 3f)] private float landingTimeScale = 1f;
+        [SerializeField, Range(0.1f, 3f)] private float doubleJumpTimeScale = 1f;
+        [SerializeField, Range(0.1f, 3f)] private float wallSlideTimeScale = 1f;
+        [SerializeField, Range(0.1f, 3f)] private float dashTimeScale = 1f;
+        [SerializeField, Range(0.1f, 3f)] private float rollTimeScale = 1f;
+        [SerializeField, Range(0.1f, 3f)] private float stunTimeScale = 1f;
+        [SerializeField, Range(0.1f, 3f)] private float deathTimeScale = 1f;
+        [SerializeField] private float[] comboAttackTimeScales;
+
         [Header("Locomotion")]
         [SerializeField] private float speedThreshold = 0.1f;
         [SerializeField] private float locomotionBlend = 0.1f;
@@ -67,6 +81,12 @@ namespace junklite
         [Header("Attack Lock")]
         [SerializeField] private bool lockMovementDuringAttack = true;
 
+        [Header("Attack Buffer")]
+        [Tooltip("How long before attack animation ends to allow buffering next attack (in seconds)")]
+        [SerializeField] private float attackBufferWindow = 0.3f;
+        [Tooltip("Maximum time a buffered attack can wait before expiring")]
+        [SerializeField] private float maxBufferDuration = 0.5f;
+
         [Header("Footsteps")]
         [SerializeField] private EventDataReferenceAsset footstepEvent;
         [SerializeField] private AudioSource footstepSource;
@@ -87,6 +107,12 @@ namespace junklite
         private float cachedAttackMixOut = 0.25f;
         private float cachedAttackMixOutDelay = 0.05f;
         private bool attackInputLockApplied = false;
+
+        // Attack buffer
+        private bool attackBuffered = false;
+        private int bufferedComboIndex = -1;
+        private float bufferTimer = 0f;
+        private TrackEntry currentAttackEntry = null;
 
         private void Awake()
         {
@@ -149,6 +175,31 @@ namespace junklite
 
             // Update run speed scaling
             UpdateRunSpeed();
+
+            // Handle attack buffer timer
+            if (attackBuffered)
+            {
+                bufferTimer -= Time.deltaTime;
+                if (bufferTimer <= 0f)
+                {
+                    // Buffer expired
+                    attackBuffered = false;
+                    bufferedComboIndex = -1;
+                    if (logAttacks)
+                        Debug.Log("[SpineAnim] Attack buffer expired", this);
+                }
+            }
+
+            // Check if we're in buffer window for current attack
+            if (attackActive && currentAttackEntry != null && !attackBuffered)
+            {
+                float remainingTime = currentAttackEntry.AnimationEnd - currentAttackEntry.TrackTime;
+                if (remainingTime <= attackBufferWindow)
+                {
+                    // We're in the buffer window - attacks can now be buffered
+                    // This is handled by TryBufferAttack() method
+                }
+            }
         }
 
         private void OnDestroy()
@@ -328,6 +379,7 @@ namespace junklite
             var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, doubleJump, GetLoopFor(doubleJump, false));
             entry.MixDuration = doubleJumpBlend;
             entry.MixBlend = MixBlend.Replace; // avoid blended rotations during flip
+            entry.TimeScale = GetTimeScaleFor(doubleJump, 1f);
             currentLocomotionAnim = doubleJump;
             entry.Complete += _ => ClearDoubleJumpFlag();
             entry.Interrupt += _ => ClearDoubleJumpFlag();
@@ -335,6 +387,7 @@ namespace junklite
 
             // After double jump completes, play jump air and hold
             var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false), 0f);
+            airEntry.TimeScale = GetTimeScaleFor(jumpAir, 1f);
             airEntry.Complete += OnJumpAirComplete;
 
             Log($"Double jump: {doubleJump} -> {jumpAir}");
@@ -357,12 +410,14 @@ namespace junklite
             var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, doubleJump, GetLoopFor(doubleJump, false));
             entry.MixDuration = doubleJumpBlend;
             entry.MixBlend = MixBlend.Replace;
+            entry.TimeScale = GetTimeScaleFor(doubleJump, 1f);
             currentLocomotionAnim = doubleJump;
             entry.Complete += _ => ClearDoubleJumpFlag();
             entry.Interrupt += _ => ClearDoubleJumpFlag();
             entry.End += _ => ClearDoubleJumpFlag();
 
             var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false), 0f);
+            airEntry.TimeScale = GetTimeScaleFor(jumpAir, 1f);
             airEntry.Complete += OnJumpAirComplete;
 
             Log($"Double jump (controller): {doubleJump} -> {jumpAir}");
@@ -410,6 +465,23 @@ namespace junklite
 
         private void OnComboAttackTriggered(int comboIndex)
         {
+            // Check if we should buffer this attack
+            if (attackActive && currentAttackEntry != null)
+            {
+                float remainingTime = currentAttackEntry.AnimationEnd - currentAttackEntry.TrackTime;
+                if (remainingTime <= attackBufferWindow)
+                {
+                    // Buffer the attack
+                    attackBuffered = true;
+                    bufferedComboIndex = comboIndex;
+                    bufferTimer = maxBufferDuration;
+                    if (logAttacks)
+                        Debug.Log($"[SpineAnim] Attack buffered: comboIndex={comboIndex}", this);
+                    return;
+                }
+            }
+
+            // Execute attack immediately
             string anim = fallbackAttack;
             int entryIndex = comboIndex;
             if (comboAttacks != null && comboAttacks.Length > 0)
@@ -423,6 +495,30 @@ namespace junklite
             }
 
             StartAttack(anim, entryIndex);
+        }
+
+        /// <summary>
+        /// Public method for WeaponManager to attempt buffering an attack.
+        /// Returns true if attack was buffered, false if it can execute immediately.
+        /// </summary>
+        public bool TryBufferAttack(int comboIndex)
+        {
+            if (!attackActive || currentAttackEntry == null)
+                return false; // Not attacking, can execute immediately
+
+            float remainingTime = currentAttackEntry.AnimationEnd - currentAttackEntry.TrackTime;
+            if (remainingTime > attackBufferWindow)
+                return false; // Too early to buffer
+
+            // Buffer the attack
+            attackBuffered = true;
+            bufferedComboIndex = comboIndex;
+            bufferTimer = maxBufferDuration;
+            
+            if (logAttacks)
+                Debug.Log($"[SpineAnim] Attack buffered: comboIndex={comboIndex}, remainingTime={remainingTime:F3}s", this);
+            
+            return true;
         }
 
         private void StartAttack(string anim, int entryIndex = -1)
@@ -441,6 +537,9 @@ namespace junklite
             float mixOutDelay = GetEntryFloat(attackEntryMixOutDelay, entryIndex, attackMixOutDelay);
             float attachmentThreshold = GetEntryFloat(attackEntryAttachmentThreshold, entryIndex, attackMixAttachmentThreshold);
 
+            // Get timing for this attack
+            float timeScale = GetAttackTimeScale(entryIndex);
+
             attackOverwriteActive = useOverwrite;
 
             if (useOverwrite)
@@ -448,12 +547,14 @@ namespace junklite
                 var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, anim, false);
                 entry.MixDuration = mixIn;
                 entry.MixBlend = MixBlend.Replace;
+                entry.TimeScale = timeScale;
                 entry.Complete += _ => FinishAttackOverwrite();
                 entry.Interrupt += _ => FinishAttackImmediate();
                 entry.End += _ => FinishAttackImmediate();
+                currentAttackEntry = entry;
 
                 if (logAttacks)
-                    Debug.Log($"[SpineAnim] Attack (overwrite): {anim} on track {locomotionTrack}", this);
+                    Debug.Log($"[SpineAnim] Attack (overwrite): {anim} on track {locomotionTrack}, timeScale={timeScale}", this);
             }
             else
             {
@@ -461,12 +562,14 @@ namespace junklite
                 entry.MixDuration = mixIn;
                 entry.MixBlend = MixBlend.Replace;
                 entry.MixAttachmentThreshold = attachmentThreshold;
+                entry.TimeScale = timeScale;
                 entry.Complete += _ => FinishAttackOverlay();
                 entry.Interrupt += _ => FinishAttackImmediate();
                 entry.End += _ => FinishAttackImmediate();
+                currentAttackEntry = entry;
 
                 if (logAttacks)
-                    Debug.Log($"[SpineAnim] Attack (overlay): {anim} on track {overlayTrack}", this);
+                    Debug.Log($"[SpineAnim] Attack (overlay): {anim} on track {overlayTrack}, timeScale={timeScale}", this);
             }
 
             cachedAttackMixOut = mixOut;
@@ -479,12 +582,31 @@ namespace junklite
 
             attackActive = false;
             attackOverwriteActive = false;
+            currentAttackEntry = null;
             ReleaseAttackInputLock();
             if (playerState != null)
                 playerState.SetAttacking(false);
 
-            // Blend overlay track out after the attack completes
-            skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, cachedAttackMixOut, cachedAttackMixOutDelay);
+            // Check for buffered attack BEFORE blending out
+            if (attackBuffered && bufferedComboIndex >= 0)
+            {
+                int bufferedIndex = bufferedComboIndex;
+                attackBuffered = false;
+                bufferedComboIndex = -1;
+                bufferTimer = 0f;
+
+                if (logAttacks)
+                    Debug.Log($"[SpineAnim] Executing buffered attack: comboIndex={bufferedIndex}", this);
+
+                // Trigger the buffered attack
+                if (playerState != null)
+                    playerState.TriggerComboAttack(bufferedIndex);
+            }
+            else
+            {
+                // Blend overlay track out after the attack completes
+                skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, cachedAttackMixOut, cachedAttackMixOutDelay);
+            }
         }
 
         private void FinishAttackOverwrite()
@@ -493,19 +615,38 @@ namespace junklite
 
             attackActive = false;
             attackOverwriteActive = false;
+            currentAttackEntry = null;
             ReleaseAttackInputLock();
             if (playerState != null)
                 playerState.SetAttacking(false);
 
-            // Restore appropriate state after overwrite attack
-            if (playerState.IsGrounded)
+            // Check for buffered attack
+            if (attackBuffered && bufferedComboIndex >= 0)
             {
-                float speed = GetSpeed();
-                PlayLocomotion(speed > speedThreshold ? run : idle, true);
+                int bufferedIndex = bufferedComboIndex;
+                attackBuffered = false;
+                bufferedComboIndex = -1;
+                bufferTimer = 0f;
+
+                if (logAttacks)
+                    Debug.Log($"[SpineAnim] Executing buffered attack: comboIndex={bufferedIndex}", this);
+
+                // Trigger the buffered attack
+                if (playerState != null)
+                    playerState.TriggerComboAttack(bufferedIndex);
             }
             else
             {
-                PlayJumpAir();
+                // Restore appropriate state after overwrite attack
+                if (playerState.IsGrounded)
+                {
+                    float speed = GetSpeed();
+                    PlayLocomotion(speed > speedThreshold ? run : idle, true);
+                }
+                else
+                {
+                    PlayJumpAir();
+                }
             }
         }
 
@@ -515,6 +656,10 @@ namespace junklite
 
             attackActive = false;
             attackOverwriteActive = false;
+            currentAttackEntry = null;
+            attackBuffered = false;
+            bufferedComboIndex = -1;
+            bufferTimer = 0f;
             ReleaseAttackInputLock();
             if (playerState != null)
                 playerState.SetAttacking(false);
@@ -531,6 +676,10 @@ namespace junklite
 
             attackActive = false;
             attackOverwriteActive = false;
+            currentAttackEntry = null;
+            attackBuffered = false;
+            bufferedComboIndex = -1;
+            bufferTimer = 0f;
             ReleaseAttackInputLock();
             if (playerState != null)
                 playerState.SetAttacking(false);
@@ -552,10 +701,12 @@ namespace junklite
             // Play Jump_1_Start, then immediately queue Jump_2_Air
             var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, jumpStart, GetLoopFor(jumpStart, false));
             entry.MixDuration = locomotionBlend;
+            entry.TimeScale = GetTimeScaleFor(jumpStart, 1f);
             currentLocomotionAnim = jumpStart;
 
             // Queue Jump_2_Air after Jump_1_Start
             var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false), 0f);
+            airEntry.TimeScale = GetTimeScaleFor(jumpAir, 1f);
             airEntry.Complete += OnJumpAirComplete;
 
             Log($"Jump sequence: {jumpStart} -> {jumpAir}");
@@ -566,6 +717,7 @@ namespace junklite
             if (!HasAnimation(jumpAir)) return;
 
             var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false));
+            entry.TimeScale = GetTimeScaleFor(jumpAir, 1f);
             entry.Complete += OnJumpAirComplete;
             currentLocomotionAnim = jumpAir;
 
@@ -595,18 +747,21 @@ namespace junklite
 
             var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, landing, GetLoopFor(landing, false));
             entry.MixDuration = locomotionBlend;
+            entry.TimeScale = GetTimeScaleFor(landing, 1f);
             currentLocomotionAnim = landing;
 
             // Check speed during landing to queue run or idle
             float currentSpeed = GetSpeed();
             if (currentSpeed > speedThreshold)
             {
-                skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, run, GetLoopFor(run, true), 0f);
+                var runEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, run, GetLoopFor(run, true), 0f);
+                runEntry.TimeScale = GetTimeScaleFor(run, 1f);
                 Log($"Landing: {landing} -> {run}");
             }
             else
             {
-                skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, idle, GetLoopFor(idle, true), 0f);
+                var idleEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, idle, GetLoopFor(idle, true), 0f);
+                idleEntry.TimeScale = GetTimeScaleFor(idle, 1f);
                 Log($"Landing: {landing} -> {idle}");
             }
         }
@@ -618,9 +773,10 @@ namespace junklite
 
             var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, animName, GetLoopFor(animName, loop));
             entry.MixDuration = locomotionBlend;
+            entry.TimeScale = GetTimeScaleFor(animName, 1f);
             currentLocomotionAnim = animName;
 
-            Log($"Locomotion: {animName} (loop={loop})");
+            Log($"Locomotion: {animName} (loop={loop}, timeScale={entry.TimeScale})");
         }
 
         /// <summary>
@@ -787,6 +943,33 @@ namespace junklite
             if (animName == stun) return stunLoop;
             if (animName == death) return deathLoop;
             return fallback;
+        }
+
+        private float GetTimeScaleFor(string animName, float fallback = 1f)
+        {
+            if (string.IsNullOrEmpty(animName)) return fallback;
+            if (animName == idle) return idleTimeScale;
+            if (animName == run) return runTimeScale;
+            if (animName == jumpStart) return jumpStartTimeScale;
+            if (animName == jumpAir) return jumpAirTimeScale;
+            if (animName == landing) return landingTimeScale;
+            if (animName == doubleJump) return doubleJumpTimeScale;
+            if (animName == wallSlide) return wallSlideTimeScale;
+            if (animName == dash) return dashTimeScale;
+            if (animName == roll) return rollTimeScale;
+            if (animName == stun) return stunTimeScale;
+            if (animName == death) return deathTimeScale;
+            return fallback;
+        }
+
+        private float GetAttackTimeScale(int entryIndex)
+        {
+            if (comboAttackTimeScales != null && entryIndex >= 0 && entryIndex < comboAttackTimeScales.Length)
+            {
+                float scale = comboAttackTimeScales[entryIndex];
+                return scale > 0f ? scale : 1f;
+            }
+            return 1f;
         }
 
         private void ConfigureMixes()
