@@ -148,6 +148,7 @@ namespace junklite
             playerState.OnDoubleJumpChanged += OnDoubleJumpChanged;
             playerState.OnStunnedChanged += OnStunnedChanged;
             playerState.OnComboAttackTriggered += OnComboAttackTriggered;
+            playerState.OnAttackBuffered += OnAttackBuffered;
             playerState.OnDeath += OnDeath;
 
             if (skeletonAnimation != null)
@@ -190,15 +191,16 @@ namespace junklite
                 }
             }
 
-            // Check if we're in buffer window for current attack
-            if (attackActive && currentAttackEntry != null && !attackBuffered)
+            // Update buffer window state in PlayerState based on animation timing
+            if (attackActive && currentAttackEntry != null && playerState != null)
             {
                 float remainingTime = currentAttackEntry.AnimationEnd - currentAttackEntry.TrackTime;
-                if (remainingTime <= attackBufferWindow)
-                {
-                    // We're in the buffer window - attacks can now be buffered
-                    // This is handled by TryBufferAttack() method
-                }
+                bool inBufferWindow = remainingTime <= attackBufferWindow && remainingTime > 0f;
+                playerState.SetCanBufferAttack(inBufferWindow);
+            }
+            else if (playerState != null)
+            {
+                playerState.SetCanBufferAttack(false);
             }
         }
 
@@ -216,6 +218,7 @@ namespace junklite
                 playerState.OnDoubleJumpChanged -= OnDoubleJumpChanged;
                 playerState.OnStunnedChanged -= OnStunnedChanged;
                 playerState.OnComboAttackTriggered -= OnComboAttackTriggered;
+                playerState.OnAttackBuffered -= OnAttackBuffered;
                 playerState.OnDeath -= OnDeath;
             }
 
@@ -465,23 +468,6 @@ namespace junklite
 
         private void OnComboAttackTriggered(int comboIndex)
         {
-            // Check if we should buffer this attack
-            if (attackActive && currentAttackEntry != null)
-            {
-                float remainingTime = currentAttackEntry.AnimationEnd - currentAttackEntry.TrackTime;
-                if (remainingTime <= attackBufferWindow)
-                {
-                    // Buffer the attack
-                    attackBuffered = true;
-                    bufferedComboIndex = comboIndex;
-                    bufferTimer = maxBufferDuration;
-                    if (logAttacks)
-                        Debug.Log($"[SpineAnim] Attack buffered: comboIndex={comboIndex}", this);
-                    return;
-                }
-            }
-
-            // Execute attack immediately
             string anim = fallbackAttack;
             int entryIndex = comboIndex;
             if (comboAttacks != null && comboAttacks.Length > 0)
@@ -498,17 +484,12 @@ namespace junklite
         }
 
         /// <summary>
-        /// Public method for WeaponManager to attempt buffering an attack.
-        /// Returns true if attack was buffered, false if it can execute immediately.
+        /// Handles attack buffered event from PlayerState.
         /// </summary>
-        public bool TryBufferAttack(int comboIndex)
+        private void OnAttackBuffered(int comboIndex)
         {
-            if (!attackActive || currentAttackEntry == null)
-                return false; // Not attacking, can execute immediately
-
-            float remainingTime = currentAttackEntry.AnimationEnd - currentAttackEntry.TrackTime;
-            if (remainingTime > attackBufferWindow)
-                return false; // Too early to buffer
+            if (!attackActive)
+                return;
 
             // Buffer the attack
             attackBuffered = true;
@@ -516,9 +497,7 @@ namespace junklite
             bufferTimer = maxBufferDuration;
             
             if (logAttacks)
-                Debug.Log($"[SpineAnim] Attack buffered: comboIndex={comboIndex}, remainingTime={remainingTime:F3}s", this);
-            
-            return true;
+                Debug.Log($"[SpineAnim] Attack buffered: comboIndex={comboIndex}", this);
         }
 
         private void StartAttack(string anim, int entryIndex = -1)
@@ -530,7 +509,10 @@ namespace junklite
             attackActive = true;
             ApplyAttackInputLock();
             if (playerState != null)
+            {
                 playerState.SetAttacking(true);
+                playerState.SetCanBufferAttack(false); // Clear buffer state when new attack starts
+            }
             bool useOverwrite = GetEntryBool(attackEntryOverwrite, entryIndex, attackOverwrite);
             float mixIn = GetEntryFloat(attackEntryMix, entryIndex, attackMix);
             float mixOut = GetEntryFloat(attackEntryMixOut, entryIndex, attackMixOut);
@@ -585,7 +567,10 @@ namespace junklite
             currentAttackEntry = null;
             ReleaseAttackInputLock();
             if (playerState != null)
+            {
                 playerState.SetAttacking(false);
+                playerState.SetCanBufferAttack(false);
+            }
 
             // Check for buffered attack BEFORE blending out
             if (attackBuffered && bufferedComboIndex >= 0)
@@ -618,7 +603,10 @@ namespace junklite
             currentAttackEntry = null;
             ReleaseAttackInputLock();
             if (playerState != null)
+            {
                 playerState.SetAttacking(false);
+                playerState.SetCanBufferAttack(false);
+            }
 
             // Check for buffered attack
             if (attackBuffered && bufferedComboIndex >= 0)
@@ -662,7 +650,10 @@ namespace junklite
             bufferTimer = 0f;
             ReleaseAttackInputLock();
             if (playerState != null)
+            {
                 playerState.SetAttacking(false);
+                playerState.SetCanBufferAttack(false);
+            }
 
             skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
         }
@@ -682,7 +673,10 @@ namespace junklite
             bufferTimer = 0f;
             ReleaseAttackInputLock();
             if (playerState != null)
+            {
                 playerState.SetAttacking(false);
+                playerState.SetCanBufferAttack(false);
+            }
 
             if (logAttacks)
                 Debug.Log($"[SpineAnim] Attack interrupted: {reason}", this);
@@ -859,7 +853,9 @@ namespace junklite
 
             float speed = GetSpeed();
             float scale = controller.MoveSpeed > 0f ? speed / controller.MoveSpeed : 1f;
-            entry.TimeScale = Mathf.Clamp(scale, minRunTimeScale, maxRunTimeScale);
+            scale = Mathf.Clamp(scale, minRunTimeScale, maxRunTimeScale);
+            // Multiply by base timeScale from inspector
+            entry.TimeScale = scale * runTimeScale;
         }
 
         // ========== UTILITY ==========

@@ -52,10 +52,14 @@ namespace junklite
         private Transform playerTransform;
         private PlayerState playerState;
         private PlayerCharacter playerCharacter;
-        private SpineAnimationController spineAnimController;
 
         public WeaponInstance CurrentWeapon { get; private set; }
         private WorldWeaponPickup storedPickup;
+
+        // Current attack impulse (applied after attack lock)
+        private float currentAttackImpulse = 0f;
+        private AttackDirection currentAttackDirection = AttackDirection.Side;
+        private bool shouldApplyImpulse = false;
 
         public event System.Action OnWeaponChanged;
         // Fired when we successfully deal damage to an enemy (true hit confirm)
@@ -63,7 +67,28 @@ namespace junklite
 
         public float Facing => Mathf.Sign(playerTransform.localScale.x);
 
-        #region Unity
+        private void FixedUpdate()
+        {
+            // Apply attack impulse in physics step to ensure it persists
+            if (shouldApplyImpulse && currentAttackImpulse > 0f && playerRb != null && currentAttackDirection == AttackDirection.Side)
+            {
+                if (!playerRb.isKinematic)
+                {
+                    Vector3 currentVel = playerRb.linearVelocity;
+                    // Apply impulse in facing direction (only on X axis to preserve Y velocity)
+                    // Use VelocityChange to add directly to velocity, bypassing mass
+                    Vector3 impulse = new Vector3(Facing * currentAttackImpulse, 0f, 0f);
+                    playerRb.AddForce(impulse, ForceMode.VelocityChange);
+                    
+                    Vector3 newVel = playerRb.linearVelocity;
+                    Debug.Log($"[WeaponManager] Applied attack impulse in FixedUpdate! Old velocity: {currentVel}, New velocity: {newVel}, Impulse: {impulse}", this);
+                }
+                
+                // Clear after applying
+                shouldApplyImpulse = false;
+                currentAttackImpulse = 0f;
+            }
+        }
 
         private void Awake()
         {
@@ -71,7 +96,6 @@ namespace junklite
             playerTransform = transform.parent ?? transform;
             playerState = GetComponentInParent<PlayerState>();
             playerCharacter = GetComponentInParent<PlayerCharacter>();
-            spineAnimController = GetComponentInParent<SpineAnimationController>();
 
             if (impulseSource == null)
             {
@@ -81,6 +105,23 @@ namespace junklite
             }
         }
 
+        private void Start()
+        {
+            // Subscribe to combo attack events to handle impulse for buffered attacks
+            if (playerState != null)
+                playerState.OnComboAttackTriggered += OnComboAttackTriggered;
+        }
+
+        private void OnDestroy()
+        {
+            if (playerState != null)
+                playerState.OnComboAttackTriggered -= OnComboAttackTriggered;
+        }
+
+        #region Interactions
+        /// <summary>
+        /// Handles trigger enter events to pick up weapons and mods.
+        /// </summary>
         private void OnTriggerEnter(Collider other)
         {
             var weaponPickup = other.GetComponent<WorldWeaponPickup>();
@@ -94,10 +135,31 @@ namespace junklite
             if (modPickup != null)
                 PickupMod(modPickup);
         }
+        #endregion Interactions
 
-        #endregion Unity
-
-        #region Public API
+        #region Attack
+        /// <summary>
+        /// Handles combo attack triggered event. For buffered attacks, applies impulse if needed.
+        /// </summary>
+        private void OnComboAttackTriggered(int comboIndex)
+        {
+            // Only apply impulse if we don't already have one stored (regular attacks store it in ExecuteAttack)
+            // Buffered attacks will have currentAttackImpulse = 0, so we need to look it up
+            if (currentAttackImpulse <= 0f && CurrentWeapon != null && CurrentWeapon.weaponData != null && CurrentWeapon.weaponData.comboData != null)
+            {
+                var sideSteps = CurrentWeapon.weaponData.comboData.sideComboSteps;
+                if (sideSteps != null && comboIndex >= 0 && comboIndex < sideSteps.Length)
+                {
+                    var step = sideSteps[comboIndex];
+                    if (step.forwardImpulse > 0f)
+                    {
+                        currentAttackImpulse = step.forwardImpulse;
+                        currentAttackDirection = AttackDirection.Side;
+                        shouldApplyImpulse = true; // Flag to apply in next FixedUpdate
+                    }
+                }
+            }
+        }
 
         public void Attack(AttackDirection dir)
         {
@@ -108,13 +170,16 @@ namespace junklite
                 return;
 
             // Try to buffer attack if currently attacking
-            if (spineAnimController != null && spineAnimController.TryBufferAttack(comboIndex))
+            if (playerState != null && playerState.TryBufferAttack(comboIndex))
             {
                 // Attack was buffered, wait for current attack to finish
                 return;
             }
 
-            // Set attacking state
+            // Execute attack (stores impulse if needed)
+            ExecuteAttack(dir, step);
+
+            // Set attacking state (triggers animation which applies attack lock)
             if (playerState != null)
             {
                 playerState.SetAttacking(true);
@@ -122,8 +187,11 @@ namespace junklite
                     playerState.TriggerComboAttack(comboIndex);
             }
 
-            // Execute attack
-            ExecuteAttack(dir, step);
+            // Flag to apply impulse in next FixedUpdate (after attack lock is applied)
+            if (currentAttackImpulse > 0f)
+            {
+                shouldApplyImpulse = true;
+            }
         }
 
         public void DropWeapon()
@@ -165,15 +233,29 @@ namespace junklite
             };
         }
 
-        #endregion Public API
-
-        #region Attack Execution
-
         private void ExecuteAttack(AttackDirection dir, WeaponComboData.ComboStep step)
         {
             Transform anchor = GetAttackTransform(dir);
             if (anchor == null)
                 return;
+
+            Debug.Log($"[WeaponManager] ExecuteAttack - dir: {dir}, step.forwardImpulse: {step.forwardImpulse}, step.damageMultiplier: {step.damageMultiplier}", this);
+
+            // Store impulse to be applied after attack lock (only for side attacks)
+            if (dir == AttackDirection.Side && step.forwardImpulse > 0f)
+            {
+                currentAttackImpulse = step.forwardImpulse;
+                currentAttackDirection = dir;
+                Debug.Log($"[WeaponManager] ✓ Stored attack impulse: {currentAttackImpulse} for direction {dir}", this);
+            }
+            else
+            {
+                currentAttackImpulse = 0f;
+                if (dir != AttackDirection.Side)
+                    Debug.Log($"[WeaponManager] ✗ No impulse stored - not a side attack (dir={dir})", this);
+                else if (step.forwardImpulse <= 0f)
+                    Debug.Log($"[WeaponManager] ✗ No impulse stored - step.forwardImpulse is {step.forwardImpulse} (expected > 0)", this);
+            }
 
             float radius = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
 
@@ -248,9 +330,8 @@ namespace junklite
 
             return result;
         }
-
-        #endregion Attack Execution
-
+        #endregion Attack
+        
         #region Damage
 
         private IEnumerator DelayedDamage(Collider target, WeaponComboData.ComboStep step)
@@ -310,7 +391,7 @@ namespace junklite
                 FeedbackManager.Instance.DoHitFeedback(impulseSource, enemyHitHitstopDuration, enemyHitShakeForce);
         }
 
-        #endregion Damage
+        #region Damage
 
         #region VFX
 

@@ -24,6 +24,13 @@ namespace junklite
         // ==== Input Lock (for special moves, cutscenes, etc.) ====
         public bool IsInputLocked { get; private set; }
 
+        // ==== Attack Buffer ====
+        /// <summary>
+        /// Whether we're currently in the attack buffer window (can buffer next attack).
+        /// Set by SpineAnimationController based on animation timing.
+        /// </summary>
+        public bool CanBufferAttack { get; private set; }
+
         // ==== Movement States ====
         public bool IsWallSliding { get; private set; }
         public bool IsWallJumping { get; private set; }
@@ -41,6 +48,9 @@ namespace junklite
 
         // Combo attack event (for animation binding)
         public event Action<int> OnComboAttackTriggered;
+
+        // Attack buffer event
+        public event Action<int> OnAttackBuffered;
 
         // Drone feature (existing)
         [SerializeField] private bool hasDrone;
@@ -69,6 +79,7 @@ namespace junklite
             SetWallJumping(false);
             SetDoubleJumping(false);
             SetInputLocked(false);
+            SetCanBufferAttack(false);
         }
 
         // ===== Clear momentary action flags =====
@@ -195,6 +206,31 @@ namespace junklite
         public void TriggerComboAttack(int comboIndex)
         {
             OnComboAttackTriggered?.Invoke(comboIndex);
+        }
+
+        // ===== Attack Buffer =====
+
+        /// <summary>
+        /// Sets whether we're in the attack buffer window.
+        /// Called by SpineAnimationController based on animation timing.
+        /// </summary>
+        public void SetCanBufferAttack(bool canBuffer)
+        {
+            if (CanBufferAttack == canBuffer) return;
+            CanBufferAttack = canBuffer;
+        }
+
+        /// <summary>
+        /// Attempts to buffer an attack. Returns true if buffered, false if attack can execute immediately.
+        /// </summary>
+        public bool TryBufferAttack(int comboIndex)
+        {
+            if (!IsAttacking || !CanBufferAttack)
+                return false; // Not attacking or not in buffer window, can execute immediately
+
+            // Buffer the attack
+            OnAttackBuffered?.Invoke(comboIndex);
+            return true;
         }
 
         /// <summary>

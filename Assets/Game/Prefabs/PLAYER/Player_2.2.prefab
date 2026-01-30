@@ -15679,6 +15679,21 @@ MonoBehaviour:
   rollLoop: 0
   stunLoop: 0
   deathLoop: 0
+  idleTimeScale: 1
+  runTimeScale: 1
+  jumpStartTimeScale: 1
+  jumpAirTimeScale: 1
+  landingTimeScale: 1
+  doubleJumpTimeScale: 1
+  wallSlideTimeScale: 1
+  dashTimeScale: 0.22
+  rollTimeScale: 1
+  stunTimeScale: 1
+  deathTimeScale: 1
+  comboAttackTimeScales:
+  - 0.8
+  - 0.8
+  - 0.8
   speedThreshold: 0.1
   locomotionBlend: 0.1
   minRunTimeScale: 0.8
@@ -15703,6 +15718,8 @@ MonoBehaviour:
   attackEntryMixOut: []
   attackEntryMixOutDelay: []
   lockMovementDuringAttack: 1
+  attackBufferWindow: 0.3
+  maxBufferDuration: 0.5
   footstepEvent: {fileID: 0}
   footstepSource: {fileID: 0}
   footstepPitchOffset: 0.2

@@ -15376,8 +15376,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponInstance
   weaponData: {fileID: 11400000, guid: c17a19fc19f98634282a2fe7b69fb440, type: 2}
-  baseDamage: 0
-  baseAttackSpeed: 0
+  baseDamage: 40
+  baseAttackSpeed: 40
   attackCooldown: 0.4
   comboResetTime: 0.65
 --- !u!212 &643304206
