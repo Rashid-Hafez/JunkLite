@@ -15305,8 +15305,8 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: c17a19fc19f98634282a2fe7b69fb440, type: 2}
   baseDamage: 0
   baseAttackSpeed: 0
-  attackCooldown: 0.4
-  comboResetTime: 0.65
+  comboWindow: 0.6
+  logCombo: 0
 --- !u!212 &643304206
 SpriteRenderer:
   serializedVersion: 2
@@ -48336,7 +48336,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f8d24f6039bfbc46b0207edfadf554a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerPrefab: {fileID: 7038683931279381878, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+  playerPrefab: {fileID: 7038683931279381878, guid: 2c322f9622b9d1543860dc377a82afda, type: 3}
   spawnPoints:
   - {fileID: 1004551717}
   respawnDelay: 2

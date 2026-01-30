@@ -45,6 +45,9 @@ namespace junklite
         [SerializeField] private float slashScale = 1f;
         [SerializeField] private float slashLifetime = 0.15f;
 
+        [Header("Debug")]
+        [SerializeField] private bool logAttacks = false;
+
         private readonly Dictionary<GameObject, Queue<GameObject>> slashPools = new();
 
         // Internal refs
@@ -57,11 +60,25 @@ namespace junklite
         public WeaponInstance CurrentWeapon { get; private set; }
         private WorldWeaponPickup storedPickup;
 
-        public event System.Action OnWeaponChanged;
-        // Fired when we successfully deal damage to an enemy (true hit confirm)
+        public event Action OnWeaponChanged;
         public event Action OnEnemyHit;
 
         public float Facing => Mathf.Sign(playerTransform.localScale.x);
+
+        // =====================================================================
+        // ATTACK STATE - Single source of truth
+        // =====================================================================
+
+        private bool isAttacking;
+        private AttackDirection currentAttackDir;
+        private WeaponComboData.ComboStep currentStep;
+        private int currentComboIndex;
+
+        // Input buffer
+        private bool hasBufferedInput;
+        private AttackDirection bufferedDirection;
+        private float bufferTimer;
+        private const float BUFFER_DURATION = 0.3f;
 
         #region Unity
 
@@ -78,6 +95,20 @@ namespace junklite
                 impulseSource = GetComponent<Unity.Cinemachine.CinemachineImpulseSource>()
                                 ?? GetComponentInParent<Unity.Cinemachine.CinemachineImpulseSource>()
                                 ?? GetComponentInChildren<Unity.Cinemachine.CinemachineImpulseSource>();
+            }
+        }
+
+        private void Update()
+        {
+            // Tick buffer timer
+            if (hasBufferedInput)
+            {
+                bufferTimer -= Time.deltaTime;
+                if (bufferTimer <= 0f)
+                {
+                    hasBufferedInput = false;
+                    Log("Buffer expired");
+                }
             }
         }
 
@@ -99,31 +130,70 @@ namespace junklite
 
         #region Public API
 
+        /// <summary>
+        /// Main attack entry point. Call this from PlayerCharacter.
+        /// Handles state checking, buffering, and execution.
+        /// </summary>
         public void Attack(AttackDirection dir)
         {
             if (CurrentWeapon == null)
                 return;
 
-            if (!CurrentWeapon.TryGetComboStep(dir, out var step, out int comboIndex))
-                return;
-
-            // Try to buffer attack if currently attacking
-            if (spineAnimController != null && spineAnimController.TryBufferAttack(comboIndex))
+            // If currently attacking, try to buffer
+            if (isAttacking)
             {
-                // Attack was buffered, wait for current attack to finish
+                BufferAttack(dir);
                 return;
-            }
-
-            // Set attacking state
-            if (playerState != null)
-            {
-                playerState.SetAttacking(true);
-                if (comboIndex >= 0)
-                    playerState.TriggerComboAttack(comboIndex);
             }
 
             // Execute attack
-            ExecuteAttack(dir, step);
+            StartAttack(dir);
+        }
+
+        /// <summary>
+        /// Called by SpineAnimationController when attack animation completes.
+        /// This is the ONLY place attack state should end.
+        /// </summary>
+        public void OnAttackAnimationComplete()
+        {
+            Log($"Attack complete - combo {currentComboIndex}, dir {currentAttackDir}");
+
+            // Notify weapon to advance combo and start combo window timer
+            if (CurrentWeapon != null)
+                CurrentWeapon.OnAttackComplete(currentAttackDir);
+
+            isAttacking = false;
+
+            if (playerState != null)
+                playerState.SetAttacking(false);
+
+            // Check for buffered input
+            if (hasBufferedInput)
+            {
+                hasBufferedInput = false;
+                Log($"Executing buffered attack: {bufferedDirection}");
+
+                // Small delay to ensure clean state transition
+                StartCoroutine(ExecuteBufferedAttack(bufferedDirection));
+            }
+        }
+
+        /// <summary>
+        /// Called when attack is interrupted (dash, stun, death, etc.)
+        /// </summary>
+        public void OnAttackInterrupted()
+        {
+            Log("Attack interrupted");
+
+            // Notify weapon to reset combo
+            if (CurrentWeapon != null)
+                CurrentWeapon.OnAttackInterrupted();
+
+            isAttacking = false;
+            hasBufferedInput = false;
+
+            if (playerState != null)
+                playerState.SetAttacking(false);
         }
 
         public void DropWeapon()
@@ -167,7 +237,62 @@ namespace junklite
 
         #endregion Public API
 
-        #region Attack Execution
+        #region Attack Core
+
+        private void BufferAttack(AttackDirection dir)
+        {
+            hasBufferedInput = true;
+            bufferedDirection = dir;
+            bufferTimer = BUFFER_DURATION;
+            Log($"Attack buffered: {dir}");
+        }
+
+        private IEnumerator ExecuteBufferedAttack(AttackDirection dir)
+        {
+            yield return null; // Wait one frame for clean state
+
+            if (!isAttacking && CurrentWeapon != null)
+            {
+                StartAttack(dir);
+            }
+        }
+
+        private void StartAttack(AttackDirection dir)
+        {
+            // Get combo step from weapon (this also starts cooldown)
+            if (!CurrentWeapon.TryGetComboStep(dir, out var step, out int comboIndex))
+            {
+                Log($"No combo step available for {dir}");
+                return;
+            }
+
+            // Set state
+            isAttacking = true;
+            currentAttackDir = dir;
+            currentStep = step;
+            currentComboIndex = comboIndex;
+
+            Log($"Starting attack: {dir}, combo {comboIndex}");
+
+            // Update player state
+            if (playerState != null)
+                playerState.SetAttacking(true);
+
+            // Trigger animation - use SpineAnimationController directly for ALL attack types
+            if (spineAnimController != null)
+            {
+                spineAnimController.PlayAttack(dir, comboIndex);
+            }
+            else
+            {
+                // No animation controller - complete attack immediately
+                Log("No SpineAnimationController - completing attack immediately");
+                OnAttackAnimationComplete();
+            }
+
+            // Execute attack logic (hit detection, damage, VFX)
+            ExecuteAttack(dir, step);
+        }
 
         private void ExecuteAttack(AttackDirection dir, WeaponComboData.ComboStep step)
         {
@@ -193,6 +318,10 @@ namespace junklite
             if (hitResult.type != AttackHitResult.None)
                 ApplyRecoil(dir);
         }
+
+        #endregion Attack Core
+
+        #region Hit Detection
 
         private struct HitDetectionResult
         {
@@ -249,7 +378,7 @@ namespace junklite
             return result;
         }
 
-        #endregion Attack Execution
+        #endregion Hit Detection
 
         #region Damage
 
@@ -284,8 +413,7 @@ namespace junklite
             {
                 OnEnemyHit?.Invoke();
 
-                // Trigger weapon mods (status effects, etc.) only on successful hit
-                // Trigger mods
+                // Trigger weapon mods
                 if (CurrentWeapon != null)
                 {
                     var enemy = target.GetComponent<EnemyCharacter>()
@@ -545,6 +673,12 @@ namespace junklite
                 float recoilDir = -Facing;
                 playerRb.AddForce(Vector3.right * recoilDir * sideRecoil, ForceMode.Impulse);
             }
+        }
+
+        private void Log(string message)
+        {
+            if (logAttacks)
+                Debug.Log($"[WeaponManager] {message}", this);
         }
 
         #endregion Helpers

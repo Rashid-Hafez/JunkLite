@@ -6,7 +6,7 @@ namespace junklite
 {
     /// <summary>
     /// Event-driven Spine animation controller.
-    /// Jump Flow: Jump_1_Start -> Jump_2_Air (hold last frame) -> Jump_3_Land (on ground, auto to idle)
+    /// UPDATED: Removed duplicate buffer logic, now properly calls WeaponManager callbacks.
     /// </summary>
     public class SpineAnimationController : MonoBehaviour
     {
@@ -29,6 +29,7 @@ namespace junklite
         [SerializeField] private string roll = "roll";
         [SerializeField] private string stun = "stun";
         [SerializeField] private string death = "death";
+
         [Header("Animation Looping")]
         [SerializeField] private bool idleLoop = true;
         [SerializeField] private bool runLoop = true;
@@ -65,12 +66,15 @@ namespace junklite
 
         [Header("Attack Overlay")]
         [SerializeField] private string[] comboAttacks;
+        [SerializeField] private string upAttackAnim = "attackUp";
+        [SerializeField] private string downAttackAnim = "attackDown";
         [SerializeField] private string fallbackAttack = "attack";
         [SerializeField] private bool attackOverwrite = false;
         [SerializeField] private float attackMix = 0.1f;
         [SerializeField] private float attackMixAttachmentThreshold = 0f;
         [SerializeField] private float attackMixOut = 0.25f;
         [SerializeField] private float attackMixOutDelay = 0.05f;
+
         [Header("Attack Per-Entry Overrides (optional)")]
         [SerializeField] private bool[] attackEntryOverwrite;
         [SerializeField] private float[] attackEntryMix;
@@ -80,12 +84,6 @@ namespace junklite
 
         [Header("Attack Lock")]
         [SerializeField] private bool lockMovementDuringAttack = true;
-
-        [Header("Attack Buffer")]
-        [Tooltip("How long before attack animation ends to allow buffering next attack (in seconds)")]
-        [SerializeField] private float attackBufferWindow = 0.3f;
-        [Tooltip("Maximum time a buffered attack can wait before expiring")]
-        [SerializeField] private float maxBufferDuration = 0.5f;
 
         [Header("Footsteps")]
         [SerializeField] private EventDataReferenceAsset footstepEvent;
@@ -98,7 +96,8 @@ namespace junklite
 
         private PlayerState playerState;
         private Character2D5Controller controller;
-        
+        private WeaponManager weaponManager;
+
         // State tracking
         private bool wasAirborne = false;
         private string currentLocomotionAnim = "";
@@ -107,11 +106,6 @@ namespace junklite
         private float cachedAttackMixOut = 0.25f;
         private float cachedAttackMixOutDelay = 0.05f;
         private bool attackInputLockApplied = false;
-
-        // Attack buffer
-        private bool attackBuffered = false;
-        private int bufferedComboIndex = -1;
-        private float bufferTimer = 0f;
         private TrackEntry currentAttackEntry = null;
 
         private void Awake()
@@ -121,6 +115,7 @@ namespace junklite
 
             playerState = GetComponentInParent<PlayerState>();
             controller = GetComponentInParent<Character2D5Controller>();
+            weaponManager = GetComponentInParent<WeaponManager>();
 
             if (skeletonAnimation != null)
             {
@@ -166,40 +161,9 @@ namespace junklite
                 return;
 
             SyncCurrentLocomotion();
-
-            // ANY STATE fallbacks (similar to Unity Animator "Any State" transitions)
             ApplyAnyStateFallbacks();
-
-            // Continuous idle/run blending based on speed
             UpdateLocomotionFromSpeed();
-
-            // Update run speed scaling
             UpdateRunSpeed();
-
-            // Handle attack buffer timer
-            if (attackBuffered)
-            {
-                bufferTimer -= Time.deltaTime;
-                if (bufferTimer <= 0f)
-                {
-                    // Buffer expired
-                    attackBuffered = false;
-                    bufferedComboIndex = -1;
-                    if (logAttacks)
-                        Debug.Log("[SpineAnim] Attack buffer expired", this);
-                }
-            }
-
-            // Check if we're in buffer window for current attack
-            if (attackActive && currentAttackEntry != null && !attackBuffered)
-            {
-                float remainingTime = currentAttackEntry.AnimationEnd - currentAttackEntry.TrackTime;
-                if (remainingTime <= attackBufferWindow)
-                {
-                    // We're in the buffer window - attacks can now be buffered
-                    // This is handled by TryBufferAttack() method
-                }
-            }
         }
 
         private void OnDestroy()
@@ -228,14 +192,249 @@ namespace junklite
             ReleaseAttackInputLock();
         }
 
-        // ========== EVENT HANDLERS ==========
+        // ========== ATTACK HANDLING ==========
+
+        /// <summary>
+        /// Called by WeaponManager to play attack animation.
+        /// Handles all attack directions: Side (combo), Up, Down.
+        /// </summary>
+        public void PlayAttack(AttackDirection dir, int comboIndex)
+        {
+            string anim;
+            int entryIndex = comboIndex;
+
+            switch (dir)
+            {
+                case AttackDirection.Up:
+                    anim = !string.IsNullOrEmpty(upAttackAnim) && HasAnimation(upAttackAnim)
+                        ? upAttackAnim
+                        : fallbackAttack;
+                    entryIndex = -1; // Use default timing for up attacks
+                    break;
+
+                case AttackDirection.Down:
+                    anim = !string.IsNullOrEmpty(downAttackAnim) && HasAnimation(downAttackAnim)
+                        ? downAttackAnim
+                        : fallbackAttack;
+                    entryIndex = -1; // Use default timing for down attacks
+                    break;
+
+                default: // Side combo
+                    anim = fallbackAttack;
+                    if (comboAttacks != null && comboAttacks.Length > 0 && comboIndex >= 0)
+                    {
+                        int idx = Mathf.Clamp(comboIndex, 0, comboAttacks.Length - 1);
+                        if (!string.IsNullOrEmpty(comboAttacks[idx]))
+                        {
+                            anim = comboAttacks[idx];
+                            entryIndex = idx;
+                        }
+                    }
+                    break;
+            }
+
+            LogAttack($"PlayAttack: dir={dir}, anim={anim}, entryIndex={entryIndex}");
+            StartAttack(anim, entryIndex);
+        }
+
+        /// <summary>
+        /// Called by PlayerState when combo attack is triggered (legacy support).
+        /// Now primarily used for side attacks triggered via TriggerComboAttack.
+        /// </summary>
+        private void OnComboAttackTriggered(int comboIndex)
+        {
+            // NOTE: WeaponManager now calls PlayAttack() directly, so this is kept
+            // for backwards compatibility but should not trigger duplicate animations.
+            // If attackActive is already true, we skip since PlayAttack was already called.
+            if (attackActive)
+            {
+                LogAttack($"OnComboAttackTriggered ignored (already attacking): comboIndex={comboIndex}");
+                return;
+            }
+
+            // Fallback: if somehow triggered without PlayAttack, play the animation
+            LogAttack($"OnComboAttackTriggered fallback: comboIndex={comboIndex}");
+            PlayAttack(AttackDirection.Side, comboIndex);
+        }
+
+        private void StartAttack(string anim, int entryIndex = -1)
+        {
+            if (!HasAnimation(anim))
+            {
+                LogAttack($"Animation not found: {anim} - completing attack immediately");
+                // No animation exists - notify WeaponManager to complete attack
+                NotifyWeaponManagerAttackComplete();
+                return;
+            }
+
+            // If already attacking, this is an error state - notify WeaponManager
+            if (attackActive)
+            {
+                LogAttack($"StartAttack called while already attacking - forcing complete");
+                ForceFinishAttack();
+            }
+
+            attackActive = true;
+            ApplyAttackInputLock();
+
+            bool useOverwrite = GetEntryBool(attackEntryOverwrite, entryIndex, attackOverwrite);
+            float mixIn = GetEntryFloat(attackEntryMix, entryIndex, attackMix);
+            float mixOut = GetEntryFloat(attackEntryMixOut, entryIndex, attackMixOut);
+            float mixOutDelay = GetEntryFloat(attackEntryMixOutDelay, entryIndex, attackMixOutDelay);
+            float attachmentThreshold = GetEntryFloat(attackEntryAttachmentThreshold, entryIndex, attackMixAttachmentThreshold);
+            float timeScale = GetAttackTimeScale(entryIndex);
+
+            attackOverwriteActive = useOverwrite;
+            cachedAttackMixOut = mixOut;
+            cachedAttackMixOutDelay = mixOutDelay;
+
+            if (useOverwrite)
+            {
+                var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, anim, false);
+                entry.MixDuration = mixIn;
+                entry.MixBlend = MixBlend.Replace;
+                entry.TimeScale = timeScale;
+                entry.Complete += _ => FinishAttackOverwrite();
+                entry.Interrupt += _ => OnAttackInterrupted();
+                currentAttackEntry = entry;
+
+                LogAttack($"Attack (overwrite): {anim}, timeScale={timeScale}");
+            }
+            else
+            {
+                var entry = skeletonAnimation.AnimationState.SetAnimation(overlayTrack, anim, false);
+                entry.MixDuration = mixIn;
+                entry.MixBlend = MixBlend.Replace;
+                entry.MixAttachmentThreshold = attachmentThreshold;
+                entry.TimeScale = timeScale;
+                entry.Complete += _ => FinishAttackOverlay();
+                entry.Interrupt += _ => OnAttackInterrupted();
+                currentAttackEntry = entry;
+
+                LogAttack($"Attack (overlay): {anim}, timeScale={timeScale}");
+            }
+        }
+
+        private void FinishAttackOverlay()
+        {
+            if (!attackActive) return;
+
+            LogAttack("Attack overlay complete");
+
+            attackActive = false;
+            attackOverwriteActive = false;
+            currentAttackEntry = null;
+            ReleaseAttackInputLock();
+
+            // Clear overlay track with blend out
+            if (skeletonAnimation != null)
+            {
+                skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, cachedAttackMixOut, cachedAttackMixOutDelay);
+            }
+
+            // Notify WeaponManager - this is the key callback!
+            NotifyWeaponManagerAttackComplete();
+        }
+
+        private void FinishAttackOverwrite()
+        {
+            if (!attackActive) return;
+
+            LogAttack("Attack overwrite complete");
+
+            attackActive = false;
+            attackOverwriteActive = false;
+            currentAttackEntry = null;
+            ReleaseAttackInputLock();
+
+            // Return to appropriate locomotion
+            if (playerState != null)
+            {
+                if (playerState.IsGrounded)
+                {
+                    float speed = GetSpeed();
+                    PlayLocomotion(speed > speedThreshold ? run : idle, true);
+                }
+                else
+                {
+                    PlayJumpAir();
+                }
+            }
+
+            // Notify WeaponManager
+            NotifyWeaponManagerAttackComplete();
+        }
+
+        private void OnAttackInterrupted()
+        {
+            if (!attackActive) return;
+
+            LogAttack("Attack interrupted");
+
+            attackActive = false;
+            attackOverwriteActive = false;
+            currentAttackEntry = null;
+            ReleaseAttackInputLock();
+
+            // Clear overlay if it was an overlay attack
+            if (skeletonAnimation != null && !attackOverwriteActive)
+            {
+                skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
+            }
+
+            // Notify WeaponManager of interruption
+            if (weaponManager != null)
+                weaponManager.OnAttackInterrupted();
+        }
+
+        private void ForceFinishAttack()
+        {
+            attackActive = false;
+            attackOverwriteActive = false;
+            currentAttackEntry = null;
+            ReleaseAttackInputLock();
+
+            if (skeletonAnimation != null)
+                skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
+
+            NotifyWeaponManagerAttackComplete();
+        }
+
+        private void NotifyWeaponManagerAttackComplete()
+        {
+            if (weaponManager != null)
+                weaponManager.OnAttackAnimationComplete();
+        }
+
+        /// <summary>
+        /// Called when dash/stun/death interrupts attack
+        /// </summary>
+        private void InterruptAttack(string reason)
+        {
+            if (!attackActive) return;
+
+            LogAttack($"Attack interrupted by: {reason}");
+
+            attackActive = false;
+            attackOverwriteActive = false;
+            currentAttackEntry = null;
+            ReleaseAttackInputLock();
+
+            if (skeletonAnimation != null)
+                skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
+
+            // Notify WeaponManager
+            if (weaponManager != null)
+                weaponManager.OnAttackInterrupted();
+        }
+
+        // ========== STATE EVENT HANDLERS ==========
 
         private void OnGroundedChanged(bool grounded)
         {
             if (grounded)
             {
                 ClearDoubleJumpFlag();
-                // Landed: play landing animation if we were airborne
                 if (wasAirborne)
                 {
                     PlayLanding();
@@ -243,40 +442,31 @@ namespace junklite
                 }
                 else
                 {
-                    // Just became grounded (initial spawn, etc) - go to idle/run
                     float speed = GetSpeed();
                     PlayLocomotion(speed > speedThreshold ? run : idle, true);
                 }
             }
             else
             {
-                // Left ground
                 wasAirborne = true;
             }
-
-            Log($"Grounded={grounded}, wasAirborne={wasAirborne}");
+            Log($"Grounded={grounded}");
         }
 
         private void OnMovingChanged(bool moving)
         {
-            // Movement state changed - UpdateLocomotionFromSpeed() in Update() handles the actual animation
             Log($"Moving={moving}");
         }
 
         private void OnJumpStateChanged(bool jumping)
         {
             if (jumping)
-            {
-                // Start jump sequence: Jump_1_Start -> Jump_2_Air
                 PlayJumpStart();
-            }
-
             Log($"Jumping={jumping}");
         }
 
         private void OnFallStateChanged(bool falling)
         {
-            // Falling state changed (not used in current flow since Jump_2_Air handles it)
             Log($"Falling={falling}");
         }
 
@@ -286,11 +476,9 @@ namespace junklite
             {
                 InterruptAttack("dash");
                 PlayLocomotion(dash, false);
-                Log($"Dash started");
             }
             else
             {
-                // Dash ended - return to appropriate state
                 if (playerState.IsGrounded)
                 {
                     float speed = GetSpeed();
@@ -298,9 +486,7 @@ namespace junklite
                 }
                 else
                 {
-                    // Ended dash in air - go to jump air
                     PlayJumpAir();
-                    Log($"Dash ended (airborne) -> {jumpAir}");
                 }
             }
         }
@@ -309,12 +495,11 @@ namespace junklite
         {
             if (rolling)
             {
+                InterruptAttack("roll");
                 PlayLocomotion(roll, false);
-                Log($"Roll started");
             }
             else
             {
-                // Roll ended - return to appropriate state
                 if (playerState.IsGrounded)
                 {
                     float speed = GetSpeed();
@@ -322,9 +507,7 @@ namespace junklite
                 }
                 else
                 {
-                    // Ended roll in air - go to jump air
                     PlayJumpAir();
-                    Log($"Roll ended (airborne) -> {jumpAir}");
                 }
             }
         }
@@ -334,77 +517,57 @@ namespace junklite
             if (sliding)
             {
                 PlayLocomotion(wallSlide, true);
-                Log($"Wall slide started");
             }
             else
             {
-                // Wall slide ended
                 if (playerState.IsGrounded)
                 {
                     float speed = GetSpeed();
                     PlayLocomotion(speed > speedThreshold ? run : idle, true);
-                    Log($"Wall slide ended (grounded) -> locomotion");
                 }
                 else
                 {
-                    // Still airborne - go to jump air
                     PlayJumpAir();
-                    Log($"Wall slide ended (airborne) -> {jumpAir}");
                 }
             }
         }
 
         private void OnDoubleJumpChanged(bool doubleJumping)
         {
-            if (!doubleJumping)
-                return;
+            if (!doubleJumping) return;
 
-            // Double jump can only happen after we've jumped (in air)
             if (!playerState.IsJumping && !playerState.IsFalling)
-            {
-                Log($"Double jump ignored - not in jump state");
                 return;
-            }
 
             if (!HasAnimation(doubleJump))
             {
-                // No double jump anim, just go to jump air
                 PlayJumpAir();
-                Log($"Double jump (no anim) -> {jumpAir}");
                 ClearDoubleJumpFlag();
                 return;
             }
 
-            // Play double jump, then transition to jump air
             var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, doubleJump, GetLoopFor(doubleJump, false));
             entry.MixDuration = doubleJumpBlend;
-            entry.MixBlend = MixBlend.Replace; // avoid blended rotations during flip
+            entry.MixBlend = MixBlend.Replace;
             entry.TimeScale = GetTimeScaleFor(doubleJump, 1f);
             currentLocomotionAnim = doubleJump;
             entry.Complete += _ => ClearDoubleJumpFlag();
             entry.Interrupt += _ => ClearDoubleJumpFlag();
-            entry.End += _ => ClearDoubleJumpFlag();
 
-            // After double jump completes, play jump air and hold
             var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false), 0f);
             airEntry.TimeScale = GetTimeScaleFor(jumpAir, 1f);
             airEntry.Complete += OnJumpAirComplete;
-
-            Log($"Double jump: {doubleJump} -> {jumpAir}");
         }
 
         private void OnControllerDoubleJumpPerformed()
         {
-            // Controller-level event: always play double jump, regardless of current state
             if (!HasAnimation(doubleJump))
             {
                 PlayJumpAir();
-                Log($"Double jump (controller, no anim) -> {jumpAir}");
                 return;
             }
 
-            string current = GetCurrentLocomotionName();
-            if (current == doubleJump)
+            if (GetCurrentLocomotionName() == doubleJump)
                 return;
 
             var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, doubleJump, GetLoopFor(doubleJump, false));
@@ -414,13 +577,10 @@ namespace junklite
             currentLocomotionAnim = doubleJump;
             entry.Complete += _ => ClearDoubleJumpFlag();
             entry.Interrupt += _ => ClearDoubleJumpFlag();
-            entry.End += _ => ClearDoubleJumpFlag();
 
             var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false), 0f);
             airEntry.TimeScale = GetTimeScaleFor(jumpAir, 1f);
             airEntry.Complete += OnJumpAirComplete;
-
-            Log($"Double jump (controller): {doubleJump} -> {jumpAir}");
         }
 
         private void OnStunnedChanged(bool stunned)
@@ -429,25 +589,18 @@ namespace junklite
             {
                 InterruptAttack("stun");
                 if (HasAnimation(stun))
-                {
                     PlayLocomotion(stun, true);
-                    Log($"Stun started");
-                }
             }
             else
             {
-                // Stun ended - return to appropriate state
                 if (playerState.IsGrounded)
                 {
                     float speed = GetSpeed();
                     PlayLocomotion(speed > speedThreshold ? run : idle, true);
-                    Log($"Stun ended (grounded) -> locomotion");
                 }
                 else
                 {
-                    // Ended stun in air - go to jump air
                     PlayJumpAir();
-                    Log($"Stun ended (airborne) -> {jumpAir}");
                 }
             }
         }
@@ -459,257 +612,38 @@ namespace junklite
             {
                 skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
                 PlayLocomotion(death, false);
-                Log($"Death animation triggered");
             }
         }
 
-        private void OnComboAttackTriggered(int comboIndex)
+        // ========== LOCOMOTION ==========
+
+        private void PlayLocomotion(string animName, bool loop)
         {
-            // Check if we should buffer this attack
-            if (attackActive && currentAttackEntry != null)
-            {
-                float remainingTime = currentAttackEntry.AnimationEnd - currentAttackEntry.TrackTime;
-                if (remainingTime <= attackBufferWindow)
-                {
-                    // Buffer the attack
-                    attackBuffered = true;
-                    bufferedComboIndex = comboIndex;
-                    bufferTimer = maxBufferDuration;
-                    if (logAttacks)
-                        Debug.Log($"[SpineAnim] Attack buffered: comboIndex={comboIndex}", this);
-                    return;
-                }
-            }
+            if (skeletonAnimation == null || string.IsNullOrEmpty(animName)) return;
+            if (!HasAnimation(animName)) return;
 
-            // Execute attack immediately
-            string anim = fallbackAttack;
-            int entryIndex = comboIndex;
-            if (comboAttacks != null && comboAttacks.Length > 0)
-            {
-                int idx = Mathf.Clamp(entryIndex, 0, comboAttacks.Length - 1);
-                if (!string.IsNullOrEmpty(comboAttacks[idx]))
-                {
-                    anim = comboAttacks[idx];
-                    entryIndex = idx;
-                }
-            }
-
-            StartAttack(anim, entryIndex);
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, animName, loop);
+            entry.MixDuration = locomotionBlend;
+            entry.TimeScale = GetTimeScaleFor(animName, 1f);
+            currentLocomotionAnim = animName;
         }
-
-        /// <summary>
-        /// Public method for WeaponManager to attempt buffering an attack.
-        /// Returns true if attack was buffered, false if it can execute immediately.
-        /// </summary>
-        public bool TryBufferAttack(int comboIndex)
-        {
-            if (!attackActive || currentAttackEntry == null)
-                return false; // Not attacking, can execute immediately
-
-            float remainingTime = currentAttackEntry.AnimationEnd - currentAttackEntry.TrackTime;
-            if (remainingTime > attackBufferWindow)
-                return false; // Too early to buffer
-
-            // Buffer the attack
-            attackBuffered = true;
-            bufferedComboIndex = comboIndex;
-            bufferTimer = maxBufferDuration;
-            
-            if (logAttacks)
-                Debug.Log($"[SpineAnim] Attack buffered: comboIndex={comboIndex}, remainingTime={remainingTime:F3}s", this);
-            
-            return true;
-        }
-
-        private void StartAttack(string anim, int entryIndex = -1)
-        {
-            if (!HasAnimation(anim)) return;
-            if (attackActive)
-                return; // wait for completion unless interrupted by dash/stun/death
-
-            attackActive = true;
-            ApplyAttackInputLock();
-            if (playerState != null)
-                playerState.SetAttacking(true);
-            bool useOverwrite = GetEntryBool(attackEntryOverwrite, entryIndex, attackOverwrite);
-            float mixIn = GetEntryFloat(attackEntryMix, entryIndex, attackMix);
-            float mixOut = GetEntryFloat(attackEntryMixOut, entryIndex, attackMixOut);
-            float mixOutDelay = GetEntryFloat(attackEntryMixOutDelay, entryIndex, attackMixOutDelay);
-            float attachmentThreshold = GetEntryFloat(attackEntryAttachmentThreshold, entryIndex, attackMixAttachmentThreshold);
-
-            // Get timing for this attack
-            float timeScale = GetAttackTimeScale(entryIndex);
-
-            attackOverwriteActive = useOverwrite;
-
-            if (useOverwrite)
-            {
-                var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, anim, false);
-                entry.MixDuration = mixIn;
-                entry.MixBlend = MixBlend.Replace;
-                entry.TimeScale = timeScale;
-                entry.Complete += _ => FinishAttackOverwrite();
-                entry.Interrupt += _ => FinishAttackImmediate();
-                entry.End += _ => FinishAttackImmediate();
-                currentAttackEntry = entry;
-
-                if (logAttacks)
-                    Debug.Log($"[SpineAnim] Attack (overwrite): {anim} on track {locomotionTrack}, timeScale={timeScale}", this);
-            }
-            else
-            {
-                var entry = skeletonAnimation.AnimationState.SetAnimation(overlayTrack, anim, false);
-                entry.MixDuration = mixIn;
-                entry.MixBlend = MixBlend.Replace;
-                entry.MixAttachmentThreshold = attachmentThreshold;
-                entry.TimeScale = timeScale;
-                entry.Complete += _ => FinishAttackOverlay();
-                entry.Interrupt += _ => FinishAttackImmediate();
-                entry.End += _ => FinishAttackImmediate();
-                currentAttackEntry = entry;
-
-                if (logAttacks)
-                    Debug.Log($"[SpineAnim] Attack (overlay): {anim} on track {overlayTrack}, timeScale={timeScale}", this);
-            }
-
-            cachedAttackMixOut = mixOut;
-            cachedAttackMixOutDelay = mixOutDelay;
-        }
-
-        private void FinishAttackOverlay()
-        {
-            if (!attackActive) return;
-
-            attackActive = false;
-            attackOverwriteActive = false;
-            currentAttackEntry = null;
-            ReleaseAttackInputLock();
-            if (playerState != null)
-                playerState.SetAttacking(false);
-
-            // Check for buffered attack BEFORE blending out
-            if (attackBuffered && bufferedComboIndex >= 0)
-            {
-                int bufferedIndex = bufferedComboIndex;
-                attackBuffered = false;
-                bufferedComboIndex = -1;
-                bufferTimer = 0f;
-
-                if (logAttacks)
-                    Debug.Log($"[SpineAnim] Executing buffered attack: comboIndex={bufferedIndex}", this);
-
-                // Trigger the buffered attack
-                if (playerState != null)
-                    playerState.TriggerComboAttack(bufferedIndex);
-            }
-            else
-            {
-                // Blend overlay track out after the attack completes
-                skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, cachedAttackMixOut, cachedAttackMixOutDelay);
-            }
-        }
-
-        private void FinishAttackOverwrite()
-        {
-            if (!attackActive) return;
-
-            attackActive = false;
-            attackOverwriteActive = false;
-            currentAttackEntry = null;
-            ReleaseAttackInputLock();
-            if (playerState != null)
-                playerState.SetAttacking(false);
-
-            // Check for buffered attack
-            if (attackBuffered && bufferedComboIndex >= 0)
-            {
-                int bufferedIndex = bufferedComboIndex;
-                attackBuffered = false;
-                bufferedComboIndex = -1;
-                bufferTimer = 0f;
-
-                if (logAttacks)
-                    Debug.Log($"[SpineAnim] Executing buffered attack: comboIndex={bufferedIndex}", this);
-
-                // Trigger the buffered attack
-                if (playerState != null)
-                    playerState.TriggerComboAttack(bufferedIndex);
-            }
-            else
-            {
-                // Restore appropriate state after overwrite attack
-                if (playerState.IsGrounded)
-                {
-                    float speed = GetSpeed();
-                    PlayLocomotion(speed > speedThreshold ? run : idle, true);
-                }
-                else
-                {
-                    PlayJumpAir();
-                }
-            }
-        }
-
-        private void FinishAttackImmediate()
-        {
-            if (!attackActive) return;
-
-            attackActive = false;
-            attackOverwriteActive = false;
-            currentAttackEntry = null;
-            attackBuffered = false;
-            bufferedComboIndex = -1;
-            bufferTimer = 0f;
-            ReleaseAttackInputLock();
-            if (playerState != null)
-                playerState.SetAttacking(false);
-
-            skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
-        }
-
-        private void InterruptAttack(string reason)
-        {
-            if (!attackActive) return;
-
-            if (!attackOverwrite)
-                skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
-
-            attackActive = false;
-            attackOverwriteActive = false;
-            currentAttackEntry = null;
-            attackBuffered = false;
-            bufferedComboIndex = -1;
-            bufferTimer = 0f;
-            ReleaseAttackInputLock();
-            if (playerState != null)
-                playerState.SetAttacking(false);
-
-            if (logAttacks)
-                Debug.Log($"[SpineAnim] Attack interrupted: {reason}", this);
-        }
-
-        // ========== ANIMATION PLAYBACK ==========
 
         private void PlayJumpStart()
         {
-            if (!HasAnimation(jumpStart) || !HasAnimation(jumpAir))
+            if (!HasAnimation(jumpStart))
             {
-                Debug.LogWarning($"[SpineAnim] Missing jump animations!", this);
+                PlayJumpAir();
                 return;
             }
 
-            // Play Jump_1_Start, then immediately queue Jump_2_Air
             var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, jumpStart, GetLoopFor(jumpStart, false));
             entry.MixDuration = locomotionBlend;
             entry.TimeScale = GetTimeScaleFor(jumpStart, 1f);
             currentLocomotionAnim = jumpStart;
 
-            // Queue Jump_2_Air after Jump_1_Start
             var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false), 0f);
             airEntry.TimeScale = GetTimeScaleFor(jumpAir, 1f);
             airEntry.Complete += OnJumpAirComplete;
-
-            Log($"Jump sequence: {jumpStart} -> {jumpAir}");
         }
 
         private void PlayJumpAir()
@@ -717,31 +651,28 @@ namespace junklite
             if (!HasAnimation(jumpAir)) return;
 
             var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false));
+            entry.MixDuration = locomotionBlend;
             entry.TimeScale = GetTimeScaleFor(jumpAir, 1f);
-            entry.Complete += OnJumpAirComplete;
             currentLocomotionAnim = jumpAir;
-
-            Log($"Playing {jumpAir}");
+            entry.Complete += OnJumpAirComplete;
         }
 
         private void OnJumpAirComplete(TrackEntry entry)
         {
-            // Hold on last frame while in air
-            if (!playerState.IsGrounded)
-            {
-                entry.TrackTime = entry.AnimationEnd;
-                entry.TimeScale = 0f;
-                Log($"{jumpAir} complete, holding last frame");
-            }
+            if (entry.Animation.Name != jumpAir) return;
+            if (playerState != null && playerState.IsGrounded) return;
+
+            // Hold on last frame while airborne
+            entry.TimeScale = 0f;
+            entry.TrackTime = entry.AnimationEnd - 0.001f;
         }
 
         private void PlayLanding()
         {
             if (!HasAnimation(landing))
             {
-                // No landing animation, go straight to idle/run based on speed
-                float speed = GetSpeed();
-                PlayLocomotion(speed > speedThreshold ? run : idle, true);
+                float currentSpeed = GetSpeed();
+                PlayLocomotion(currentSpeed > speedThreshold ? run : idle, true);
                 return;
             }
 
@@ -750,100 +681,22 @@ namespace junklite
             entry.TimeScale = GetTimeScaleFor(landing, 1f);
             currentLocomotionAnim = landing;
 
-            // Check speed during landing to queue run or idle
-            float currentSpeed = GetSpeed();
-            if (currentSpeed > speedThreshold)
-            {
-                var runEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, run, GetLoopFor(run, true), 0f);
-                runEntry.TimeScale = GetTimeScaleFor(run, 1f);
-                Log($"Landing: {landing} -> {run}");
-            }
-            else
-            {
-                var idleEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, idle, GetLoopFor(idle, true), 0f);
-                idleEntry.TimeScale = GetTimeScaleFor(idle, 1f);
-                Log($"Landing: {landing} -> {idle}");
-            }
-        }
-
-        private void PlayLocomotion(string animName, bool loop)
-        {
-            if (!HasAnimation(animName) || GetCurrentLocomotionName() == animName)
-                return;
-
-            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, animName, GetLoopFor(animName, loop));
-            entry.MixDuration = locomotionBlend;
-            entry.TimeScale = GetTimeScaleFor(animName, 1f);
-            currentLocomotionAnim = animName;
-
-            Log($"Locomotion: {animName} (loop={loop}, timeScale={entry.TimeScale})");
-        }
-
-        /// <summary>
-        /// Any State fallbacks - ensures we're always in a valid animation state.
-        /// Similar to Unity Animator's "Any State" transitions.
-        /// </summary>
-        private void ApplyAnyStateFallbacks()
-        {
-            // Never override death or stun
-            if (!playerState.IsAlive || playerState.IsStunned)
-                return;
-
-            // Dash can interrupt any state; never override it here
-            if (playerState.IsDashing)
-                return;
-
-            // Attack overwrite owns locomotion track
-            if (attackOverwriteActive)
-                return;
-
-            string current = GetCurrentLocomotionName();
-
-            // Don't interrupt the double jump animation
-            if (playerState.IsDoubleJumping || current == doubleJump)
-                return;
-
-            // Priority 1: If airborne and falling, force Jump_2_Air (from ANY state except landing)
-            if (!playerState.IsGrounded && playerState.IsFalling)
-            {
-                // Don't interrupt landing animation or if already in jump air
-                if (current != jumpAir && current != landing)
-                {
-                    PlayJumpAir();
-                    Log($"[Fallback] Not grounded + falling -> {jumpAir}");
-                }
-                return; // Don't check grounded fallback
-            }
-
-            // Priority 2: If grounded and no special state, ensure we're in idle/run (from ANY state)
-            if (playerState.IsGrounded)
-            {
-                // Don't interrupt special animations (dash, roll, landing, etc.)
-                if (IsPlayingTransientAnim())
-                    return;
-
-                // If we're in an airborne animation while grounded, fix it
-                if (current == jumpStart || current == jumpAir || 
-                    current == doubleJump || current == wallSlide)
-                {
-                    float speed = GetSpeed();
-                    string targetAnim = speed > speedThreshold ? run : idle;
-                    PlayLocomotion(targetAnim, true);
-                    Log($"[Fallback] Grounded + air anim -> {targetAnim}");
-                }
-            }
+            // Queue idle/run after landing
+            float speed = GetSpeed();
+            string next = speed > speedThreshold ? run : idle;
+            var nextEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, next, true, 0f);
+            nextEntry.MixDuration = locomotionBlend;
         }
 
         private void UpdateLocomotionFromSpeed()
         {
-            // Only update idle/run if grounded and not in a transient animation
-            if (!playerState.IsGrounded || IsPlayingTransientAnim() || attackOverwriteActive)
-                return;
+            if (IsPlayingTransientAnim()) return;
+            if (playerState == null || !playerState.IsGrounded) return;
+            if (attackActive) return;
 
             float speed = GetSpeed();
             string targetAnim = speed > speedThreshold ? run : idle;
 
-            // Only switch if different from current
             if (GetCurrentLocomotionName() != targetAnim)
                 PlayLocomotion(targetAnim, true);
         }
@@ -862,17 +715,34 @@ namespace junklite
             entry.TimeScale = Mathf.Clamp(scale, minRunTimeScale, maxRunTimeScale);
         }
 
+        private void ApplyAnyStateFallbacks()
+        {
+            // Safety: ensure we're in a valid state
+            if (playerState == null) return;
+
+            string current = GetCurrentLocomotionName();
+
+            // If grounded but still showing air animation
+            if (playerState.IsGrounded && (current == jumpAir || current == jumpStart || current == doubleJump))
+            {
+                if (!attackActive)
+                {
+                    float speed = GetSpeed();
+                    PlayLocomotion(speed > speedThreshold ? run : idle, true);
+                }
+            }
+        }
+
         // ========== UTILITY ==========
 
         private bool IsPlayingTransientAnim()
         {
             string current = GetCurrentLocomotionName();
-            // Transient animations that shouldn't be interrupted by normal locomotion updates
-            return current == dash || 
-                   current == roll || 
-                   current == stun || 
+            return current == dash ||
+                   current == roll ||
+                   current == stun ||
                    current == landing ||
-                   current == jumpStart || 
+                   current == jumpStart ||
                    current == jumpAir ||
                    current == doubleJump ||
                    current == wallSlide ||
@@ -923,7 +793,7 @@ namespace junklite
         {
             if (string.IsNullOrEmpty(animName) || skeletonAnimation == null)
                 return false;
-            
+
             var data = skeletonAnimation.Skeleton?.Data;
             return data != null && data.FindAnimation(animName) != null;
         }
@@ -981,7 +851,7 @@ namespace junklite
             SafeSetMix(data, run, idle, locomotionBlend);
             SafeSetMix(data, landing, idle, locomotionBlend);
             SafeSetMix(data, landing, run, locomotionBlend);
-            SafeSetMix(data, jumpStart, jumpAir, 0f); // Instant transition
+            SafeSetMix(data, jumpStart, jumpAir, 0f);
             SafeSetMix(data, jumpAir, landing, locomotionBlend);
         }
 
@@ -1032,6 +902,12 @@ namespace junklite
         private void Log(string message)
         {
             if (logStateChanges)
+                Debug.Log($"[SpineAnim] {message}", this);
+        }
+
+        private void LogAttack(string message)
+        {
+            if (logAttacks)
                 Debug.Log($"[SpineAnim] {message}", this);
         }
     }

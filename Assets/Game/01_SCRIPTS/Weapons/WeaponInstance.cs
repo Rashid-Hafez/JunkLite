@@ -12,23 +12,26 @@ namespace junklite
         public float baseDamage;
         public float baseAttackSpeed;
 
-        [Header("Attack Timing")]
-        [SerializeField] private float attackCooldown = 0.5f;
-
-        private float lastAttackTime = -999f;
-        public bool CanAttack => Time.time >= lastAttackTime + attackCooldown;
-
         [Header("Combo Settings")]
-        [SerializeField] private float comboResetTime = 0.45f;
+        [Tooltip("Time after attack ENDS before combo resets (the combo input window)")]
+        [SerializeField] private float comboWindow = 0.6f;
+
+        [Header("Debug")]
+        [SerializeField] private bool logCombo = false;
 
         private int sideComboIndex = 0;
         private float comboTimer = 0f;
+        private bool comboTimerActive = false;
 
         private Rigidbody ownerRb;
 
         // Mod system
         private readonly List<ActiveMod> activeMods = new();
         public System.Action OnModsChanged;
+
+        // Public combo state for debugging
+        public int CurrentComboIndex => sideComboIndex;
+        public float ComboTimeRemaining => comboTimerActive ? Mathf.Max(0, comboWindow - comboTimer) : 0f;
 
         private void Start()
         {
@@ -44,11 +47,15 @@ namespace junklite
 
         private void Update()
         {
-            if (sideComboIndex > 0)
+            // Only tick combo timer when it's active (after attack completes)
+            if (comboTimerActive)
             {
                 comboTimer += Time.deltaTime;
-                if (comboTimer >= comboResetTime)
+                if (comboTimer >= comboWindow)
+                {
+                    Log($"Combo window expired - resetting from {sideComboIndex} to 0");
                     ResetSideCombo();
+                }
             }
         }
 
@@ -64,7 +71,6 @@ namespace junklite
         /// <summary>
         /// Gets the current combo step for the attack direction.
         /// Returns the step data and combo index (-1 for up/down attacks).
-        /// Returns false if attack is on cooldown.
         /// </summary>
         public bool TryGetComboStep(AttackDirection dir, out WeaponComboData.ComboStep step, out int comboIndex)
         {
@@ -74,10 +80,8 @@ namespace junklite
             if (weaponData == null || weaponData.comboData == null)
                 return false;
 
-            if (!CanAttack)
-                return false;
-
-            lastAttackTime = Time.time;
+            // Stop combo timer while attacking
+            comboTimerActive = false;
 
             if (dir == AttackDirection.Side)
             {
@@ -85,16 +89,24 @@ namespace junklite
                 if (sideSteps == null || sideSteps.Length == 0)
                     return false;
 
+                // Clamp index in case combo data changed
                 if (sideComboIndex >= sideSteps.Length)
                     sideComboIndex = 0;
 
                 comboIndex = sideComboIndex;
                 step = sideSteps[sideComboIndex];
-                AdvanceSideCombo();
+
+                Log($"Side attack - combo {sideComboIndex + 1}/{sideSteps.Length}");
             }
             else
             {
-                ResetSideCombo();
+                // Up/Down attacks reset side combo
+                if (sideComboIndex > 0)
+                {
+                    Log($"Up/Down attack - resetting side combo from {sideComboIndex}");
+                    ResetSideCombo();
+                }
+
                 step = dir == AttackDirection.Up
                     ? weaponData.comboData.upAttack
                     : weaponData.comboData.downAttack;
@@ -103,19 +115,55 @@ namespace junklite
             return true;
         }
 
+        /// <summary>
+        /// Called by WeaponManager when attack animation completes.
+        /// This advances the combo and starts the combo window timer.
+        /// </summary>
+        public void OnAttackComplete(AttackDirection dir)
+        {
+            if (dir == AttackDirection.Side)
+            {
+                AdvanceSideCombo();
+            }
+
+            // Start combo window timer
+            comboTimer = 0f;
+            comboTimerActive = true;
+
+            Log($"Attack complete - combo window started ({comboWindow}s), next combo index: {sideComboIndex}");
+        }
+
+        /// <summary>
+        /// Called when attack is interrupted (dash, stun, etc.)
+        /// Resets combo state.
+        /// </summary>
+        public void OnAttackInterrupted()
+        {
+            Log($"Attack interrupted - resetting combo from {sideComboIndex}");
+            ResetSideCombo();
+        }
+
         private void AdvanceSideCombo()
         {
-            comboTimer = 0f;
+            var sideSteps = weaponData?.comboData?.sideComboSteps;
+            if (sideSteps == null || sideSteps.Length == 0)
+                return;
+
             sideComboIndex++;
 
-            if (sideComboIndex >= weaponData.comboData.sideComboSteps.Length)
+            // Wrap around to beginning
+            if (sideComboIndex >= sideSteps.Length)
+            {
+                Log($"Combo complete! Wrapping from {sideComboIndex} to 0");
                 sideComboIndex = 0;
+            }
         }
 
         private void ResetSideCombo()
         {
             sideComboIndex = 0;
             comboTimer = 0f;
+            comboTimerActive = false;
         }
 
         // ==================================================
@@ -188,6 +236,12 @@ namespace junklite
             }
 
             OnModsChanged?.Invoke();
+        }
+
+        private void Log(string message)
+        {
+            if (logCombo)
+                Debug.Log($"[WeaponInstance] {message}", this);
         }
     }
 

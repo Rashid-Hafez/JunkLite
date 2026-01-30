@@ -823,7 +823,7 @@ namespace junklite
         {
             if (col == null) col = GetComponent<Collider>();
 
-            // Ground spherecast
+         /*   // Ground spherecast
             Gizmos.color = isGrounded ? Color.green : Color.red;
             Vector3 origin = col.bounds.center;
             Vector3 end = origin + Vector3.down * (col.bounds.extents.y + groundCheckDistance);
@@ -866,7 +866,7 @@ namespace junklite
             {
                 Gizmos.color = Color.magenta;
                 Gizmos.DrawWireSphere(wallCheckTransform.position, wallCheckRadius);
-            }
+            }*/
         }
     }
 }

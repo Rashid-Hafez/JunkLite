@@ -5,96 +5,71 @@ using System;
 namespace junklite
 {
     /// <summary>
-    /// Player-specific runtime state & capability gatekeeper.
-    /// Extended to support Hollow Knight–style movement states.
+    /// Player state and capability checks.
+    /// Attack gating is handled by WeaponManager's cooldown system.
     /// </summary>
     public class PlayerState : CharacterState
     {
-        // === Core Capability Checks (updated to include IsInputLocked) ===
+        // Capability checks
         public override bool CanMove => IsAlive && !IsStunned && !IsInputLocked;
         public override bool CanJump => IsAlive && !IsStunned && !IsInputLocked;
         public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsInputLocked;
-        public override bool CanAttack => IsAlive && !IsAttacking && !IsStunned && !IsInputLocked;
+        public override bool CanAttack => IsAlive && !IsStunned && !IsInputLocked; // No IsAttacking check - WeaponManager handles cooldown
         public bool CanRoll => IsAlive && !IsStunned && !IsRolling && !IsInputLocked;
 
-        // ==== Player State Flags ====
+        // State flags
         public bool IsDashing { get; private set; }
         public bool IsRolling { get; private set; }
-
-        // ==== Input Lock (for special moves, cutscenes, etc.) ====
         public bool IsInputLocked { get; private set; }
 
-        // ==== Movement States ====
+        // Movement states
         public bool IsWallSliding { get; private set; }
         public bool IsWallJumping { get; private set; }
         public bool IsDoubleJumping { get; private set; }
 
-        // ==== Events ====
+        // Events
         public event Action<bool> OnDashingChanged;
         public event Action<bool> OnRollingChanged;
         public event Action<bool> OnInputLockedChanged;
-
-        // Movement state events
         public event Action<bool> OnWallSlideChanged;
         public event Action<bool> OnWallJumpChanged;
         public event Action<bool> OnDoubleJumpChanged;
-
-        // Combo attack event (for animation binding)
         public event Action<int> OnComboAttackTriggered;
 
-        // Drone feature (existing)
+        // Drone
         [SerializeField] private bool hasDrone;
-
         public bool HasDrone
         {
             get => hasDrone;
-            set
-            {
-                if (hasDrone != value)
-                {
-                    hasDrone = value;
-                    OnHasDroneChanged?.Invoke(hasDrone);
-                }
-            }
+            set { if (hasDrone != value) { hasDrone = value; OnHasDroneChanged?.Invoke(hasDrone); } }
         }
         public event Action<bool> OnHasDroneChanged;
 
-        // ===== Reset for Respawn =====
         public override void ResetForRespawn()
         {
             base.ResetForRespawn();
-
-            // player movement flags
             SetWallSliding(false);
             SetWallJumping(false);
             SetDoubleJumping(false);
             SetInputLocked(false);
         }
 
-        // ===== Clear momentary action flags =====
         public override void ClearTransient()
         {
             base.ClearTransient();
-
             SetDashing(false);
             SetRolling(false);
-
-            // player movement transient
             SetWallJumping(false);
             SetDoubleJumping(false);
         }
 
-        // ===========================================================================
-        //  STATE SETTERS
-        // ===========================================================================
-
+        // State setters
         public override void SetGrounded(bool grounded)
         {
             if (IsGrounded == grounded) return;
             IsGrounded = grounded;
             InvokeGroundedChanged(grounded);
 
-            // auto update airborne-based states
             if (grounded)
             {
                 SetJumping(false);
@@ -109,10 +84,7 @@ namespace junklite
         {
             if (IsDashing == dashing) return;
             IsDashing = dashing;
-
-            // Dash grants invulnerability
             SetVulnerable(!dashing);
-
             OnDashingChanged?.Invoke(dashing);
         }
 
@@ -123,9 +95,6 @@ namespace junklite
             OnRollingChanged?.Invoke(rolling);
         }
 
-        /// <summary>
-        /// Lock/unlock player input. Use for special moves, cutscenes, etc.
-        /// </summary>
         public void SetInputLocked(bool locked)
         {
             if (IsInputLocked == locked) return;
@@ -133,42 +102,24 @@ namespace junklite
             OnInputLockedChanged?.Invoke(locked);
         }
 
-        // ===== Player movement states =====
-
-        /// <summary>
-        /// Sets wall sliding state. Automatically clears jumping state when sliding starts.
-        /// </summary>
         public void SetWallSliding(bool sliding)
         {
             if (IsWallSliding == sliding) return;
 
-            // When starting to wall slide, clear jump states first
             if (sliding)
             {
-                if (IsJumping)
-                {
-                    IsJumping = false;
-                    InvokeJumpStateChanged(false);
-                }
-                if (IsFalling)
-                {
-                    IsFalling = false;
-                    InvokeFallStateChanged(false);
-                }
+                if (IsJumping) { IsJumping = false; InvokeJumpStateChanged(false); }
+                if (IsFalling) { IsFalling = false; InvokeFallStateChanged(false); }
             }
 
             IsWallSliding = sliding;
             OnWallSlideChanged?.Invoke(sliding);
         }
 
-        /// <summary>
-        /// Sets wall jumping state. Automatically clears wall sliding when wall jump starts.
-        /// </summary>
         public void SetWallJumping(bool jumping)
         {
             if (IsWallJumping == jumping) return;
 
-            // When starting wall jump, clear wall sliding first
             if (jumping && IsWallSliding)
             {
                 IsWallSliding = false;
@@ -186,28 +137,11 @@ namespace junklite
             OnDoubleJumpChanged?.Invoke(jumping);
         }
 
-        // ===== Combo Attack (for animation) =====
-
-        /// <summary>
-        /// Triggers combo attack event for animation binding.
-        /// Called by WeaponManager when a side combo attack is performed.
-        /// </summary>
-        public void TriggerComboAttack(int comboIndex)
-        {
-            OnComboAttackTriggered?.Invoke(comboIndex);
-        }
-
-        /// <summary>
-        /// Sets jumping state. Wall sliding prevents jumping from being set to true.
-        /// </summary>
         public override void SetJumping(bool jumping)
         {
-            // Cannot set jumping to true while wall sliding
             if (jumping && IsWallSliding) return;
-
             if (IsJumping == jumping) return;
 
-            // When starting to jump, clear falling
             if (jumping && IsFalling)
             {
                 IsFalling = false;
@@ -218,14 +152,17 @@ namespace junklite
             InvokeJumpStateChanged(jumping);
         }
 
-        // ===========================================================================
-        //  DEBUG
-        // ===========================================================================
+        /// <summary>
+        /// Triggers attack animation. comboIndex: 0+ for side combo, -1 for up/down.
+        /// </summary>
+        public void TriggerComboAttack(int comboIndex)
+        {
+            OnComboAttackTriggered?.Invoke(comboIndex);
+        }
 
         public override string GetStatusSummary()
         {
-            var list = new List<string>();
-            list.Add(IsAlive ? "ALIVE" : "DEAD");
+            var list = new List<string> { IsAlive ? "ALIVE" : "DEAD" };
             if (IsGrounded) list.Add("Grounded");
             if (IsMoving) list.Add("Moving");
             if (IsJumping) list.Add("Jumping");
