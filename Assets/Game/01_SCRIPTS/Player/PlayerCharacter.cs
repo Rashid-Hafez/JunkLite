@@ -1,4 +1,5 @@
 ﻿using System;
+using SkeletonGhost = Spine.Unity.Examples.SkeletonGhost;
 using System.Collections;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -22,6 +23,7 @@ namespace junklite
         [Header("VFX")]
         [SerializeField] private ParticleSystem particleJumpUp;
         [SerializeField] private ParticleSystem particleJumpDown;
+        [SerializeField] private SkeletonGhost skeletonGhost;
 
         [Header("Dash VFX")]
         [SerializeField] private ParticleSystem particleDashBurst;
@@ -34,11 +36,6 @@ namespace junklite
 
         [Header("Damage Feedback")]
         [SerializeField] private float damageInvulnerability = 0.5f;
-        [SerializeField] private SpriteRenderer[] damageFlashRenderers;
-        [SerializeField] private bool autoFindFlashRenderers = true;
-        [SerializeField] private Color damageFlashColor = Color.white;
-        [SerializeField] private float damageFlashDuration = 0.12f;
-        [SerializeField] private float damageFlashInterval = 0.04f;
         [SerializeField] private GameObject damageHitVFXPrefab;
         [SerializeField] private float damageHitVFXLifetime = 0.5f;
         [SerializeField] private float cameraShakeOnHit = 5f;
@@ -80,9 +77,6 @@ namespace junklite
         // Attached Comps
         private WeaponManager _weaponManager;
 
-        // Damage flash runtime
-        private Coroutine _damageFlashCo;
-        private Color[] _damageFlashOriginalColors;
         private FeedbackManager feedbackManager;
 
         protected override void Awake()
@@ -92,13 +86,16 @@ namespace junklite
             controller = GetComponent<Character2D5Controller>();
             playerState = GetComponent<PlayerState>();
 
+            skeletonGhost = GetComponentInChildren<SkeletonGhost>();
+            if (skeletonGhost == null)
+            {
+                Debug.LogError("SkeletonGhost component not found on player character!", this);
+            }
+
             inputManager = GameInputManager.Instance;
             _cachedColliders = GetComponentsInChildren<Collider>(includeInactive: true);
             _rb = GetComponent<Rigidbody>();
             _spriteRenderers = GetComponentsInChildren<SpriteRenderer>(includeInactive: true);
-
-            if (autoFindFlashRenderers && (damageFlashRenderers == null || damageFlashRenderers.Length == 0))
-                damageFlashRenderers = GetComponentsInChildren<SpriteRenderer>(includeInactive: true);
 
             Deactivate();
         }
@@ -274,7 +271,6 @@ namespace junklite
         void OnDisable()
         {
             UnsubscribeFromInput();
-            StopDamageFlash();
         }
 
         // ====================================================================
@@ -531,12 +527,15 @@ namespace junklite
             }
 
             if (dashTrail != null) dashTrail.emitting = true;
+            
+            SkeletonGhostActivation(true);
         }
 
         void HandleDashEnded()
         {
             playerState?.SetDashing(false);
             if (dashTrail != null) dashTrail.emitting = false;
+            SkeletonGhostActivation(false);
         }
 
         void HandleAttackInput()
@@ -612,6 +611,8 @@ namespace junklite
         // DAMAGE
         // ====================================================================
 
+        #region Damage
+
         public override bool TakeDamage(DamageInfo info)
         {
             if (playerState != null && !playerState.CanTakeDamage)
@@ -638,8 +639,6 @@ namespace junklite
             if (feedbackManager != null)
                 feedbackManager.DoCameraShake(damageImpulseSource, cameraShakeOnHit);
 
-            StartDamageFlash();
-
             // Apply knockback
             if (info.Source != null && Controller != null && info.KnockbackForce.sqrMagnitude > 0f)
             {
@@ -658,83 +657,13 @@ namespace junklite
 
             return true;
         }
-
-        private void StartDamageFlash()
-        {
-            if (damageFlashRenderers == null || damageFlashRenderers.Length == 0) return;
-            if (damageFlashDuration <= 0f) return;
-
-            if (_damageFlashCo != null)
-                StopCoroutine(_damageFlashCo);
-
-            _damageFlashOriginalColors = new Color[damageFlashRenderers.Length];
-            for (int i = 0; i < damageFlashRenderers.Length; i++)
-                _damageFlashOriginalColors[i] = damageFlashRenderers[i] ? damageFlashRenderers[i].color : Color.white;
-
-            _damageFlashCo = StartCoroutine(DamageFlashRoutine());
-        }
-
-        private void StopDamageFlash()
-        {
-            if (_damageFlashCo != null)
-            {
-                StopCoroutine(_damageFlashCo);
-                _damageFlashCo = null;
-            }
-
-            if (damageFlashRenderers == null || _damageFlashOriginalColors == null) return;
-
-            for (int i = 0; i < damageFlashRenderers.Length; i++)
-            {
-                if (damageFlashRenderers[i])
-                {
-                    // Safety: always restore fully visible
-                    Color c = _damageFlashOriginalColors[i];
-                    c.a = 1f;
-                    damageFlashRenderers[i].color = c;
-                }
-            }
-        }
-
-        private IEnumerator DamageFlashRoutine()
-        {
-            float interval = Mathf.Max(0.01f, damageFlashInterval);
-            float half = interval * 0.5f;
-            float endTime = Time.unscaledTime + damageFlashDuration;
-
-            while (Time.unscaledTime < endTime)
-            {
-                // flash
-                for (int i = 0; i < damageFlashRenderers.Length; i++)
-                {
-                    if (!damageFlashRenderers[i]) continue;
-                    Color c = damageFlashColor;
-                    damageFlashRenderers[i].color = c;
-                }
-
-                yield return new WaitForSecondsRealtime(half);
-
-                // restore
-                for (int i = 0; i < damageFlashRenderers.Length; i++)
-                {
-                    if (!damageFlashRenderers[i]) continue;
-                    Color c = _damageFlashOriginalColors[i];
-                    c.a = 1f; // Safety: always restore fully visible
-                    c.r = 1f;
-                    c.g = 1f;
-                    c.b = 1f;
-                    damageFlashRenderers[i].color = c;
-                }
-
-                yield return new WaitForSecondsRealtime(half);
-            }
-
-            StopDamageFlash();
-        }
+        #endregion
 
         // ====================================================================
         // GRAB (IGrabbable)
         // ====================================================================
+
+        #region Grab
 
         public void GetGrabbed(GrabInfo info)
         {
@@ -819,7 +748,9 @@ namespace junklite
             isGrabbed = false;
         }
 
-        // ====================================================================
+        #endregion
+
+#region Death Handling
 
         protected override void HandleDeath()
         {
@@ -841,5 +772,39 @@ namespace junklite
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(transform.position, attackRange);
         }
+
+        #endregion
+
+    #region Animation
+
+    public void SkeletonGhostActivation(bool activate)
+    {
+        if (skeletonGhost == null)
+        {
+            Debug.LogWarning("[PlayerCharacter] SkeletonGhost is null!", this);
+            return;
+        }
+        
+        // Ensure the GameObject is active
+        if (!skeletonGhost.gameObject.activeInHierarchy)
+        {
+            Debug.LogWarning("[PlayerCharacter] SkeletonGhost GameObject is inactive, activating it...", this);
+            skeletonGhost.gameObject.SetActive(true);
+        }
+        
+        // Ensure the component is enabled
+        skeletonGhost.enabled = true;
+        
+        // Ensure it's initialized (in case Start() hasn't run yet)
+        skeletonGhost.Initialize(false);
+        
+        // Toggle ghosting
+        skeletonGhost.ghostingEnabled = activate;
+        
+        Debug.Log($"[PlayerCharacter] SkeletonGhost ghostingEnabled set to: {skeletonGhost.ghostingEnabled}, Component enabled: {skeletonGhost.enabled}, GameObject active: {skeletonGhost.gameObject.activeInHierarchy}", this);
     }
+
+    #endregion
+    }
+    
 }

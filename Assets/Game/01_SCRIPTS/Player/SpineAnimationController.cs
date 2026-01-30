@@ -29,6 +29,18 @@ namespace junklite
         [SerializeField] private string roll = "roll";
         [SerializeField] private string stun = "stun";
         [SerializeField] private string death = "death";
+        [Header("Animation Looping")]
+        [SerializeField] private bool idleLoop = true;
+        [SerializeField] private bool runLoop = true;
+        [SerializeField] private bool jumpStartLoop = false;
+        [SerializeField] private bool jumpAirLoop = false;
+        [SerializeField] private bool landingLoop = false;
+        [SerializeField] private bool doubleJumpLoop = false;
+        [SerializeField] private bool wallSlideLoop = true;
+        [SerializeField] private bool dashLoop = false;
+        [SerializeField] private bool rollLoop = false;
+        [SerializeField] private bool stunLoop = true;
+        [SerializeField] private bool deathLoop = false;
 
         [Header("Locomotion")]
         [SerializeField] private float speedThreshold = 0.1f;
@@ -313,7 +325,7 @@ namespace junklite
             }
 
             // Play double jump, then transition to jump air
-            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, doubleJump, false);
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, doubleJump, GetLoopFor(doubleJump, false));
             entry.MixDuration = doubleJumpBlend;
             entry.MixBlend = MixBlend.Replace; // avoid blended rotations during flip
             currentLocomotionAnim = doubleJump;
@@ -322,7 +334,7 @@ namespace junklite
             entry.End += _ => ClearDoubleJumpFlag();
 
             // After double jump completes, play jump air and hold
-            var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, false, 0f);
+            var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false), 0f);
             airEntry.Complete += OnJumpAirComplete;
 
             Log($"Double jump: {doubleJump} -> {jumpAir}");
@@ -342,7 +354,7 @@ namespace junklite
             if (current == doubleJump)
                 return;
 
-            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, doubleJump, false);
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, doubleJump, GetLoopFor(doubleJump, false));
             entry.MixDuration = doubleJumpBlend;
             entry.MixBlend = MixBlend.Replace;
             currentLocomotionAnim = doubleJump;
@@ -350,7 +362,7 @@ namespace junklite
             entry.Interrupt += _ => ClearDoubleJumpFlag();
             entry.End += _ => ClearDoubleJumpFlag();
 
-            var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, false, 0f);
+            var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false), 0f);
             airEntry.Complete += OnJumpAirComplete;
 
             Log($"Double jump (controller): {doubleJump} -> {jumpAir}");
@@ -538,12 +550,12 @@ namespace junklite
             }
 
             // Play Jump_1_Start, then immediately queue Jump_2_Air
-            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, jumpStart, false);
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, jumpStart, GetLoopFor(jumpStart, false));
             entry.MixDuration = locomotionBlend;
             currentLocomotionAnim = jumpStart;
 
             // Queue Jump_2_Air after Jump_1_Start
-            var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, false, 0f);
+            var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false), 0f);
             airEntry.Complete += OnJumpAirComplete;
 
             Log($"Jump sequence: {jumpStart} -> {jumpAir}");
@@ -553,7 +565,7 @@ namespace junklite
         {
             if (!HasAnimation(jumpAir)) return;
 
-            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, jumpAir, false);
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false));
             entry.Complete += OnJumpAirComplete;
             currentLocomotionAnim = jumpAir;
 
@@ -581,7 +593,7 @@ namespace junklite
                 return;
             }
 
-            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, landing, false);
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, landing, GetLoopFor(landing, false));
             entry.MixDuration = locomotionBlend;
             currentLocomotionAnim = landing;
 
@@ -589,12 +601,12 @@ namespace junklite
             float currentSpeed = GetSpeed();
             if (currentSpeed > speedThreshold)
             {
-                skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, run, true, 0f);
+                skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, run, GetLoopFor(run, true), 0f);
                 Log($"Landing: {landing} -> {run}");
             }
             else
             {
-                skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, idle, true, 0f);
+                skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, idle, GetLoopFor(idle, true), 0f);
                 Log($"Landing: {landing} -> {idle}");
             }
         }
@@ -604,7 +616,7 @@ namespace junklite
             if (!HasAnimation(animName) || GetCurrentLocomotionName() == animName)
                 return;
 
-            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, animName, loop);
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, animName, GetLoopFor(animName, loop));
             entry.MixDuration = locomotionBlend;
             currentLocomotionAnim = animName;
 
@@ -758,6 +770,23 @@ namespace junklite
             
             var data = skeletonAnimation.Skeleton?.Data;
             return data != null && data.FindAnimation(animName) != null;
+        }
+
+        private bool GetLoopFor(string animName, bool fallback)
+        {
+            if (string.IsNullOrEmpty(animName)) return fallback;
+            if (animName == idle) return idleLoop;
+            if (animName == run) return runLoop;
+            if (animName == jumpStart) return jumpStartLoop;
+            if (animName == jumpAir) return jumpAirLoop;
+            if (animName == landing) return landingLoop;
+            if (animName == doubleJump) return doubleJumpLoop;
+            if (animName == wallSlide) return wallSlideLoop;
+            if (animName == dash) return dashLoop;
+            if (animName == roll) return rollLoop;
+            if (animName == stun) return stunLoop;
+            if (animName == death) return deathLoop;
+            return fallback;
         }
 
         private void ConfigureMixes()
