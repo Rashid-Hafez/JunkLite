@@ -15353,7 +15353,7 @@ MonoBehaviour:
   impulseSource: {fileID: 0}
   enemyHitHitstopDuration: 0.06
   enemyHitShakeForce: 0.5
-  enemyHitDelay: 0.05
+  enemyHitDelay: 0.03
   sideRecoil: 5
   facingLockDuration: 0.25
   inputThreshold: 0.5
@@ -15700,7 +15700,6 @@ MonoBehaviour:
   doubleJumpBlend: 0.05
   attackOverwrite: 1
   attackMix: 0
-  attackMixAttachmentThreshold: 0
   attackMixOut: 0
   attackMixOutDelay: 0
   attackTimeScale: 1

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Spine;
 using Spine.Unity;
 
@@ -6,8 +6,7 @@ namespace junklite
 {
     /// <summary>
     /// Event-driven Spine animation controller.
-    /// REFACTORED: Pure animation playback - WeaponManager provides animation names.
-    /// Properly applies input lock during attacks to prevent movement.
+    /// Pure animation playback - no attack logic (WeaponManager handles that).
     /// </summary>
     public class SpineAnimationController : MonoBehaviour
     {
@@ -38,7 +37,7 @@ namespace junklite
         [SerializeField] private bool jumpAirLoop = false;
         [SerializeField] private bool landingLoop = false;
         [SerializeField] private bool doubleJumpLoop = false;
-        [SerializeField] private bool wallSlideLoop = true;
+        [SerializeField] private bool wallSlideLoop = false;
         [SerializeField] private bool dashLoop = false;
         [SerializeField] private bool rollLoop = false;
         [SerializeField] private bool stunLoop = true;
@@ -67,7 +66,6 @@ namespace junklite
         [Header("Attack Animation Settings")]
         [SerializeField] private bool attackOverwrite = false;
         [SerializeField] private float attackMix = 0.1f;
-        [SerializeField] private float attackMixAttachmentThreshold = 0f;
         [SerializeField] private float attackMixOut = 0.25f;
         [SerializeField] private float attackMixOutDelay = 0.05f;
         [SerializeField, Range(0.1f, 3f)] private float attackTimeScale = 1f;
@@ -97,9 +95,6 @@ namespace junklite
         private bool attackInputLockApplied = false;
         private TrackEntry currentAttackEntry = null;
 
-        // Public state
-        public bool IsAttacking => attackActive;
-
         #region Unity Lifecycle
 
         private void Awake()
@@ -126,7 +121,7 @@ namespace junklite
                 return;
             }
 
-            // Subscribe to state events (locomotion only - NO attack events)
+            // Subscribe to state events
             playerState.OnGroundedChanged += OnGroundedChanged;
             playerState.OnMovingChanged += OnMovingChanged;
             playerState.OnJumpStateChanged += OnJumpStateChanged;
@@ -142,12 +137,8 @@ namespace junklite
                 skeletonAnimation.AnimationState.Event += HandleSpineEvent;
 
             if (controller != null)
-            {
                 controller.OnDoubleJumpPerformed += OnControllerDoubleJumpPerformed;
-                controller.OnJumpStarted += OnControllerJumpStarted;
-            }
 
-            // Set initial idle
             PlayLocomotion(idle, true);
         }
 
@@ -179,10 +170,7 @@ namespace junklite
             }
 
             if (controller != null)
-            {
                 controller.OnDoubleJumpPerformed -= OnControllerDoubleJumpPerformed;
-                controller.OnJumpStarted -= OnControllerJumpStarted;
-            }
 
             if (skeletonAnimation != null)
                 skeletonAnimation.AnimationState.Event -= HandleSpineEvent;
@@ -190,22 +178,18 @@ namespace junklite
             ReleaseAttackInputLock();
         }
 
-        #endregion Unity Lifecycle
+        #endregion
 
         #region Attack Animation (Public API)
 
         /// <summary>
         /// Plays an attack animation by name. Called by WeaponManager.
-        /// Applies input lock and notifies WeaponManager when complete.
         /// </summary>
         public void PlayAttackAnimation(string animationName)
         {
-            LogAttack($"PlayAttackAnimation called: '{animationName}'");
-
-            // Validate animation
             if (string.IsNullOrEmpty(animationName))
             {
-                LogAttack("Animation name is null/empty - completing immediately");
+                LogAttack("PlayAttackAnimation: null/empty name - completing immediately");
                 NotifyWeaponManagerAttackComplete();
                 return;
             }
@@ -217,26 +201,20 @@ namespace junklite
                 return;
             }
 
-            // If already attacking, force finish previous
             if (attackActive)
             {
-                LogAttack("Already attacking - forcing previous attack complete");
+                LogAttack("Already attacking - forcing previous complete");
                 ForceFinishAttack();
             }
 
-            // Set attack state FIRST
             attackActive = true;
-            attackOverwriteActive = attackOverwrite;
-
-            // Apply input lock IMMEDIATELY
             ApplyAttackInputLock();
 
-            LogAttack($"Starting attack: '{animationName}', overwrite={attackOverwrite}, inputLock={lockMovementDuringAttack}");
+            LogAttack($"Playing attack: '{animationName}'");
 
-            // Play animation
             if (attackOverwrite)
             {
-                // Overwrite mode: play on locomotion track (replaces run/idle)
+                attackOverwriteActive = true;
                 var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, animationName, false);
                 entry.MixDuration = attackMix;
                 entry.MixBlend = MixBlend.Replace;
@@ -244,49 +222,17 @@ namespace junklite
                 entry.Complete += _ => FinishAttackOverwrite();
                 entry.Interrupt += _ => OnAttackInterrupted();
                 currentAttackEntry = entry;
-
-                LogAttack($"Attack (overwrite) started on track {locomotionTrack}");
             }
             else
             {
-                // Overlay mode: play on overlay track (on top of locomotion)
-                // CRITICAL: Force locomotion to idle to prevent leg animation conflicts
-                FreezeLocomotionDuringAttack();
-
+                attackOverwriteActive = false;
                 var entry = skeletonAnimation.AnimationState.SetAnimation(overlayTrack, animationName, false);
                 entry.MixDuration = attackMix;
                 entry.MixBlend = MixBlend.Replace;
-                entry.MixAttachmentThreshold = attackMixAttachmentThreshold;
                 entry.TimeScale = attackTimeScale;
                 entry.Complete += _ => FinishAttackOverlay();
                 entry.Interrupt += _ => OnAttackInterrupted();
                 currentAttackEntry = entry;
-
-                LogAttack($"Attack (overlay) started on track {overlayTrack}");
-            }
-        }
-
-        /// <summary>
-        /// Freezes locomotion to idle during overlay attacks to prevent leg animation conflicts.
-        /// When attacking in overlay mode, the locomotion track continues playing.
-        /// This forces it to idle so legs don't run while attacking.
-        /// </summary>
-        private void FreezeLocomotionDuringAttack()
-        {
-            if (skeletonAnimation == null) return;
-
-            var locomotionEntry = skeletonAnimation.AnimationState.GetCurrent(locomotionTrack);
-            if (locomotionEntry == null) return;
-
-            // If currently running or any non-idle animation, switch to idle
-            if (locomotionEntry.Animation.Name != idle && HasAnimation(idle))
-            {
-                var idleEntry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, idle, true);
-                idleEntry.MixDuration = 0.05f; // Quick blend to idle
-                idleEntry.TimeScale = 1f;
-                currentLocomotionAnim = idle;
-
-                LogAttack("Froze locomotion to idle for overlay attack");
             }
         }
 
@@ -299,17 +245,11 @@ namespace junklite
             attackActive = false;
             attackOverwriteActive = false;
             currentAttackEntry = null;
-
-            // Release input lock
             ReleaseAttackInputLock();
 
-            // Clear overlay track with blend out
             if (skeletonAnimation != null)
-            {
                 skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, attackMixOut, attackMixOutDelay);
-            }
 
-            // Notify WeaponManager
             NotifyWeaponManagerAttackComplete();
         }
 
@@ -322,8 +262,6 @@ namespace junklite
             attackActive = false;
             attackOverwriteActive = false;
             currentAttackEntry = null;
-
-            // Release input lock
             ReleaseAttackInputLock();
 
             // Return to appropriate locomotion
@@ -340,7 +278,6 @@ namespace junklite
                 }
             }
 
-            // Notify WeaponManager
             NotifyWeaponManagerAttackComplete();
         }
 
@@ -348,23 +285,16 @@ namespace junklite
         {
             if (!attackActive) return;
 
-            LogAttack("Attack interrupted by animation system");
+            LogAttack("Attack interrupted");
 
             attackActive = false;
+            attackOverwriteActive = false;
             currentAttackEntry = null;
-
-            // Release input lock
             ReleaseAttackInputLock();
 
-            // Clear overlay track
-            if (skeletonAnimation != null && !attackOverwriteActive)
-            {
+            if (skeletonAnimation != null)
                 skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
-            }
 
-            attackOverwriteActive = false;
-
-            // Notify WeaponManager
             if (weaponManager != null)
                 weaponManager.OnAttackInterrupted();
         }
@@ -388,9 +318,6 @@ namespace junklite
                 weaponManager.OnAttackAnimationComplete();
         }
 
-        /// <summary>
-        /// Called when dash/stun/death interrupts attack.
-        /// </summary>
         private void InterruptAttack(string reason)
         {
             if (!attackActive) return;
@@ -409,52 +336,7 @@ namespace junklite
                 weaponManager.OnAttackInterrupted();
         }
 
-        #endregion Attack Animation
-
-        #region Input Lock
-
-        private void ApplyAttackInputLock()
-        {
-            if (!lockMovementDuringAttack)
-            {
-                LogAttack("Input lock SKIPPED (disabled in settings)");
-                return;
-            }
-
-            if (playerState == null)
-            {
-                LogAttack("Input lock FAILED (PlayerState is null)");
-                return;
-            }
-
-            if (attackInputLockApplied)
-            {
-                LogAttack("Input lock already applied");
-                return;
-            }
-
-            playerState.SetInputLocked(true);
-
-            if (controller != null)
-                controller.StopAllVelocity();
-
-            attackInputLockApplied = true;
-            LogAttack("Input lock APPLIED - movement disabled");
-        }
-
-        private void ReleaseAttackInputLock()
-        {
-            if (!attackInputLockApplied)
-                return;
-
-            if (playerState != null)
-                playerState.SetInputLocked(false);
-
-            attackInputLockApplied = false;
-            LogAttack("Input lock RELEASED - movement enabled");
-        }
-
-        #endregion Input Lock
+        #endregion
 
         #region State Event Handlers
 
@@ -463,25 +345,30 @@ namespace junklite
             if (grounded)
             {
                 ClearDoubleJumpFlag();
-                wasAirborne = false;
-
-                if (attackActive)
-                    return;
 
                 float speed = GetSpeed();
                 if (speed > speedThreshold)
                 {
+                    // Moving - skip landing, go straight to run
                     PlayLocomotion(run, true);
+                }
+                else if (wasAirborne)
+                {
+                    // Idle landing
+                    PlayLanding();
                 }
                 else
                 {
-                    PlayLanding();
+                    PlayLocomotion(idle, true);
                 }
+
+                wasAirborne = false;
             }
             else
             {
                 wasAirborne = true;
             }
+
             Log($"Grounded={grounded}");
         }
 
@@ -492,28 +379,15 @@ namespace junklite
 
         private void OnJumpStateChanged(bool jumping)
         {
-            if (jumping && !attackActive)
+            if (jumping)
                 PlayJumpStart();
-            Log($"Jumping={jumping}");
-        }
 
-        private void OnControllerJumpStarted()
-        {
-            if (!attackActive)
-                PlayJumpStart();
+            Log($"Jumping={jumping}");
         }
 
         private void OnFallStateChanged(bool falling)
         {
-            if (falling && !attackActive && !playerState.IsWallSliding)
-            {
-                // Don't override jump animations - only play fall when walking off ledge
-                string current = GetCurrentLocomotionName();
-                if (current != jumpStart && current != doubleJump)
-                {
-                    PlayJumpAir();
-                }
-            }
+            // Falling handled by ApplyAnyStateFallbacks
             Log($"Falling={falling}");
         }
 
@@ -524,7 +398,7 @@ namespace junklite
                 InterruptAttack("dash");
                 PlayLocomotion(dash, false);
             }
-            else if (!attackActive)
+            else
             {
                 if (playerState.IsGrounded)
                 {
@@ -545,7 +419,7 @@ namespace junklite
                 InterruptAttack("roll");
                 PlayLocomotion(roll, false);
             }
-            else if (!attackActive)
+            else
             {
                 if (playerState.IsGrounded)
                 {
@@ -563,10 +437,9 @@ namespace junklite
         {
             if (sliding)
             {
-                InterruptAttack("wallSlide");
                 PlayLocomotion(wallSlide, false);
             }
-            else if (!attackActive)
+            else
             {
                 if (playerState.IsGrounded)
                 {
@@ -583,10 +456,7 @@ namespace junklite
         private void OnDoubleJumpChanged(bool doubleJumping)
         {
             if (!doubleJumping) return;
-            if (attackActive) return;
-
-            if (!playerState.IsJumping && !playerState.IsFalling)
-                return;
+            if (!playerState.IsJumping && !playerState.IsFalling) return;
 
             if (!HasAnimation(doubleJump))
             {
@@ -610,8 +480,6 @@ namespace junklite
 
         private void OnControllerDoubleJumpPerformed()
         {
-            if (attackActive) return;
-
             if (!HasAnimation(doubleJump))
             {
                 PlayJumpAir();
@@ -642,7 +510,7 @@ namespace junklite
                 if (HasAnimation(stun))
                     PlayLocomotion(stun, true);
             }
-            else if (!attackActive)
+            else
             {
                 if (playerState.IsGrounded)
                 {
@@ -666,19 +534,16 @@ namespace junklite
             }
         }
 
-        #endregion State Event Handlers
+        #endregion
 
         #region Locomotion
 
         private void PlayLocomotion(string animName, bool loop)
         {
-            if (skeletonAnimation == null || string.IsNullOrEmpty(animName)) return;
-            if (!HasAnimation(animName)) return;
+            if (!HasAnimation(animName) || GetCurrentLocomotionName() == animName)
+                return;
 
-            // Don't change locomotion during attack (unless it's an interrupt like dash/stun)
-            // This is handled by the caller checking attackActive
-
-            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, animName, loop);
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, animName, GetLoopFor(animName, loop));
             entry.MixDuration = locomotionBlend;
             entry.TimeScale = GetTimeScaleFor(animName, 1f);
             currentLocomotionAnim = animName;
@@ -686,8 +551,6 @@ namespace junklite
 
         private void PlayJumpStart()
         {
-            if (attackActive) return;
-
             if (!HasAnimation(jumpStart))
             {
                 PlayJumpAir();
@@ -706,7 +569,6 @@ namespace junklite
 
         private void PlayJumpAir()
         {
-            if (attackActive) return;
             if (!HasAnimation(jumpAir)) return;
 
             var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false));
@@ -734,21 +596,60 @@ namespace junklite
                 return;
             }
 
-            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, landing, false);
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, landing, GetLoopFor(landing, false));
             entry.MixDuration = locomotionBlend;
             entry.TimeScale = GetTimeScaleFor(landing, 1f);
             currentLocomotionAnim = landing;
 
             // Queue idle after landing
-            var nextEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, idle, true, 0f);
-            nextEntry.MixDuration = locomotionBlend;
+            var idleEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, idle, GetLoopFor(idle, true), 0f);
+            idleEntry.TimeScale = GetTimeScaleFor(idle, 1f);
+        }
+
+        private void ApplyAnyStateFallbacks()
+        {
+            if (!playerState.IsAlive || playerState.IsStunned)
+                return;
+
+            if (playerState.IsDashing)
+                return;
+
+            if (attackOverwriteActive)
+                return;
+
+            string current = GetCurrentLocomotionName();
+
+            if (playerState.IsDoubleJumping || current == doubleJump)
+                return;
+
+            // If airborne and falling, force jump air (except during landing)
+            if (!playerState.IsGrounded && playerState.IsFalling)
+            {
+                if (current != jumpAir && current != landing)
+                {
+                    PlayJumpAir();
+                }
+                return;
+            }
+
+            // If grounded but in air animation, fix it
+            if (playerState.IsGrounded)
+            {
+                if (IsPlayingTransientAnim())
+                    return;
+
+                if (current == jumpStart || current == jumpAir || current == doubleJump || current == wallSlide)
+                {
+                    float speed = GetSpeed();
+                    PlayLocomotion(speed > speedThreshold ? run : idle, true);
+                }
+            }
         }
 
         private void UpdateLocomotionFromSpeed()
         {
-            if (IsPlayingTransientAnim()) return;
-            if (playerState == null || !playerState.IsGrounded) return;
-            if (attackActive) return;  // DON'T change locomotion during attack
+            if (!playerState.IsGrounded || IsPlayingTransientAnim() || attackOverwriteActive)
+                return;
 
             float speed = GetSpeed();
             string targetAnim = speed > speedThreshold ? run : idle;
@@ -759,7 +660,6 @@ namespace junklite
 
         private void UpdateRunSpeed()
         {
-            if (attackActive) return;  // Don't update run speed during attack
             if (GetCurrentLocomotionName() != run || !playerState.IsGrounded)
                 return;
 
@@ -769,25 +669,37 @@ namespace junklite
 
             float speed = GetSpeed();
             float scale = controller.MoveSpeed > 0f ? speed / controller.MoveSpeed : 1f;
-            entry.TimeScale = Mathf.Clamp(scale, minRunTimeScale, maxRunTimeScale);
+            entry.TimeScale = Mathf.Clamp(scale, minRunTimeScale, maxRunTimeScale) * runTimeScale;
         }
 
-        private void ApplyAnyStateFallbacks()
+        #endregion
+
+        #region Input Lock
+
+        private void ApplyAttackInputLock()
         {
-            if (playerState == null) return;
-            if (attackActive) return;  // Don't apply fallbacks during attack
+            if (!lockMovementDuringAttack || playerState == null || attackInputLockApplied)
+                return;
 
-            string current = GetCurrentLocomotionName();
-
-            // If grounded but still showing air animation
-            if (playerState.IsGrounded && (current == jumpAir || current == jumpStart || current == doubleJump))
+            if (!playerState.IsInputLocked)
             {
-                float speed = GetSpeed();
-                PlayLocomotion(speed > speedThreshold ? run : idle, true);
+                playerState.SetInputLocked(true);
+                if (controller != null)
+                    controller.StopAllVelocity();
+                attackInputLockApplied = true;
             }
         }
 
-        #endregion Locomotion
+        private void ReleaseAttackInputLock()
+        {
+            if (!lockMovementDuringAttack || playerState == null || !attackInputLockApplied)
+                return;
+
+            playerState.SetInputLocked(false);
+            attackInputLockApplied = false;
+        }
+
+        #endregion
 
         #region Utility
 
@@ -921,6 +833,6 @@ namespace junklite
                 Debug.Log($"[SpineAnim] {message}", this);
         }
 
-        #endregion Utility
+        #endregion
     }
 }
