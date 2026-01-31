@@ -15,6 +15,8 @@ namespace junklite
             public float damageMultiplier;
             public GameObject slashPrefab;
             public float hitRadius;
+            [Tooltip("Forward impulse applied during this attack (in facing direction)")]
+            public float forwardImpulse;
         }
 
 
