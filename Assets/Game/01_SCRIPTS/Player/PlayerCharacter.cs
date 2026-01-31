@@ -41,7 +41,7 @@ namespace junklite
         [SerializeField] private float cameraShakeOnHit = 5f;
         [SerializeField] private CinemachineImpulseSource damageImpulseSource;
 
-        public AttackDirection LastAttackDirection { get; set; }
+        public AttackDirection LastAttackDirection => _weaponManager?.CurrentAttackDirection ?? AttackDirection.Side;
         public bool JumpHeld => inputManager != null && inputManager.IsJumpHeld;
         public event Action<bool> OnCameraFollowRequested;
 

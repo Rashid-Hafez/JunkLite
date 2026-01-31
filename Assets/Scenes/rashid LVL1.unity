@@ -15317,7 +15317,6 @@ MonoBehaviour:
   weaponData: {fileID: 11400000, guid: c17a19fc19f98634282a2fe7b69fb440, type: 2}
   baseDamage: 0
   baseAttackSpeed: 0
-  comboWindow: 0.6
   logCombo: 0
 --- !u!212 &643304206
 SpriteRenderer:
@@ -62033,14 +62032,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 4078921973861079460, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0.33
-      objectReference: {fileID: 0}
-    - target: {fileID: 4580324285353963223, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-      propertyPath: chargeVFXPrefab
-      value: 
-      objectReference: {fileID: 500345726442012828, guid: 50a810bfd70577b41a2d43ae0241ea2d, type: 3}
     - target: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: m_Name
       value: Robot Enemy

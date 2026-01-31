@@ -15700,6 +15700,7 @@ MonoBehaviour:
   doubleJumpBlend: 0.05
   attackOverwrite: 1
   attackMix: 0
+  attackMixAttachmentThreshold: 0
   attackMixOut: 0
   attackMixOutDelay: 0
   attackTimeScale: 1

@@ -141,7 +141,7 @@ Transform:
   m_GameObject: {fileID: 4928195794348090371}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.37, y: 0, z: 0}
+  m_LocalPosition: {x: 0.33, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -464,7 +464,7 @@ MonoBehaviour:
   baseStats: {fileID: 11400000, guid: 9c72d1ca99bf4a341b6578b22cb2b01c, type: 2}
   config: {fileID: 11400000, guid: a06c1f2f196407e4683d5cd382702c22, type: 2}
   detectionZone: {fileID: 8900037622000748683}
-  attackRange: 1.45
+  attackRange: 2
   targetLayer:
     serializedVersion: 2
     m_Bits: 1
@@ -491,7 +491,7 @@ MonoBehaviour:
   dash:
     dashSpeed: 20
     dashDamage: 10
-    dashStopDistance: 1
+    dashStopDistance: 0.5
     dashKnockback: {x: 15, y: 5}
     dashHitbox: {fileID: 4642887769960604419}
     dashVFXPrefab: {fileID: 0}
@@ -538,6 +538,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
   flashDuration: 0.1
   flashAmount: 0.8
+  isSpine: 0
   flashColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!82 &1686940009611622928
 AudioSource:
