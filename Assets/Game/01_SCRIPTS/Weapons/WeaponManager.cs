@@ -37,6 +37,10 @@ namespace junklite
         [Header("Recoil")]
         [SerializeField] private float sideRecoil = 6f;
 
+        [Header("Attack Settings")]
+        [SerializeField] private float facingLockDuration = 0.25f;
+        [SerializeField] private float inputThreshold = 0.5f;
+
         [Header("Slash Pooling")]
         [SerializeField] private int poolSizePerSlash = 5;
         [SerializeField] private Transform slashPoolRoot;
@@ -56,6 +60,7 @@ namespace junklite
         private PlayerState playerState;
         private PlayerCharacter playerCharacter;
         private SpineAnimationController spineAnimController;
+        private Character2D5Controller controller;
 
         public WeaponInstance CurrentWeapon { get; private set; }
         private WorldWeaponPickup storedPickup;
@@ -66,19 +71,25 @@ namespace junklite
         public float Facing => Mathf.Sign(playerTransform.localScale.x);
 
         // =====================================================================
-        // ATTACK STATE - Single source of truth
+        // ATTACK STATE
         // =====================================================================
 
         private bool isAttacking;
         private AttackDirection currentAttackDir;
-        private WeaponComboData.ComboStep currentStep;
+        private WeaponData.ComboStep currentStep;
         private int currentComboIndex;
+        private Transform currentAttackAnchor;
 
         // Input buffer
         private bool hasBufferedInput;
-        private AttackDirection bufferedDirection;
+        private Vector2 bufferedInput;
+        private bool bufferedGrounded;
         private float bufferTimer;
         private const float BUFFER_DURATION = 0.3f;
+
+        // Public state for external systems
+        public bool IsAttacking => isAttacking;
+        public AttackDirection CurrentAttackDirection => currentAttackDir;
 
         #region Unity
 
@@ -89,6 +100,7 @@ namespace junklite
             playerState = GetComponentInParent<PlayerState>();
             playerCharacter = GetComponentInParent<PlayerCharacter>();
             spineAnimController = GetComponentInParent<SpineAnimationController>();
+            controller = GetComponentInParent<Character2D5Controller>();
 
             if (impulseSource == null)
             {
@@ -108,6 +120,14 @@ namespace junklite
                 {
                     hasBufferedInput = false;
                     Log("Buffer expired");
+                }
+                // Try to execute buffer if conditions are met
+                else if (!isAttacking && CurrentWeapon != null && CurrentWeapon.CanAttack)
+                {
+                    hasBufferedInput = false;
+                    Log("Executing buffered attack (cooldown cleared)");
+                    AttackDirection dir = ResolveAttackDirection(bufferedInput, bufferedGrounded);
+                    StartAttack(dir);
                 }
             }
         }
@@ -131,34 +151,41 @@ namespace junklite
         #region Public API
 
         /// <summary>
-        /// Main attack entry point. Call this from PlayerCharacter.
-        /// Handles state checking, buffering, and execution.
+        /// Main attack entry point. Takes raw input - handles direction resolution internally.
         /// </summary>
-        public void Attack(AttackDirection dir)
+        public void Attack(Vector2 moveInput, bool isGrounded)
         {
             if (CurrentWeapon == null)
                 return;
 
-            // If currently attacking, try to buffer
+            // If currently attacking, buffer the input
             if (isAttacking)
             {
-                BufferAttack(dir);
+                BufferAttack(moveInput, isGrounded);
                 return;
             }
 
-            // Execute attack
+            // Check weapon cooldown
+            if (!CurrentWeapon.CanAttack)
+            {
+                Log("Attack blocked - weapon on cooldown");
+                BufferAttack(moveInput, isGrounded);
+                return;
+            }
+
+            // Resolve direction and execute
+            AttackDirection dir = ResolveAttackDirection(moveInput, isGrounded);
             StartAttack(dir);
         }
 
         /// <summary>
         /// Called by SpineAnimationController when attack animation completes.
-        /// This is the ONLY place attack state should end.
         /// </summary>
         public void OnAttackAnimationComplete()
         {
-            Log($"Attack complete - combo {currentComboIndex}, dir {currentAttackDir}");
+            Log($"Attack complete - {currentAttackDir}, combo {currentComboIndex}");
 
-            // Notify weapon to advance combo and start combo window timer
+            // Notify weapon to advance combo and start cooldown + combo window
             if (CurrentWeapon != null)
                 CurrentWeapon.OnAttackComplete(currentAttackDir);
 
@@ -167,15 +194,7 @@ namespace junklite
             if (playerState != null)
                 playerState.SetAttacking(false);
 
-            // Check for buffered input
-            if (hasBufferedInput)
-            {
-                hasBufferedInput = false;
-                Log($"Executing buffered attack: {bufferedDirection}");
-
-                // Small delay to ensure clean state transition
-                StartCoroutine(ExecuteBufferedAttack(bufferedDirection));
-            }
+            // Buffer will be executed by Update() when cooldown clears
         }
 
         /// <summary>
@@ -185,7 +204,6 @@ namespace junklite
         {
             Log("Attack interrupted");
 
-            // Notify weapon to reset combo
             if (CurrentWeapon != null)
                 CurrentWeapon.OnAttackInterrupted();
 
@@ -237,30 +255,39 @@ namespace junklite
 
         #endregion Public API
 
-        #region Attack Core
+        #region Direction Resolution
 
-        private void BufferAttack(AttackDirection dir)
+        private AttackDirection ResolveAttackDirection(Vector2 moveInput, bool isGrounded)
         {
-            hasBufferedInput = true;
-            bufferedDirection = dir;
-            bufferTimer = BUFFER_DURATION;
-            Log($"Attack buffered: {dir}");
+            // Up attack: pressing up
+            if (moveInput.y > inputThreshold)
+                return AttackDirection.Up;
+
+            // Down attack: pressing down AND airborne
+            if (moveInput.y < -inputThreshold && !isGrounded)
+                return AttackDirection.Down;
+
+            // Default: side attack
+            return AttackDirection.Side;
         }
 
-        private IEnumerator ExecuteBufferedAttack(AttackDirection dir)
-        {
-            yield return null; // Wait one frame for clean state
+        #endregion Direction Resolution
 
-            if (!isAttacking && CurrentWeapon != null)
-            {
-                StartAttack(dir);
-            }
+        #region Attack Core
+
+        private void BufferAttack(Vector2 moveInput, bool isGrounded)
+        {
+            hasBufferedInput = true;
+            bufferedInput = moveInput;
+            bufferedGrounded = isGrounded;
+            bufferTimer = BUFFER_DURATION;
+            Log($"Attack buffered");
         }
 
         private void StartAttack(AttackDirection dir)
         {
-            // Get combo step from weapon (this also starts cooldown)
-            if (!CurrentWeapon.TryGetComboStep(dir, out var step, out int comboIndex))
+            // Get combo step and animation from weapon
+            if (!CurrentWeapon.TryGetComboStep(dir, out var step, out int comboIndex, out string animName))
             {
                 Log($"No combo step available for {dir}");
                 return;
@@ -271,30 +298,35 @@ namespace junklite
             currentAttackDir = dir;
             currentStep = step;
             currentComboIndex = comboIndex;
+            currentAttackAnchor = GetAttackTransform(dir);
 
-            Log($"Starting attack: {dir}, combo {comboIndex}");
+            Log($"Attack: {dir}, combo {comboIndex}, anim '{animName}'");
+
+            // Lock facing direction
+            if (controller != null && facingLockDuration > 0f)
+                controller.LockFacing(facingLockDuration);
 
             // Update player state
             if (playerState != null)
                 playerState.SetAttacking(true);
 
-            // Trigger animation - use SpineAnimationController directly for ALL attack types
-            if (spineAnimController != null)
+            // Play animation - pass the animation name, SpineAnimationController just plays it
+            if (spineAnimController != null && !string.IsNullOrEmpty(animName))
             {
-                spineAnimController.PlayAttack(dir, comboIndex);
+                spineAnimController.PlayAttackAnimation(animName);
             }
             else
             {
-                // No animation controller - complete attack immediately
-                Log("No SpineAnimationController - completing attack immediately");
+                // No animation - complete immediately
+                Log("No animation - completing immediately");
                 OnAttackAnimationComplete();
             }
 
-            // Execute attack logic (hit detection, damage, VFX)
+            // Execute attack (hit detection, damage, VFX)
             ExecuteAttack(dir, step);
         }
 
-        private void ExecuteAttack(AttackDirection dir, WeaponComboData.ComboStep step)
+        private void ExecuteAttack(AttackDirection dir, WeaponData.ComboStep step)
         {
             Transform anchor = GetAttackTransform(dir);
             if (anchor == null)
@@ -305,7 +337,7 @@ namespace junklite
             // Detect hits
             var hitResult = DetectHit(anchor.position, radius);
 
-            // Handle hit results
+            // Handle hit
             if (hitResult.type == AttackHitResult.Enemy && hitResult.target != null)
             {
                 StartCoroutine(DelayedDamage(hitResult.target, step));
@@ -351,7 +383,7 @@ namespace junklite
 
                 if ((mask & enemyLayer) != 0)
                 {
-                    float dist = Vector3.Distance(playerTransform.position, hits[i].transform.position);
+                    float dist = Vector3.Distance(origin, hits[i].transform.position);
                     if (dist < closestDist)
                     {
                         closestDist = dist;
@@ -382,7 +414,7 @@ namespace junklite
 
         #region Damage
 
-        private IEnumerator DelayedDamage(Collider target, WeaponComboData.ComboStep step)
+        private IEnumerator DelayedDamage(Collider target, WeaponData.ComboStep step)
         {
             if (enemyHitDelay > 0f)
                 yield return new WaitForSeconds(enemyHitDelay);
@@ -394,7 +426,7 @@ namespace junklite
             DealDamage(target, step);
         }
 
-        private void DealDamage(Collider target, WeaponComboData.ComboStep step)
+        private void DealDamage(Collider target, WeaponData.ComboStep step)
         {
             var damageable = target.GetComponent<IDamageable>()
                           ?? target.GetComponentInParent<IDamageable>();
@@ -424,8 +456,13 @@ namespace junklite
                 // Enemy hit VFX
                 if (CombatEffectsManager.Instance != null)
                 {
-                    Vector3 hitPoint = target.ClosestPoint(playerTransform.position);
-                    Vector3 hitDir = (target.transform.position - playerTransform.position).normalized;
+                    Vector3 originPoint = currentAttackAnchor != null
+                        ? currentAttackAnchor.position
+                        : playerTransform.position + Vector3.up;
+
+                    Vector3 hitPoint = target.ClosestPoint(originPoint);
+                    Vector3 hitDir = (target.transform.position - originPoint).normalized;
+
                     CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDir);
                     CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, hitDir);
                 }
@@ -442,27 +479,25 @@ namespace junklite
 
         #region VFX
 
-        private void SpawnAttackVFX(AttackDirection dir, WeaponComboData.ComboStep step, Transform anchor, HitDetectionResult hit)
+        private void SpawnAttackVFX(AttackDirection dir, WeaponData.ComboStep step, Transform anchor, HitDetectionResult hit)
         {
             if (hit.type != AttackHitResult.None)
             {
-                Vector3 impactPoint = ResolveImpactPoint(dir, anchor.position, step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir));
+                float radius = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
+                Vector3 impactPoint = ResolveImpactPoint(dir, anchor.position, radius);
                 Vector3 attackDir = GetAttackDirection(dir);
 
-                // Environment VFX
                 if (hit.type == AttackHitResult.Environment && CombatEffectsManager.Instance != null)
                 {
                     CombatEffectsManager.Instance.SpawnEnvHitParticle(impactPoint, attackDir);
                     CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
                 }
 
-                // Slash at impact
                 if (step.slashPrefab != null)
                     PlaySlashAt(step.slashPrefab, anchor, impactPoint);
             }
             else
             {
-                // Slash at default position
                 if (step.slashPrefab != null)
                     PlaySlash(step.slashPrefab, anchor);
             }
@@ -510,7 +545,7 @@ namespace junklite
 
         #region Slash Pool
 
-        private void InitializeSlashPools(WeaponComboData comboData)
+        private void InitializeSlashPools(WeaponData weaponData)
         {
             slashPools.Clear();
 
@@ -529,11 +564,14 @@ namespace junklite
                 slashPools.Add(prefab, pool);
             }
 
-            foreach (var step in comboData.sideComboSteps)
-                Register(step.slashPrefab);
+            if (weaponData.sideCombo != null)
+            {
+                foreach (var step in weaponData.sideCombo)
+                    Register(step.slashPrefab);
+            }
 
-            Register(comboData.upAttack.slashPrefab);
-            Register(comboData.downAttack.slashPrefab);
+            Register(weaponData.upAttack.slashPrefab);
+            Register(weaponData.downAttack.slashPrefab);
         }
 
         private GameObject GetSlash(GameObject prefab, Transform attackAnchor)
@@ -623,7 +661,7 @@ namespace junklite
             if (inventory != null)
                 inventory.EquipAllPossible();
 
-            InitializeSlashPools(CurrentWeapon.weaponData.comboData);
+            InitializeSlashPools(CurrentWeapon.weaponData);
             OnWeaponChanged?.Invoke();
         }
 

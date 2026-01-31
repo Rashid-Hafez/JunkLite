@@ -32879,7 +32879,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7117484140060184854, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.98
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7117484140060184854, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
       propertyPath: m_LocalPosition.z
@@ -62032,6 +62032,10 @@ PrefabInstance:
     - target: {fileID: 3734515324607090471, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4078921973861079460, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.33
       objectReference: {fileID: 0}
     - target: {fileID: 4580324285353963223, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
       propertyPath: chargeVFXPrefab

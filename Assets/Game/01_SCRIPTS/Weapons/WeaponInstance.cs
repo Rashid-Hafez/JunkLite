@@ -5,23 +5,28 @@ namespace junklite
 {
     public class WeaponInstance : MonoBehaviour
     {
-        [Header("Data (Assigned in Prefab)")]
+        [Header("Data")]
         public WeaponData weaponData;
 
-        [Header("Stats")]
+        [Header("Runtime Stats")]
         public float baseDamage;
         public float baseAttackSpeed;
-
-        [Header("Combo Settings")]
-        [Tooltip("Time after attack ENDS before combo resets (the combo input window)")]
-        [SerializeField] private float comboWindow = 0.6f;
 
         [Header("Debug")]
         [SerializeField] private bool logCombo = false;
 
+        // =====================================================================
+        // TIMING STATE
+        // =====================================================================
+
+        // Cooldown: time since attack ended, compared against attackCooldown
+        private float cooldownTimer = 0f;
+        private bool onCooldown = false;
+
+        // Combo: time since attack ended, compared against comboWindow
         private int sideComboIndex = 0;
         private float comboTimer = 0f;
-        private bool comboTimerActive = false;
+        private bool comboActive = false;
 
         private Rigidbody ownerRb;
 
@@ -29,32 +34,71 @@ namespace junklite
         private readonly List<ActiveMod> activeMods = new();
         public System.Action OnModsChanged;
 
-        // Public combo state for debugging
+        // =====================================================================
+        // PUBLIC STATE
+        // =====================================================================
+
         public int CurrentComboIndex => sideComboIndex;
-        public float ComboTimeRemaining => comboTimerActive ? Mathf.Max(0, comboWindow - comboTimer) : 0f;
+
+        /// <summary>
+        /// True if attack cooldown has expired and player can attack.
+        /// </summary>
+        public bool CanAttack => !onCooldown;
+
+        public float CooldownRemaining => onCooldown ? Mathf.Max(0, AttackCooldown - cooldownTimer) : 0f;
+        public float ComboTimeRemaining => comboActive ? Mathf.Max(0, ComboWindow - comboTimer) : 0f;
+
+        // Timing values from WeaponData (with safe defaults)
+        private float AttackCooldown => weaponData != null ? weaponData.attackCooldown : 0.2f;
+        private float ComboWindow => weaponData != null ? weaponData.comboWindow : 0.5f;
+
+        // =====================================================================
+        // UNITY LIFECYCLE
+        // =====================================================================
 
         private void Start()
         {
-            if (weaponData == null || weaponData.comboData == null)
+            if (weaponData == null)
             {
-                Debug.LogError($"WeaponInstance '{name}' missing WeaponData / ComboData");
+                Debug.LogError($"WeaponInstance '{name}' missing WeaponData!");
                 return;
             }
 
             baseDamage = weaponData.baseDamage;
             baseAttackSpeed = weaponData.baseAttackSpeed;
+
+            // Validate timing configuration
+            if (weaponData.comboWindow <= weaponData.attackCooldown)
+            {
+                Debug.LogWarning($"[WeaponInstance] '{weaponData.displayName}': comboWindow ({weaponData.comboWindow}s) must be > attackCooldown ({weaponData.attackCooldown}s)! Combo input window is {weaponData.ComboInputWindow}s");
+            }
         }
 
         private void Update()
         {
-            // Only tick combo timer when it's active (after attack completes)
-            if (comboTimerActive)
+            if (!onCooldown && !comboActive)
+                return;
+
+            float dt = Time.deltaTime;
+
+            // Both timers run in parallel after attack ends
+            if (onCooldown)
             {
-                comboTimer += Time.deltaTime;
-                if (comboTimer >= comboWindow)
+                cooldownTimer += dt;
+                if (cooldownTimer >= AttackCooldown)
                 {
-                    Log($"Combo window expired - resetting from {sideComboIndex} to 0");
-                    ResetSideCombo();
+                    onCooldown = false;
+                    Log($"Cooldown ended ({AttackCooldown}s) - can attack");
+                }
+            }
+
+            if (comboActive)
+            {
+                comboTimer += dt;
+                if (comboTimer >= ComboWindow)
+                {
+                    Log($"Combo window expired ({ComboWindow}s) - resetting combo from {sideComboIndex} to 0");
+                    ResetCombo();
                 }
             }
         }
@@ -64,111 +108,119 @@ namespace junklite
             ownerRb = rb;
         }
 
-        // ==================================================
+        // =====================================================================
         // COMBO STEP RETRIEVAL
-        // ==================================================
+        // =====================================================================
 
         /// <summary>
-        /// Gets the current combo step for the attack direction.
-        /// Returns the step data and combo index (-1 for up/down attacks).
+        /// Gets the current combo step and animation name.
+        /// Caller should check CanAttack before calling this.
         /// </summary>
-        public bool TryGetComboStep(AttackDirection dir, out WeaponComboData.ComboStep step, out int comboIndex)
+        public bool TryGetComboStep(AttackDirection dir, out WeaponData.ComboStep step, out int comboIndex, out string animationName)
         {
             step = default;
             comboIndex = -1;
+            animationName = null;
 
-            if (weaponData == null || weaponData.comboData == null)
+            if (weaponData == null)
                 return false;
 
-            // Stop combo timer while attacking
-            comboTimerActive = false;
+            // Stop combo timer while attacking (restarts when attack completes)
+            comboActive = false;
 
             if (dir == AttackDirection.Side)
             {
-                var sideSteps = weaponData.comboData.sideComboSteps;
-                if (sideSteps == null || sideSteps.Length == 0)
+                if (weaponData.sideCombo == null || weaponData.sideCombo.Length == 0)
                     return false;
 
-                // Clamp index in case combo data changed
-                if (sideComboIndex >= sideSteps.Length)
+                // Clamp index
+                if (sideComboIndex >= weaponData.sideCombo.Length)
                     sideComboIndex = 0;
 
                 comboIndex = sideComboIndex;
-                step = sideSteps[sideComboIndex];
+                step = weaponData.sideCombo[sideComboIndex];
+                animationName = step.animationName;
 
-                Log($"Side attack - combo {sideComboIndex + 1}/{sideSteps.Length}");
+                Log($"Side attack - combo {sideComboIndex + 1}/{weaponData.sideCombo.Length}, anim: '{animationName}'");
             }
             else
             {
-                // Up/Down attacks reset side combo
+                // Up/Down attacks break combo
                 if (sideComboIndex > 0)
                 {
-                    Log($"Up/Down attack - resetting side combo from {sideComboIndex}");
-                    ResetSideCombo();
+                    Log($"{dir} attack - breaking combo from {sideComboIndex}");
+                    ResetCombo();
                 }
 
-                step = dir == AttackDirection.Up
-                    ? weaponData.comboData.upAttack
-                    : weaponData.comboData.downAttack;
+                step = dir == AttackDirection.Up ? weaponData.upAttack : weaponData.downAttack;
+                animationName = step.animationName;
+
+                Log($"{dir} attack, anim: '{animationName}'");
             }
 
-            return true;
+            return !string.IsNullOrEmpty(animationName);
         }
 
+        // =====================================================================
+        // ATTACK CALLBACKS
+        // =====================================================================
+
         /// <summary>
-        /// Called by WeaponManager when attack animation completes.
-        /// This advances the combo and starts the combo window timer.
+        /// Called when attack animation completes.
+        /// Starts BOTH cooldown and combo window timers.
         /// </summary>
         public void OnAttackComplete(AttackDirection dir)
         {
+            // Advance combo for side attacks
             if (dir == AttackDirection.Side)
-            {
-                AdvanceSideCombo();
-            }
+                AdvanceCombo();
 
-            // Start combo window timer
+            // Start cooldown timer
+            cooldownTimer = 0f;
+            onCooldown = true;
+
+            // Start combo window timer (runs in parallel)
             comboTimer = 0f;
-            comboTimerActive = true;
+            comboActive = true;
 
-            Log($"Attack complete - combo window started ({comboWindow}s), next combo index: {sideComboIndex}");
+            Log($"Attack complete - cooldown: {AttackCooldown}s, combo window: {ComboWindow}s (input window: {weaponData.ComboInputWindow}s), next combo: {sideComboIndex}");
         }
 
         /// <summary>
-        /// Called when attack is interrupted (dash, stun, etc.)
-        /// Resets combo state.
+        /// Called when attack is interrupted (dash, stun, etc).
+        /// No cooldown penalty - player can act immediately.
         /// </summary>
         public void OnAttackInterrupted()
         {
-            Log($"Attack interrupted - resetting combo from {sideComboIndex}");
-            ResetSideCombo();
+            Log($"Attack interrupted - no cooldown, resetting combo");
+            onCooldown = false;
+            ResetCombo();
         }
 
-        private void AdvanceSideCombo()
+        private void AdvanceCombo()
         {
-            var sideSteps = weaponData?.comboData?.sideComboSteps;
-            if (sideSteps == null || sideSteps.Length == 0)
+            if (weaponData?.sideCombo == null || weaponData.sideCombo.Length == 0)
                 return;
 
             sideComboIndex++;
 
-            // Wrap around to beginning
-            if (sideComboIndex >= sideSteps.Length)
+            if (sideComboIndex >= weaponData.sideCombo.Length)
             {
-                Log($"Combo complete! Wrapping from {sideComboIndex} to 0");
+                Log($"Combo finished! Wrapping to 0");
                 sideComboIndex = 0;
             }
         }
 
-        private void ResetSideCombo()
+        private void ResetCombo()
         {
             sideComboIndex = 0;
             comboTimer = 0f;
-            comboTimerActive = false;
+            comboActive = false;
         }
 
-        // ==================================================
+        // =====================================================================
         // MOD SYSTEM
-        // ==================================================
+        // =====================================================================
 
         public int MaxModSlots => weaponData != null ? weaponData.maxActiveModSlots : 0;
         public bool HasFreeSlot => activeMods.Count < MaxModSlots;
@@ -195,11 +247,10 @@ namespace junklite
                 return false;
 
             activeMods.Add(mod);
-
             mod.data.OnEquip(this);
             OnModsChanged?.Invoke();
 
-            Debug.Log($"[Weapon] Mod equipped: {mod.data.modName} (durability: {mod.DurabilityPercent:P0})");
+            Debug.Log($"[Weapon] Mod equipped: {mod.data.modName}");
             return true;
         }
 
@@ -220,7 +271,6 @@ namespace junklite
             for (int i = activeMods.Count - 1; i >= 0; i--)
             {
                 var mod = activeMods[i];
-
                 bool effectUsed = mod.data.OnHit(this, enemy, player);
 
                 if (effectUsed)

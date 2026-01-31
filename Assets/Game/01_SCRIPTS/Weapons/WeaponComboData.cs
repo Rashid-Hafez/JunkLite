@@ -9,6 +9,9 @@ namespace junklite
         [System.Serializable]
         public struct ComboStep
         {
+            [Header("Animation")]
+            public string animationName;
+
             public float damageMultiplier;
             public GameObject slashPrefab;
             public float hitRadius;

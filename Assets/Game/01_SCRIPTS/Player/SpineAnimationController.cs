@@ -6,7 +6,8 @@ namespace junklite
 {
     /// <summary>
     /// Event-driven Spine animation controller.
-    /// UPDATED: Removed duplicate buffer logic, now properly calls WeaponManager callbacks.
+    /// REFACTORED: Pure animation playback - no attack logic.
+    /// WeaponManager provides animation names, this just plays them.
     /// </summary>
     public class SpineAnimationController : MonoBehaviour
     {
@@ -17,7 +18,7 @@ namespace junklite
         [SerializeField] private int locomotionTrack = 0;
         [SerializeField] private int overlayTrack = 1;
 
-        [Header("Animations")]
+        [Header("Locomotion Animations")]
         [SerializeField] private string idle = "idle";
         [SerializeField] private string run = "run";
         [SerializeField] private string jumpStart = "Jump_1_Start";
@@ -55,34 +56,22 @@ namespace junklite
         [SerializeField, Range(0.1f, 3f)] private float rollTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float stunTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float deathTimeScale = 1f;
-        [SerializeField] private float[] comboAttackTimeScales;
 
-        [Header("Locomotion")]
+        [Header("Locomotion Settings")]
         [SerializeField] private float speedThreshold = 0.1f;
         [SerializeField] private float locomotionBlend = 0.1f;
         [SerializeField] private float minRunTimeScale = 0.8f;
         [SerializeField] private float maxRunTimeScale = 1.3f;
         [SerializeField] private float doubleJumpBlend = 0.05f;
 
-        [Header("Attack Overlay")]
-        [SerializeField] private string[] comboAttacks;
-        [SerializeField] private string upAttackAnim = "attackUp";
-        [SerializeField] private string downAttackAnim = "attackDown";
-        [SerializeField] private string fallbackAttack = "attack";
+        [Header("Attack Animation Settings")]
         [SerializeField] private bool attackOverwrite = false;
         [SerializeField] private float attackMix = 0.1f;
-        [SerializeField] private float attackMixAttachmentThreshold = 0f;
         [SerializeField] private float attackMixOut = 0.25f;
         [SerializeField] private float attackMixOutDelay = 0.05f;
+        [SerializeField, Range(0.1f, 3f)] private float attackTimeScale = 1f;
 
-        [Header("Attack Per-Entry Overrides (optional)")]
-        [SerializeField] private bool[] attackEntryOverwrite;
-        [SerializeField] private float[] attackEntryMix;
-        [SerializeField] private float[] attackEntryAttachmentThreshold;
-        [SerializeField] private float[] attackEntryMixOut;
-        [SerializeField] private float[] attackEntryMixOutDelay;
-
-        [Header("Attack Lock")]
+        [Header("Attack Input Lock")]
         [SerializeField] private bool lockMovementDuringAttack = true;
 
         [Header("Footsteps")]
@@ -94,6 +83,7 @@ namespace junklite
         [SerializeField] private bool logStateChanges = false;
         [SerializeField] private bool logAttacks = false;
 
+        // References
         private PlayerState playerState;
         private Character2D5Controller controller;
         private WeaponManager weaponManager;
@@ -103,10 +93,10 @@ namespace junklite
         private string currentLocomotionAnim = "";
         private bool attackActive = false;
         private bool attackOverwriteActive = false;
-        private float cachedAttackMixOut = 0.25f;
-        private float cachedAttackMixOutDelay = 0.05f;
         private bool attackInputLockApplied = false;
         private TrackEntry currentAttackEntry = null;
+
+        #region Unity Lifecycle
 
         private void Awake()
         {
@@ -132,7 +122,7 @@ namespace junklite
                 return;
             }
 
-            // Subscribe to state events
+            // Subscribe to state events (locomotion only)
             playerState.OnGroundedChanged += OnGroundedChanged;
             playerState.OnMovingChanged += OnMovingChanged;
             playerState.OnJumpStateChanged += OnJumpStateChanged;
@@ -142,7 +132,6 @@ namespace junklite
             playerState.OnWallSlideChanged += OnWallSlideChanged;
             playerState.OnDoubleJumpChanged += OnDoubleJumpChanged;
             playerState.OnStunnedChanged += OnStunnedChanged;
-            playerState.OnComboAttackTriggered += OnComboAttackTriggered;
             playerState.OnDeath += OnDeath;
 
             if (skeletonAnimation != null)
@@ -179,7 +168,6 @@ namespace junklite
                 playerState.OnWallSlideChanged -= OnWallSlideChanged;
                 playerState.OnDoubleJumpChanged -= OnDoubleJumpChanged;
                 playerState.OnStunnedChanged -= OnStunnedChanged;
-                playerState.OnComboAttackTriggered -= OnComboAttackTriggered;
                 playerState.OnDeath -= OnDeath;
             }
 
@@ -192,126 +180,63 @@ namespace junklite
             ReleaseAttackInputLock();
         }
 
-        // ========== ATTACK HANDLING ==========
+        #endregion Unity Lifecycle
+
+        #region Attack Animation (Public API)
 
         /// <summary>
-        /// Called by WeaponManager to play attack animation.
-        /// Handles all attack directions: Side (combo), Up, Down.
+        /// Plays an attack animation by name. Called by WeaponManager.
+        /// No attack logic here - just animation playback.
         /// </summary>
-        public void PlayAttack(AttackDirection dir, int comboIndex)
+        public void PlayAttackAnimation(string animationName)
         {
-            string anim;
-            int entryIndex = comboIndex;
-
-            switch (dir)
+            if (string.IsNullOrEmpty(animationName))
             {
-                case AttackDirection.Up:
-                    anim = !string.IsNullOrEmpty(upAttackAnim) && HasAnimation(upAttackAnim)
-                        ? upAttackAnim
-                        : fallbackAttack;
-                    entryIndex = -1; // Use default timing for up attacks
-                    break;
-
-                case AttackDirection.Down:
-                    anim = !string.IsNullOrEmpty(downAttackAnim) && HasAnimation(downAttackAnim)
-                        ? downAttackAnim
-                        : fallbackAttack;
-                    entryIndex = -1; // Use default timing for down attacks
-                    break;
-
-                default: // Side combo
-                    anim = fallbackAttack;
-                    if (comboAttacks != null && comboAttacks.Length > 0 && comboIndex >= 0)
-                    {
-                        int idx = Mathf.Clamp(comboIndex, 0, comboAttacks.Length - 1);
-                        if (!string.IsNullOrEmpty(comboAttacks[idx]))
-                        {
-                            anim = comboAttacks[idx];
-                            entryIndex = idx;
-                        }
-                    }
-                    break;
-            }
-
-            LogAttack($"PlayAttack: dir={dir}, anim={anim}, entryIndex={entryIndex}");
-            StartAttack(anim, entryIndex);
-        }
-
-        /// <summary>
-        /// Called by PlayerState when combo attack is triggered (legacy support).
-        /// Now primarily used for side attacks triggered via TriggerComboAttack.
-        /// </summary>
-        private void OnComboAttackTriggered(int comboIndex)
-        {
-            // NOTE: WeaponManager now calls PlayAttack() directly, so this is kept
-            // for backwards compatibility but should not trigger duplicate animations.
-            // If attackActive is already true, we skip since PlayAttack was already called.
-            if (attackActive)
-            {
-                LogAttack($"OnComboAttackTriggered ignored (already attacking): comboIndex={comboIndex}");
-                return;
-            }
-
-            // Fallback: if somehow triggered without PlayAttack, play the animation
-            LogAttack($"OnComboAttackTriggered fallback: comboIndex={comboIndex}");
-            PlayAttack(AttackDirection.Side, comboIndex);
-        }
-
-        private void StartAttack(string anim, int entryIndex = -1)
-        {
-            if (!HasAnimation(anim))
-            {
-                LogAttack($"Animation not found: {anim} - completing attack immediately");
-                // No animation exists - notify WeaponManager to complete attack
+                LogAttack("PlayAttackAnimation called with null/empty name - completing immediately");
                 NotifyWeaponManagerAttackComplete();
                 return;
             }
 
-            // If already attacking, this is an error state - notify WeaponManager
+            if (!HasAnimation(animationName))
+            {
+                LogAttack($"Animation not found: '{animationName}' - completing immediately");
+                NotifyWeaponManagerAttackComplete();
+                return;
+            }
+
+            // If already attacking, force finish previous
             if (attackActive)
             {
-                LogAttack($"StartAttack called while already attacking - forcing complete");
+                LogAttack("Already attacking - forcing previous attack complete");
                 ForceFinishAttack();
             }
 
             attackActive = true;
             ApplyAttackInputLock();
 
-            bool useOverwrite = GetEntryBool(attackEntryOverwrite, entryIndex, attackOverwrite);
-            float mixIn = GetEntryFloat(attackEntryMix, entryIndex, attackMix);
-            float mixOut = GetEntryFloat(attackEntryMixOut, entryIndex, attackMixOut);
-            float mixOutDelay = GetEntryFloat(attackEntryMixOutDelay, entryIndex, attackMixOutDelay);
-            float attachmentThreshold = GetEntryFloat(attackEntryAttachmentThreshold, entryIndex, attackMixAttachmentThreshold);
-            float timeScale = GetAttackTimeScale(entryIndex);
+            LogAttack($"Playing attack: '{animationName}'");
 
-            attackOverwriteActive = useOverwrite;
-            cachedAttackMixOut = mixOut;
-            cachedAttackMixOutDelay = mixOutDelay;
-
-            if (useOverwrite)
+            if (attackOverwrite)
             {
-                var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, anim, false);
-                entry.MixDuration = mixIn;
+                attackOverwriteActive = true;
+                var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, animationName, false);
+                entry.MixDuration = attackMix;
                 entry.MixBlend = MixBlend.Replace;
-                entry.TimeScale = timeScale;
+                entry.TimeScale = attackTimeScale;
                 entry.Complete += _ => FinishAttackOverwrite();
                 entry.Interrupt += _ => OnAttackInterrupted();
                 currentAttackEntry = entry;
-
-                LogAttack($"Attack (overwrite): {anim}, timeScale={timeScale}");
             }
             else
             {
-                var entry = skeletonAnimation.AnimationState.SetAnimation(overlayTrack, anim, false);
-                entry.MixDuration = mixIn;
+                attackOverwriteActive = false;
+                var entry = skeletonAnimation.AnimationState.SetAnimation(overlayTrack, animationName, false);
+                entry.MixDuration = attackMix;
                 entry.MixBlend = MixBlend.Replace;
-                entry.MixAttachmentThreshold = attachmentThreshold;
-                entry.TimeScale = timeScale;
+                entry.TimeScale = attackTimeScale;
                 entry.Complete += _ => FinishAttackOverlay();
                 entry.Interrupt += _ => OnAttackInterrupted();
                 currentAttackEntry = entry;
-
-                LogAttack($"Attack (overlay): {anim}, timeScale={timeScale}");
             }
         }
 
@@ -329,10 +254,9 @@ namespace junklite
             // Clear overlay track with blend out
             if (skeletonAnimation != null)
             {
-                skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, cachedAttackMixOut, cachedAttackMixOutDelay);
+                skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, attackMixOut, attackMixOutDelay);
             }
 
-            // Notify WeaponManager - this is the key callback!
             NotifyWeaponManagerAttackComplete();
         }
 
@@ -361,7 +285,6 @@ namespace junklite
                 }
             }
 
-            // Notify WeaponManager
             NotifyWeaponManagerAttackComplete();
         }
 
@@ -369,20 +292,16 @@ namespace junklite
         {
             if (!attackActive) return;
 
-            LogAttack("Attack interrupted");
+            LogAttack("Attack interrupted by animation system");
 
             attackActive = false;
             attackOverwriteActive = false;
             currentAttackEntry = null;
             ReleaseAttackInputLock();
 
-            // Clear overlay if it was an overlay attack
-            if (skeletonAnimation != null && !attackOverwriteActive)
-            {
+            if (skeletonAnimation != null)
                 skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
-            }
 
-            // Notify WeaponManager of interruption
             if (weaponManager != null)
                 weaponManager.OnAttackInterrupted();
         }
@@ -407,7 +326,7 @@ namespace junklite
         }
 
         /// <summary>
-        /// Called when dash/stun/death interrupts attack
+        /// Called when dash/stun/death interrupts attack.
         /// </summary>
         private void InterruptAttack(string reason)
         {
@@ -423,12 +342,13 @@ namespace junklite
             if (skeletonAnimation != null)
                 skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
 
-            // Notify WeaponManager
             if (weaponManager != null)
                 weaponManager.OnAttackInterrupted();
         }
 
-        // ========== STATE EVENT HANDLERS ==========
+        #endregion Attack Animation
+
+        #region State Event Handlers
 
         private void OnGroundedChanged(bool grounded)
         {
@@ -615,7 +535,9 @@ namespace junklite
             }
         }
 
-        // ========== LOCOMOTION ==========
+        #endregion State Event Handlers
+
+        #region Locomotion
 
         private void PlayLocomotion(string animName, bool loop)
         {
@@ -717,7 +639,6 @@ namespace junklite
 
         private void ApplyAnyStateFallbacks()
         {
-            // Safety: ensure we're in a valid state
             if (playerState == null) return;
 
             string current = GetCurrentLocomotionName();
@@ -733,7 +654,36 @@ namespace junklite
             }
         }
 
-        // ========== UTILITY ==========
+        #endregion Locomotion
+
+        #region Input Lock
+
+        private void ApplyAttackInputLock()
+        {
+            if (!lockMovementDuringAttack || playerState == null || attackInputLockApplied)
+                return;
+
+            if (!playerState.IsInputLocked)
+            {
+                playerState.SetInputLocked(true);
+                if (controller != null)
+                    controller.StopAllVelocity();
+                attackInputLockApplied = true;
+            }
+        }
+
+        private void ReleaseAttackInputLock()
+        {
+            if (!lockMovementDuringAttack || playerState == null || !attackInputLockApplied)
+                return;
+
+            playerState.SetInputLocked(false);
+            attackInputLockApplied = false;
+        }
+
+        #endregion Input Lock
+
+        #region Utility
 
         private bool IsPlayingTransientAnim()
         {
@@ -747,19 +697,6 @@ namespace junklite
                    current == doubleJump ||
                    current == wallSlide ||
                    current == death;
-        }
-
-        private bool GetEntryBool(bool[] values, int index, bool fallback)
-        {
-            if (values == null || index < 0 || index >= values.Length) return fallback;
-            return values[index];
-        }
-
-        private float GetEntryFloat(float[] values, int index, float fallback)
-        {
-            if (values == null || index < 0 || index >= values.Length) return fallback;
-            float value = values[index];
-            return value > 0f ? value : fallback;
         }
 
         private void ClearDoubleJumpFlag()
@@ -832,16 +769,6 @@ namespace junklite
             return fallback;
         }
 
-        private float GetAttackTimeScale(int entryIndex)
-        {
-            if (comboAttackTimeScales != null && entryIndex >= 0 && entryIndex < comboAttackTimeScales.Length)
-            {
-                float scale = comboAttackTimeScales[entryIndex];
-                return scale > 0f ? scale : 1f;
-            }
-            return 1f;
-        }
-
         private void ConfigureMixes()
         {
             var data = skeletonAnimation.AnimationState?.Data;
@@ -876,29 +803,6 @@ namespace junklite
             footstepSource.Play();
         }
 
-        private void ApplyAttackInputLock()
-        {
-            if (!lockMovementDuringAttack || playerState == null || attackInputLockApplied)
-                return;
-
-            if (!playerState.IsInputLocked)
-            {
-                playerState.SetInputLocked(true);
-                if (controller != null)
-                    controller.StopAllVelocity();
-                attackInputLockApplied = true;
-            }
-        }
-
-        private void ReleaseAttackInputLock()
-        {
-            if (!lockMovementDuringAttack || playerState == null || !attackInputLockApplied)
-                return;
-
-            playerState.SetInputLocked(false);
-            attackInputLockApplied = false;
-        }
-
         private void Log(string message)
         {
             if (logStateChanges)
@@ -910,5 +814,7 @@ namespace junklite
             if (logAttacks)
                 Debug.Log($"[SpineAnim] {message}", this);
         }
+
+        #endregion Utility
     }
 }

@@ -543,29 +543,10 @@ namespace junklite
             if (playerState == null || !playerState.CanAttack || _weaponManager == null)
                 return;
 
-            Vector2 move = inputManager.MoveDirection;
-
-            AttackDirection dir = AttackDirection.Side;
-
-            // UP ATTACK (W)
-            if (move.y > 0.5f)
-            {
-                dir = AttackDirection.Up;
-            }
-
-            // DOWN ATTACK (S + AIR ONLY)
-            else if (move.y < -0.5f && !playerState.IsGrounded)
-            {
-                dir = AttackDirection.Down;
-            }
-
-            // Lock facing direction during attack
-            if (Controller != null && attackFacingLockDuration > 0f)
-                Controller.LockFacing(attackFacingLockDuration);
-
-            LastAttackDirection = dir;
-            _weaponManager.Attack(dir);
+            // Pass raw input - WeaponManager handles direction resolution
+            _weaponManager.Attack(inputManager.MoveDirection, playerState.IsGrounded);
         }
+
 
         public void RequestCameraFollow(bool follow)
         {
