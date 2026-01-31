@@ -28,7 +28,7 @@ Shader "Spine/Skeleton Fill" {
 		Tags { "Queue"="Transparent" "IgnoreProjector"="True" "RenderType"="Transparent" "PreviewType"="Plane" }
 		Blend One OneMinusSrcAlpha
 		Cull Off
-		ZWrite Off
+		ZWrite On
 		Lighting Off
 
 		Stencil {

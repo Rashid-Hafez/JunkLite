@@ -391,7 +391,7 @@ namespace junklite
                 FeedbackManager.Instance.DoHitFeedback(impulseSource, enemyHitHitstopDuration, enemyHitShakeForce);
         }
 
-        #region Damage
+        #endregion Damage
 
         #region VFX
 

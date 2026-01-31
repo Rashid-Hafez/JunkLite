@@ -589,8 +589,8 @@ namespace junklite
             }
             else
             {
-                // Blend overlay track out after the attack completes
-                skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, cachedAttackMixOut, cachedAttackMixOutDelay);
+            // Blend overlay track out after the attack completes
+            skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, cachedAttackMixOut, cachedAttackMixOutDelay);
             }
         }
 
@@ -625,15 +625,15 @@ namespace junklite
             }
             else
             {
-                // Restore appropriate state after overwrite attack
-                if (playerState.IsGrounded)
-                {
-                    float speed = GetSpeed();
-                    PlayLocomotion(speed > speedThreshold ? run : idle, true);
-                }
-                else
-                {
-                    PlayJumpAir();
+            // Restore appropriate state after overwrite attack
+            if (playerState.IsGrounded)
+            {
+                float speed = GetSpeed();
+                PlayLocomotion(speed > speedThreshold ? run : idle, true);
+            }
+            else
+            {
+                PlayJumpAir();
                 }
             }
         }
