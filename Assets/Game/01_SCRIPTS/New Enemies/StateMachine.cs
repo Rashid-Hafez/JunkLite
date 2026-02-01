@@ -58,6 +58,11 @@ namespace junklite
             return null;
         }
 
+        public bool HasState<T>() where T : class, IState
+        {
+            return states.ContainsKey(typeof(T));
+        }
+
         public bool IsInState<T>() where T : IState
         {
             return currentState?.GetType() == typeof(T);

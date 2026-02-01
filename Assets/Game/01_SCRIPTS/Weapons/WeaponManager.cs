@@ -25,9 +25,6 @@ namespace junklite
         [SerializeField] private LayerMask enemyLayer;
         [SerializeField] private LayerMask environmentLayer;
 
-        [Header("Knockback")]
-        [SerializeField] private Vector2 defaultKnockback = new Vector2(8f, 4f);
-
         [Header("Feedback Settings")]
         [SerializeField] private Unity.Cinemachine.CinemachineImpulseSource impulseSource;
         [SerializeField] private float enemyHitHitstopDuration = 0.08f;
@@ -438,7 +435,7 @@ namespace junklite
             if (step.damageMultiplier > 0f)
                 damage *= step.damageMultiplier;
 
-            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, defaultKnockback);
+            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, CurrentWeapon.weaponData.knockbackForce);
             bool damageDealt = damageable.TakeDamage(damageInfo);
 
             if (damageDealt)
@@ -461,7 +458,7 @@ namespace junklite
                         : playerTransform.position + Vector3.up;
 
                     Vector3 hitPoint = target.ClosestPoint(originPoint);
-                    Vector3 hitDir = (target.transform.position - originPoint).normalized;
+                    Vector3 hitDir = GetAttackDirection(currentAttackDir);
 
                     CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDir);
                     CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, hitDir);

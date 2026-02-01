@@ -125,8 +125,8 @@ MonoBehaviour:
   useScaleFlip: 1
   defaultFacing: 1
   ignoreKnockback: 0
-  knockbackDecay: 8
-  horizontalDrag: 5
+  knockbackDrag: 10
+  knockbackDuration: 0.2
   groundCheckDistance: 0.1
   groundLayers:
     serializedVersion: 2
@@ -186,8 +186,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7c72c7d3ae3a408c93d119a77bdc432, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.HyenaEnemy
-  baseStats: {fileID: 11400000, guid: 9c39cce83670844f5962f7f58c983a10, type: 2}
-  config: {fileID: 11400000, guid: f4a3bfab74d414d9a9895cec1db3c591, type: 2}
+  baseStats: {fileID: 11400000, guid: 9c72d1ca99bf4a341b6578b22cb2b01c, type: 2}
+  config: {fileID: 11400000, guid: 7306fe64eecbb124db49dca8d5795fad, type: 2}
   detectionZone: {fileID: 2866929194194371700}
   attackRange: 2
   targetLayer:
@@ -208,7 +208,7 @@ MonoBehaviour:
     wallCheckDistance: 0.5
     wallLayer:
       serializedVersion: 2
-      m_Bits: 2080
+      m_Bits: 6144
     wallCheckPoint: {fileID: 5151501263871442441}
   melee:
     attackDuration: 0.5

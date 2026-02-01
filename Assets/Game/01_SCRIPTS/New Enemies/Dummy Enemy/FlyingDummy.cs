@@ -106,8 +106,8 @@ namespace junklite
             if (HasTarget && stateMachine.CurrentState is ChaseState)
                 UpdateLastKnownPosition(Target.position);
 
-            // Height control and hover bobbing (only when not chasing)
-            if (IsAlive && !(stateMachine.CurrentState is ChaseState))
+            // Height control and hover bobbing (skip during knockback and chase)
+            if (IsAlive && !Movement.IsInKnockback && !(stateMachine.CurrentState is ChaseState))
             {
                 // Gradually return to spawn height
                 baseY = Mathf.MoveTowards(baseY, spawnY, chase.ChaseSpeed * Time.deltaTime);

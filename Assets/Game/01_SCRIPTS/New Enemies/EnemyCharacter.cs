@@ -128,7 +128,10 @@ namespace junklite
 
             // Sync knockback setting to movement component
             if (movement != null)
+            {
                 movement.IgnoreKnockback = !canBeKnockedBack;
+                movement.OnKnockbackEnd += OnStunComplete;
+            }
 
             // Setup detection zone events
             if (detectionZone != null)
@@ -141,39 +144,6 @@ namespace junklite
             if (damageable != null)
                 damageable.OnDamaged += OnDamagedVFX;
         }
-
-        // #region agent log
-        private static void DebugLog(string hypothesisId, string location, string message, string dataJson)
-        {
-            string log = $"{{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"{hypothesisId}\",\"location\":\"{location}\",\"message\":\"{message}\",\"data\":{dataJson},\"timestamp\":{System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}}}";
-            try
-            {
-                File.AppendAllText("/Users/rashid/Documents/GitHub/JunkLite/.cursor/debug.log", log + "\n");
-            }
-            catch
-            {
-                // ignore file write failures; fall back to HTTP
-            }
-            SendDebugLogHttp(log);
-        }
-
-        private static void SendDebugLogHttp(string json)
-        {
-            try
-            {
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                var req = new UnityWebRequest("http://127.0.0.1:7242/ingest/5f70f84a-3640-468c-9971-b69a690c9e8a", "POST");
-                req.uploadHandler = new UploadHandlerRaw(body);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-                req.SendWebRequest();
-            }
-            catch
-            {
-                // swallow exceptions to avoid gameplay interruptions
-            }
-        }
-        // #endregion
 
         protected override void Start()
         {
@@ -328,9 +298,10 @@ namespace junklite
                 0f
             );
 
-            var rb = GetComponent<Rigidbody>();
-            if (rb != null)
-                rb.AddForce(knockback, ForceMode.Impulse);
+            // Route through EnemyMovement — it handles knockback state,
+            // blocks movement during knockback, and decays the force properly
+            if (movement != null)
+                movement.ApplyKnockback(knockback);
         }
 
         public virtual void Attack()
@@ -342,15 +313,6 @@ namespace junklite
         protected override void HandleDeath()
         {
             Debug.Log($"[{gameObject.name}] HandleDeath called!");
-
-            // #region agent log
-            DebugLog(
-                "H2",
-                "EnemyCharacter.cs:HandleDeath",
-                "Enemy death handling",
-                $"{{\"enemyId\":{GetInstanceID()},\"movementEnabled\":{(movement != null && movement.enabled ? "true" : "false")}}}"
-            );
-            // #endregion
 
             SpawnDeathParticles();
             DisableEnemyVisual();
@@ -402,14 +364,6 @@ namespace junklite
             var rb = GetComponent<Rigidbody>();
             if (rb != null)
             {
-                // #region agent log
-                DebugLog(
-                    "H2",
-                    "EnemyCharacter.cs:DisablePhysics",
-                    "Disabling enemy physics",
-                    $"{{\"enemyId\":{GetInstanceID()},\"wasKinematic\":{(rb.isKinematic ? "true" : "false")},\"useGravity\":{(rb.useGravity ? "true" : "false")}}}"
-                );
-                // #endregion
                 rb.useGravity = false;
                 rb.linearVelocity = Vector3.zero;
                 rb.isKinematic = true;
@@ -487,6 +441,9 @@ namespace junklite
 
             if (damageable != null)
                 damageable.OnDamaged -= OnDamagedVFX;
+
+            if (movement != null)
+                movement.OnKnockbackEnd -= OnStunComplete;
         }
 
         #endregion

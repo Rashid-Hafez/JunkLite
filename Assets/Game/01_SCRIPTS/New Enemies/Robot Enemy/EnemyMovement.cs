@@ -1,8 +1,5 @@
 using System;
-using System.IO;
-using System.Text;
 using UnityEngine;
-using UnityEngine.Networking;
 
 namespace junklite
 {
@@ -37,9 +34,10 @@ namespace junklite
         [Header("Knockback Settings")]
         [Tooltip("If true, this enemy cannot be knocked back")]
         [SerializeField] private bool ignoreKnockback = false;
-        [SerializeField] private float knockbackDecay = 8f;
-        [Tooltip("How quickly horizontal knockback decays")]
-        [SerializeField] private float horizontalDrag = 5f;
+        [Tooltip("How quickly knockback velocity decays (visual smoothing)")]
+        [SerializeField] private float knockbackDrag = 10f;
+        [Tooltip("How long knockback lasts before enemy regains control")]
+        [SerializeField] private float knockbackDuration = 0.2f;
 
         [Header("Ground Detection")]
         [SerializeField] private float groundCheckDistance = 0.1f;
@@ -61,42 +59,10 @@ namespace junklite
         // Knockback state
         private Vector3 knockbackVelocity;
         private bool isInKnockback;
+        private float knockbackTimer;
 
         // Ground state
         private bool isGrounded;
-
-        // #region agent log
-        private static void DebugLog(string hypothesisId, string location, string message, string dataJson)
-        {
-            string log = $"{{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"{hypothesisId}\",\"location\":\"{location}\",\"message\":\"{message}\",\"data\":{dataJson},\"timestamp\":{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}}}";
-            try
-            {
-                File.AppendAllText("/Users/rashid/Documents/GitHub/JunkLite/.cursor/debug.log", log + "\n");
-            }
-            catch
-            {
-                // ignore file write failures; fall back to HTTP
-            }
-            SendDebugLogHttp(log);
-        }
-
-        private static void SendDebugLogHttp(string json)
-        {
-            try
-            {
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                var req = new UnityWebRequest("http://127.0.0.1:7242/ingest/5f70f84a-3640-468c-9971-b69a690c9e8a", "POST");
-                req.uploadHandler = new UploadHandlerRaw(body);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-                req.SendWebRequest();
-            }
-            catch
-            {
-                // swallow exceptions to avoid gameplay interruptions
-            }
-        }
-        // #endregion
 
         // Events for FSM integration
         /// <summary>
@@ -155,18 +121,6 @@ namespace junklite
         {
             CheckGrounded();
 
-            // #region agent log
-            if (rb != null && rb.isKinematic && Time.frameCount % 30 == 0)
-            {
-                DebugLog(
-                    "H1",
-                    "EnemyMovement.cs:FixedUpdate",
-                    "Kinematic rigidbody during movement update",
-                    $"{{\"enemyId\":{GetInstanceID()},\"isMoving\":{(isMoving ? "true" : "false")},\"isInKnockback\":{(isInKnockback ? "true" : "false")},\"enabled\":{(enabled ? "true" : "false")}}}"
-                );
-            }
-            // #endregion
-
             if (isInKnockback)
             {
                 HandleKnockback();
@@ -190,31 +144,24 @@ namespace junklite
 
         private void HandleKnockback()
         {
-            // Apply horizontal drag to knockback
-            knockbackVelocity.x = Mathf.Lerp(knockbackVelocity.x, 0f, horizontalDrag * Time.fixedDeltaTime);
-            knockbackVelocity.z = Mathf.Lerp(knockbackVelocity.z, 0f, horizontalDrag * Time.fixedDeltaTime);
+            knockbackTimer += Time.fixedDeltaTime;
 
-            // Set velocity (gravity is handled by physics)
-            Vector3 newVelocity = new Vector3(knockbackVelocity.x, rb.linearVelocity.y, knockbackVelocity.z);
-            // #region agent log
-            if (rb != null && rb.isKinematic)
+            // Decay velocity for smooth visual deceleration
+            float t = knockbackDrag * Time.fixedDeltaTime;
+            knockbackVelocity.x = Mathf.Lerp(knockbackVelocity.x, 0f, t);
+            knockbackVelocity.z = Mathf.Lerp(knockbackVelocity.z, 0f, t);
+
+            if (rb.useGravity)
+                rb.linearVelocity = new Vector3(knockbackVelocity.x, rb.linearVelocity.y, knockbackVelocity.z);
+            else
             {
-                DebugLog(
-                    "H1",
-                    "EnemyMovement.cs:HandleKnockback",
-                    "Attempting velocity set while kinematic",
-                    $"{{\"enemyId\":{GetInstanceID()},\"velX\":{newVelocity.x},\"velY\":{newVelocity.y},\"velZ\":{newVelocity.z}}}"
-                );
+                knockbackVelocity.y = Mathf.Lerp(knockbackVelocity.y, 0f, t);
+                rb.linearVelocity = knockbackVelocity;
             }
-            // #endregion
-            rb.linearVelocity = newVelocity;
 
-            // Check if knockback is finished (horizontal velocity near zero and grounded)
-            float horizontalMagnitude = new Vector2(knockbackVelocity.x, knockbackVelocity.z).magnitude;
-            if (horizontalMagnitude < 0.5f && isGrounded)
-            {
+            // Timer is the only end condition — clean and predictable
+            if (knockbackTimer >= knockbackDuration)
                 EndKnockback();
-            }
         }
 
         private void EndKnockback()
@@ -233,17 +180,6 @@ namespace junklite
                 vel.x = 0f;
                 vel.z = 0f;
                 if (!rb.useGravity) vel.y = 0f; // Also zero Y for flyers
-                // #region agent log
-                if (rb != null && rb.isKinematic)
-                {
-                    DebugLog(
-                        "H1",
-                        "EnemyMovement.cs:HandleMovement",
-                        "Attempting velocity set while kinematic (idle)",
-                        $"{{\"enemyId\":{GetInstanceID()},\"velX\":{vel.x},\"velY\":{vel.y},\"velZ\":{vel.z}}}"
-                    );
-                }
-                // #endregion
                 rb.linearVelocity = vel;
                 return;
             }
@@ -275,17 +211,6 @@ namespace junklite
                 // Flying enemy - apply full velocity including Y
                 newVelocity = desiredVelocity;
             }
-            // #region agent log
-            if (rb != null && rb.isKinematic)
-            {
-                DebugLog(
-                    "H1",
-                    "EnemyMovement.cs:HandleMovement",
-                    "Attempting velocity set while kinematic (moving)",
-                    $"{{\"enemyId\":{GetInstanceID()},\"velX\":{newVelocity.x},\"velY\":{newVelocity.y},\"velZ\":{newVelocity.z}}}"
-                );
-            }
-            // #endregion
             rb.linearVelocity = newVelocity;
         }
 
@@ -449,6 +374,7 @@ namespace junklite
             // Enter knockback state
             isInKnockback = true;
             knockbackVelocity = force;
+            knockbackTimer = 0f;
 
             // Immediately apply the knockback velocity
             rb.linearVelocity = new Vector3(force.x, force.y, force.z);

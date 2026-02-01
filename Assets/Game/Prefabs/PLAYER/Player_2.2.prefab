@@ -15349,7 +15349,7 @@ MonoBehaviour:
   environmentLayer:
     serializedVersion: 2
     m_Bits: 4096
-  defaultKnockback: {x: 5, y: 1}
+  defaultKnockback: {x: 50, y: 20}
   impulseSource: {fileID: 0}
   enemyHitHitstopDuration: 0.06
   enemyHitShakeForce: 0.5

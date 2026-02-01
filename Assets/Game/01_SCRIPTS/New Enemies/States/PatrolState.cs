@@ -39,6 +39,13 @@ namespace junklite
         {
             if (patroller == null) return;
 
+            // Resume movement after knockback or any interruption
+            if (!movement.IsMoving && !movement.IsInKnockback)
+            {
+                StartMoving();
+                return;
+            }
+
             if (patroller.IsWallAhead())
             {
                 patroller.ReverseDirection();
