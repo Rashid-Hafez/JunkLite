@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 namespace junklite
 {
     /// <summary>
@@ -32,8 +32,12 @@ namespace junklite
         [SerializeField] private ChargeBehavior charge = new ChargeBehavior();
         [SerializeField] private DashBehavior dash = new DashBehavior();
         [SerializeField][Range(0f, 1f)] private float maxDashChance = 0.5f;
+        [Tooltip("After a missed dash, if the player hits the hyena within this window, it gets stunned (Hurt trigger).")]
+        [SerializeField] private float vulnerableStunWindow = 1.5f;
         // State
         private float lastDodgeTime = -999f;
+        private bool dashHitConnected;
+        private float vulnerableToStunUntil = -999f;
         private bool wasPlayerAttacking;
         private float dodgeInvulnerabilityEndTime;
         private float currentDashChance;
@@ -104,6 +108,7 @@ namespace junklite
         public void OnChargeComplete()
         {
             if (!IsAlive) return;
+            dashHitConnected = false; // Reset so we can detect if this dash hits the player
             stateMachine.ChangeState<DashState>();
         }
         // ============================================================
@@ -118,6 +123,9 @@ namespace junklite
         public void OnDashComplete()
         {
             if (!IsAlive) return;
+            // If we had a target and didn't hit them, we're vulnerable to stun for a short window
+            if (HasTarget && !dashHitConnected)
+                vulnerableToStunUntil = Time.time + vulnerableStunWindow;
             DecideNextAction();
         }
         // ============================================================
@@ -167,8 +175,23 @@ namespace junklite
             if (state != null && !state.CanTakeDamage)
                 return false;
             bool dealt = base.TakeDamage(info);
-            if (dealt) UpdateDashChance();
+            if (dealt)
+            {
+                UpdateDashChance();
+                // If we're in the vulnerable window (after a missed dash), enter StunnedState so Hurt trigger fires
+                if (Time.time <= vulnerableToStunUntil)
+                {
+                    vulnerableToStunUntil = -1f;
+                    stateMachine.ChangeState<StunnedState>();
+                }
+            }
             return dealt;
+        }
+
+        public override void OnStunComplete()
+        {
+            if (!IsAlive) return;
+            DecideNextAction();
         }
         // ============================================================
         // Lifecycle
@@ -199,6 +222,7 @@ namespace junklite
                 new DodgeState(this),
                 new ChargeState(this),
                 new DashState(this),
+                new StunnedState(this),
                 new DeadState(this)
             );
             if (HasPatrol)
@@ -303,6 +327,7 @@ namespace junklite
         }
         private void OnDashHitboxHit(Collider other, Hitbox hitbox)
         {
+            dashHitConnected = true; // We hit someone (e.g. player) during this dash
             hitbox?.Deactivate();
             var dmg = other.GetComponent<IDamageable>() ?? other.GetComponentInParent<IDamageable>();
             if (dmg == null || !dmg.IsAlive) return;

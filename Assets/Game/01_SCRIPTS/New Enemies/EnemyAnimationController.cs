@@ -47,8 +47,7 @@ namespace junklite
             float planarSpeed = new Vector2(v.x, v.z).magnitude;
 
             // Locomotion params (common across most enemies)
-            //animator.SetFloat("Speed", planarSpeed);
-            //animator.SetBool("IsMoving", planarSpeed > movingSpeedThreshold);
+            animator.SetFloat("Speed", planarSpeed);
         }
 
         private void OnEnable()
@@ -72,14 +71,12 @@ namespace junklite
 
             // Triggers on ENTER of these states:
             if (to is ChargeState) animator.SetTrigger("Charge");
-            else if (to is DashState) animator.SetTrigger("Dash");
+            else if (to is DashState) {animator.SetTrigger("DashComplete"); Debug.Log("DashHYENAUIDSKUBHNADComplete");}
             else if (to is RecoverState) animator.SetTrigger("Recover");
             else if (to is StunnedState) animator.SetTrigger("Hurt");
             else if (to is DeadState) animator.SetTrigger("Die");
-
-            // If you prefer bools instead of triggers, do it here:
-            // animator.SetBool("IsCharging", to is ChargeState);
-            // animator.SetBool("IsDashing",  to is DashState);
+            else if (to is MeleeAttackState) animator.SetTrigger("Attack");
+            else if (to is DodgeState) animator.SetTrigger("Dodge");
         }
     }
 }
