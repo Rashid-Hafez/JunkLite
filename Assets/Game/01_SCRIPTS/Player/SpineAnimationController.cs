@@ -456,7 +456,11 @@ namespace junklite
         private void OnDoubleJumpChanged(bool doubleJumping)
         {
             if (!doubleJumping) return;
-            if (!playerState.IsJumping && !playerState.IsFalling) return;
+            if (!playerState.IsJumping && !playerState.IsFalling)
+            {
+                ClearDoubleJumpFlag(); // e.g. stunned or not airborne - don't leave flag set without playing
+                return;
+            }
 
             if (!HasAnimation(doubleJump))
             {
@@ -507,6 +511,8 @@ namespace junklite
             if (stunned)
             {
                 InterruptAttack("stun");
+                ClearDoubleJumpFlag();
+                controller?.ResetAirJumpCount(); // so double jump isn't "wasted" when hurt interrupts it
                 if (HasAnimation(stun))
                     PlayLocomotion(stun, true);
             }

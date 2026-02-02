@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.EventSystems;
 
 namespace junklite
@@ -157,6 +157,14 @@ namespace junklite
         public bool IsDashing => isDashing;
         public bool CanDash => dashCooldownTimer <= 0f && (isGrounded || canDashInAir) && canMove;
         public bool IsFacingLocked => facingLocked;
+
+        /// <summary>
+        /// Resets air jump count so the player can double jump again. Call when stunned/hurt so the double jump isn't "wasted".
+        /// </summary>
+        public void ResetAirJumpCount()
+        {
+            airJumpCount = 0;
+        }
 
         /// <summary>
         /// Locks facing direction for the specified duration. 
