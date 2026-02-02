@@ -19,6 +19,9 @@ namespace junklite
         [Header("Music")]
         public MusicTracks music;
 
+        [Header("Ambience")]
+        public AmbienceTracks ambience;
+
         /// <summary>
         /// Get enemy sounds by type.
         /// </summary>

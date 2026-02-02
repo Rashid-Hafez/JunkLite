@@ -59,10 +59,22 @@ namespace junklite
     [System.Serializable]
     public class MusicTracks
     {
-        public SoundEntry mainMenu;
-        public SoundEntry gameplay;
+        [Header("Level / Combat / Boss (switch between these in-game)")]
+        public SoundEntry level;
+        public SoundEntry combat;
         public SoundEntry boss;
+
+        [Header("Other")]
+        public SoundEntry mainMenu;
+        public SoundEntry gameplay; // legacy; use level for new content
         public SoundEntry victory;
         public SoundEntry defeat;
+    }
+
+    [System.Serializable]
+    public class AmbienceTracks
+    {
+        [Tooltip("Plays on loop at all times. Assign in AudioLibrary.")]
+        public SoundEntry ambience;
     }
 }

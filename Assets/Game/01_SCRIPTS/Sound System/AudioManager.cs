@@ -19,6 +19,9 @@ namespace junklite
         [SerializeField] private int poolSize = 5;
         [SerializeField] private int spatialPoolSize = 8;
 
+        [Header("Music Fade")]
+        [SerializeField] private float defaultMusicFadeDuration = 2f;
+
         [Header("Mixer Groups")]
         [SerializeField] private AudioMixerGroup masterGroup;
         [SerializeField] private AudioMixerGroup musicGroup;
@@ -33,6 +36,8 @@ namespace junklite
         private AudioSource[] sfxPool;
         private int poolIndex;
         private AudioSource musicSource;
+        private Coroutine musicFadeRoutine;
+        private readonly Dictionary<AudioClip, float> musicResumePositions = new();
         private AudioSource[] spatialPool;
         private int spatialPoolIndex;
         private readonly Dictionary<AudioSource, Coroutine> effectResetters = new();
@@ -41,7 +46,10 @@ namespace junklite
         public PlayerSounds Player => library?.player;
         public UISounds UI => library?.ui;
         public MusicTracks Music => library?.music;
+        public AmbienceTracks Ambience => library?.ambience;
         public AudioMixerGroup SFXGroup => sfxGroup;
+
+        private AudioSource ambienceSource;
 
         void Awake()
         {
@@ -57,6 +65,12 @@ namespace junklite
             InitPool();
             InitSpatialPool();
             InitMusicSource();
+            InitAmbienceSource();
+        }
+
+        void Start()
+        {
+            PlayAmbienceIfAvailable();
         }
 
         private void InitPool()
@@ -97,6 +111,25 @@ namespace junklite
             musicSource.loop = true;
             musicSource.playOnAwake = true;
             musicSource.outputAudioMixerGroup = musicGroup;
+        }
+
+        private void InitAmbienceSource()
+        {
+            var go = new GameObject("Ambience");
+            go.transform.SetParent(transform);
+            ambienceSource = go.AddComponent<AudioSource>();
+            ambienceSource.loop = true;
+            ambienceSource.playOnAwake = false;
+            ambienceSource.spatialBlend = 0f;
+            ambienceSource.outputAudioMixerGroup = musicGroup;
+        }
+
+        private void PlayAmbienceIfAvailable()
+        {
+            if (Ambience?.ambience == null || !Ambience.ambience.IsValid) return;
+            ambienceSource.clip = Ambience.ambience.clip;
+            ambienceSource.volume = Ambience.ambience.volume;
+            ambienceSource.Play();
         }
 
         /// <summary>
@@ -154,19 +187,90 @@ namespace junklite
         }
 
         /// <summary>
-        /// Play music (replaces current music clip).
+        /// Play music (replaces current music clip immediately).
         /// </summary>
         public void PlayMusic(SoundEntry entry)
         {
             if (entry == null || !entry.IsValid) return;
 
+            if (musicFadeRoutine != null)
+            {
+                StopCoroutine(musicFadeRoutine);
+                musicFadeRoutine = null;
+            }
+
+            if (musicSource.isPlaying && musicSource.clip != null)
+                musicResumePositions[musicSource.clip] = musicSource.time;
+
             musicSource.clip = entry.clip;
             musicSource.volume = entry.volume;
+            if (musicResumePositions.TryGetValue(entry.clip, out float resumeTime))
+            {
+                musicSource.time = Mathf.Clamp(resumeTime, 0f, entry.clip.length - 0.01f);
+                musicResumePositions.Remove(entry.clip);
+            }
             musicSource.Play();
+        }
+
+        /// <summary>
+        /// Fade out current music, then fade in the new track. Level → combat or combat → level.
+        /// </summary>
+        /// <param name="entry">Music to crossfade to.</param>
+        /// <param name="fadeDuration">Fade time in seconds; if &lt; 0 uses defaultMusicFadeDuration.</param>
+        public void CrossfadeToMusic(SoundEntry entry, float fadeDuration = -1f)
+        {
+            if (entry == null || !entry.IsValid) return;
+
+            float duration = fadeDuration >= 0f ? fadeDuration : defaultMusicFadeDuration;
+            if (musicFadeRoutine != null)
+                StopCoroutine(musicFadeRoutine);
+            musicFadeRoutine = StartCoroutine(CrossfadeToMusicRoutine(entry, duration));
+        }
+
+        private IEnumerator CrossfadeToMusicRoutine(SoundEntry entry, float fadeDuration)
+        {
+            float half = Mathf.Max(0.01f, fadeDuration * 0.5f);
+            float startVol = musicSource.volume;
+
+            // Save current position so we can resume this track later if we switch back
+            if (musicSource.isPlaying && musicSource.clip != null)
+                musicResumePositions[musicSource.clip] = musicSource.time;
+
+            // Fade out current
+            for (float t = 0f; t < half; t += Time.deltaTime)
+            {
+                musicSource.volume = Mathf.Lerp(startVol, 0f, t / half);
+                yield return null;
+            }
+            musicSource.volume = 0f;
+            musicSource.Stop();
+
+            // Switch clip and resume from saved position if we have one
+            musicSource.clip = entry.clip;
+            musicSource.volume = 0f;
+            if (musicResumePositions.TryGetValue(entry.clip, out float resumeTime))
+            {
+                musicSource.time = Mathf.Clamp(resumeTime, 0f, entry.clip.length - 0.01f);
+                musicResumePositions.Remove(entry.clip);
+            }
+            musicSource.Play();
+
+            for (float t = 0f; t < half; t += Time.deltaTime)
+            {
+                musicSource.volume = Mathf.Lerp(0f, entry.volume, t / half);
+                yield return null;
+            }
+            musicSource.volume = entry.volume;
+            musicFadeRoutine = null;
         }
 
         public void StopMusic()
         {
+            if (musicFadeRoutine != null)
+            {
+                StopCoroutine(musicFadeRoutine);
+                musicFadeRoutine = null;
+            }
             musicSource.Stop();
         }
 

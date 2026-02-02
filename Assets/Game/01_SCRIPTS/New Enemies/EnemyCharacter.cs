@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.IO;
 using System.Text;
 using UnityEngine;
@@ -229,11 +229,13 @@ namespace junklite
         public virtual void EnterCombat()
         {
             isInCombat = true;
+            PlayerCombatTracker.Instance?.NotifyEnemyEnteredCombat(this);
         }
 
         public virtual void ExitCombat()
         {
             isInCombat = false;
+            PlayerCombatTracker.Instance?.NotifyEnemyExitedCombat(this);
         }
 
         #endregion
@@ -345,6 +347,9 @@ namespace junklite
             // Disable detection zone
             if (detectionZone != null)
                 detectionZone.enabled = false;
+
+            // Notify combat tracker before clearing target (so tracker can remove us)
+            PlayerCombatTracker.Instance?.NotifyEnemyExitedCombat(this);
 
             // Clear target references WITHOUT calling OnTargetLost
             target = null;

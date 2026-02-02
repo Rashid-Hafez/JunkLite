@@ -61,6 +61,8 @@ namespace junklite
         void Start()
         {
             InitializeGame();
+            SubscribeToCombatTracker();
+            PlayLevelMusic(); // Start with level music; combat tracker will switch to combat when needed
         }
 
         void Update()
@@ -359,6 +361,56 @@ namespace junklite
         {
             if (currentPlayer != null)
                 UnsubscribeFromPlayer(currentPlayer);
+            UnsubscribeFromCombatTracker();
+        }
+
+        // ---- Combat music (observes PlayerCombatTracker; no AudioSource on GameManager) ----
+
+        private void SubscribeToCombatTracker()
+        {
+            if (PlayerCombatTracker.Instance == null) return;
+            PlayerCombatTracker.Instance.OnCombatStarted += OnCombatStarted;
+            PlayerCombatTracker.Instance.OnCombatEnded += OnCombatEnded;
+        }
+
+        private void UnsubscribeFromCombatTracker()
+        {
+            if (PlayerCombatTracker.Instance == null) return;
+            PlayerCombatTracker.Instance.OnCombatStarted -= OnCombatStarted;
+            PlayerCombatTracker.Instance.OnCombatEnded -= OnCombatEnded;
+        }
+
+        private void OnCombatStarted()
+        {
+            var entry = GetCombatMusicEntry();
+            if (entry != null && entry.IsValid)
+                AudioManager.Instance?.CrossfadeToMusic(entry);
+        }
+
+        private void OnCombatEnded()
+        {
+            PlayLevelMusic();
+        }
+
+        private void PlayLevelMusic()
+        {
+            var entry = GetLevelMusicEntry();
+            if (entry != null && entry.IsValid)
+                AudioManager.Instance?.CrossfadeToMusic(entry);
+        }
+
+        private SoundEntry GetLevelMusicEntry()
+        {
+            if (AudioManager.Instance?.Music == null) return null;
+            var m = AudioManager.Instance.Music;
+            return m.level != null && m.level.IsValid ? m.level : m.gameplay;
+        }
+
+        private SoundEntry GetCombatMusicEntry()
+        {
+            if (AudioManager.Instance?.Music == null) return null;
+            var m = AudioManager.Instance.Music;
+            return m.combat != null && m.combat.IsValid ? m.combat : m.boss;
         }
 
         // ---- Debug GUI -------------------------------------------------------
