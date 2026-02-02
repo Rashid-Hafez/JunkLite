@@ -13,15 +13,16 @@ namespace junklite
         private Material[] _materialArray;
         private Coroutine _flashCoroutine;
         private float flashamounttemp;
-        private Renderer _spineRenderer;
+        private Renderer[] _spineRenderers;
+        private MaterialPropertyBlock _spinePropertyBlock;
+        private static readonly int FillPhaseId = Shader.PropertyToID("_FillPhase");
 
         private void Awake()
         {
             if (isSpine)
             {
-                _spineRenderer = GetComponentInChildren<Renderer>();
-                if (_spineRenderer != null)
-                    _materialArray = _spineRenderer.materials;
+                _spineRenderers = GetComponentsInChildren<Renderer>();
+                _spinePropertyBlock = new MaterialPropertyBlock();
             }
             else
             {
@@ -47,20 +48,20 @@ namespace junklite
 
         private IEnumerator FlashCoroutine()
         {
-            if (_materialArray == null || _materialArray.Length == 0) yield break;
-
             if (isSpine)
             {
-                foreach (var mat in _materialArray)
+                if (_spineRenderers == null || _spineRenderers.Length == 0) yield break;
+                foreach (var r in _spineRenderers)
                 {
-                    if (mat.HasProperty("_FillPhase"))
-                        mat.SetFloat("_FillPhase", flashAmount);
-                    else if (mat.HasProperty("FillPhase"))
-                        mat.SetFloat("FillPhase", flashAmount);
+                    if (r == null) continue;
+                    r.GetPropertyBlock(_spinePropertyBlock);
+                    _spinePropertyBlock.SetFloat(FillPhaseId, flashAmount);
+                    r.SetPropertyBlock(_spinePropertyBlock);
                 }
             }
             else
             {
+                if (_materialArray == null || _materialArray.Length == 0) yield break;
                 foreach (var mat in _materialArray)
                     mat.SetFloat("_FlashAmount", flashamounttemp);
             }
@@ -72,20 +73,20 @@ namespace junklite
 
         private void ResetFlash()
         {
-            if (_materialArray == null) return;
-
             if (isSpine)
             {
-                foreach (var mat in _materialArray)
+                if (_spineRenderers == null) return;
+                foreach (var r in _spineRenderers)
                 {
-                    if (mat.HasProperty("_FillPhase"))
-                        mat.SetFloat("_FillPhase", 1f);
-                    else if (mat.HasProperty("FillPhase"))
-                        mat.SetFloat("FillPhase", 1f);
+                    if (r == null) continue;
+                    r.GetPropertyBlock(_spinePropertyBlock);
+                    _spinePropertyBlock.SetFloat(FillPhaseId, 0f);
+                    r.SetPropertyBlock(_spinePropertyBlock);
                 }
             }
             else
             {
+                if (_materialArray == null) return;
                 foreach (var mat in _materialArray)
                     mat.SetFloat("_FlashAmount", 1f);
             }
