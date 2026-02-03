@@ -29,7 +29,10 @@ namespace junklite
         [SerializeField] private Unity.Cinemachine.CinemachineImpulseSource impulseSource;
         [SerializeField] private float enemyHitHitstopDuration = 0.08f;
         [SerializeField] private float enemyHitShakeForce = 0.8f;
-        [SerializeField] private float enemyHitDelay = 0.05f;
+
+        [Header("Attack Hit Window")]
+        [SerializeField] private float delayBeforeAttack = 0.1f;
+        [SerializeField] private float attackOpenWindow = 0.3f;
 
         [Header("Recoil")]
         [SerializeField] private float sideRecoil = 6f;
@@ -329,25 +332,51 @@ namespace junklite
             if (anchor == null)
                 return;
 
-            float radius = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
+            // Spawn slash VFX at attack start (no hit result yet)
+            SpawnAttackVFX(dir, step, anchor, new HitDetectionResult { type = AttackHitResult.None });
 
-            // Detect hits
-            var hitResult = DetectHit(anchor.position, radius);
-
-            // Handle hit
-            if (hitResult.type == AttackHitResult.Enemy && hitResult.target != null)
-            {
-                StartCoroutine(DelayedDamage(hitResult.target, step));
-            }
-
-            // Spawn VFX
-            SpawnAttackVFX(dir, step, anchor, hitResult);
-
-            // Apply recoil
-            if (hitResult.type != AttackHitResult.None)
-                ApplyRecoil(dir);
+            StartCoroutine(CoAttackDelay(dir, step, anchor));
         }
 
+        private IEnumerator CoAttackDelay(AttackDirection dir, WeaponData.ComboStep step, Transform anchor)
+        {
+            yield return new WaitForSeconds(delayBeforeAttack);
+
+            float radius = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
+            bool hasHitEnemy = false;
+            bool hasHitEnvironment = false;
+            float windowEnd = Time.time + attackOpenWindow;
+
+            while (Time.time < windowEnd)
+            {
+                var hitResult = DetectHit(anchor.position, radius);
+
+                if (hitResult.type == AttackHitResult.Enemy && hitResult.target != null && !hasHitEnemy)
+                {
+                    hasHitEnemy = true;
+                    PlayHitFeedback();
+                    DealDamage(hitResult.target, step);
+                    ApplyRecoil(dir);
+                    break;
+                }
+
+                if (hitResult.type == AttackHitResult.Environment && !hasHitEnvironment)
+                {
+                    hasHitEnvironment = true;
+                    float radiusForVfx = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
+                    Vector3 impactPoint = ResolveImpactPoint(dir, anchor.position, radiusForVfx);
+                    Vector3 attackDir = GetAttackDirection(dir);
+                    if (CombatEffectsManager.Instance != null)
+                    {
+                        CombatEffectsManager.Instance.SpawnEnvHitParticle(impactPoint, attackDir);
+                        CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
+                    }
+                    ApplyRecoil(dir);
+                }
+
+                yield return null;
+            }
+        }
         #endregion Attack Core
 
         #region Hit Detection
@@ -410,18 +439,6 @@ namespace junklite
         #endregion Hit Detection
 
         #region Damage
-
-        private IEnumerator DelayedDamage(Collider target, WeaponData.ComboStep step)
-        {
-            if (enemyHitDelay > 0f)
-                yield return new WaitForSeconds(enemyHitDelay);
-
-            if (target == null)
-                yield break;
-
-            PlayHitFeedback();
-            DealDamage(target, step);
-        }
 
         private void DealDamage(Collider target, WeaponData.ComboStep step)
         {

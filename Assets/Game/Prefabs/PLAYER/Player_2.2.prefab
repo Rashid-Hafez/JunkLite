@@ -15352,7 +15352,8 @@ MonoBehaviour:
   impulseSource: {fileID: 0}
   enemyHitHitstopDuration: 0.06
   enemyHitShakeForce: 0.5
-  enemyHitDelay: 0.025
+  delayBeforeAttack: 0.08
+  attackOpenWindow: 0.28
   sideRecoil: 5
   facingLockDuration: 0.25
   inputThreshold: 0.5
