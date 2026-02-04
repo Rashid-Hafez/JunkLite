@@ -62,7 +62,8 @@ namespace junklite
                 return;
             }
 
-            TickEffects();
+            if(enemy.IsAlive)
+                TickEffects();
         }
 
         /// <summary>

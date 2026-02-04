@@ -189,6 +189,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.HyenaEnemy
   baseStats: {fileID: 11400000, guid: 9c72d1ca99bf4a341b6578b22cb2b01c, type: 2}
+  attributes: {fileID: 0}
   config: {fileID: 11400000, guid: 7306fe64eecbb124db49dca8d5795fad, type: 2}
   soundProfile: {fileID: 11400000, guid: 8ea661e92a2b9cc48aa6bfa6c75a470e, type: 2}
   detectionZone: {fileID: 2866929194194371700}
@@ -215,9 +216,9 @@ MonoBehaviour:
       m_Bits: 6144
     wallCheckPoint: {fileID: 5151501263871442441}
   melee:
-    attackSpeed: 1
+    attackSpeed: 0.5
     damage: 10
-    knockback: {x: 0, y: 0}
+    knockback: {x: 10, y: 1}
     hitbox: {fileID: 4213466484449388956}
     vfxPrefab: {fileID: 0}
   chase:
@@ -279,14 +280,16 @@ MonoBehaviour:
   walk: Run
   run: Run
   attack: Attack_1_2
+  charge: Charge
+  dash: Dash
   dodge: JumpBack
   hurt: Hurt
   death: Death
-  hitStartEvent: hit_start
-  hitEndEvent: hit_end
   useTimerFallback: 1
   attackHitStartTime: 0.15
   attackHitDuration: 0.1
+  hitStartEvent: hit_start
+  hitEndEvent: hit_end
   debugLog: 0
 --- !u!1 &2180057967268017690
 GameObject:
@@ -523,7 +526,6 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1
   hitOnce: 1
-  debugLog: 1
 --- !u!1 &8888167216954204483
 GameObject:
   m_ObjectHideFlags: 0
@@ -668,4 +670,3 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1
   hitOnce: 1
-  debugLog: 1

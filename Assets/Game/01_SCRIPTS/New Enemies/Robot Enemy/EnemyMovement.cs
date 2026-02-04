@@ -119,6 +119,8 @@ namespace junklite
 
         private void FixedUpdate()
         {
+            if (rb.isKinematic) return;
+
             CheckGrounded();
 
             if (isInKnockback)

@@ -11,7 +11,7 @@ namespace junklite
 
         // Shared components
         protected CharacterState state;
-        protected AttributeManager attributes;
+        [HideInInspector] public AttributeManager attributes;
         protected Damageable damageable;
         protected AnimationController animationController;
 
