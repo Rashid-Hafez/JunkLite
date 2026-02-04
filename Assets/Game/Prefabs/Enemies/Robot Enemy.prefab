@@ -309,6 +309,7 @@ GameObject:
   - component: {fileID: 5739385205613381891}
   - component: {fileID: 1686940009611622928}
   - component: {fileID: 4806155172854809134}
+  - component: {fileID: -3843105710290921483}
   m_Layer: 14
   m_Name: Robot Enemy
   m_TagString: Enemy
@@ -404,8 +405,8 @@ MonoBehaviour:
   useScaleFlip: 1
   defaultFacing: 1
   ignoreKnockback: 0
-  knockbackDecay: 8
-  horizontalDrag: 5
+  knockbackDrag: 10
+  knockbackDuration: 0.2
   groundCheckDistance: 0.1
   groundLayers:
     serializedVersion: 2
@@ -462,7 +463,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.RobotEnemy
   baseStats: {fileID: 11400000, guid: 9c72d1ca99bf4a341b6578b22cb2b01c, type: 2}
+  attributes: {fileID: 0}
   config: {fileID: 11400000, guid: a06c1f2f196407e4683d5cd382702c22, type: 2}
+  soundProfile: {fileID: 0}
   detectionZone: {fileID: 8900037622000748683}
   attackRange: 2
   targetLayer:
@@ -638,6 +641,20 @@ AudioSource:
     m_PostInfinity: 2
     m_RotationOrder: 4
 --- !u!114 &4806155172854809134
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8676920073786956694}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f551839f9707cb2468a4ec00190db09a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyAudioHandler
+  minDistance: 50
+  maxDistance: 100
+--- !u!114 &-3843105710290921483
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

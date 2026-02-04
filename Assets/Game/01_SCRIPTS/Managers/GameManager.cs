@@ -33,6 +33,7 @@ namespace junklite
         private PlayerCharacter currentPlayer;
         private int currentSpawnIndex = 0;
         private Coroutine respawnRoutine;
+        private bool gameInitialized = false;
 
         // Events
         public event Action<GameState> OnGameStateChanged;
@@ -58,11 +59,97 @@ namespace junklite
             DontDestroyOnLoad(gameObject);
         }
 
+        void OnEnable()
+        {
+            SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+
+        void OnDisable()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
         void Start()
         {
             InitializeGame();
             SubscribeToCombatTracker();
             PlayLevelMusic(); // Start with level music; combat tracker will switch to combat when needed
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            Debug.Log($"[GameManager] Scene loaded: {scene.name}");
+
+            // Skip if this is the initial scene load (Start handles that)
+            if (!gameInitialized)
+                return;
+
+            // Re-find scene references that were destroyed on scene reload
+            RefreshSceneReferences();
+
+            // Re-initialize game for new scene
+            InitializeForNewScene();
+        }
+
+        private void RefreshSceneReferences()
+        {
+            // Clear old (now null) references
+            spawnPoints = null;
+            playerUIInstance = null;
+            gameplayCanvasTransform = null;
+
+            // Find spawn points in the new scene
+            FindSpawnPoints();
+
+            // Find canvas in the new scene
+            FindGameplayCanvas();
+        }
+
+        private void FindGameplayCanvas()
+        {
+            // Try to find a canvas tagged or named appropriately
+            var canvas = GameObject.FindWithTag("GameplayCanvas");
+            if (canvas != null)
+            {
+                gameplayCanvasTransform = canvas.transform;
+                return;
+            }
+
+            // Fallback: find any Canvas in scene
+            var canvasComponent = FindFirstObjectByType<Canvas>();
+            if (canvasComponent != null)
+            {
+                gameplayCanvasTransform = canvasComponent.transform;
+                Debug.Log($"[GameManager] Found canvas: {canvasComponent.name}");
+            }
+            else
+            {
+                Debug.LogWarning("[GameManager] No Canvas found in scene for Player UI.");
+            }
+        }
+
+        private void InitializeForNewScene()
+        {
+            currentSpawnIndex = 0;
+
+            // Cancel any pending respawn coroutines
+            if (respawnRoutine != null)
+            {
+                StopCoroutine(respawnRoutine);
+                respawnRoutine = null;
+            }
+
+            // Clean up old player reference (destroyed with scene)
+            if (currentPlayer != null)
+            {
+                UnsubscribeFromPlayer(currentPlayer);
+                currentPlayer = null;
+            }
+
+            // Ensure UI and spawn player
+            EnsurePlayerUI();
+            SpawnPlayer();
+            SetGameState(GameState.Playing);
         }
 
         void Update()
@@ -81,6 +168,8 @@ namespace junklite
 
             SpawnPlayer();
             SetGameState(GameState.Playing);
+
+            gameInitialized = true;
         }
 
         private void EnsurePlayerUI()
@@ -108,13 +197,29 @@ namespace junklite
 
         private void FindSpawnPoints()
         {
+            // Find all SpawnPoint components in the scene
+            var spawnPointComponents = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None);
+
+            if (spawnPointComponents.Length > 0)
+            {
+                spawnPoints = new Transform[spawnPointComponents.Length];
+                for (int i = 0; i < spawnPointComponents.Length; i++)
+                    spawnPoints[i] = spawnPointComponents[i].transform;
+
+                Debug.Log($"[GameManager] Found {spawnPoints.Length} spawn points via SpawnPoint component.");
+                return;
+            }
+
+            // Fallback: try to find by tag
             var spawnObjects = GameObject.FindGameObjectsWithTag("SpawnPoint");
             spawnPoints = new Transform[spawnObjects.Length];
             for (int i = 0; i < spawnObjects.Length; i++)
                 spawnPoints[i] = spawnObjects[i].transform;
 
             if (spawnPoints.Length == 0)
-                Debug.LogWarning("No spawn points found! Tag some objects as 'SpawnPoint' or assign manually.");
+                Debug.LogWarning("[GameManager] No spawn points found! Add SpawnPoint components or tag objects as 'SpawnPoint'.");
+            else
+                Debug.Log($"[GameManager] Found {spawnPoints.Length} spawn points via tag.");
         }
 
         public void SpawnPlayer()
@@ -130,13 +235,13 @@ namespace junklite
                     return;
                 }
 
-            GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
-            currentPlayer = playerObject.GetComponent<PlayerCharacter>();
-            if (currentPlayer == null)
-            {
-                Debug.LogError("Player prefab doesn't have PlayerCharacter component!");
-                return;
-            }
+                GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
+                currentPlayer = playerObject.GetComponent<PlayerCharacter>();
+                if (currentPlayer == null)
+                {
+                    Debug.LogError("Player prefab doesn't have PlayerCharacter component!");
+                    return;
+                }
 
                 // Subscribe once
                 SubscribeToPlayer(currentPlayer);

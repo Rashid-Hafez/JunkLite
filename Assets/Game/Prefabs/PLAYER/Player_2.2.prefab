@@ -15284,6 +15284,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   baseStats: {fileID: 11400000, guid: adaa8433c252acc46a3253234b8ce0dd, type: 2}
+  attributes: {fileID: 0}
   attackRange: 2
   enemyLayerMask:
     serializedVersion: 2
@@ -15358,12 +15359,6 @@ MonoBehaviour:
   sideRecoil: 5
   facingLockDuration: 0.25
   inputThreshold: 0.5
-  poolSizePerSlash: 12
-  slashPoolRoot: {fileID: 3708428653336801813}
-  slashOffsetDirection: 0
-  slashOffsetDistance: 0
-  slashScale: 2
-  slashLifetime: 0.15
   logAttacks: 0
 --- !u!114 &7181291251784971520
 MonoBehaviour:
@@ -15467,7 +15462,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerState
   attributes: {fileID: 5058750099860732212}
-  showDebugInfo: 1
+  showDebugInfo: 0
   hasDrone: 1
 --- !u!114 &6805497694060457123
 MonoBehaviour:

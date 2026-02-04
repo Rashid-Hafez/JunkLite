@@ -41,18 +41,8 @@ namespace junklite
         [SerializeField] private float facingLockDuration = 0.25f;
         [SerializeField] private float inputThreshold = 0.5f;
 
-        [Header("Slash Pooling")]
-        [SerializeField] private int poolSizePerSlash = 5;
-        [SerializeField] private Transform slashPoolRoot;
-        [SerializeField] private float slashOffsetDirection = 0.5f;
-        [SerializeField] private float slashOffsetDistance = 0.5f;
-        [SerializeField] private float slashScale = 1f;
-        [SerializeField] private float slashLifetime = 0.15f;
-
         [Header("Debug")]
         [SerializeField] private bool logAttacks = false;
-
-
 
         private readonly Dictionary<GameObject, Queue<GameObject>> slashPools = new();
 
@@ -335,9 +325,6 @@ namespace junklite
             if (anchor == null)
                 return;
 
-            // Spawn slash VFX at attack start (no hit result yet)
-            SpawnAttackVFX(dir, step, anchor, new HitDetectionResult { type = AttackHitResult.None });
-
             StartCoroutine(CoAttackDelay(dir, step, anchor));
         }
 
@@ -373,6 +360,8 @@ namespace junklite
                     {
                         CombatEffectsManager.Instance.SpawnEnvHitParticle(impactPoint, attackDir);
                         CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
+
+                        OnEnvironmentHit?.Invoke();
                     }
                     ApplyRecoil(dir);
                 }
@@ -495,23 +484,6 @@ namespace junklite
         #endregion Damage
 
         #region VFX
-
-        private void SpawnAttackVFX(AttackDirection dir, WeaponData.ComboStep step, Transform anchor, HitDetectionResult hit)
-        {
-            if (hit.type != AttackHitResult.None)
-            {
-                float radius = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
-                Vector3 impactPoint = ResolveImpactPoint(dir, anchor.position, radius);
-                Vector3 attackDir = GetAttackDirection(dir);
-
-                if (hit.type == AttackHitResult.Environment && CombatEffectsManager.Instance != null)
-                {
-                    CombatEffectsManager.Instance.SpawnEnvHitParticle(impactPoint, attackDir);
-                    CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
-                }
-            }
-        }
-
         private Vector3 ResolveImpactPoint(AttackDirection dir, Vector3 origin, float radius)
         {
             Vector3 rayDir = GetAttackDirection(dir);
