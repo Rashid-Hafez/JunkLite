@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace junklite
 {
@@ -53,7 +54,7 @@ namespace junklite
 
             // Track hit
             hitTargets.Add(other);
-
+            
             // Fire event - let owner handle damage/effects
             OnHit?.Invoke(other, this);
         }
@@ -63,6 +64,7 @@ namespace junklite
         /// </summary>
         public void ActivateForDuration(float duration)
         {
+            hitTargets.Clear();
             gameObject.SetActive(true);
             Invoke(nameof(Deactivate), duration);
         }
@@ -81,6 +83,7 @@ namespace junklite
         /// </summary>
         public void Deactivate()
         {
+         
             gameObject.SetActive(false);
         }
 
@@ -92,6 +95,7 @@ namespace junklite
             hitTargets.Clear();
         }
 
+        
         private void OnDrawGizmos()
         {
             var col = GetComponent<Collider>();

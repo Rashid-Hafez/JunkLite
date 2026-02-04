@@ -169,24 +169,18 @@ namespace junklite
     [System.Serializable]
     public class MeleeAttackBehavior
     {
-        [SerializeField] private float attackDuration = 0.5f;
-        [SerializeField] private float attackCooldown = 1f;
+        [Tooltip("Cooldown between attacks")]
+        [SerializeField] private float attackSpeed = 0.5f;
         [SerializeField] private float damage = 10f;
-        [SerializeField] private Vector2 knockback = new Vector2(10f, 3f);
+        [SerializeField] private Vector2 knockback = new Vector2(5f, 2f);
         [SerializeField] private Hitbox hitbox;
         [SerializeField] private GameObject vfxPrefab;
 
-        private float lastAttackTime = float.NegativeInfinity;
-
-        public float MeleeAttackDuration => attackDuration;
-        public float AttackCooldown => attackCooldown;
+        public float MeleeAttackSpeed => attackSpeed;
         public float MeleeDamage => damage;
         public Vector2 MeleeKnockback => knockback;
         public Hitbox MeleeHitbox => hitbox;
         public GameObject MeleeVFXPrefab => vfxPrefab;
-
-        public bool CanAttack => Time.time >= lastAttackTime + attackCooldown;
-        public void RecordAttack() => lastAttackTime = Time.time;
     }
 
     /// <summary>

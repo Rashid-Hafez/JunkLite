@@ -91,15 +91,14 @@ namespace junklite
     /// </summary>
     public interface IMeleeAttacker
     {
-        float MeleeAttackDuration { get; }
-        float AttackCooldown { get; }  // ADD THIS - time between slashes
+        float MeleeAttackSpeed { get; }  // Cooldown between attacks
         float MeleeDamage { get; }
         Vector2 MeleeKnockback { get; }
         Hitbox MeleeHitbox { get; }
         GameObject MeleeVFXPrefab { get; }
 
-        // Callback when melee attack completes
-        void OnMeleeComplete();
+        void OnMeleeAttack();    // Called when attack starts
+        void OnMeleeComplete();  // Called when attack cycle finishes (after cooldown)
     }
 
     /// <summary>

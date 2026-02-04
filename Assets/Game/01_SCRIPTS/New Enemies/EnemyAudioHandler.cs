@@ -3,13 +3,11 @@ using UnityEngine;
 namespace junklite
 {
     /// <summary>
-    /// Attach to any enemy. Reads EnemyType from EnemyCharacter.
-    /// Auto-plays sounds on state changes and damage events.
-    /// If a sound isn't assigned in AudioLibrary, it simply won't play.
+    /// Attach to any enemy. Hurt/death auto-wired via events.
+    /// FSM states call public methods for attack, charge, grab, dash, footstep.
     /// </summary>
     [DefaultExecutionOrder(6)]
     [RequireComponent(typeof(AudioSource))]
-    [RequireComponent(typeof(EnemyCharacter))]
     public class EnemyAudioHandler : MonoBehaviour
     {
         [Header("3D Sound Settings")]
@@ -17,19 +15,22 @@ namespace junklite
         [SerializeField] private float maxDistance = 25f;
 
         private EnemyCharacter enemy;
-        private StateMachine stateMachine;
         private Damageable damageable;
         private AttributeManager attributes;
-        private AudioManager audio;
+        private AudioManager audioManager;
         private AudioSource source;
-        private EnemySounds sounds;
+
+        private EnemySoundProfile sounds;
 
         void Awake()
         {
-            enemy = GetComponent<EnemyCharacter>();
-            damageable = GetComponent<Damageable>();
-            attributes = GetComponent<AttributeManager>();
+            enemy = GetComponent<EnemyCharacter>() ?? GetComponentInParent<EnemyCharacter>();
+            damageable = GetComponent<Damageable>() ?? GetComponentInParent<Damageable>();
+            attributes = GetComponent<AttributeManager>() ?? GetComponentInParent<AttributeManager>();
             source = GetComponent<AudioSource>();
+
+            if (enemy != null)
+                sounds = enemy.SoundProfile;
 
             source.playOnAwake = false;
             source.spatialBlend = 1f;
@@ -40,78 +41,45 @@ namespace junklite
 
         void Start()
         {
-            audio = AudioManager.Instance;
-            stateMachine = enemy?.StateMachine;
+            audioManager = AudioManager.Instance;
 
-            if (enemy != null)
-                sounds = audio?.GetEnemy(enemy.EnemyType);
-
-            if (audio != null && audio.SFXGroup != null)
-                source.outputAudioMixerGroup = audio.SFXGroup;
+            if (audioManager != null && audioManager.SFXGroup != null)
+                source.outputAudioMixerGroup = audioManager.SFXGroup;
         }
 
         void OnEnable()
         {
             if (damageable != null)
-                damageable.OnDamaged += OnHurt;
+                damageable.OnDamaged += OnDamaged;
 
             if (attributes != null)
                 attributes.OnDeath += OnDeath;
-
-            // Subscribe after Start, so we do it in a coroutine
-            StartCoroutine(SubscribeToStateMachine());
         }
 
         void OnDisable()
         {
             if (damageable != null)
-                damageable.OnDamaged -= OnHurt;
+                damageable.OnDamaged -= OnDamaged;
 
             if (attributes != null)
                 attributes.OnDeath -= OnDeath;
-
-            if (stateMachine != null)
-                stateMachine.OnStateChanged -= OnStateChanged;
         }
 
-        private System.Collections.IEnumerator SubscribeToStateMachine()
-        {
-            // Wait one frame for StateMachine to be ready
-            yield return null;
-
-            stateMachine = enemy?.StateMachine;
-            if (stateMachine != null)
-                stateMachine.OnStateChanged += OnStateChanged;
-        }
-
-        // Auto-trigger on state enter
-        private void OnStateChanged(IState from, IState to)
-        {
-            switch (to)
-            {
-                case ChargeState:
-                    Play(sounds?.charge);
-                    break;
-                case DashState:
-                    Play(sounds?.dash);
-                    break;
-                case GrabState:
-                    Play(sounds?.grab);
-                    break;
-            }
-        }
-
-        // Auto-triggered by damage events
-        private void OnHurt(float damage, GameObject attacker) => Play(sounds?.hurt);
+        // Auto-wired via events
+        private void OnDamaged(float damage, GameObject src) => Play(sounds?.hurt);
         private void OnDeath() => Play(sounds?.death);
 
-        // Manual methods (if needed for special cases)
+        // Public — called by FSM states
         public void PlayAttack() => Play(sounds?.attack);
+        public void PlayCharge() => Play(sounds?.charge);
+        public void PlayGrab() => Play(sounds?.grab);
+        public void PlayDash() => Play(sounds?.dash);
         public void PlayFootstep() => Play(sounds?.footstep);
 
         private void Play(SoundEntry entry)
         {
-            audio?.PlaySpatial(entry, source);
+            if (entry == null || audioManager == null) return;
+            audioManager.PlaySpatial(entry, source);
         }
     }
 }

@@ -16,6 +16,8 @@ namespace junklite
         [Header("Player Settings")]
         [SerializeField] private float attackRange = 1.5f;
         [SerializeField] private LayerMask enemyLayerMask = 1;
+        [Header("Audio")]
+        [SerializeField] private PlayerSoundProfile soundProfile;
 
         [Header("Attack Settings")]
         [SerializeField] private float attackFacingLockDuration = 0.25f;
@@ -47,7 +49,6 @@ namespace junklite
 
         // Movement input
         float horizontalAxis = 0f;
-        private Vector2 lastLoggedMove = Vector2.zero;
 
         // Cached
         Collider[] _cachedColliders;
@@ -62,10 +63,7 @@ namespace junklite
         // Player State
         protected PlayerState playerState;
         public PlayerState PlayerState => playerState;
-
-        // Non-alloc
-        static readonly Collider[] overlapBuffer = new Collider[12];
-
+       
         // attack coroutine
         Coroutine _attackCo;
 
@@ -73,6 +71,7 @@ namespace junklite
         private bool isGrabbed = false;
         public bool IsGrabbed => isGrabbed;
         public bool CanBeGrabbed => IsAlive && !isGrabbed;
+        public PlayerSoundProfile SoundProfile => soundProfile;
 
         // Attached Comps
         private WeaponManager _weaponManager;
@@ -603,6 +602,11 @@ namespace junklite
 
             if (!damageDealt)
                 return false;
+
+            // If this hit killed us, don't apply post-hit effects (stun, knockback, etc.)
+            // Death animation is already triggered via AttributeManager.OnDeath -> CharacterState.HandleDeathForward
+            if (!IsAlive)
+                return true;
 
             // i-frames on hit
             if (playerState != null && damageInvulnerability > 0f)

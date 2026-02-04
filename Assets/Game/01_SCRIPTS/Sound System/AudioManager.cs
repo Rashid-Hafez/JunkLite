@@ -5,13 +5,15 @@ using System.Collections.Generic;
 
 namespace junklite
 {
+    /// <summary>
+    /// Central audio hub (Singleton).
+    /// - Plays MUSIC on a dedicated looping AudioSource
+    /// - Plays UI/2D SFX on a pooled set of AudioSources
+    /// - Plays gameplay SFX (player/enemy) on caller-provided AudioSource via PlaySpatial
+    /// - Character-specific sounds live on per-character SoundProfiles, not here
+    /// </summary>
     public class AudioManager : MonoBehaviour
     {
-        // CENTRAL AUDIO HUB (Singleton)
-        // - Holds a reference to an AudioLibrary (ScriptableObject) that contains all SoundEntry clips/settings
-        // - Plays MUSIC on one dedicated looping AudioSource
-        // - Plays UI/2D SFX on a pooled set of AudioSources (so multiple SFX can overlap)
-        // - Plays gameplay SFX (player/enemy) on the caller-provided AudioSource via PlaySpatial(...)
         public static AudioManager Instance { get; private set; }
 
         [Header("Setup")]
@@ -27,8 +29,6 @@ namespace junklite
         [SerializeField] private AudioMixerGroup musicGroup;
         [SerializeField] private AudioMixerGroup sfxGroup;
 
-        // These must match EXPOSED parameters in your AudioMixer.
-        // We set them in dB internally, but public API uses 0..1 sliders.
         private const string MASTER_VOL = "MasterVolume";
         private const string MUSIC_VOL = "MusicVolume";
         private const string SFX_VOL = "SFXVolume";
@@ -36,20 +36,18 @@ namespace junklite
         private AudioSource[] sfxPool;
         private int poolIndex;
         private AudioSource musicSource;
+        private AudioSource ambienceSource;
         private Coroutine musicFadeRoutine;
         private readonly Dictionary<AudioClip, float> musicResumePositions = new();
         private AudioSource[] spatialPool;
         private int spatialPoolIndex;
         private readonly Dictionary<AudioSource, Coroutine> effectResetters = new();
 
-        // Direct access to library sections
-        public PlayerSounds Player => library?.player;
+        // Global sound accessors (non-character stuff only)
         public UISounds UI => library?.ui;
         public MusicTracks Music => library?.music;
         public AmbienceTracks Ambience => library?.ambience;
         public AudioMixerGroup SFXGroup => sfxGroup;
-
-        private AudioSource ambienceSource;
 
         void Awake()
         {
@@ -59,7 +57,6 @@ namespace junklite
                 return;
             }
             Instance = this;
-            // Keep audio alive across scene loads
             DontDestroyOnLoad(gameObject);
 
             InitPool();
@@ -70,12 +67,13 @@ namespace junklite
 
         void Start()
         {
-            PlayAmbienceIfAvailable();
+            //PlayAmbienceIfAvailable();
         }
+
+        #region Init
 
         private void InitPool()
         {
-            // Pooled 2D SFX sources (used by PlayUI)
             sfxPool = new AudioSource[poolSize];
             for (int i = 0; i < poolSize; i++)
             {
@@ -83,14 +81,13 @@ namespace junklite
                 go.transform.SetParent(transform);
                 sfxPool[i] = go.AddComponent<AudioSource>();
                 sfxPool[i].playOnAwake = false;
-                sfxPool[i].spatialBlend = 0f; // 2D for UI
+                sfxPool[i].spatialBlend = 0f;
                 sfxPool[i].outputAudioMixerGroup = sfxGroup;
             }
         }
 
         private void InitSpatialPool()
         {
-            // Pooled spatial sources for overlapping gameplay SFX
             spatialPool = new AudioSource[Mathf.Max(1, spatialPoolSize)];
             for (int i = 0; i < spatialPool.Length; i++)
             {
@@ -104,7 +101,6 @@ namespace junklite
 
         private void InitMusicSource()
         {
-            // Dedicated music source (looping)
             var go = new GameObject("Music");
             go.transform.SetParent(transform);
             musicSource = go.AddComponent<AudioSource>();
@@ -132,8 +128,12 @@ namespace junklite
             ambienceSource.Play();
         }
 
+        #endregion
+
+        #region SFX Playback
+
         /// <summary>
-        /// Play 2D/UI sound. Uses pool so clicks/wooshes can overlap.
+        /// Play 2D/UI sound from pool.
         /// </summary>
         public void PlayUI(SoundEntry entry)
         {
@@ -149,8 +149,7 @@ namespace junklite
         }
 
         /// <summary>
-        /// Play gameplay sound on a specific AudioSource (Player/Enemy).
-        /// NOTE: whether it's 2D or 3D depends on that source's spatialBlend settings.
+        /// Play gameplay sound using caller's spatial settings.
         /// </summary>
         public void PlaySpatial(SoundEntry entry, AudioSource source)
         {
@@ -159,7 +158,6 @@ namespace junklite
             var spatial = GetNextSpatialSource();
             if (spatial == null) return;
 
-            // Match caller's spatial settings so it behaves like their AudioSource.
             spatial.transform.position = source.transform.position;
             spatial.transform.rotation = source.transform.rotation;
             spatial.spatialBlend = source.spatialBlend;
@@ -167,7 +165,6 @@ namespace junklite
             spatial.maxDistance = source.maxDistance;
             spatial.rolloffMode = source.rolloffMode;
             spatial.outputAudioMixerGroup = source.outputAudioMixerGroup ?? sfxGroup;
-
             spatial.volume = entry.volume * source.volume;
             spatial.pitch = entry.GetRandomPitch() * source.pitch;
             spatial.dopplerLevel = source.dopplerLevel;
@@ -178,17 +175,10 @@ namespace junklite
             ScheduleEffectReset(spatial, entry.clip);
         }
 
-        /// <summary>
-        /// Get enemy sounds by type.
-        /// </summary>
-        public EnemySounds GetEnemy(EnemyType type)
-        {
-            return library?.GetEnemy(type);
-        }
+        #endregion
 
-        /// <summary>
-        /// Play music (replaces current music clip immediately).
-        /// </summary>
+        #region Music
+
         public void PlayMusic(SoundEntry entry)
         {
             if (entry == null || !entry.IsValid) return;
@@ -212,11 +202,6 @@ namespace junklite
             musicSource.Play();
         }
 
-        /// <summary>
-        /// Fade out current music, then fade in the new track. Level → combat or combat → level.
-        /// </summary>
-        /// <param name="entry">Music to crossfade to.</param>
-        /// <param name="fadeDuration">Fade time in seconds; if &lt; 0 uses defaultMusicFadeDuration.</param>
         public void CrossfadeToMusic(SoundEntry entry, float fadeDuration = -1f)
         {
             if (entry == null || !entry.IsValid) return;
@@ -224,19 +209,27 @@ namespace junklite
             float duration = fadeDuration >= 0f ? fadeDuration : defaultMusicFadeDuration;
             if (musicFadeRoutine != null)
                 StopCoroutine(musicFadeRoutine);
-            musicFadeRoutine = StartCoroutine(CrossfadeToMusicRoutine(entry, duration));
+            musicFadeRoutine = StartCoroutine(CrossfadeRoutine(entry, duration));
         }
 
-        private IEnumerator CrossfadeToMusicRoutine(SoundEntry entry, float fadeDuration)
+        public void StopMusic()
+        {
+            if (musicFadeRoutine != null)
+            {
+                StopCoroutine(musicFadeRoutine);
+                musicFadeRoutine = null;
+            }
+            musicSource.Stop();
+        }
+
+        private IEnumerator CrossfadeRoutine(SoundEntry entry, float fadeDuration)
         {
             float half = Mathf.Max(0.01f, fadeDuration * 0.5f);
             float startVol = musicSource.volume;
 
-            // Save current position so we can resume this track later if we switch back
             if (musicSource.isPlaying && musicSource.clip != null)
                 musicResumePositions[musicSource.clip] = musicSource.time;
 
-            // Fade out current
             for (float t = 0f; t < half; t += Time.deltaTime)
             {
                 musicSource.volume = Mathf.Lerp(startVol, 0f, t / half);
@@ -245,7 +238,6 @@ namespace junklite
             musicSource.volume = 0f;
             musicSource.Stop();
 
-            // Switch clip and resume from saved position if we have one
             musicSource.clip = entry.clip;
             musicSource.volume = 0f;
             if (musicResumePositions.TryGetValue(entry.clip, out float resumeTime))
@@ -264,17 +256,10 @@ namespace junklite
             musicFadeRoutine = null;
         }
 
-        public void StopMusic()
-        {
-            if (musicFadeRoutine != null)
-            {
-                StopCoroutine(musicFadeRoutine);
-                musicFadeRoutine = null;
-            }
-            musicSource.Stop();
-        }
+        #endregion
 
-        // Volume control (0 to 1)
+        #region Volume Control
+
         public void SetMasterVolume(float volume) => SetMixerVolume(MASTER_VOL, volume);
         public void SetMusicVolume(float volume) => SetMixerVolume(MUSIC_VOL, volume);
         public void SetSFXVolume(float volume) => SetMixerVolume(SFX_VOL, volume);
@@ -286,7 +271,6 @@ namespace junklite
         private void SetMixerVolume(string param, float volume)
         {
             if (masterGroup == null || masterGroup.audioMixer == null) return;
-            // Convert linear (0..1) -> dB (0 => -80dB "silent")
             float dB = volume > 0.0001f ? Mathf.Log10(volume) * 20f : -80f;
             masterGroup.audioMixer.SetFloat(param, dB);
         }
@@ -299,6 +283,10 @@ namespace junklite
             return 1f;
         }
 
+        #endregion
+
+        #region Pool Helpers
+
         private AudioSource GetNextSource()
         {
             var source = sfxPool[poolIndex];
@@ -308,10 +296,8 @@ namespace junklite
 
         private AudioSource GetNextSpatialSource()
         {
-            if (spatialPool == null || spatialPool.Length == 0)
-                return null;
+            if (spatialPool == null || spatialPool.Length == 0) return null;
 
-            // Find a free source; fallback to round-robin if all are busy.
             for (int i = 0; i < spatialPool.Length; i++)
             {
                 int index = (spatialPoolIndex + i) % spatialPool.Length;
@@ -326,6 +312,10 @@ namespace junklite
             spatialPoolIndex = (spatialPoolIndex + 1) % spatialPool.Length;
             return fallback;
         }
+
+        #endregion
+
+        #region Effects
 
         private void ApplyRandomEffect(SoundEntry entry, AudioSource source)
         {
@@ -381,5 +371,7 @@ namespace junklite
                 filter = source.gameObject.AddComponent<T>();
             return filter;
         }
+
+        #endregion
     }
 }

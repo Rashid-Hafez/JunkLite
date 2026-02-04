@@ -49,6 +49,8 @@ namespace junklite
         [Header("Debug")]
         [SerializeField] private bool logAttacks = false;
 
+
+
         private readonly Dictionary<GameObject, Queue<GameObject>> slashPools = new();
 
         // Internal refs
@@ -64,6 +66,7 @@ namespace junklite
 
         public event Action OnWeaponChanged;
         public event Action OnEnemyHit;
+        public event Action OnEnvironmentHit;
 
         public float Facing => Mathf.Sign(playerTransform.localScale.x);
 
@@ -339,6 +342,10 @@ namespace junklite
             {
                 StartCoroutine(DelayedDamage(hitResult.target, step));
             }
+            else if (hitResult.type == AttackHitResult.Environment)
+            {
+                OnEnvironmentHit?.Invoke();
+            }
 
             // Spawn VFX
             SpawnAttackVFX(dir, step, anchor, hitResult);
@@ -489,14 +496,6 @@ namespace junklite
                     CombatEffectsManager.Instance.SpawnEnvHitParticle(impactPoint, attackDir);
                     CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
                 }
-
-                if (step.slashPrefab != null)
-                    PlaySlashAt(step.slashPrefab, anchor, impactPoint);
-            }
-            else
-            {
-                if (step.slashPrefab != null)
-                    PlaySlash(step.slashPrefab, anchor);
             }
         }
 
@@ -540,104 +539,6 @@ namespace junklite
 
         #endregion VFX
 
-        #region Slash Pool
-
-        private void InitializeSlashPools(WeaponData weaponData)
-        {
-            slashPools.Clear();
-
-            void Register(GameObject prefab)
-            {
-                if (prefab == null || slashPools.ContainsKey(prefab))
-                    return;
-
-                Queue<GameObject> pool = new();
-                for (int i = 0; i < poolSizePerSlash; i++)
-                {
-                    GameObject slash = Instantiate(prefab, slashPoolRoot);
-                    slash.SetActive(false);
-                    pool.Enqueue(slash);
-                }
-                slashPools.Add(prefab, pool);
-            }
-
-            if (weaponData.sideCombo != null)
-            {
-                foreach (var step in weaponData.sideCombo)
-                    Register(step.slashPrefab);
-            }
-
-            Register(weaponData.upAttack.slashPrefab);
-            Register(weaponData.downAttack.slashPrefab);
-        }
-
-        private GameObject GetSlash(GameObject prefab, Transform attackAnchor)
-        {
-            if (prefab == null || !slashPools.TryGetValue(prefab, out var pool))
-                return null;
-
-            GameObject slash = pool.Count > 0
-                ? pool.Dequeue()
-                : Instantiate(prefab, slashPoolRoot);
-
-            slash.transform.SetParent(attackAnchor, false);
-
-            Vector3 offsetToBody = new Vector3(-Facing * slashOffsetDirection, 0f, 0f);
-            slash.transform.localPosition = offsetToBody * slashOffsetDistance;
-            slash.transform.localRotation = Quaternion.identity;
-            slash.transform.localScale = Vector3.one * slashScale;
-            slash.SetActive(true);
-
-            return slash;
-        }
-
-        private void ReturnSlash(GameObject prefab, GameObject slash)
-        {
-            slash.SetActive(false);
-            slash.transform.SetParent(slashPoolRoot, false);
-
-            if (slashPools.TryGetValue(prefab, out var pool))
-                pool.Enqueue(slash);
-        }
-
-        private void PlaySlash(GameObject prefab, Transform attackAnchor)
-        {
-            GameObject slash = GetSlash(prefab, attackAnchor);
-            if (slash == null) return;
-
-            StartCoroutine(ReturnSlashAfterDelay(slash, prefab, slashLifetime));
-        }
-
-        private void PlaySlashAt(GameObject prefab, Transform attackAnchor, Vector3 worldContactPoint)
-        {
-            if (prefab == null || !slashPools.TryGetValue(prefab, out var pool))
-                return;
-
-            GameObject slash = pool.Count > 0
-                ? pool.Dequeue()
-                : Instantiate(prefab, slashPoolRoot);
-
-            slash.transform.SetParent(slashPoolRoot, false);
-            slash.transform.position = worldContactPoint;
-            slash.transform.rotation = attackAnchor.rotation;
-
-            Vector3 scale = Vector3.one * slashScale;
-            scale.x *= Facing;
-            slash.transform.localScale = scale;
-
-            slash.SetActive(true);
-
-            StartCoroutine(ReturnSlashAfterDelay(slash, prefab, slashLifetime));
-        }
-
-        private IEnumerator ReturnSlashAfterDelay(GameObject slash, GameObject prefab, float delay)
-        {
-            yield return new WaitForSeconds(delay);
-            ReturnSlash(prefab, slash);
-        }
-
-        #endregion Slash Pool
-
         #region Pickups
 
         private void PickupWeapon(WorldWeaponPickup pickup)
@@ -658,7 +559,6 @@ namespace junklite
             if (inventory != null)
                 inventory.EquipAllPossible();
 
-            InitializeSlashPools(CurrentWeapon.weaponData);
             OnWeaponChanged?.Invoke();
         }
 

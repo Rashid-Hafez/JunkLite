@@ -40,6 +40,9 @@ namespace junklite
     {
         [Header("Enemy Config")]
         [SerializeField] protected EnemyConfig config;
+        [Header("Audio")]
+        [SerializeField] private EnemySoundProfile soundProfile;
+       
 
         [Header("Detection")]
         [SerializeField] protected DetectionZone detectionZone;
@@ -111,6 +114,7 @@ namespace junklite
         public bool IsTargetInAttackRange => DistanceToTarget <= attackRange;
         public Vector3 DirectionToTarget => HasTarget ? (target.position - transform.position).normalized : Vector3.zero;
         public EnemyType EnemyType => enemyType;
+        public EnemySoundProfile SoundProfile => soundProfile;
 
         protected override void Awake()
         {

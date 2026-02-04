@@ -508,11 +508,14 @@ namespace junklite
 
         private void OnStunnedChanged(bool stunned)
         {
+            // Don't let stun overwrite the death animation
+            if (!playerState.IsAlive) return;
+
             if (stunned)
             {
                 InterruptAttack("stun");
                 ClearDoubleJumpFlag();
-                controller?.ResetAirJumpCount(); // so double jump isn't "wasted" when hurt interrupts it
+                controller?.ResetAirJumpCount();
                 if (HasAnimation(stun))
                     PlayLocomotion(stun, true);
             }

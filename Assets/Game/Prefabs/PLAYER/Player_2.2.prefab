@@ -15288,6 +15288,7 @@ MonoBehaviour:
   enemyLayerMask:
     serializedVersion: 2
     m_Bits: 0
+  soundProfile: {fileID: 11400000, guid: 02c65cf062cddfb4b81d2c3777e6c1bd, type: 2}
   attackFacingLockDuration: 0.15
   particleJumpUp: {fileID: 0}
   particleJumpDown: {fileID: 9116952141988312691}
@@ -15297,7 +15298,7 @@ MonoBehaviour:
   feet: {fileID: 0}
   reviveInvulnerability: 1.25
   disableCollidersOnDeactivate: 0
-  damageInvulnerability: 1
+  damageInvulnerability: 0.3
   damageHitVFXPrefab: {fileID: 5435998012328932994, guid: d8703a33a4eb0b84a875202fde23e8f7, type: 3}
   damageHitVFXLifetime: 1
   cameraShakeOnHit: 5
@@ -15642,8 +15643,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 92e875a48715f9c40b6b9c8e6aca5207, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerAudioHandler
-  minDistance: 1
-  maxDistance: 20
+  minDistance: 20
+  maxDistance: 50
 --- !u!114 &6282132647400396865
 MonoBehaviour:
   m_ObjectHideFlags: 0

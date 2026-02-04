@@ -17,6 +17,8 @@ GameObject:
   - component: {fileID: 1845504704677704398}
   - component: {fileID: 7420164895081332977}
   - component: {fileID: 8620707696424177089}
+  - component: {fileID: 424022102533304986}
+  - component: {fileID: 6885050171418826779}
   m_Layer: 14
   m_Name: Hyena
   m_TagString: Untagged
@@ -34,8 +36,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -32.53782, y: 0, z: -0.636}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 1.26, y: 1.26, z: 1.26}
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 6393022211321750983}
   - {fileID: 2809424947244403141}
@@ -63,10 +65,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 2.458
+  m_Radius: 0.25782192
+  m_Height: 2.052516
   m_Direction: 1
-  m_Center: {x: 0, y: 0.18, z: 0}
+  m_Center: {x: 0.06216252, y: -0.022742033, z: -0.05170852}
 --- !u!54 &6167942235133427456
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -93,7 +95,7 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
 --- !u!114 &7293364043036097954
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -188,6 +190,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.HyenaEnemy
   baseStats: {fileID: 11400000, guid: 9c72d1ca99bf4a341b6578b22cb2b01c, type: 2}
   config: {fileID: 11400000, guid: 7306fe64eecbb124db49dca8d5795fad, type: 2}
+  soundProfile: {fileID: 11400000, guid: 8ea661e92a2b9cc48aa6bfa6c75a470e, type: 2}
   detectionZone: {fileID: 2866929194194371700}
   attackRange: 2
   targetLayer:
@@ -200,8 +203,9 @@ MonoBehaviour:
   deathParticlePrefab: {fileID: 0}
   deathParticleLifetime: 2
   enemyVisual: {fileID: 0}
-  customDropTable: {fileID: 0}
+  customDropTable: {fileID: 11400000, guid: fb56195b90a642d4cb499c818a9aeb3c, type: 2}
   dropChance: 1
+  spineController: {fileID: 6885050171418826779}
   patrol:
     patrolDistance: 6.05
     patrolSpeed: 2
@@ -211,10 +215,9 @@ MonoBehaviour:
       m_Bits: 6144
     wallCheckPoint: {fileID: 5151501263871442441}
   melee:
-    attackDuration: 0.5
-    attackCooldown: 1
+    attackSpeed: 1
     damage: 10
-    knockback: {x: 10, y: 3}
+    knockback: {x: 0, y: 0}
     hitbox: {fileID: 4213466484449388956}
     vfxPrefab: {fileID: 0}
   chase:
@@ -227,9 +230,9 @@ MonoBehaviour:
     dodgeHeight: 0
     hasIFrames: 1
     dodgeVFXPrefab: {fileID: 0}
-  dodgeChance: 0.773
-  dodgeCheckRange: 5
-  dodgeCooldown: 1
+  dodgeChance: 0.512
+  dodgeCheckRange: 3
+  dodgeCooldown: 5
   counterAttackChance: 1
   charge:
     chargeTime: 0.5
@@ -242,6 +245,49 @@ MonoBehaviour:
     dashHitbox: {fileID: 8054053361408564859}
     dashVFXPrefab: {fileID: 0}
   maxDashChance: 0.671
+  vulnerableStunWindow: 2
+--- !u!114 &424022102533304986
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 84268223678430046}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f7f90d1fda7e41c4b36cce21c3ed434, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
+  flashDuration: 0.1
+  flashAmount: 0.8
+  isSpine: 1
+  flashColor: {r: 1, g: 1, b: 1, a: 1}
+--- !u!114 &6885050171418826779
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 84268223678430046}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3837effd3e4ea8249a6631ceec38236e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemySpineAnimationController
+  skeletonAnimation: {fileID: 1635758224723098782}
+  idle: Idle
+  walk: Run
+  run: Run
+  attack: Attack_1_2
+  dodge: JumpBack
+  hurt: Hurt
+  death: Death
+  hitStartEvent: hit_start
+  hitEndEvent: hit_end
+  useTimerFallback: 1
+  attackHitStartTime: 0.15
+  attackHitDuration: 0.1
+  debugLog: 0
 --- !u!1 &2180057967268017690
 GameObject:
   m_ObjectHideFlags: 0
@@ -253,8 +299,7 @@ GameObject:
   - component: {fileID: 6393022211321750983}
   - component: {fileID: 5597149479163235202}
   - component: {fileID: 4680231686504087016}
-  - component: {fileID: 2421837060804025811}
-  - component: {fileID: 7861511410201393039}
+  - component: {fileID: 1635758224723098782}
   m_Layer: 14
   m_Name: Spine GameObject (Enemy)
   m_TagString: Untagged
@@ -272,7 +317,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: -1.036, z: 0}
-  m_LocalScale: {x: 0.256, y: 0.256, z: 0.256}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 8757400840095143692}
@@ -310,7 +355,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 2c3ce5b557d1f41168ca4e7a9b57a508, type: 2}
+  - {fileID: 2100000, guid: 2b99eeb36365f4db487b1fd384f51252, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -334,29 +379,7 @@ MeshRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!95 &2421837060804025811
-Animator:
-  serializedVersion: 7
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2180057967268017690}
-  m_Enabled: 1
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 86639ce07da714310aa28b14a2286a51, type: 2}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_AnimatePhysics: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
---- !u!114 &7861511410201393039
+--- !u!114 &1635758224723098782
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -365,10 +388,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 2180057967268017690}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f9db98c60740638449864eb028fbe7ad, type: 3}
+  m_Script: {fileID: 11500000, guid: d247ba06193faa74d9335f5481b2b56c, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: spine-unity::Spine.Unity.SkeletonMecanim
-  skeletonDataAsset: {fileID: 11400000, guid: 2bf8c52da1bb340ae88e244f763b35c3, type: 2}
+  m_EditorClassIdentifier: spine-unity::Spine.Unity.SkeletonAnimation
+  skeletonDataAsset: {fileID: 11400000, guid: fe613e313d6be40d898661b0ae0f22e6, type: 2}
   initialSkinName: 
   fixPrefabOverrideViaMeshFilter: 2
   initialFlipX: 0
@@ -394,12 +417,11 @@ MonoBehaviour:
   physicsPositionInheritanceFactor: {x: 1, y: 1}
   physicsRotationInheritanceFactor: 1
   physicsMovementRelativeTo: {fileID: 0}
-  translator:
-    autoReset: 1
-    useCustomMixMode: 1
-    layerMixModes: 01000000
-    layerBlendModes: 01000000
   updateTiming: 1
+  unscaledTime: 0
+  _animationName: Idle
+  loop: 0
+  timeScale: 1
 --- !u!1 &5791333691557716536
 GameObject:
   m_ObjectHideFlags: 0
@@ -458,8 +480,8 @@ Transform:
   m_GameObject: {fileID: 7338541297868861841}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.896, y: -0.252, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0.896, y: -0.13999999, z: 0}
+  m_LocalScale: {x: 1, y: 0.64, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8757400840095143692}
@@ -501,6 +523,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1
   hitOnce: 1
+  debugLog: 1
 --- !u!1 &8888167216954204483
 GameObject:
   m_ObjectHideFlags: 0
@@ -602,8 +625,8 @@ Transform:
   m_GameObject: {fileID: 9101347373124830079}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.896, y: -0.252, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0.896, y: -0.14, z: 0}
+  m_LocalScale: {x: 1, y: 0.67, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8757400840095143692}
@@ -645,3 +668,4 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1
   hitOnce: 1
+  debugLog: 1

@@ -15,6 +15,9 @@ namespace junklite
     /// </summary>
     public class HyenaEnemy : EnemyCharacter, IPatroller, IMeleeAttacker, IChaser, IDodger, ICharger, IDasher
     {
+        [Header("Animation")]
+        [SerializeField] private EnemySpineAnimationController spineController;
+
         [Header("Hyena - Patrol")]
         [SerializeField] private PatrolBehavior patrol = new PatrolBehavior();
         [Header("Hyena - Melee Attack")]
@@ -55,18 +58,35 @@ namespace junklite
         // ============================================================
         // IMeleeAttacker
         // ============================================================
-        public float MeleeAttackDuration => melee.MeleeAttackDuration;
-        public float AttackCooldown => melee.AttackCooldown;
+        public float MeleeAttackSpeed => melee.MeleeAttackSpeed;
         public float MeleeDamage => melee.MeleeDamage;
         public Vector2 MeleeKnockback => melee.MeleeKnockback;
         public Hitbox MeleeHitbox => melee.MeleeHitbox;
         public GameObject MeleeVFXPrefab => melee.MeleeVFXPrefab;
+
+        public void OnMeleeAttack()
+        {
+            // Animation controller handles this via state change detection
+            // You can add VFX spawn or sound here if needed
+        }
+
         public void OnMeleeComplete()
         {
             if (!IsAlive) return;
-            if (HasTarget && IsTargetInAttackRange) return; // Stay in melee
+
+            // Stay in melee only if target exists, is alive, and in range
+            if (HasTarget && IsTargetAlive() && IsTargetInAttackRange) return;
+
+            // Target dead or out of range
+            if (!HasTarget || !IsTargetAlive())
+            {
+                ReturnToPassive();
+                return;
+            }
+
             stateMachine.ChangeState<ChaseState>();
         }
+
         // ============================================================
         // IChaser
         // ============================================================
@@ -123,9 +143,18 @@ namespace junklite
         public void OnDashComplete()
         {
             if (!IsAlive) return;
-            // If we had a target and didn't hit them, we're vulnerable to stun for a short window
+
+            // If we had a target and didn't hit them, we're vulnerable to stun
             if (HasTarget && !dashHitConnected)
                 vulnerableToStunUntil = Time.time + vulnerableStunWindow;
+
+            // If target is dead after our dash hit, return to passive
+            if (!HasTarget || !IsTargetAlive())
+            {
+                ReturnToPassive();
+                return;
+            }
+
             DecideNextAction();
         }
         // ============================================================
@@ -133,7 +162,8 @@ namespace junklite
         // ============================================================
         private void DecideNextAction()
         {
-            if (!HasTarget)
+            // No target or target is dead
+            if (!HasTarget || !IsTargetAlive())
             {
                 if (chase.HasLastKnownPosition)
                     stateMachine.ChangeState<ChaseState>();
@@ -141,6 +171,7 @@ namespace junklite
                     ReturnToPassive();
                 return;
             }
+
             if (IsTargetInAttackRange)
                 stateMachine.ChangeState<MeleeAttackState>();
             else if (ShouldDashAttack())
@@ -311,6 +342,8 @@ namespace junklite
         public override void OnPlayerInAttackRange()
         {
             if (!IsAlive) return;
+            if (!IsTargetAlive()) return;
+
             if (ShouldDashAttack())
                 stateMachine.ChangeState<ChargeState>();
             else
@@ -334,6 +367,15 @@ namespace junklite
             // Pass raw knockback - player's TakeDamage calculates direction from Source
             dmg.TakeDamage(new DamageInfo(dash.DashDamage, gameObject, DamageType.Physical, dash.DashKnockback));
         }
+        private bool IsTargetAlive()
+        {
+            if (Target == null) return false;
+
+            var damageable = Target.GetComponent<IDamageable>()
+                          ?? Target.GetComponentInParent<IDamageable>();
+
+            return damageable != null && damageable.IsAlive;
+        }
         // ============================================================
         // Debug Gizmos
         // ============================================================
@@ -348,4 +390,6 @@ namespace junklite
         }
 #endif
     }
+
+
 }
