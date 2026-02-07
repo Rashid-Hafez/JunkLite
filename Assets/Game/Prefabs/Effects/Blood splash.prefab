@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 5593071892064358178}
   - component: {fileID: 1730951804307036094}
   - component: {fileID: 146192211138470071}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Blood splash
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4838,7 +4838,7 @@ ParticleSystemRenderer:
   m_SmallMeshCulling: 1
   m_ForceMeshLod: -1
   m_MeshLodSelectionBias: 0
-  m_RenderingLayerMask: 1
+  m_RenderingLayerMask: 5
   m_RendererPriority: 0
   m_Materials:
   - {fileID: 2100000, guid: 86e0cc91b994c8245bf6af804618c423, type: 2}

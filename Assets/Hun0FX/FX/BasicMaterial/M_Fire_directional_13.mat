@@ -9,16 +9,21 @@ Material:
   m_PrefabAsset: {fileID: 0}
   m_Name: M_Fire_directional_13
   m_Shader: {fileID: 4800000, guid: 707d42827b5c79e4fb8aa317dffe2924, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _USECOLOR_ON
+  - _USEDEPTHFADE_ON
   m_InvalidKeywords:
   - _USEOWNCOLOR_ON
+  - _USESUBDISSTEX_ON
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
+  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -81,13 +86,13 @@ Material:
     - _SubDissolveTex_add: 0
     - _SubDissolveTex_multi: 1
     - _UseColor: 1
-    - _UseDepthFade: 0
+    - _UseDepthFade: 1
     - _UseDissolveColor: 0
     - _UseFresnel: 0
     - _UseLerpColor: 0
     - _UseOwncolor: 1
     - _UsePosXScroll: 0
-    - _UseSubDissTex: 0
+    - _UseSubDissTex: 1
     - _VOintensity: 0
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
@@ -107,3 +112,4 @@ Material:
     - _color1: {r: 1, g: 1, b: 1, a: 1}
     - _color2: {r: 0.4056604, g: 0.4056604, b: 0.4056604, a: 1}
   m_BuildTextureStacks: []
+  m_AllowLocking: 1

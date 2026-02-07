@@ -69,6 +69,10 @@ namespace junklite
         [SerializeField, Range(0.1f, 3f)] private float attackTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float downAttackTimeScale = 1.4f;
 
+        [Header("Force Override (e.g. GroundPound)")]
+        [Tooltip("When grounded, wait this long after the override animation ends before returning to idle/run")]
+        [SerializeField] private float forceOverrideGroundedHoldDuration = 0.4f;
+
         [Header("Footsteps")]
         [SerializeField] private EventDataReferenceAsset footstepEvent;
         [SerializeField] private AudioSource footstepSource;
@@ -348,6 +352,11 @@ namespace junklite
                 forceOverrideActive = false;
                 if (playerState != null && playerState.IsAlive)
                 {
+                    if (playerState.IsGrounded && forceOverrideGroundedHoldDuration > 0f)
+                    {
+                        StartCoroutine(CoDelayedRestoreAfterForceOverride(onComplete));
+                        return;
+                    }
                     if (playerState.IsGrounded)
                     {
                         float speed = GetSpeed();
@@ -366,6 +375,17 @@ namespace junklite
                 onComplete?.Invoke();
             };
             return true;
+        }
+
+        private System.Collections.IEnumerator CoDelayedRestoreAfterForceOverride(Action onComplete)
+        {
+            yield return new WaitForSeconds(forceOverrideGroundedHoldDuration);
+            if (playerState != null && playerState.IsAlive && playerState.IsGrounded)
+            {
+                float speed = GetSpeed();
+                PlayLocomotion(speed > speedThreshold ? run : idle, true);
+            }
+            onComplete?.Invoke();
         }
 
         /// <summary>True while a ForcePlayOverride animation is playing.</summary>
@@ -408,6 +428,10 @@ namespace junklite
 
         private void OnGroundedChanged(bool grounded)
         {
+            // Don't override when a force-override animation is playing (e.g. GroundPound)
+            if (forceOverrideActive)
+                return;
+
             if (grounded)
             {
                 ClearDoubleJumpFlag();

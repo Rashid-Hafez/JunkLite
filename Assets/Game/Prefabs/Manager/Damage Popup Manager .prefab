@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1282147175516828267}
   - component: {fileID: 361149989466794347}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: 'Damage Popup Manager '
   m_TagString: Untagged
   m_Icon: {fileID: 0}

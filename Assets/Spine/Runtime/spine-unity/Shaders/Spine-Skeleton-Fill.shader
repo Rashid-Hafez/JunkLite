@@ -28,7 +28,7 @@ Shader "Spine/Skeleton Fill" {
 		Tags { "Queue"="Transparent" "IgnoreProjector"="True" "RenderType"="Transparent" "PreviewType"="Plane" }
 		Blend One OneMinusSrcAlpha
 		Cull Off
-		ZWrite On
+		ZWrite Off
 		Lighting Off
 
 		Stencil {
@@ -80,6 +80,51 @@ Shader "Spine/Skeleton Fill" {
 
 				float3 finalColor = lerp((rawColor.rgb * i.vertexColor.rgb), (_FillColor.rgb * finalAlpha), _FillPhase); // make sure to PMA _FillColor.
 				return fixed4(finalColor, finalAlpha);
+			}
+			ENDCG
+		}
+
+		Pass {
+			Name "DepthOnly"
+			Tags { "LightMode"="DepthOnly" }
+			ZWrite On
+			ColorMask 0
+			Cull Off
+			Lighting Off
+
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma fragment fragDepth
+			#include "UnityCG.cginc"
+			#include "CGIncludes/Spine-Common.cginc"
+			sampler2D _MainTex;
+			fixed _Cutoff;
+
+			struct VertexInput {
+				float4 vertex : POSITION;
+				float2 uv : TEXCOORD0;
+				float4 vertexColor : COLOR;
+			};
+
+			struct VertexOutput {
+				float4 pos : SV_POSITION;
+				float2 uv : TEXCOORD0;
+				float4 vertexColor : COLOR;
+			};
+
+			VertexOutput vert (VertexInput v) {
+				VertexOutput o = (VertexOutput)0;
+				o.uv = v.uv;
+				o.vertexColor = PMAGammaToTargetSpace(v.vertexColor);
+				o.pos = UnityObjectToClipPos(v.vertex);
+				return o;
+			}
+
+			float4 fragDepth (VertexOutput i) : SV_Target {
+				float4 rawColor = tex2D(_MainTex,i.uv);
+				float finalAlpha = (rawColor.a * i.vertexColor.a);
+				clip(finalAlpha - _Cutoff);
+				return 0;
 			}
 			ENDCG
 		}

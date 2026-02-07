@@ -19,7 +19,8 @@ namespace junklite
         [SerializeField] private Transform playerTransform;
 
         [Header("Zoom (e.g. Phantom Strike)")]
-        [SerializeField] private float zoomOutOrthoSize = 14f;
+        [Tooltip("When using Physical/Perspective: zoom-out Field of View in degrees (wider = more zoomed out). When Orthographic: zoom-out ortho size.")]
+        [SerializeField] private float zoomOutValue = 55f;
         [SerializeField] private float zoomOutDuration = 0.25f;
         [SerializeField] private float zoomInDuration = 0.35f;
 
@@ -32,7 +33,9 @@ namespace junklite
         // Cached tracking target
         private Transform cachedTrackingTarget;
 
-        private float defaultOrthoSize; // captured on first RequestZoomOut, so we don't touch original setup
+        // Captured on first RequestZoomOut - we restore to these when zooming back in
+        private float defaultZoomValue;
+        private bool defaultIsOrthographic;
         private Coroutine zoomCoroutine;
 
 
@@ -114,30 +117,46 @@ namespace junklite
             }
         }
 
-        /// <summary>Zoom out smoothly and quickly while still following the player. Call ZoomBackIn when done.</summary>
+        /// <summary>Zoom out smoothly while still following the player. Uses FOV for Physical/Perspective, OrthographicSize for Orthographic. Call RequestZoomBackIn when done.</summary>
         public void RequestZoomOut()
+        {
+            RequestZoomOut(zoomOutValue);
+        }
+
+        /// <summary>Zoom out to a custom value: Field of View in degrees when using Physical/Perspective (wider FOV = zoom out), or ortho size when Orthographic. Pass 0 to use default zoom-out value.</summary>
+        public void RequestZoomOut(float customZoomOutValue)
         {
             if (mainCamera == null)
                 return;
-            // Capture current ortho size as "default" on first zoom out so we never touch original camera setup
-            if (defaultOrthoSize <= 0f)
-                defaultOrthoSize = mainCamera.Lens.OrthographicSize;
+            var lens = mainCamera.Lens;
+            if (customZoomOutValue <= 0f)
+                customZoomOutValue = zoomOutValue;
+            // Capture current zoom so we can restore it when zooming back in
+            defaultIsOrthographic = lens.Orthographic;
+            defaultZoomValue = defaultIsOrthographic ? lens.OrthographicSize : lens.FieldOfView;
             if (zoomCoroutine != null)
                 StopCoroutine(zoomCoroutine);
-            zoomCoroutine = StartCoroutine(CoZoom(zoomOutOrthoSize, zoomOutDuration));
+            zoomCoroutine = StartCoroutine(CoZoom(customZoomOutValue, zoomOutDuration));
         }
 
-        /// <summary>Zoom back to default ortho size smoothly.</summary>
+        /// <summary>Zoom back to default (captured at last RequestZoomOut) smoothly.</summary>
         public void RequestZoomBackIn()
         {
-            if (mainCamera == null || defaultOrthoSize <= 0f)
+            if (mainCamera == null)
                 return;
+            if (defaultZoomValue <= 0f)
+            {
+                var lens = mainCamera.Lens;
+                defaultZoomValue = lens.Orthographic ? lens.OrthographicSize : lens.FieldOfView;
+                defaultIsOrthographic = lens.Orthographic;
+                return;
+            }
             if (zoomCoroutine != null)
                 StopCoroutine(zoomCoroutine);
-            zoomCoroutine = StartCoroutine(CoZoom(defaultOrthoSize, zoomInDuration));
+            zoomCoroutine = StartCoroutine(CoZoom(defaultZoomValue, zoomInDuration));
         }
 
-        private IEnumerator CoZoom(float targetOrthoSize, float duration)
+        private IEnumerator CoZoom(float targetValue, float duration)
         {
             if (mainCamera == null || duration <= 0f)
             {
@@ -146,7 +165,8 @@ namespace junklite
             }
 
             var lens = mainCamera.Lens;
-            float start = lens.OrthographicSize;
+            bool ortho = lens.Orthographic;
+            float start = ortho ? lens.OrthographicSize : lens.FieldOfView;
             float elapsed = 0f;
 
             while (elapsed < duration)
@@ -154,12 +174,19 @@ namespace junklite
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
                 t = t * t * (3f - 2f * t); // smoothstep
-                lens.OrthographicSize = Mathf.Lerp(start, targetOrthoSize, t);
+                float value = Mathf.Lerp(start, targetValue, t);
+                if (ortho)
+                    lens.OrthographicSize = value;
+                else
+                    lens.FieldOfView = Mathf.Clamp(value, 0.01f, 179f);
                 mainCamera.Lens = lens;
                 yield return null;
             }
 
-            lens.OrthographicSize = targetOrthoSize;
+            if (ortho)
+                lens.OrthographicSize = targetValue;
+            else
+                lens.FieldOfView = Mathf.Clamp(targetValue, 0.01f, 179f);
             mainCamera.Lens = lens;
             zoomCoroutine = null;
         }

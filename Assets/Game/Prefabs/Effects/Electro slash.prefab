@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3718299118762695598}
   - component: {fileID: 2961762057418988057}
   - component: {fileID: 5630460729311308466}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Electro
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4914,7 +4914,7 @@ GameObject:
   - component: {fileID: 5057231759929526571}
   - component: {fileID: 3273823943311262256}
   - component: {fileID: 6883918640673630284}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Sparks
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9817,7 +9817,7 @@ GameObject:
   - component: {fileID: 3259883824506402494}
   - component: {fileID: 7480897979958859090}
   - component: {fileID: 1036160689997427420}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: ElectroHit
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -14769,7 +14769,7 @@ GameObject:
   - component: {fileID: 287124117074442947}
   - component: {fileID: 4987507010869220744}
   - component: {fileID: 8264321444707222886}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Electro slash
   m_TagString: Untagged
   m_Icon: {fileID: 0}

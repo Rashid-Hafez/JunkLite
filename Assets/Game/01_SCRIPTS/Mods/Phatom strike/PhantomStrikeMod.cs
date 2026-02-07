@@ -16,6 +16,9 @@ namespace junklite
         public LayerMask groundLayerMask;
 
         [Header("Slam Attack")]
+        [Tooltip("Spine animation name to play (passed to SpineAnimationController)")]
+        public string groundPoundAnimationName = "GroundPound";
+
         [Tooltip("Base damage of the slam attack")]
         public float slamDamage = 50f;
 
@@ -40,9 +43,18 @@ namespace junklite
         [Tooltip("Recovery time after impact before input is restored")]
         public float recoveryTime = 0.15f;
 
-        [Header("Movement")]
-        [Tooltip("How high above the slam target the player spawns")]
+        [Header("Movement (Height & Velocity)")]
+        [Tooltip("How high above the slam target the player teleports (spawn height)")]
         public float spawnHeight = 8f;
+
+        [Tooltip("Extra height gained while drifting up before the slam")]
+        public float driftUpHeight = 1f;
+
+        [Tooltip("Duration of the upward drift before descending")]
+        public float driftUpDuration = 0.15f;
+
+        [Tooltip("Downward speed (units per second) during the slam to ground")]
+        public float slamDescentSpeed = 25f;
 
         [Header("VFX (Optional)")]
         [Tooltip("VFX spawned when player vanishes")]
@@ -55,6 +67,9 @@ namespace junklite
         public GameObject impactVFX;
 
         [Header("Camera")]
+        [Tooltip("Zoom out: Physical/Perspective = Field of View in degrees (e.g. 55 = wider, zoomed out). Orthographic = ortho size. 0 = use CameraManager default")]
+        public float cameraZoomOutValue = 55f;
+
         [Tooltip("Camera shake intensity on impact (0 = no shake)")]
         public float cameraShakeIntensity = 3f;
 

@@ -13,7 +13,8 @@ namespace junklite
             if (player == null)
                 return false;
 
-            if (player.LastAttackDirection != AttackDirection.Down)
+            var playerState = player.PlayerState;
+            if (playerState == null || !playerState.IsDownAttackRequested)
                 return false;
 
             var controller = player.Controller;
@@ -23,6 +24,9 @@ namespace junklite
             // Use the controller's external bounce system
             // This ensures the bounce has fixed height regardless of jump input
             controller.ApplyExternalBounce(pogoForce);
+
+            // Cancel attack lock so jump input can trigger after pogo
+            playerState.NotifyAttackAnimationInterrupted();
 
             return true;
         }

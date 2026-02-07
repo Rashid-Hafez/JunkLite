@@ -14,7 +14,7 @@ namespace junklite
 
         private const float MAX_DESCENT_TIME = 5f;
 
-        private const string GROUND_POUND_ANIM = "GroundPound";
+        private const string DEFAULT_GROUND_POUND_ANIM = "GroundPound";
 
         private PhantomStrikeMod modData;
         private PlayerCharacter player;
@@ -136,37 +136,64 @@ namespace junklite
                 rb.linearVelocity = Vector3.zero;
             }
 
-            // Zoom out smooth and fast; camera keeps following player
+            // Zoom out (use mod value if set: FOV degrees for Physical/Perspective, ortho size for Orthographic)
             if (CameraManager.Instance != null)
-                CameraManager.Instance.RequestZoomOut();
-
-            // Optional: uncomment for vanish VFX at start
-            // if (modData.vanishVFX != null)
-            //     Instantiate(modData.vanishVFX, startPosition, Quaternion.identity);
-
-            // Phase 2: Play full GroundPound animation (anim drives height and ground pound; no manual teleport/hang/descend)
-            // Commented out: manual vanish, hang time, descend - we use the animation purely.
-            // player.SetVisible(false);
-            // Vector3 airPosition = new Vector3(startPosition.x, startPosition.y + modData.spawnHeight, startPosition.z);
-            // player.transform.position = airPosition;
-            // playerState.SetGrounded(false);
-            // yield return new WaitForSeconds(modData.hangTime);
-            // player.SetVisible(true);
-            // ... manual descent loop ...
-
-            bool animFinished = false;
-            if (spineAnim != null && spineAnim.ForcePlayOverride(GROUND_POUND_ANIM, false, () => animFinished = true))
             {
-                while (!animFinished)
-                    yield return null;
-            }
-            else
-            {
-                // Fallback if no GroundPound anim: short wait then impact at current position
-                yield return new WaitForSeconds(0.5f);
+                if (modData.cameraZoomOutValue > 0f)
+                    CameraManager.Instance.RequestZoomOut(modData.cameraZoomOutValue);
+                else
+                    CameraManager.Instance.RequestZoomOut();
             }
 
-            // Phase 3: Impact at current position (after anim lands)
+            if (modData.vanishVFX != null)
+                Instantiate(modData.vanishVFX, startPosition, Quaternion.identity);
+
+            // Start GroundPound animation first so forceOverrideActive is set before we go airborne
+            // (otherwise ApplyAnyStateFallbacks would play Jump_2_Air during drift)
+            string animName = string.IsNullOrEmpty(modData.groundPoundAnimationName) ? DEFAULT_GROUND_POUND_ANIM : modData.groundPoundAnimationName;
+            if (spineAnim != null)
+                spineAnim.ForcePlayOverride(animName, false, () => { });
+
+            // Phase 2: Teleport into the air
+            Vector3 airPosition = new Vector3(startPosition.x, startPosition.y + modData.spawnHeight, startPosition.z);
+            player.transform.position = airPosition;
+            playerState.SetGrounded(false);
+
+            // Phase 3: Drift up slightly
+            float driftEndY = airPosition.y + modData.driftUpHeight;
+            float driftElapsed = 0f;
+            while (driftElapsed < modData.driftUpDuration)
+            {
+                driftElapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(driftElapsed / modData.driftUpDuration);
+                float y = Mathf.Lerp(airPosition.y, driftEndY, t);
+                player.transform.position = new Vector3(startPosition.x, y, startPosition.z);
+                yield return null;
+            }
+
+            float slamStartY = player.transform.position.y;
+
+            // Get ground Y for slam target (raycast down)
+            float groundY = startPosition.y;
+            if (modData.groundLayerMask != 0 && Physics.Raycast(player.transform.position + Vector3.up * 0.5f, Vector3.down, out RaycastHit groundHit, 50f, modData.groundLayerMask))
+                groundY = groundHit.point.y;
+
+            // Phase 4: Slam down to ground (velocity-based using slamDescentSpeed)
+            float currentY = slamStartY;
+            float descentSpeed = Mathf.Max(modData.slamDescentSpeed, 1f);
+            while (currentY > groundY)
+            {
+                currentY -= descentSpeed * Time.deltaTime;
+                if (currentY < groundY)
+                    currentY = groundY;
+                player.transform.position = new Vector3(startPosition.x, currentY, startPosition.z);
+                yield return null;
+            }
+
+            player.transform.position = new Vector3(startPosition.x, groundY, startPosition.z);
+            playerState.SetGrounded(true);
+
+            // Phase 5: Impact at landing position
             Vector3 impactPosition = player.transform.position;
 
             if (modData.impactVFX != null)

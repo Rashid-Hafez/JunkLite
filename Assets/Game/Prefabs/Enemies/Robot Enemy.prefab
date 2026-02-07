@@ -182,7 +182,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.Hitbox
   targetLayers:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 65537
   hitOnce: 1
 --- !u!1 &5870449926906009762
 GameObject:
@@ -283,7 +283,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.DetectionZone
   targetLayers:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 65537
   requireLineOfSight: 1
   losBlockingLayers:
     serializedVersion: 2

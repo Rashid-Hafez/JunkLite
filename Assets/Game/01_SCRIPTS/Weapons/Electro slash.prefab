@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 4389267067431192423}
   - component: {fileID: 6780950574848232591}
   - component: {fileID: 2246503384864925648}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Sparks
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4825,7 +4825,7 @@ ParticleSystem:
     vectorLabel1_3: W
 --- !u!199 &2246503384864925648
 ParticleSystemRenderer:
-  serializedVersion: 6
+  serializedVersion: 7
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -4871,6 +4871,7 @@ ParticleSystemRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_RenderMode: 1
   m_MeshDistribution: 0
   m_SortMode: 0
@@ -4902,7 +4903,6 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
-  m_MaskInteraction: 0
 --- !u!1 &1851046837269307847
 GameObject:
   m_ObjectHideFlags: 0
@@ -4914,7 +4914,7 @@ GameObject:
   - component: {fileID: 8655967606826089694}
   - component: {fileID: 4677552246098428735}
   - component: {fileID: 6249596839896293363}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Electro
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9728,7 +9728,7 @@ ParticleSystem:
     vectorLabel1_3: W
 --- !u!199 &6249596839896293363
 ParticleSystemRenderer:
-  serializedVersion: 6
+  serializedVersion: 7
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -9774,6 +9774,7 @@ ParticleSystemRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_RenderMode: 0
   m_MeshDistribution: 0
   m_SortMode: 0
@@ -9805,7 +9806,6 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
-  m_MaskInteraction: 0
 --- !u!1 &5620745010019171799
 GameObject:
   m_ObjectHideFlags: 0
@@ -9817,7 +9817,7 @@ GameObject:
   - component: {fileID: 4278199777986564571}
   - component: {fileID: 3777663710146819390}
   - component: {fileID: 7382225231530753568}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Electro slash
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -14626,7 +14626,7 @@ ParticleSystem:
     vectorLabel1_3: W
 --- !u!199 &7382225231530753568
 ParticleSystemRenderer:
-  serializedVersion: 6
+  serializedVersion: 7
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -14672,6 +14672,7 @@ ParticleSystemRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_RenderMode: 0
   m_MeshDistribution: 0
   m_SortMode: 0
@@ -14703,7 +14704,6 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
-  m_MaskInteraction: 0
 --- !u!1 &6850268612634666276
 GameObject:
   m_ObjectHideFlags: 0
@@ -14715,7 +14715,7 @@ GameObject:
   - component: {fileID: 5085929190116082944}
   - component: {fileID: 4482922403655612683}
   - component: {fileID: 5850703088798568598}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Flash
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -19529,7 +19529,7 @@ ParticleSystem:
     vectorLabel1_3: W
 --- !u!199 &5850703088798568598
 ParticleSystemRenderer:
-  serializedVersion: 6
+  serializedVersion: 7
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -19575,6 +19575,7 @@ ParticleSystemRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_RenderMode: 0
   m_MeshDistribution: 0
   m_SortMode: 0
@@ -19606,7 +19607,6 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
-  m_MaskInteraction: 0
 --- !u!1 &8427082160376212775
 GameObject:
   m_ObjectHideFlags: 0
@@ -19618,7 +19618,7 @@ GameObject:
   - component: {fileID: 6436981892964446577}
   - component: {fileID: 4597900342484167819}
   - component: {fileID: 5604326781323132595}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: ElectroHit
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -24481,7 +24481,7 @@ ParticleSystem:
     vectorLabel1_3: W
 --- !u!199 &5604326781323132595
 ParticleSystemRenderer:
-  serializedVersion: 6
+  serializedVersion: 7
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -24527,6 +24527,7 @@ ParticleSystemRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_RenderMode: 1
   m_MeshDistribution: 0
   m_SortMode: 0
@@ -24558,4 +24559,3 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
-  m_MaskInteraction: 0

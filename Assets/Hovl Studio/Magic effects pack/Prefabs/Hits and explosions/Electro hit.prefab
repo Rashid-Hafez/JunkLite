@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1215806952719512772}
   - component: {fileID: 2988904399259556545}
   - component: {fileID: 7003470562967115926}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Glow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4914,7 +4914,7 @@ GameObject:
   - component: {fileID: 1388872548669538631}
   - component: {fileID: 4033287822461114141}
   - component: {fileID: 4657519583580483318}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Electro hit
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9800,7 +9800,7 @@ ParticleSystemRenderer:
   m_SmallMeshCulling: 1
   m_ForceMeshLod: -1
   m_MeshLodSelectionBias: 0
-  m_RenderingLayerMask: 1
+  m_RenderingLayerMask: 5
   m_RendererPriority: 0
   m_Materials:
   - {fileID: 2100000, guid: 410fa9a27b8dd1f4989dd201babd7d76, type: 2}
@@ -9824,7 +9824,7 @@ ParticleSystemRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 3
   m_MaskInteraction: 0
   m_RenderMode: 1
   m_MeshDistribution: 0
@@ -9868,7 +9868,7 @@ GameObject:
   - component: {fileID: 7524329514794893398}
   - component: {fileID: 6985151058703206228}
   - component: {fileID: 8543312844023274411}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Sparks
   m_TagString: Untagged
   m_Icon: {fileID: 0}
