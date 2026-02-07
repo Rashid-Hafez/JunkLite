@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -111,7 +113,7 @@ namespace junklite
         private float jumpBufferTimer = 0f;
 
         // Dash state
-        private bool isDashing = false;
+        [SerializeField] private bool isDashing = false;
         private float dashEndTime = 0f;
         private float dashCooldownTimer = 0f;
         private Vector3 dashDirection;
@@ -136,6 +138,9 @@ namespace junklite
         public System.Action OnJumpStarted;              // fired on ground jump
         public System.Action OnFallStarted;              // airborne began
         public System.Action OnFallEnded;                // landed after falling
+
+        //Coroutines
+        private Coroutine dashRoutine;
 
 
 
@@ -323,7 +328,8 @@ namespace junklite
 
             if (isDashing)
             {
-                ApplyDashVelocityFixed();
+                if (dashRoutine == null)
+                    dashRoutine = StartCoroutine(DashCoroutine());
             }
             else if (isWallJumping)
             {
@@ -434,11 +440,12 @@ namespace junklite
 
         public void Dash()
         {
+            Debug.Log("Dash");
             if (!CanDash) return;
 
-            Vector3 dir = Vector3.right * (IsFacingRight ? 1f : -1f);
+            Vector3 dir = transform.right * (IsFacingRight ? 1f : -1f);
             if (Mathf.Abs(moveInput.x) > 0.1f)
-                dir = Vector3.right * Mathf.Sign(moveInput.x);
+                dir = transform.right * Mathf.Sign(moveInput.x);
 
             StartDash(dir);
         }
@@ -623,9 +630,10 @@ namespace junklite
         #endregion
 
         // ===== Fixed-step writers =====
-
         private void ApplyMovementFixed()
         {
+            // Don't apply player input changes during dash or wall jump - movement is locked to a specific velocity
+
             // --- Wall Jump Movement Lock ---
             if (isWallJumping)
                 return;
@@ -641,46 +649,52 @@ namespace junklite
                 {
                     rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpForce, rb.linearVelocity.z);
                     StartMinJumpHoldWindow();
-                    hasJumpBeenCut = false;  // fresh jump, allow one cut
+                    hasJumpBeenCut = false;
                     jumpBufferTimer = 0f;
                     coyoteTimer = 0f;
                     OnJumpStarted?.Invoke();
                 }
                 else
                 {
-                    // No coyote available, clear buffer (air jump handled in Jump() directly)
                     jumpBufferTimer = 0f;
                 }
             }
 
             if (!canMove) return;
 
-            Vector3 v = rb.linearVelocity;
+            // Decompose current velocity into local axes
+            Vector3 right = transform.right;
+            Vector3 up = transform.up;
+
+            float currentRightVel = Vector3.Dot(rb.linearVelocity, right);
+            float currentUpVel = Vector3.Dot(rb.linearVelocity, up);
+
+            float targetRightVel;
 
             // --- Air movement ---
             if (!isGrounded)
             {
                 if (Mathf.Abs(moveInput.x) < 0.1f)
                 {
-                    // Strong air drag to force straight-down fall
-                    v.x = Mathf.Lerp(v.x, 0f, 0.35f);
+                    // Strong air drag toward zero LOCAL horizontal velocity
+                    targetRightVel = Mathf.Lerp(currentRightVel, 0f, 0.35f);
                 }
                 else
                 {
-                    // Normal air control
-                    v.x = moveInput.x * moveSpeed;
+                    targetRightVel = moveInput.x * moveSpeed;
                 }
             }
             else
             {
-                v.x = moveInput.x * moveSpeed;
+                targetRightVel = moveInput.x * moveSpeed;
             }
 
-            // Z-axis movement if enabled
-            if (allowZMovement && !snapToZPosition)
-                v.z = moveInput.z * zMoveSpeed;
+            // Rebuild velocity in local space (preserve vertical)
+            Vector3 v =
+                right * targetRightVel +
+                up * currentUpVel +
+                Vector3.Project(rb.linearVelocity, transform.forward);
 
-            // Apply final velocity
             rb.linearVelocity = v;
 
             // Facing direction
@@ -689,25 +703,40 @@ namespace junklite
         }
 
 
-        private void ApplyDashVelocityFixed()
+
+        private IEnumerator DashCoroutine()
         {
-            if (isWallJumping)
-                return;
+            Debug.Log("Dash started");
+            isDashing = true;
+            dashEndTime = Time.time + dashDuration;
+            dashCooldownTimer = dashCooldown;
 
-            // t in [0..1]
-            float t = 1f - Mathf.Clamp01((dashEndTime - Time.time) / dashDuration);
-            float curve = dashCurve.Evaluate(t);
-            Vector3 dashV = dashDirection * dashForce * curve;
+            while (Time.time < dashEndTime)
+            {
+                float t = 1f - Mathf.Clamp01((dashEndTime - Time.time) / dashDuration);
+                float curve = dashCurve.Evaluate(t);
+                float dashSpeed = dashForce * curve;
 
-            if (dashResetsGravity)
-                rb.linearVelocity = new Vector3(dashV.x, 0f, dashV.z);
-            else
-                rb.linearVelocity = new Vector3(dashV.x, rb.linearVelocity.y, dashV.z);
+                Vector3 right = transform.right;
+                Vector3 up = transform.up;
 
-            if (faceMovementDirection && Mathf.Abs(dashDirection.x) > 0.1f)
-                HandleFacingDirectionFixed(dashDirection.x);
+                float dir = IsFacingRight? 1f : -1f;
+
+                Vector3 dashVel = right * dashSpeed * dir;
+
+                if (dashResetsGravity)
+                    rb.linearVelocity = dashVel;
+                else
+                    rb.linearVelocity = dashVel + up * Vector3.Dot(rb.linearVelocity, up);
+
+                yield return null;
+            }
+
+            isDashing = false;
+            dashRoutine = null;
+
+            OnDashEnded?.Invoke();
         }
-
 
 
         private void EndDash()
@@ -779,6 +808,40 @@ namespace junklite
             }
         }
 
+
+        /// <summary>
+        /// Safely rotates the character 90 degrees around the Y axis.
+        /// This mimics changing Rotation.Y in the Inspector.
+        /// Uses Rigidbody.MoveRotation to stay physics-safe.
+        /// </summary>
+        public void RotatePLayer(float yRotation)
+        {
+            // Clear horizontal velocity so we don't "carry" motion across axes
+            Vector3 up = transform.up;
+            float verticalVel = Vector3.Dot(rb.linearVelocity, up);
+            
+
+            // Apply rotation safely via Rigidbody
+            Quaternion delta = Quaternion.Euler(0f, yRotation, 0f);
+            rb.MoveRotation(delta);
+
+            // Optional: realign facing if using Y-axis rotation mode
+            if (facingMode == FacingMode.YAxisRotation)
+            {
+                // Ensure facing logic remains consistent
+                Vector3 e = transform.eulerAngles;
+                e.y = Mathf.Round(e.y / 90f) * 90f;
+                transform.eulerAngles = e;
+            }
+
+
+            float deltaVel = yRotation - transform.eulerAngles.y;
+
+            transform.eulerAngles = new Vector3(0f, yRotation, 0f);
+
+            // Rotate current velocity to match new orientation
+            rb.linearVelocity = Quaternion.Euler(0f, deltaVel, 0f) * rb.linearVelocity;
+        }
 
 
         private void HandleFacingDirectionFixed(float horizontalInput)

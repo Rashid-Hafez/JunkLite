@@ -175,7 +175,7 @@ public class PetDrone : MonoBehaviour
             rb.AddForce(F / rb.mass, ForceMode2D.Force); // Apply force to the drone
             
             rb.linearVelocity *= damping; // Apply damping to reduce oscillations
-            rb.linearVelocity = Vector2.ClampMagnitude(rb.linearVelocity, maxSpeed); // Limit max speed
+            rb.linearVelocity = Vector3.ClampMagnitude(rb.linearVelocity, maxSpeed); // Limit max speed
 
             yield return new WaitForFixedUpdate(); // Wait for the next physics update
         }

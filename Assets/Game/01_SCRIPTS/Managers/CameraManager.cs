@@ -18,6 +18,7 @@ namespace junklite
         [SerializeField] private Transform playerTransform;
 
         // Camera dictionary for easy access
+        [SerializeField] private List<CinemachineCamera> cameraList = new List<CinemachineCamera>();
         private Dictionary<string, CinemachineCamera> cameras;
 
         // Current player reference for event subscription
@@ -49,6 +50,8 @@ namespace junklite
             {
                 mainCamera.Target.TrackingTarget = playerTransform;
                 SwitchToMainCamera();
+
+                
             }
         }
 
@@ -67,10 +70,20 @@ namespace junklite
             currentPlayer = character;
             playerTransform = character.gameObject.transform;
 
+            // Set all cameras to low priority
+            foreach (CinemachineCamera camera in cameraList)
+            {
+                if (camera != null)
+                {
+                    camera.Priority = 0;
+                    SetPlayerTarget(camera, playerTransform);
+                }
+            }
+
             // Subscribe to camera follow requests
             currentPlayer.OnCameraFollowRequested += HandleCameraFollowRequested;
 
-            SetPlayerTarget(playerTransform);
+ 
         }
 
         private void UnsubscribeFromPlayer()
@@ -108,19 +121,11 @@ namespace junklite
 
         private void InitializeCameras()
         {
-            cameras = new Dictionary<string, CinemachineCamera>();
-
-            if (mainCamera != null)
-                cameras["Main"] = mainCamera;
-            if (deathCamera != null)
-                cameras["Death"] = deathCamera;
-
-            // Set all cameras to low priority
-            foreach (var camera in cameras.Values)
-            {
-                if (camera != null)
-                    camera.Priority = 0;
-            }
+            cameras = new Dictionary<string, CinemachineCamera>
+                {
+                    { "Main", mainCamera },
+                    { "Death", deathCamera }
+                };
         }
 
 
@@ -153,13 +158,13 @@ namespace junklite
         }
 
 
-        public void SetPlayerTarget(Transform player)
+        public void SetPlayerTarget(CinemachineCamera camera, Transform player)
         {
             playerTransform = player;
             cachedTrackingTarget = player;
 
-            if (mainCamera != null)
-                mainCamera.Target.TrackingTarget = playerTransform;
+            if (camera != null)
+                camera.Target.TrackingTarget = playerTransform;
         }
     }
 }
