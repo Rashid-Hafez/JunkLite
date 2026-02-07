@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 5538855213213330603}
   - component: {fileID: 8076739396530453873}
   - component: {fileID: 8240714364417445657}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Lightning aura (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4858,7 +4858,7 @@ GameObject:
   - component: {fileID: 6362919178446898432}
   - component: {fileID: 8374920784783464159}
   - component: {fileID: 7709902941872974522}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: fire1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9694,7 +9694,7 @@ GameObject:
   - component: {fileID: 8787098851707422855}
   - component: {fileID: 3715154059016708973}
   - component: {fileID: 4381957109934876264}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: pati1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -14539,7 +14539,7 @@ GameObject:
   - component: {fileID: 535495104309029993}
   - component: {fileID: 8825487612574734715}
   - component: {fileID: 1267070567229554696}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: fire1 (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -19375,7 +19375,7 @@ GameObject:
   - component: {fileID: 343353720850331408}
   - component: {fileID: 6625095176551425027}
   - component: {fileID: 2588124607855444420}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Sparks
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -24278,7 +24278,7 @@ GameObject:
   - component: {fileID: 7889092125920714322}
   - component: {fileID: 5906497408574663522}
   - component: {fileID: 5794971928127574866}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: fire2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -29114,7 +29114,7 @@ GameObject:
   - component: {fileID: 79041014044824671}
   - component: {fileID: 470551791213925536}
   - component: {fileID: 3179089893462960730}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Electric mod visual
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -29979,7 +29979,7 @@ ParticleSystem:
     rateOverTime:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 3
+      scalar: 3.39
       minScalar: 10
       maxCurve:
         serializedVersion: 2
@@ -30032,7 +30032,7 @@ ParticleSystem:
     rateOverDistance:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 0
+      scalar: 2.34
       minScalar: 0
       maxCurve:
         serializedVersion: 2
@@ -33897,7 +33897,7 @@ ParticleSystemRenderer:
   m_SmallMeshCulling: 1
   m_ForceMeshLod: -1
   m_MeshLodSelectionBias: 0
-  m_RenderingLayerMask: 1
+  m_RenderingLayerMask: 5
   m_RendererPriority: 0
   m_Materials:
   - {fileID: 2100000, guid: a27067fca044eb14987714491fa61e49, type: 2}
@@ -33925,7 +33925,7 @@ ParticleSystemRenderer:
   m_MaskInteraction: 0
   m_RenderMode: 4
   m_MeshDistribution: 0
-  m_SortMode: 0
+  m_SortMode: 1
   m_MinParticleSize: 0
   m_MaxParticleSize: 0.5
   m_CameraVelocityScale: 0
@@ -33965,7 +33965,7 @@ GameObject:
   - component: {fileID: 7597943610232339461}
   - component: {fileID: 6976280739327428903}
   - component: {fileID: 4223199471776016905}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Smoke
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -38810,7 +38810,7 @@ GameObject:
   - component: {fileID: 6383246856170716273}
   - component: {fileID: 459238172513173625}
   - component: {fileID: 4456483889215595266}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: FX_Smoke_14
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -14,9 +14,12 @@ namespace junklite
 
         private const float MAX_DESCENT_TIME = 5f;
 
+        private const string DEFAULT_GROUND_POUND_ANIM = "GroundPound";
+
         private PhantomStrikeMod modData;
         private PlayerCharacter player;
         private PlayerState playerState;
+        private SpineAnimationController spineAnim;
         private Damageable damageable;
         private Rigidbody rb;
 
@@ -43,6 +46,7 @@ namespace junklite
             modData = mod;
             player = GetComponent<PlayerCharacter>();
             playerState = GetComponent<PlayerState>();
+            spineAnim = GetComponent<SpineAnimationController>();
             damageable = GetComponent<Damageable>();
             rb = GetComponent<Rigidbody>();
         }
@@ -113,7 +117,7 @@ namespace junklite
             isExecutingSpecial = true;
             Vector3 startPosition = player.transform.position;
 
-            // Phase 1: Vanish
+            // Phase 1: Lock input and physics for full anim-driven move
             playerState.SetInputLocked(true);
             playerState.SetVulnerable(false);
 
@@ -132,36 +136,64 @@ namespace junklite
                 rb.linearVelocity = Vector3.zero;
             }
 
-            player.RequestCameraFollow(false);
-            player.SetVisible(false);
+            // Zoom out (use mod value if set: FOV degrees for Physical/Perspective, ortho size for Orthographic)
+            if (CameraManager.Instance != null)
+            {
+                if (modData.cameraZoomOutValue > 0f)
+                    CameraManager.Instance.RequestZoomOut(modData.cameraZoomOutValue);
+                else
+                    CameraManager.Instance.RequestZoomOut();
+            }
 
             if (modData.vanishVFX != null)
                 Instantiate(modData.vanishVFX, startPosition, Quaternion.identity);
 
-            // Phase 2: Hang Time
+            // Start GroundPound animation first so forceOverrideActive is set before we go airborne
+            // (otherwise ApplyAnyStateFallbacks would play Jump_2_Air during drift)
+            string animName = string.IsNullOrEmpty(modData.groundPoundAnimationName) ? DEFAULT_GROUND_POUND_ANIM : modData.groundPoundAnimationName;
+            if (spineAnim != null)
+                spineAnim.ForcePlayOverride(animName, false, () => { });
+
+            // Phase 2: Teleport into the air
             Vector3 airPosition = new Vector3(startPosition.x, startPosition.y + modData.spawnHeight, startPosition.z);
             player.transform.position = airPosition;
             playerState.SetGrounded(false);
 
-            yield return new WaitForSeconds(modData.hangTime);
-
-            // Phase 3: Descend
-            player.SetVisible(true);
-
-            if (modData.descentVFX != null)
-                Instantiate(modData.descentVFX, player.transform.position, Quaternion.identity);
-
-            float elapsed = 0f;
-            float speed = modData.descentSpeed;
-
-            while (!playerState.IsGrounded && elapsed < MAX_DESCENT_TIME)
+            // Phase 3: Drift up slightly
+            float driftEndY = airPosition.y + modData.driftUpHeight;
+            float driftElapsed = 0f;
+            while (driftElapsed < modData.driftUpDuration)
             {
-                player.transform.position += Vector3.down * speed * Time.deltaTime;
-                elapsed += Time.deltaTime;
+                driftElapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(driftElapsed / modData.driftUpDuration);
+                float y = Mathf.Lerp(airPosition.y, driftEndY, t);
+                player.transform.position = new Vector3(startPosition.x, y, startPosition.z);
                 yield return null;
             }
 
-            // Phase 4: Impact
+            float slamStartY = player.transform.position.y;
+
+            // Get ground Y for slam target (raycast down)
+            float groundY = startPosition.y;
+            if (modData.groundLayerMask != 0 && Physics.Raycast(player.transform.position + Vector3.up * 0.5f, Vector3.down, out RaycastHit groundHit, 50f, modData.groundLayerMask))
+                groundY = groundHit.point.y;
+
+            // Phase 4: Slam down to ground (velocity-based using slamDescentSpeed)
+            float currentY = slamStartY;
+            float descentSpeed = Mathf.Max(modData.slamDescentSpeed, 1f);
+            while (currentY > groundY)
+            {
+                currentY -= descentSpeed * Time.deltaTime;
+                if (currentY < groundY)
+                    currentY = groundY;
+                player.transform.position = new Vector3(startPosition.x, currentY, startPosition.z);
+                yield return null;
+            }
+
+            player.transform.position = new Vector3(startPosition.x, groundY, startPosition.z);
+            playerState.SetGrounded(true);
+
+            // Phase 5: Impact at landing position
             Vector3 impactPosition = player.transform.position;
 
             if (modData.impactVFX != null)
@@ -180,8 +212,11 @@ namespace junklite
                     FeedbackManager.Instance.DoCameraShake(impulse, modData.cameraShakeIntensity);
             }
 
-            // Phase 5: Recovery
+            // Phase 4: Recovery
             yield return new WaitForSeconds(modData.recoveryTime);
+
+            if (CameraManager.Instance != null)
+                CameraManager.Instance.RequestZoomBackIn();
 
             if (rb != null)
                 rb.isKinematic = wasKinematic;
@@ -192,7 +227,6 @@ namespace junklite
                 player.Controller.CanMove = true;
             }
 
-            player.RequestCameraFollow(true);
             playerState.ApplyInvulnerability(0.2f);
             playerState.SetInputLocked(false);
 
@@ -234,6 +268,9 @@ namespace junklite
 
             isExecutingSpecial = false;
 
+            if (CameraManager.Instance != null)
+                CameraManager.Instance.RequestZoomBackIn();
+
             if (playerState != null)
             {
                 playerState.SetInputLocked(false);
@@ -243,7 +280,6 @@ namespace junklite
             if (player != null)
             {
                 player.SetVisible(true);
-                player.RequestCameraFollow(true);
 
                 if (player.Controller != null)
                 {

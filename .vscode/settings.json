@@ -1,9 +1,12 @@
 {
   "dotnet.defaultSolution": "JunkLite.sln",
-  "omnisharp.useModernNet": true,
+  "dotnet.server.useOmnisharp": true,
+  "omnisharp.useModernNet": false,
   "omnisharp.useGlobalMono": "never",
   "omnisharp.enableEditorConfigSupport": true,
+  "omnisharp.projectLoadTimeout": 120,
   "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true,
+  "editor.gotoLocation.multipleReferences": "goto",
   "dotrush.roslyn.projectOrSolutionFiles": [
     "/Users/rashid/Documents/GitHub/JunkLite/JunkLite.sln",
     "/Users/rashid/Documents/GitHub/JunkLite/JunkLite.slnx",
@@ -15,5 +18,6 @@
     "/Users/rashid/Documents/GitHub/JunkLite/spine-unity-examples-editor.csproj",
     "/Users/rashid/Documents/GitHub/JunkLite/spine-unity-examples.csproj",
     "/Users/rashid/Documents/GitHub/JunkLite/spine-unity.csproj"
-  ]
+  ],
+  "dotnet.formatting.organizeImportsOnFormat": true
 }

@@ -34,7 +34,6 @@ namespace junklite
         [Header("Knockback Settings")]
         [Tooltip("If true, this enemy cannot be knocked back")]
         [SerializeField] private bool ignoreKnockback = false;
-        [SerializeField] private float knockbackDecay = 8f;
         [Tooltip("How quickly horizontal knockback decays")]
         [SerializeField] private float horizontalDrag = 5f;
 

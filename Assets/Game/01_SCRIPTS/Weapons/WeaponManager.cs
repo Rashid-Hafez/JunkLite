@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System;
 using System.Collections.Generic;
 using System.Collections;
@@ -32,7 +32,9 @@ namespace junklite
 
         [Header("Attack Hit Window")]
         [SerializeField] private float delayBeforeAttack = 0.1f;
-        [SerializeField] private float attackOpenWindow = 0.3f;
+        [SerializeField] [Tooltip("Time that the collision stays open to deliver the attack (make it as long as the animation)")] 
+        private float attackOpenWindow = 0.3f; 
+        [SerializeField] private float BUFFER_DURATION = 0.3f;
 
         [Header("Recoil")]
         [SerializeField] private float sideRecoil = 6f;
@@ -40,6 +42,9 @@ namespace junklite
         [Header("Attack Settings")]
         [SerializeField] private float facingLockDuration = 0.25f;
         [SerializeField] private float inputThreshold = 0.5f;
+
+        [Header("Attack Input Lock")]
+        [SerializeField] private bool lockMovementDuringAttack = true;
 
         [Header("Debug")]
         [SerializeField] private bool logAttacks = false;
@@ -51,7 +56,6 @@ namespace junklite
         private Transform playerTransform;
         private PlayerState playerState;
         private PlayerCharacter playerCharacter;
-        private SpineAnimationController spineAnimController;
         private Character2D5Controller controller;
 
         public WeaponInstance CurrentWeapon { get; private set; }
@@ -72,13 +76,14 @@ namespace junklite
         private WeaponData.ComboStep currentStep;
         private int currentComboIndex;
         private Transform currentAttackAnchor;
+        private bool attackInputLockApplied;
+        private bool currentAttackGrounded;
 
         // Input buffer
         private bool hasBufferedInput;
         private Vector2 bufferedInput;
         private bool bufferedGrounded;
         private float bufferTimer;
-        private const float BUFFER_DURATION = 0.3f;
 
         // Public state for external systems
         public bool IsAttacking => isAttacking;
@@ -92,7 +97,6 @@ namespace junklite
             playerTransform = transform.parent ?? transform;
             playerState = GetComponentInParent<PlayerState>();
             playerCharacter = GetComponentInParent<PlayerCharacter>();
-            spineAnimController = GetComponentInParent<SpineAnimationController>();
             controller = GetComponentInParent<Character2D5Controller>();
 
             if (impulseSource == null)
@@ -101,6 +105,28 @@ namespace junklite
                                 ?? GetComponentInParent<Unity.Cinemachine.CinemachineImpulseSource>()
                                 ?? GetComponentInChildren<Unity.Cinemachine.CinemachineImpulseSource>();
             }
+
+            if (playerState != null)
+            {
+                playerState.OnAttackAnimationComplete += OnAttackAnimationComplete;
+                playerState.OnAttackAnimationInterrupted += OnAttackInterrupted;
+            }
+
+            UpdateMaxAirAttacks();
+        }
+
+        private void OnDestroy()
+        {
+            if (playerState != null)
+            {
+                playerState.OnAttackAnimationComplete -= OnAttackAnimationComplete;
+                playerState.OnAttackAnimationInterrupted -= OnAttackInterrupted;
+            }
+
+            if (CurrentWeapon != null)
+                CurrentWeapon.OnModsChanged -= OnWeaponModsChanged;
+
+            ReleaseAttackInputLock();
         }
 
         private void Update()
@@ -172,7 +198,7 @@ namespace junklite
         }
 
         /// <summary>
-        /// Called by SpineAnimationController when attack animation completes.
+        /// Called when attack animation completes (via PlayerState event).
         /// </summary>
         public void OnAttackAnimationComplete()
         {
@@ -180,12 +206,18 @@ namespace junklite
 
             // Notify weapon to advance combo and start cooldown + combo window
             if (CurrentWeapon != null)
-                CurrentWeapon.OnAttackComplete(currentAttackDir);
+                CurrentWeapon.OnAttackComplete(currentAttackDir, currentAttackGrounded);
 
             isAttacking = false;
 
             if (playerState != null)
+            {
+                playerState.SetDownAttackRequested(false);
                 playerState.SetAttacking(false);
+            }
+
+            ClearAttackGravityOverride();
+            ReleaseAttackInputLock();
 
             // Buffer will be executed by Update() when cooldown clears
         }
@@ -204,7 +236,13 @@ namespace junklite
             hasBufferedInput = false;
 
             if (playerState != null)
+            {
+                playerState.SetDownAttackRequested(false);
                 playerState.SetAttacking(false);
+            }
+
+            ClearAttackGravityOverride();
+            ReleaseAttackInputLock();
         }
 
         public void DropWeapon()
@@ -214,6 +252,7 @@ namespace junklite
 
             CurrentWeapon.transform.SetParent(storedPickup.transform, false);
             CurrentWeapon.gameObject.SetActive(false);
+            CurrentWeapon.OnModsChanged -= OnWeaponModsChanged;
             CurrentWeapon = null;
 
             storedPickup.transform.position = transform.position + Vector3.right * Facing * 1.2f;
@@ -279,11 +318,26 @@ namespace junklite
 
         private void StartAttack(AttackDirection dir)
         {
+            // Air attack: only one per air time; down attacks can repeat in air
+            if (playerState != null && !playerState.IsGrounded && dir != AttackDirection.Down && !playerState.CanAirAttack)
+            {
+                Log($"Air attack blocked - already used this jump or not airborne");
+                return;
+            }
+
             // Get combo step and animation from weapon
-            if (!CurrentWeapon.TryGetComboStep(dir, out var step, out int comboIndex, out string animName))
+            bool isGrounded = playerState == null || playerState.IsGrounded;
+            if (!CurrentWeapon.TryGetComboStep(dir, isGrounded, out var step, out int comboIndex, out string animName))
             {
                 Log($"No combo step available for {dir}");
                 return;
+            }
+
+            if (playerState != null)
+            {
+                playerState.SetDownAttackRequested(dir == AttackDirection.Down);
+                if (!playerState.IsGrounded && dir != AttackDirection.Down)
+                    playerState.MarkAirAttackUsed();
             }
 
             // Set state
@@ -292,6 +346,7 @@ namespace junklite
             currentStep = step;
             currentComboIndex = comboIndex;
             currentAttackAnchor = GetAttackTransform(dir);
+            currentAttackGrounded = isGrounded;
 
             Log($"Attack: {dir}, combo {comboIndex}, anim '{animName}'");
 
@@ -303,10 +358,12 @@ namespace junklite
             if (playerState != null)
                 playerState.SetAttacking(true);
 
-            // Play animation - pass the animation name, SpineAnimationController just plays it
-            if (spineAnimController != null && !string.IsNullOrEmpty(animName))
+            ApplyAttackInputLock();
+
+            // Request animation via PlayerState (decoupled from SpineAnimationController)
+            if (playerState != null && !string.IsNullOrEmpty(animName))
             {
-                spineAnimController.PlayAttackAnimation(animName);
+                playerState.RequestAttackAnimation(animName);
             }
             else
             {
@@ -331,6 +388,9 @@ namespace junklite
         private IEnumerator CoAttackDelay(AttackDirection dir, WeaponData.ComboStep step, Transform anchor)
         {
             yield return new WaitForSeconds(delayBeforeAttack);
+
+            ApplyAttackPush(dir, step);
+            ApplyAttackGravityOverride(step);
 
             float radius = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
             bool hasHitEnemy = false;
@@ -368,6 +428,43 @@ namespace junklite
 
                 yield return null;
             }
+        }
+
+        private void ApplyAttackPush(AttackDirection dir, WeaponData.ComboStep step)
+        {
+            if (playerRb == null)
+                return;
+
+            Vector3 impulse = Vector3.zero;
+
+            if (dir == AttackDirection.Side)
+            {
+                if (Mathf.Abs(step.forwardImpulse) > 0f)
+                    impulse += Vector3.right * Facing * step.forwardImpulse;
+            }
+            else
+            {
+                if (Mathf.Abs(step.verticalImpulse) > 0f)
+                    impulse += Vector3.up * (dir == AttackDirection.Down ? -step.verticalImpulse : step.verticalImpulse);
+            }
+
+            if (impulse.sqrMagnitude > 0f)
+                playerRb.AddForce(impulse, ForceMode.Impulse);
+        }
+
+        private void ApplyAttackGravityOverride(WeaponData.ComboStep step)
+        {
+            if (controller == null)
+                return;
+
+            if (playerState != null && !playerState.IsGrounded && step.airGravityMultiplier > 0f)
+                controller.SetGravityMultiplierOverride(step.airGravityMultiplier);
+        }
+
+        private void ClearAttackGravityOverride()
+        {
+            if (controller != null)
+                controller.ClearGravityMultiplierOverride();
         }
         #endregion Attack Core
 
@@ -544,7 +641,24 @@ namespace junklite
             if (inventory != null)
                 inventory.EquipAllPossible();
 
+            CurrentWeapon.OnModsChanged += OnWeaponModsChanged;
+            UpdateMaxAirAttacks();
+
             OnWeaponChanged?.Invoke();
+        }
+
+        private void OnWeaponModsChanged()
+        {
+            UpdateMaxAirAttacks();
+        }
+
+        private void UpdateMaxAirAttacks()
+        {
+            if (playerState == null)
+                return;
+
+            int bonus = CurrentWeapon != null ? CurrentWeapon.BonusAirAttacks : 0;
+            playerState.SetMaxAirAttacks(1 + bonus);
         }
 
         private void PickupMod(WorldModPickup pickup)
@@ -599,6 +713,29 @@ namespace junklite
         {
             if (logAttacks)
                 Debug.Log($"[WeaponManager] {message}", this);
+        }
+
+        private void ApplyAttackInputLock()
+        {
+            if (!lockMovementDuringAttack || playerState == null || attackInputLockApplied)
+                return;
+
+            if (!playerState.IsInputLocked)
+            {
+                playerState.SetInputLocked(true);
+                if (controller != null)
+                    controller.StopAllVelocity();
+                attackInputLockApplied = true;
+            }
+        }
+
+        private void ReleaseAttackInputLock()
+        {
+            if (!lockMovementDuringAttack || playerState == null || !attackInputLockApplied)
+                return;
+
+            playerState.SetInputLocked(false);
+            attackInputLockApplied = false;
         }
 
         #endregion Helpers

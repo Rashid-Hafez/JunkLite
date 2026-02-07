@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace junklite
 {
@@ -21,6 +21,14 @@ namespace junklite
 
             [Header("VFX")]
             public GameObject slashPrefab;
+
+            [Header("Attack Push")]
+            [Tooltip("Forward impulse applied on attack (facing direction).")]
+            public float forwardImpulse;
+            [Tooltip("Vertical impulse applied on attack (up for Up, down for Down).")]
+            public float verticalImpulse;
+            [Tooltip("Override gravity multiplier during air attacks (1 = normal).")]
+            public float airGravityMultiplier;
         }
 
         // =====================================================================
@@ -88,6 +96,9 @@ namespace junklite
 
         [Header("Side Combo (1 → 2 → 3...)")]
         public ComboStep[] sideCombo;
+
+        [Header("Air Side Combo (1 → 2 → 3...)")]
+        public ComboStep[] airSideCombo;
 
         [Header("Directional Attacks")]
         public ComboStep upAttack;

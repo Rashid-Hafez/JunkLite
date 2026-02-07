@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7832329793080329322}
   - component: {fileID: 4210032412310770900}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: fakelight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -102,7 +102,7 @@ GameObject:
   - component: {fileID: 4190151056226943144}
   - component: {fileID: 9116952141988312691}
   - component: {fileID: 7502237637869250313}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Smoke puff
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5006,7 +5006,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3315158317788349695}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Particle Systems
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5041,7 +5041,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4764703469501611834}
   - component: {fileID: 612097181165957970}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Weaponsocket
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5095,7 +5095,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3382759799894215637}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: HandR
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5126,7 +5126,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 128506076357536208}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Side Attack Transform
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5157,7 +5157,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7118327179461117155}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Slash Light
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5188,7 +5188,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1814897658590377715}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: wallCheck
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5219,7 +5219,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3457783996988696095}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Ground
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5252,7 +5252,7 @@ GameObject:
   - component: {fileID: 4217080968331495418}
   - component: {fileID: 2331946081132236205}
   - component: {fileID: 246035782563661309}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Smoke puff (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10156,7 +10156,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2407450160901892144}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: groundCheck
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10189,7 +10189,7 @@ GameObject:
   - component: {fileID: 8330537590711431}
   - component: {fileID: 3112301718396753230}
   - component: {fileID: 4239503801367834687}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Smoke puff (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -15093,7 +15093,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7039884645192212358}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Up Attack Transform
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -15140,7 +15140,7 @@ GameObject:
   - component: {fileID: 1363585882905400157}
   - component: {fileID: 6662307106127401667}
   - component: {fileID: 6282132647400396865}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Player_2.2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -15256,6 +15256,11 @@ MonoBehaviour:
     m_Bits: 6145
   gravityMultiplier: 1.5
   maxFallSpeed: -20
+  smoothStopTime: 1.56
+  smoothStopMaxSpeed: 0.16
+  smoothStopThreshold: 0.08
+  smoothStopInputMaxSpeed: 0.2
+  smoothStopInputThreshold: 0.001
   faceMovementDirection: 1
   facingMode: 0
   rotationSpeed: 10
@@ -15356,9 +15361,11 @@ MonoBehaviour:
   enemyHitShakeForce: 0.5
   delayBeforeAttack: 0.08
   attackOpenWindow: 0.28
+  BUFFER_DURATION: 0.3
   sideRecoil: 5
   facingLockDuration: 0.25
   inputThreshold: 0.5
+  lockMovementDuringAttack: 1
   logAttacks: 0
 --- !u!114 &7181291251784971520
 MonoBehaviour:
@@ -15664,7 +15671,6 @@ MonoBehaviour:
   doubleJump: Jump_2_Air_Double
   wallSlide: Jump_Wall
   dash: Dash
-  roll: Roll
   stun: Hurt
   death: Death
   idleLoop: 1
@@ -15675,7 +15681,6 @@ MonoBehaviour:
   doubleJumpLoop: 0
   wallSlideLoop: 0
   dashLoop: 0
-  rollLoop: 0
   stunLoop: 0
   deathLoop: 0
   idleTimeScale: 1
@@ -15686,7 +15691,6 @@ MonoBehaviour:
   doubleJumpTimeScale: 1
   wallSlideTimeScale: 1
   dashTimeScale: 1
-  rollTimeScale: 1
   stunTimeScale: 1
   deathTimeScale: 1
   speedThreshold: 0.1
@@ -15698,9 +15702,9 @@ MonoBehaviour:
   attackMix: 0
   attackMixOut: 0
   attackMixOutDelay: 0
-  attackTimeScale: 1
-  lockMovementDuringAttack: 1
-  footstepEvent: {fileID: 0}
+  attackTimeScale: 1.2
+  downAttackTimeScale: 2
+  footstepEvent: {fileID: 11400000, guid: 2657d9f265aa59446b055dc0c1018419, type: 2}
   footstepSource: {fileID: 0}
   footstepPitchOffset: 0.2
   logStateChanges: 0
@@ -15716,7 +15720,7 @@ GameObject:
   - component: {fileID: 4202146915303784396}
   - component: {fileID: 8964370197867556986}
   - component: {fileID: 3220018896828466534}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: spawn dash effect
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -15828,7 +15832,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8149285406505930558}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: RainFX
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -15860,7 +15864,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1941436517345911957}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Effect Transform
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -15892,7 +15896,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2881757924107890758}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Down Attack Transform
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -15925,7 +15929,7 @@ GameObject:
   - component: {fileID: 8664021543064621046}
   - component: {fileID: 6042315483945401232}
   - component: {fileID: 6307091462317990461}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: OuterRain
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -20771,7 +20775,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6219407663596433063}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Slash Medium
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -20802,7 +20806,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3708428653336801813}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Character Effects
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -20837,7 +20841,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4044803354404895563}
   - component: {fileID: 8563022193009988888}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: VFX AfterImage
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -20926,7 +20930,7 @@ GameObject:
   - component: {fileID: 2205524235645085863}
   - component: {fileID: 3136467324379222940}
   - component: {fileID: 8091591924954336917}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: BODY SPINE
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -21029,13 +21033,13 @@ MonoBehaviour:
   - 
   zSpacing: -0.0022
   useClipping: 1
-  immutableTriangles: 0
+  immutableTriangles: 1
   pmaVertexColors: 1
   clearStateOnDisable: 0
   tintBlack: 0
-  singleSubmesh: 0
+  singleSubmesh: 1
   fixDrawOrder: 1
-  addNormals: 0
+  addNormals: 1
   calculateTangents: 0
   maskInteraction: 0
   maskMaterials:
@@ -21046,7 +21050,7 @@ MonoBehaviour:
   physicsPositionInheritanceFactor: {x: 1, y: 1}
   physicsRotationInheritanceFactor: 1
   physicsMovementRelativeTo: {fileID: 0}
-  updateTiming: 2
+  updateTiming: 1
   unscaledTime: 0
   _animationName: Idle
   loop: 1

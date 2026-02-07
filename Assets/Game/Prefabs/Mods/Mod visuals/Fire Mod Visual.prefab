@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 8797344787540437963}
   - component: {fileID: 4745977547182356247}
   - component: {fileID: 6522490637360105221}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: fire1 (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4847,7 +4847,7 @@ GameObject:
   - component: {fileID: 3177885970954320159}
   - component: {fileID: 3986317997228716533}
   - component: {fileID: 7387351916442590627}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: fire1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9683,7 +9683,7 @@ GameObject:
   - component: {fileID: 7689866926372740170}
   - component: {fileID: 3317733596442964307}
   - component: {fileID: 7932823801671128627}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: fire2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -14519,7 +14519,7 @@ GameObject:
   - component: {fileID: 7165948926835371656}
   - component: {fileID: 159679032307106038}
   - component: {fileID: 2972258708793919309}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Fire Mod Visual
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -19369,7 +19369,7 @@ GameObject:
   - component: {fileID: 5558963958633664861}
   - component: {fileID: 7376475345393814874}
   - component: {fileID: 8512137833011855906}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: FX_Smoke_14
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -24205,7 +24205,7 @@ GameObject:
   - component: {fileID: 521530042748089354}
   - component: {fileID: 598620292731111904}
   - component: {fileID: 7966676966602095170}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: pati1
   m_TagString: Untagged
   m_Icon: {fileID: 0}

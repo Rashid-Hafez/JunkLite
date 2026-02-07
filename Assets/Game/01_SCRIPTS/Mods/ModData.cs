@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace junklite
 {
@@ -27,6 +27,10 @@ namespace junklite
         [Header("Durability")]
         public float maxDurability = 20f;
         public float durabilityPerHit = 1f;
+
+        [Header("Air Combat")]
+        [Tooltip("Bonus air attacks allowed while airborne.")]
+        public int bonusAirAttacks = 0;
 
         public enum ModRarity { Common, Uncommon, Rare, Legendary }
         public enum ModElement { None, Fire, Ice, Lightning, Poison }

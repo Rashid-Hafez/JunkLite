@@ -153,6 +153,7 @@ namespace junklite
         {
             base.Start();
             InitializeStateMachine();
+            TryIgnorePlayerBodyCollision();
         }
 
         protected virtual void OnEnable() { }
@@ -250,6 +251,7 @@ namespace junklite
         {
             targetCharacter = newTarget;
             target = newTarget?.transform;
+            TryIgnorePlayerBodyCollision();
             OnTargetAcquired();
         }
 
@@ -263,6 +265,32 @@ namespace junklite
 
         protected virtual void OnTargetAcquired() { }
         protected virtual void OnTargetLost() { }
+
+        #endregion
+
+        #region Collision Helpers
+
+        private void TryIgnorePlayerBodyCollision()
+        {
+            // Avoid blocking the player while preserving trigger-based detection.
+            var player = targetCharacter != null
+                ? targetCharacter
+                : FindObjectOfType<PlayerCharacter>(true);
+            if (player == null) return;
+
+            var enemyCols = GetComponentsInChildren<Collider>(includeInactive: true);
+            var playerCols = player.GetComponentsInChildren<Collider>(includeInactive: true);
+
+            foreach (var e in enemyCols)
+            {
+                if (e == null || e.isTrigger) continue;
+                foreach (var p in playerCols)
+                {
+                    if (p == null || p.isTrigger) continue;
+                    Physics.IgnoreCollision(e, p, true);
+                }
+            }
+        }
 
         #endregion
 

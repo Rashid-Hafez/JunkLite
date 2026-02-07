@@ -11,7 +11,7 @@ namespace junklite
     public class PlayerState : CharacterState
     {
         // Capability checks
-        public override bool CanMove => IsAlive && !IsStunned && !IsInputLocked;
+        public override bool CanMove => IsAlive && !IsStunned && !IsInputLocked && !IsAttacking;
         public override bool CanJump => IsAlive && !IsStunned && !IsInputLocked;
         public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsInputLocked;
         public override bool CanAttack => IsAlive && !IsStunned && !IsInputLocked; // No IsAttacking check - WeaponManager handles cooldown
@@ -27,6 +27,18 @@ namespace junklite
         public bool IsWallJumping { get; private set; }
         public bool IsDoubleJumping { get; private set; }
 
+        /// <summary>How many air attacks have been used this air time.</summary>
+        public int AirAttacksUsed { get; private set; }
+
+        /// <summary>Max air attacks allowed this air time (base + mod bonuses).</summary>
+        public int MaxAirAttacks { get; private set; } = 1;
+
+        /// <summary>True when airborne and we haven't used all allowed air attacks this jump.</summary>
+        public bool CanAirAttack => !IsGrounded && AirAttacksUsed < MaxAirAttacks;
+
+        /// <summary>True when the current attack was initiated as a down attack.</summary>
+        public bool IsDownAttackRequested { get; private set; }
+
         // Events
         public event Action<bool> OnDashingChanged;
         public event Action<bool> OnRollingChanged;
@@ -35,6 +47,9 @@ namespace junklite
         public event Action<bool> OnWallJumpChanged;
         public event Action<bool> OnDoubleJumpChanged;
         public event Action<int> OnComboAttackTriggered;
+        public event Action<string> OnAttackAnimationRequested;
+        public event Action OnAttackAnimationComplete;
+        public event Action OnAttackAnimationInterrupted;
 
         // Drone
         [SerializeField] private bool hasDrone;
@@ -77,7 +92,27 @@ namespace junklite
                 SetWallSliding(false);
                 SetWallJumping(false);
                 SetDoubleJumping(false);
+                AirAttacksUsed = 0;
             }
+        }
+
+        /// <summary>Call when starting an air attack (e.g. down attack). Consumes one air attack.</summary>
+        public void MarkAirAttackUsed()
+        {
+            AirAttacksUsed = Mathf.Min(AirAttacksUsed + 1, MaxAirAttacks);
+        }
+
+        /// <summary>Set maximum air attacks allowed while airborne.</summary>
+        public void SetMaxAirAttacks(int maxAirAttacks)
+        {
+            MaxAirAttacks = Mathf.Max(1, maxAirAttacks);
+            AirAttacksUsed = Mathf.Min(AirAttacksUsed, MaxAirAttacks);
+        }
+
+        /// <summary>Set when an attack starts to indicate a down-attack input.</summary>
+        public void SetDownAttackRequested(bool isDownAttack)
+        {
+            IsDownAttackRequested = isDownAttack;
         }
 
         public void SetDashing(bool dashing)
@@ -158,6 +193,24 @@ namespace junklite
         public void TriggerComboAttack(int comboIndex)
         {
             OnComboAttackTriggered?.Invoke(comboIndex);
+        }
+
+        /// <summary>Request an attack animation by name (Spine/Animator listeners can respond).</summary>
+        public void RequestAttackAnimation(string animationName)
+        {
+            OnAttackAnimationRequested?.Invoke(animationName);
+        }
+
+        /// <summary>Notify that the attack animation completed.</summary>
+        public void NotifyAttackAnimationComplete()
+        {
+            OnAttackAnimationComplete?.Invoke();
+        }
+
+        /// <summary>Notify that the attack animation was interrupted.</summary>
+        public void NotifyAttackAnimationInterrupted()
+        {
+            OnAttackAnimationInterrupted?.Invoke();
         }
 
         public override string GetStatusSummary()

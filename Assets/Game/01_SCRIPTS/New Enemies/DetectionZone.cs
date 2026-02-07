@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace junklite
 {
@@ -39,6 +39,11 @@ namespace junklite
                 originalRadius = sphereCollider.radius;
 
             owner = GetComponentInParent<EnemyCharacter>();
+
+            // Always include the Player layer in target detection if it exists.
+            int playerLayer = LayerMask.NameToLayer("Player");
+            if (playerLayer >= 0)
+                targetLayers |= 1 << playerLayer;
         }
 
         public void SetRadius(float radius)
