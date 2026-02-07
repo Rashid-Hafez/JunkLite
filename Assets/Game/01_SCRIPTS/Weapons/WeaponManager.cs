@@ -440,7 +440,7 @@ namespace junklite
             if (dir == AttackDirection.Side)
             {
                 if (Mathf.Abs(step.forwardImpulse) > 0f)
-                    impulse += Vector3.right * Facing * step.forwardImpulse;
+                    impulse += transform.right * Facing * step.forwardImpulse;
             }
             else
             {
