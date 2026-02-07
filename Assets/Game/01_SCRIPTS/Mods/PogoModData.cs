@@ -25,6 +25,10 @@ namespace junklite
             // This ensures the bounce has fixed height regardless of jump input
             controller.ApplyExternalBounce(pogoForce);
 
+            // Double jump is already reset in controller.ApplyExternalBounce (airJumpCount = 0).
+            // Schedule refund of one air attack so player can pogo again only AFTER they use the double jump.
+            playerState.ScheduleRefundAirAttackAfterDoubleJump();
+
             // Cancel attack lock so jump input can trigger after pogo
             playerState.NotifyAttackAnimationInterrupted();
 

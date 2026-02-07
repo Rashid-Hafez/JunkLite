@@ -39,6 +39,9 @@ namespace junklite
         /// <summary>True when the current attack was initiated as a down attack.</summary>
         public bool IsDownAttackRequested { get; private set; }
 
+        /// <summary>When true, one air attack will be refunded the next time the player double jumps (e.g. after pogo hit).</summary>
+        private bool refundAirAttackAfterNextDoubleJump;
+
         // Events
         public event Action<bool> OnDashingChanged;
         public event Action<bool> OnRollingChanged;
@@ -93,7 +96,22 @@ namespace junklite
                 SetWallJumping(false);
                 SetDoubleJumping(false);
                 AirAttacksUsed = 0;
+                refundAirAttackAfterNextDoubleJump = false;
             }
+        }
+
+        /// <summary>Schedule one air attack to be refunded the next time the player double jumps. Used by pogo so you get another pogo only after double jump.</summary>
+        public void ScheduleRefundAirAttackAfterDoubleJump()
+        {
+            refundAirAttackAfterNextDoubleJump = true;
+        }
+
+        /// <summary>Call when the player has just performed a double jump. If a refund was scheduled (e.g. from pogo hit), refunds one air attack.</summary>
+        public void TryRefundAirAttackAfterDoubleJump()
+        {
+            if (!refundAirAttackAfterNextDoubleJump) return;
+            refundAirAttackAfterNextDoubleJump = false;
+            AirAttacksUsed = Mathf.Max(0, AirAttacksUsed - 1);
         }
 
         /// <summary>Call when starting an air attack (e.g. down attack). Consumes one air attack.</summary>
