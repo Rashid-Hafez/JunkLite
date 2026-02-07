@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections.Generic;
 
 namespace junklite
@@ -25,6 +25,7 @@ namespace junklite
 
         // Combo: time since attack ended, compared against comboWindow
         private int sideComboIndex = 0;
+        private int airComboIndex = 0;
         private float comboTimer = 0f;
         private bool comboActive = false;
 
@@ -39,6 +40,21 @@ namespace junklite
         // =====================================================================
 
         public int CurrentComboIndex => sideComboIndex;
+
+        public int BonusAirAttacks
+        {
+            get
+            {
+                int bonus = 0;
+                for (int i = 0; i < activeMods.Count; i++)
+                {
+                    var mod = activeMods[i]?.data;
+                    if (mod != null)
+                        bonus += mod.bonusAirAttacks;
+                }
+                return bonus;
+            }
+        }
 
         /// <summary>
         /// True if attack cooldown has expired and player can attack.
@@ -116,7 +132,7 @@ namespace junklite
         /// Gets the current combo step and animation name.
         /// Caller should check CanAttack before calling this.
         /// </summary>
-        public bool TryGetComboStep(AttackDirection dir, out WeaponData.ComboStep step, out int comboIndex, out string animationName)
+        public bool TryGetComboStep(AttackDirection dir, bool isGrounded, out WeaponData.ComboStep step, out int comboIndex, out string animationName)
         {
             step = default;
             comboIndex = -1;
@@ -130,23 +146,35 @@ namespace junklite
 
             if (dir == AttackDirection.Side)
             {
-                if (weaponData.sideCombo == null || weaponData.sideCombo.Length == 0)
+                var combo = isGrounded ? weaponData.sideCombo : weaponData.airSideCombo;
+                if (combo == null || combo.Length == 0)
                     return false;
 
-                // Clamp index
-                if (sideComboIndex >= weaponData.sideCombo.Length)
-                    sideComboIndex = 0;
+                if (isGrounded)
+                {
+                    if (sideComboIndex >= combo.Length)
+                        sideComboIndex = 0;
 
-                comboIndex = sideComboIndex;
-                step = weaponData.sideCombo[sideComboIndex];
-                animationName = step.animationName;
+                    comboIndex = sideComboIndex;
+                    step = combo[sideComboIndex];
+                    animationName = step.animationName;
+                    Log($"Side attack - combo {sideComboIndex + 1}/{combo.Length}, anim: '{animationName}'");
+                }
+                else
+                {
+                    if (airComboIndex >= combo.Length)
+                        airComboIndex = 0;
 
-                Log($"Side attack - combo {sideComboIndex + 1}/{weaponData.sideCombo.Length}, anim: '{animationName}'");
+                    comboIndex = airComboIndex;
+                    step = combo[airComboIndex];
+                    animationName = step.animationName;
+                    Log($"Air side attack - combo {airComboIndex + 1}/{combo.Length}, anim: '{animationName}'");
+                }
             }
             else
             {
                 // Up/Down attacks break combo
-                if (sideComboIndex > 0)
+                if (sideComboIndex > 0 || airComboIndex > 0)
                 {
                     Log($"{dir} attack - breaking combo from {sideComboIndex}");
                     ResetCombo();
@@ -169,11 +197,11 @@ namespace junklite
         /// Called when attack animation completes.
         /// Starts BOTH cooldown and combo window timers.
         /// </summary>
-        public void OnAttackComplete(AttackDirection dir)
+        public void OnAttackComplete(AttackDirection dir, bool wasGrounded)
         {
             // Advance combo for side attacks
             if (dir == AttackDirection.Side)
-                AdvanceCombo();
+                AdvanceCombo(wasGrounded);
 
             // Start cooldown timer
             cooldownTimer = 0f;
@@ -197,23 +225,36 @@ namespace junklite
             ResetCombo();
         }
 
-        private void AdvanceCombo()
+        private void AdvanceCombo(bool wasGrounded)
         {
-            if (weaponData?.sideCombo == null || weaponData.sideCombo.Length == 0)
+            var combo = wasGrounded ? weaponData?.sideCombo : weaponData?.airSideCombo;
+            if (combo == null || combo.Length == 0)
                 return;
 
-            sideComboIndex++;
-
-            if (sideComboIndex >= weaponData.sideCombo.Length)
+            if (wasGrounded)
             {
-                Log($"Combo finished! Wrapping to 0");
-                sideComboIndex = 0;
+                sideComboIndex++;
+                if (sideComboIndex >= combo.Length)
+                {
+                    Log($"Combo finished! Wrapping to 0");
+                    sideComboIndex = 0;
+                }
+            }
+            else
+            {
+                airComboIndex++;
+                if (airComboIndex >= combo.Length)
+                {
+                    Log($"Air combo finished! Wrapping to 0");
+                    airComboIndex = 0;
+                }
             }
         }
 
         private void ResetCombo()
         {
             sideComboIndex = 0;
+            airComboIndex = 0;
             comboTimer = 0f;
             comboActive = false;
         }

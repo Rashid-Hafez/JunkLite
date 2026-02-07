@@ -14,9 +14,12 @@ namespace junklite
 
         private const float MAX_DESCENT_TIME = 5f;
 
+        private const string GROUND_POUND_ANIM = "GroundPound";
+
         private PhantomStrikeMod modData;
         private PlayerCharacter player;
         private PlayerState playerState;
+        private SpineAnimationController spineAnim;
         private Damageable damageable;
         private Rigidbody rb;
 
@@ -43,6 +46,7 @@ namespace junklite
             modData = mod;
             player = GetComponent<PlayerCharacter>();
             playerState = GetComponent<PlayerState>();
+            spineAnim = GetComponent<SpineAnimationController>();
             damageable = GetComponent<Damageable>();
             rb = GetComponent<Rigidbody>();
         }
@@ -113,7 +117,7 @@ namespace junklite
             isExecutingSpecial = true;
             Vector3 startPosition = player.transform.position;
 
-            // Phase 1: Vanish
+            // Phase 1: Lock input and physics for full anim-driven move
             playerState.SetInputLocked(true);
             playerState.SetVulnerable(false);
 
@@ -132,36 +136,37 @@ namespace junklite
                 rb.linearVelocity = Vector3.zero;
             }
 
-            player.RequestCameraFollow(false);
-            player.SetVisible(false);
+            // Zoom out smooth and fast; camera keeps following player
+            if (CameraManager.Instance != null)
+                CameraManager.Instance.RequestZoomOut();
 
-            if (modData.vanishVFX != null)
-                Instantiate(modData.vanishVFX, startPosition, Quaternion.identity);
+            // Optional: uncomment for vanish VFX at start
+            // if (modData.vanishVFX != null)
+            //     Instantiate(modData.vanishVFX, startPosition, Quaternion.identity);
 
-            // Phase 2: Hang Time
-            Vector3 airPosition = new Vector3(startPosition.x, startPosition.y + modData.spawnHeight, startPosition.z);
-            player.transform.position = airPosition;
-            playerState.SetGrounded(false);
+            // Phase 2: Play full GroundPound animation (anim drives height and ground pound; no manual teleport/hang/descend)
+            // Commented out: manual vanish, hang time, descend - we use the animation purely.
+            // player.SetVisible(false);
+            // Vector3 airPosition = new Vector3(startPosition.x, startPosition.y + modData.spawnHeight, startPosition.z);
+            // player.transform.position = airPosition;
+            // playerState.SetGrounded(false);
+            // yield return new WaitForSeconds(modData.hangTime);
+            // player.SetVisible(true);
+            // ... manual descent loop ...
 
-            yield return new WaitForSeconds(modData.hangTime);
-
-            // Phase 3: Descend
-            player.SetVisible(true);
-
-            if (modData.descentVFX != null)
-                Instantiate(modData.descentVFX, player.transform.position, Quaternion.identity);
-
-            float elapsed = 0f;
-            float speed = modData.descentSpeed;
-
-            while (!playerState.IsGrounded && elapsed < MAX_DESCENT_TIME)
+            bool animFinished = false;
+            if (spineAnim != null && spineAnim.ForcePlayOverride(GROUND_POUND_ANIM, false, () => animFinished = true))
             {
-                player.transform.position += Vector3.down * speed * Time.deltaTime;
-                elapsed += Time.deltaTime;
-                yield return null;
+                while (!animFinished)
+                    yield return null;
+            }
+            else
+            {
+                // Fallback if no GroundPound anim: short wait then impact at current position
+                yield return new WaitForSeconds(0.5f);
             }
 
-            // Phase 4: Impact
+            // Phase 3: Impact at current position (after anim lands)
             Vector3 impactPosition = player.transform.position;
 
             if (modData.impactVFX != null)
@@ -180,8 +185,11 @@ namespace junklite
                     FeedbackManager.Instance.DoCameraShake(impulse, modData.cameraShakeIntensity);
             }
 
-            // Phase 5: Recovery
+            // Phase 4: Recovery
             yield return new WaitForSeconds(modData.recoveryTime);
+
+            if (CameraManager.Instance != null)
+                CameraManager.Instance.RequestZoomBackIn();
 
             if (rb != null)
                 rb.isKinematic = wasKinematic;
@@ -192,7 +200,6 @@ namespace junklite
                 player.Controller.CanMove = true;
             }
 
-            player.RequestCameraFollow(true);
             playerState.ApplyInvulnerability(0.2f);
             playerState.SetInputLocked(false);
 
@@ -234,6 +241,9 @@ namespace junklite
 
             isExecutingSpecial = false;
 
+            if (CameraManager.Instance != null)
+                CameraManager.Instance.RequestZoomBackIn();
+
             if (playerState != null)
             {
                 playerState.SetInputLocked(false);
@@ -243,7 +253,6 @@ namespace junklite
             if (player != null)
             {
                 player.SetVisible(true);
-                player.RequestCameraFollow(true);
 
                 if (player.Controller != null)
                 {

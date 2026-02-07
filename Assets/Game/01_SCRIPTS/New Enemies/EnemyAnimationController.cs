@@ -21,7 +21,6 @@ namespace junklite
         [Header("Optional: Auto update locomotion params")]
         [Tooltip("When enabled, pushes Speed/IsMoving into Animator every frame based on Rigidbody planar velocity.")]
         [SerializeField] private bool autoUpdateLocomotion = true;
-        [SerializeField] private float movingSpeedThreshold = 0.05f;
 
         [Header("Optional: Drive from StateMachine transitions")]
         [Tooltip("If enabled, triggers animations when the FSM changes states.")]

@@ -1,7 +1,8 @@
-using UnityEngine;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Cinemachine;
-using System;
+using UnityEngine;
 
 namespace junklite
 {
@@ -17,6 +18,11 @@ namespace junklite
         [Header("Settings")]
         [SerializeField] private Transform playerTransform;
 
+        [Header("Zoom (e.g. Phantom Strike)")]
+        [SerializeField] private float zoomOutOrthoSize = 14f;
+        [SerializeField] private float zoomOutDuration = 0.25f;
+        [SerializeField] private float zoomInDuration = 0.35f;
+
         // Camera dictionary for easy access
         private Dictionary<string, CinemachineCamera> cameras;
 
@@ -25,6 +31,9 @@ namespace junklite
 
         // Cached tracking target
         private Transform cachedTrackingTarget;
+
+        private float defaultOrthoSize; // captured on first RequestZoomOut, so we don't touch original setup
+        private Coroutine zoomCoroutine;
 
 
         private void Awake()
@@ -43,7 +52,6 @@ namespace junklite
 
         private void Start()
         {
-
             // Set player as follow target and activate main camera
             if (mainCamera != null && playerTransform != null)
             {
@@ -104,6 +112,56 @@ namespace junklite
                 mainCamera.Target.TrackingTarget = null;
                 Debug.Log("[CameraManager] Camera follow disabled (frozen)");
             }
+        }
+
+        /// <summary>Zoom out smoothly and quickly while still following the player. Call ZoomBackIn when done.</summary>
+        public void RequestZoomOut()
+        {
+            if (mainCamera == null)
+                return;
+            // Capture current ortho size as "default" on first zoom out so we never touch original camera setup
+            if (defaultOrthoSize <= 0f)
+                defaultOrthoSize = mainCamera.Lens.OrthographicSize;
+            if (zoomCoroutine != null)
+                StopCoroutine(zoomCoroutine);
+            zoomCoroutine = StartCoroutine(CoZoom(zoomOutOrthoSize, zoomOutDuration));
+        }
+
+        /// <summary>Zoom back to default ortho size smoothly.</summary>
+        public void RequestZoomBackIn()
+        {
+            if (mainCamera == null || defaultOrthoSize <= 0f)
+                return;
+            if (zoomCoroutine != null)
+                StopCoroutine(zoomCoroutine);
+            zoomCoroutine = StartCoroutine(CoZoom(defaultOrthoSize, zoomInDuration));
+        }
+
+        private IEnumerator CoZoom(float targetOrthoSize, float duration)
+        {
+            if (mainCamera == null || duration <= 0f)
+            {
+                zoomCoroutine = null;
+                yield break;
+            }
+
+            var lens = mainCamera.Lens;
+            float start = lens.OrthographicSize;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                t = t * t * (3f - 2f * t); // smoothstep
+                lens.OrthographicSize = Mathf.Lerp(start, targetOrthoSize, t);
+                mainCamera.Lens = lens;
+                yield return null;
+            }
+
+            lens.OrthographicSize = targetOrthoSize;
+            mainCamera.Lens = lens;
+            zoomCoroutine = null;
         }
 
         private void InitializeCameras()

@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -54,8 +55,6 @@ namespace junklite
         [SerializeField] private GameObject dashReadyVFXPrefab;
         [SerializeField] private Transform dashReadyVFXSpawnPoint;
 
-
-
         // --- Wall Slide ---
         [Header("Wall Slide Settings")]
         [SerializeField] private float wallSlideSpeed = -2f;           // negative = downward
@@ -88,6 +87,13 @@ namespace junklite
         [SerializeField] private float gravityMultiplier = 1f;
         [SerializeField] private float maxFallSpeed = -20f;
 
+        [Header("Smooth ATTACK INPUT LOCK Stop")]
+        [SerializeField] private float smoothStopTime = 0.23f;
+        [SerializeField] private float smoothStopMaxSpeed = 10f;
+        [SerializeField] private float smoothStopThreshold = 0.01f;
+        [SerializeField] private float smoothStopInputMaxSpeed = 1f;
+        [SerializeField] private float smoothStopInputThreshold = 0.001f;
+
         [Header("Character Settings")]
         [SerializeField] private bool faceMovementDirection = true;
         [SerializeField] private FacingMode facingMode = FacingMode.ScaleFlip;
@@ -104,6 +110,13 @@ namespace junklite
         // Movement state
         private Vector3 moveInput;
         private bool canMove = true;
+        private bool allowMovementInput = true;
+        private Coroutine smoothStopRoutine;
+        private Vector3 smoothStopVelocity;
+        private Vector3 smoothStopAngularVelocity;
+        private Vector3 smoothStopInputVelocity;
+
+        private float gravityMultiplierOverride = -1f;
 
         // Grounding & jump feel
         private bool isGrounded;
@@ -393,6 +406,18 @@ namespace junklite
                 return;
             }
 
+            if (!allowMovementInput)
+                return;
+
+            if (playerState != null && (playerState.IsInputLocked || playerState.IsAttacking))
+                return;
+
+            if (smoothStopRoutine != null)
+            {
+                StopCoroutine(smoothStopRoutine);
+                smoothStopRoutine = null;
+            }
+
             moveInput.x = horizontal;
             moveInput.z = (allowZMovement && !snapToZPosition) ? vertical : 0f;
             OnMovementChanged?.Invoke(moveInput);
@@ -510,6 +535,56 @@ namespace junklite
             moveInput = Vector3.zero;
         }
 
+        public void StopAllVelocitySmooth()
+        {
+            if (smoothStopRoutine != null)
+                StopCoroutine(smoothStopRoutine);
+
+            smoothStopRoutine = StartCoroutine(CoStopAllVelocitySmooth());
+        }
+
+        public void SetGravityMultiplierOverride(float multiplier)
+        {
+            gravityMultiplierOverride = Mathf.Max(0f, multiplier);
+        }
+
+        public void ClearGravityMultiplierOverride()
+        {
+            gravityMultiplierOverride = -1f;
+        }
+
+        private IEnumerator CoStopAllVelocitySmooth()
+        {
+            if (rb == null)
+            {
+                smoothStopRoutine = null;
+                yield break;
+            }
+
+            smoothStopVelocity = Vector3.zero;
+            smoothStopAngularVelocity = Vector3.zero;
+            smoothStopInputVelocity = Vector3.zero;
+            allowMovementInput = false;
+
+            while (rb.linearVelocity.sqrMagnitude > smoothStopThreshold ||
+                   rb.angularVelocity.sqrMagnitude > smoothStopThreshold ||
+                   moveInput.sqrMagnitude > smoothStopInputThreshold)
+            {
+                rb.linearVelocity = Vector3.SmoothDamp(rb.linearVelocity, Vector3.zero, ref smoothStopVelocity, smoothStopTime, maxSpeed: smoothStopMaxSpeed);
+                rb.angularVelocity = Vector3.SmoothDamp(rb.angularVelocity, Vector3.zero, ref smoothStopAngularVelocity, smoothStopTime, maxSpeed: smoothStopMaxSpeed);
+                moveInput = Vector3.SmoothDamp(moveInput, Vector3.zero, ref smoothStopInputVelocity, smoothStopTime, maxSpeed: smoothStopInputMaxSpeed);
+                OnMovementChanged?.Invoke(moveInput);
+                yield return new WaitForFixedUpdate();
+            }
+
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            moveInput = Vector3.zero;
+            OnMovementChanged?.Invoke(moveInput);
+            allowMovementInput = true;
+            smoothStopRoutine = null;
+        }
+
         #endregion
 
         #region Wall Slide & Wall Jump
@@ -612,7 +687,10 @@ namespace junklite
             // Let gravity act during wall jump
             if (!isGrounded)
             {
-                rb.AddForce(Physics.gravity * gravityMultiplier, ForceMode.Acceleration);
+                float currentGravityMultiplier = gravityMultiplierOverride >= 0f
+                    ? gravityMultiplierOverride
+                    : gravityMultiplier;
+                rb.AddForce(Physics.gravity * currentGravityMultiplier, ForceMode.Acceleration);
             }
 
             // After duration, hand control back to normal movement
@@ -632,6 +710,10 @@ namespace junklite
 
             // --- Stunned - don't override velocity (let knockback play out) ---
             if (playerState != null && playerState.IsStunned)
+                return;
+
+            // --- Input locked (attacks, etc.) - allow smooth stop to control velocity ---
+            if (playerState != null && (playerState.IsInputLocked || playerState.IsAttacking))
                 return;
 
             // --- Ground Jump via Buffer + Coyote ---
@@ -736,6 +818,9 @@ namespace junklite
             if (isGrounded) return;
 
             float yVel = rb.linearVelocity.y;
+            float currentGravityMultiplier = gravityMultiplierOverride >= 0f
+                ? gravityMultiplierOverride
+                : gravityMultiplier;
             bool minHoldActive = Time.time < minJumpHoldEndTime;
 
             // External bounces ignore jump hold entirely - always act as if jump was released
@@ -754,7 +839,7 @@ namespace junklite
             bool touchingWall = CheckWall();
             if (yVel > 0f && touchingWall && JumpHeldExternally && !isExternalBounce)
             {
-                rb.AddForce(Physics.gravity * gravityMultiplier * lowJumpMultiplier * 1.5f, ForceMode.Acceleration);
+                rb.AddForce(Physics.gravity * currentGravityMultiplier * lowJumpMultiplier * 1.5f, ForceMode.Acceleration);
                 return;
             }
 
@@ -765,17 +850,17 @@ namespace junklite
             if (yVel < apexThreshold)
             {
                 // At apex or falling - snap down immediately with fall gravity
-                rb.AddForce(Physics.gravity * gravityMultiplier * fallGravityMultiplier, ForceMode.Acceleration);
+                rb.AddForce(Physics.gravity * currentGravityMultiplier * fallGravityMultiplier, ForceMode.Acceleration);
             }
             else if (canCutJump || isExternalBounce)
             {
                 // Rising fast but jump released OR external bounce - strong gravity to shorten arc
-                rb.AddForce(Physics.gravity * gravityMultiplier * lowJumpMultiplier, ForceMode.Acceleration);
+                rb.AddForce(Physics.gravity * currentGravityMultiplier * lowJumpMultiplier, ForceMode.Acceleration);
             }
             else
             {
                 // Rising fast with jump held - normal gravity
-                rb.AddForce(Physics.gravity * gravityMultiplier, ForceMode.Acceleration);
+                rb.AddForce(Physics.gravity * currentGravityMultiplier, ForceMode.Acceleration);
             }
         }
 

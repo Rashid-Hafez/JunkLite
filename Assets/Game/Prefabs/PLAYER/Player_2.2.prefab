@@ -15256,6 +15256,11 @@ MonoBehaviour:
     m_Bits: 6145
   gravityMultiplier: 1.5
   maxFallSpeed: -20
+  smoothStopTime: 1.56
+  smoothStopMaxSpeed: 0.16
+  smoothStopThreshold: 0.08
+  smoothStopInputMaxSpeed: 0.2
+  smoothStopInputThreshold: 0.001
   faceMovementDirection: 1
   facingMode: 0
   rotationSpeed: 10
@@ -15356,9 +15361,12 @@ MonoBehaviour:
   enemyHitShakeForce: 0.5
   delayBeforeAttack: 0.08
   attackOpenWindow: 0.28
+  BUFFER_DURATION: 0.3
   sideRecoil: 5
   facingLockDuration: 0.25
   inputThreshold: 0.5
+  lockMovementDuringAttack: 1
+  useSmoothAttackStop: 1
   logAttacks: 0
 --- !u!114 &7181291251784971520
 MonoBehaviour:
@@ -15664,9 +15672,9 @@ MonoBehaviour:
   doubleJump: Jump_2_Air_Double
   wallSlide: Jump_Wall
   dash: Dash
-  roll: Roll
   stun: Hurt
   death: Death
+  airAttack: Attack_Air
   idleLoop: 1
   runLoop: 1
   jumpStartLoop: 0
@@ -15675,9 +15683,9 @@ MonoBehaviour:
   doubleJumpLoop: 0
   wallSlideLoop: 0
   dashLoop: 0
-  rollLoop: 0
   stunLoop: 0
   deathLoop: 0
+  airAttackLoop: 0
   idleTimeScale: 1
   runTimeScale: 1
   jumpStartTimeScale: 1
@@ -15686,21 +15694,22 @@ MonoBehaviour:
   doubleJumpTimeScale: 1
   wallSlideTimeScale: 1
   dashTimeScale: 1
-  rollTimeScale: 1
   stunTimeScale: 1
   deathTimeScale: 1
+  airAttackTimeScale: 2.114
   speedThreshold: 0.1
   locomotionBlend: 0.1
   minRunTimeScale: 0.8
   maxRunTimeScale: 1.3
   doubleJumpBlend: 0.05
+  airAttackBlend: 0.1
   attackOverwrite: 1
   attackMix: 0
   attackMixOut: 0
   attackMixOutDelay: 0
-  attackTimeScale: 1
-  lockMovementDuringAttack: 1
-  footstepEvent: {fileID: 0}
+  attackTimeScale: 1.2
+  downAttackTimeScale: 2
+  footstepEvent: {fileID: 11400000, guid: 2657d9f265aa59446b055dc0c1018419, type: 2}
   footstepSource: {fileID: 0}
   footstepPitchOffset: 0.2
   logStateChanges: 0
@@ -21029,13 +21038,13 @@ MonoBehaviour:
   - 
   zSpacing: -0.0022
   useClipping: 1
-  immutableTriangles: 0
+  immutableTriangles: 1
   pmaVertexColors: 1
   clearStateOnDisable: 0
   tintBlack: 0
-  singleSubmesh: 0
+  singleSubmesh: 1
   fixDrawOrder: 1
-  addNormals: 0
+  addNormals: 1
   calculateTangents: 0
   maskInteraction: 0
   maskMaterials:
@@ -21046,7 +21055,7 @@ MonoBehaviour:
   physicsPositionInheritanceFactor: {x: 1, y: 1}
   physicsRotationInheritanceFactor: 1
   physicsMovementRelativeTo: {fileID: 0}
-  updateTiming: 2
+  updateTiming: 1
   unscaledTime: 0
   _animationName: Idle
   loop: 1
