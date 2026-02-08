@@ -261,10 +261,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f7f90d1fda7e41c4b36cce21c3ed434, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
-  flashDuration: 0.1
-  flashAmount: 0.8
+  flashDuration: 0.12
+  flashAmount: 0.65
+  normalAmount: 2
   isSpine: 1
-  flashColor: {r: 1, g: 1, b: 1, a: 1}
+  flashColor: {r: 1, g: 0.4292453, b: 0.7365343, a: 1}
 --- !u!114 &6885050171418826779
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -416,7 +417,7 @@ GameObject:
   - component: {fileID: 5597149479163235202}
   - component: {fileID: 4680231686504087016}
   - component: {fileID: 1635758224723098782}
-  m_Layer: 14
+  m_Layer: 0
   m_Name: Spine GameObject (Enemy)
   m_TagString: Enemy
   m_Icon: {fileID: 0}

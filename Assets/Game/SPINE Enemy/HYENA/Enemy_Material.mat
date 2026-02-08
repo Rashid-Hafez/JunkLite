@@ -1,5 +1,18 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-6112403236439900615
+MonoBehaviour:
+  m_ObjectHideFlags: 11
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 639247ca83abc874e893eb93af2b5e44, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.ShaderGraph.Editor::UnityEditor.Rendering.BuiltIn.AssetVersion
+  version: 0
 --- !u!21 &2100000
 Material:
   serializedVersion: 8
@@ -8,19 +21,21 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Enemy_Material
-  m_Shader: {fileID: 4800000, guid: 45495790b394f894a967dbf44489b57b, type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
-  - _STRAIGHT_ALPHA_INPUT
+  m_Shader: {fileID: 4800000, guid: 49fca94e7da6d47f6ae2a7c8c7516b44, type: 3}
+  m_Parent: {fileID: 2100000, guid: f5a4a51ee9cfb44f9b0814e1a3982de9, type: 2}
+  m_ModifiedSerializedProperties: 8
+  m_ValidKeywords: []
   m_InvalidKeywords:
-  - _USE8NEIGHBOURHOOD_ON
+  - _ALPHATEST_ON
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
+  m_DoubleSidedGI: 1
   m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
+  stringTagMap:
+    AlphaDepth: False
+    IGNOREPROJECTOR: true
+  disabledShaderPasses:
+  - MOTIONVECTORS
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
@@ -31,22 +46,28 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Cutoff: 1
-    - _Fill: 0
-    - _FillPhase: 0
-    - _OutlineMipLevel: 0
-    - _OutlineOpaqueAlpha: 1
-    - _OutlineReferenceTexWidth: 1024
-    - _OutlineSmoothness: 1
-    - _OutlineWidth: 3
-    - _StencilComp: 8
-    - _StencilRef: 1
-    - _StraightAlphaInput: 1
-    - _ThresholdEnd: 0.25
-    - _Use8Neighbourhood: 1
-    - _UseScreenSpaceOutlineWidth: 0
+    - _AlphaClipThreshold: 1
+    - _AmountToFlash: 1
+    - _BaseAlpha: 1
+    - _GlowIntensity: 3.52
+    - _MaxAlpha: 1
+    - _PulseAmount: 0.159
+    - _PulseSpeed: 9.8
+    - _Saturation: 1
     m_Colors:
-    - _FillColor: {r: 1, g: 1, b: 1, a: 0.49803922}
-    - _OutlineColor: {r: 1, g: 1, b: 0, a: 1}
+    - _FlashColor: {r: 2.670157, g: 2.670157, b: 2.670157, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
+--- !u!114 &6655794177798644695
+MonoBehaviour:
+  m_ObjectHideFlags: 11
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0353a89b1f911e48b9e16bdc9f2e058, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Editor::UnityEditor.Rendering.Universal.AssetVersion
+  version: 10

@@ -6089,7 +6089,7 @@ Light:
   serializedVersion: 12
   m_Type: 1
   m_Color: {r: 0.6690548, g: 0.8382646, b: 0.9150943, a: 1}
-  m_Intensity: 0.7
+  m_Intensity: 1.5
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -6101,7 +6101,7 @@ Light:
     m_Strength: 1
     m_Bias: 0.05
     m_NormalBias: 0.4
-    m_NearPlane: 0.2
+    m_NearPlane: 0.56
     m_CullingMatrixOverride:
       e00: 1
       e01: 0
@@ -6131,7 +6131,7 @@ Light:
   m_Lightmapping: 4
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
-  m_BounceIntensity: 5.73
+  m_BounceIntensity: 0.79
   m_ColorTemperature: 6570
   m_UseColorTemperature: 0
   m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
@@ -6151,13 +6151,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 876535117}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.041547682, y: -0.8705366, z: 0.48463392, w: 0.07463113}
+  m_LocalRotation: {x: 0.9395709, y: -0.05662372, z: 0.27831444, w: 0.19115786}
   m_LocalPosition: {x: 3.07, y: 26.88, z: 40.58}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 58.21, y: 1269.8, z: 0}
+  m_LocalEulerAnglesHint: {x: 157, y: 1407, z: 0}
 --- !u!1001 &882667218
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -40015,6 +40015,14 @@ PrefabInstance:
     - target: {fileID: 3683773192488971529, guid: 9647168b87c90194cb0734de5e51245a, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4145675539241514590, guid: 9647168b87c90194cb0734de5e51245a, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -70.37
+      objectReference: {fileID: 0}
+    - target: {fileID: 4525958688028658051, guid: 9647168b87c90194cb0734de5e51245a, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -70.37
       objectReference: {fileID: 0}
     - target: {fileID: 5793667833123114822, guid: 9647168b87c90194cb0734de5e51245a, type: 3}
       propertyPath: m_LocalPosition.z

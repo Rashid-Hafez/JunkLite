@@ -15704,6 +15704,7 @@ MonoBehaviour:
   attackMixOutDelay: 0
   attackTimeScale: 1.2
   downAttackTimeScale: 2
+  forceOverrideGroundedHoldDuration: 0.4
   footstepEvent: {fileID: 11400000, guid: 2657d9f265aa59446b055dc0c1018419, type: 2}
   footstepSource: {fileID: 0}
   footstepPitchOffset: 0.2
