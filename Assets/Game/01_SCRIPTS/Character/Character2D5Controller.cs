@@ -691,11 +691,7 @@ namespace junklite
             // Jump away from the wall
             int jumpDir = -wallDirection;
 
-            rb.linearVelocity = new Vector3(
-                wallJumpHorizontalForce * jumpDir,
-                wallJumpForce,
-                rb.linearVelocity.z
-            );
+            rb.linearVelocity = transform.right * jumpDir * wallJumpHorizontalForce + transform.up * wallJumpForce;
 
             StartMinJumpHoldWindow();
 
