@@ -318,10 +318,10 @@ namespace junklite
 
         private void StartAttack(AttackDirection dir)
         {
-            // Air attack: only one per air time; down attacks can repeat in air
-            if (playerState != null && !playerState.IsGrounded && dir != AttackDirection.Down && !playerState.CanAirAttack)
+            // Air attack: limit per air time (includes down attack to prevent spam)
+            if (playerState != null && !playerState.IsGrounded && !playerState.CanAirAttack)
             {
-                Log($"Air attack blocked - already used this jump or not airborne");
+                Log($"Air attack blocked - already used air attack(s) this jump");
                 return;
             }
 
@@ -336,7 +336,7 @@ namespace junklite
             if (playerState != null)
             {
                 playerState.SetDownAttackRequested(dir == AttackDirection.Down);
-                if (!playerState.IsGrounded && dir != AttackDirection.Down)
+                if (!playerState.IsGrounded)
                     playerState.MarkAirAttackUsed();
             }
 

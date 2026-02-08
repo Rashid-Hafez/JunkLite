@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using SkeletonGhost = Spine.Unity.Examples.SkeletonGhost;
 using System.Collections;
 using Unity.Cinemachine;
@@ -441,6 +441,9 @@ namespace junklite
 
         void HandleDoubleJump()
         {
+            // Refund one air attack if scheduled (e.g. pogo hit) so player can pogo again after double jump
+            playerState?.TryRefundAirAttackAfterDoubleJump();
+
             // Double jump: clear falling, set jumping and double jumping
             playerState?.SetFalling(false);       // Clear falling first
             playerState?.SetDoubleJumping(true);  // Mark as double jumping
