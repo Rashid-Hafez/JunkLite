@@ -43,6 +43,8 @@ namespace junklite
                     new Vector3(pointA.position.x, controller.transform.position.y, pointA.position.z) 
                     : new Vector3(pointB.position.x, controller.transform.position.y, pointB.position.z);
 
+                controller.FreezePerpendicularAxis();
+
                 // Toggle cameras
                 if (cameraA != null && cameraB != null)
                 {

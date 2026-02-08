@@ -192,6 +192,27 @@ namespace junklite
             facingLockEndTime = Time.time + duration;
         }
 
+        public void FreezePerpendicularAxis()
+        {
+            Vector3 r = transform.right.normalized;
+
+            // Compare only X and Z axes
+            float dotX = Mathf.Abs(Vector3.Dot(r, Vector3.right));
+            float dotZ = Mathf.Abs(Vector3.Dot(r, Vector3.forward));
+
+            Vector3 mostPerpendicularAxis =
+                (dotX < dotZ) ? Vector3.right : Vector3.forward;
+
+            RigidbodyConstraints constraints = RigidbodyConstraints.FreezeRotation;
+
+            if (mostPerpendicularAxis == Vector3.right)
+                constraints |= RigidbodyConstraints.FreezePositionX;
+            else
+                constraints |= RigidbodyConstraints.FreezePositionZ;
+
+            rb.constraints = constraints;
+        }
+
         /// <summary>
         /// Immediately unlocks facing direction.
         /// </summary>
@@ -208,8 +229,9 @@ namespace junklite
             playerState = GetComponent<PlayerState>();
 
             rb.freezeRotation = true;
+            rb.constraints |= RigidbodyConstraints.FreezePositionZ; // default to locked Z for 2.5D, can be unlocked for roaming sections
 
-            // Lock Z with constraints to avoid snap pops
+            /*// Lock Z with constraints to avoid snap pops
             if (snapToZPosition)
             {
                 fixedZPosition = transform.position.z;
@@ -222,7 +244,7 @@ namespace junklite
             {
                 // If lane roaming, ensure Z is free
                 rb.constraints &= ~RigidbodyConstraints.FreezePositionZ;
-            }
+            }*/
 
             // Recommended for smooth visuals with physics motion
             rb.interpolation = RigidbodyInterpolation.Interpolate;

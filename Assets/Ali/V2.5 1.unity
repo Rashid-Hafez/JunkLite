@@ -5932,14 +5932,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: Hyena
       objectReference: {fileID: 0}
-    - target: {fileID: 1781644916664674612, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: useScaleFlip
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1781644916664674612, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: movementPlane
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 5597149479163235202, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_Mesh
       value: 
@@ -21029,7 +21021,7 @@ MonoBehaviour:
     AmplitudeGain: 0.2
     FrequencyGain: 0.2
     Duration: 0.2
-    m_NoiseOffsets: {x: 0, y: 0, z: 0}
+    m_NoiseOffsets: {x: 678.9372, y: 609.0162, z: -240.6355}
 --- !u!114 &1141621042
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -21274,11 +21266,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5021938507132515343, guid: e342e19659f764d44b9b71da3f06f3f0, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.42
+      value: 1.46
       objectReference: {fileID: 0}
     - target: {fileID: 5021938507132515343, guid: e342e19659f764d44b9b71da3f06f3f0, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.05
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5021938507132515343, guid: e342e19659f764d44b9b71da3f06f3f0, type: 3}
       propertyPath: m_LocalRotation.w
@@ -32779,7 +32771,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4145675539241514590, guid: 9647168b87c90194cb0734de5e51245a, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -27.1
+      value: -28.6
       objectReference: {fileID: 0}
     - target: {fileID: 4145675539241514590, guid: 9647168b87c90194cb0734de5e51245a, type: 3}
       propertyPath: m_LocalRotation.w
@@ -32796,6 +32788,10 @@ PrefabInstance:
     - target: {fileID: 4145675539241514590, guid: 9647168b87c90194cb0734de5e51245a, type: 3}
       propertyPath: m_LocalRotation.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4525958688028658051, guid: 9647168b87c90194cb0734de5e51245a, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -28.6
       objectReference: {fileID: 0}
     - target: {fileID: 4619389337637853409, guid: 9647168b87c90194cb0734de5e51245a, type: 3}
       propertyPath: Lens.NearClipPlane
@@ -32897,6 +32893,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
+      propertyPath: enemyHitVFXPrefab
+      value: 
+      objectReference: {fileID: 3042519775331041172, guid: 31f0de389843efc419dff9f281fb9184, type: 3}
     - target: {fileID: 5290022273384436843, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
       propertyPath: m_Name
       value: Combat Effects Manager
@@ -33136,7 +33136,7 @@ PrefabInstance:
     - target: {fileID: 6708160109121364283, guid: 8b89a65709c0ecd40a2644c08718f1bc, type: 3}
       propertyPath: playerPrefab
       value: 
-      objectReference: {fileID: 7038683931279381878, guid: 0678f8bbbd69e1d47a6aff2903caf74a, type: 3}
+      objectReference: {fileID: 7038683931279381878, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
     - target: {fileID: 6708160109121364283, guid: 8b89a65709c0ecd40a2644c08718f1bc, type: 3}
       propertyPath: gameplayCanvasTransform
       value: 

@@ -5057,7 +5057,7 @@ Transform:
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: -0.6756545, w: 0.73721844}
-  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: 0}
+  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: -0.0836}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5079,7 +5079,7 @@ MonoBehaviour:
   boneName: Sword_1
   followXYPosition: 1
   followZPosition: 1
-  followAttachmentZSpacing: 0
+  followAttachmentZSpacing: 1
   followBoneRotation: 1
   followSkeletonFlip: 1
   followLocalScale: 1
@@ -15142,10 +15142,10 @@ GameObject:
   - component: {fileID: 6282132647400396865}
   m_Layer: 16
   m_Name: Player_2.2
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 1
+  m_StaticEditorFlags: 0
   m_IsActive: 1
 --- !u!4 &7117484140060184854
 Transform:
@@ -15245,7 +15245,7 @@ MonoBehaviour:
   wallJumpForce: 10
   wallJumpHorizontalForce: 7
   wallJumpDuration: 0.2
-  snapToZPosition: 1
+  snapToZPosition: 0
   fixedZPosition: 0
   allowZMovement: 0
   zMoveSpeed: 3
@@ -15264,6 +15264,7 @@ MonoBehaviour:
   faceMovementDirection: 1
   facingMode: 0
   rotationSpeed: 10
+  isDashing: 0
 --- !u!114 &3848022378524677996
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15404,9 +15405,9 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 0
   m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 1
+  m_Interpolate: 1
+  m_Constraints: 8
+  m_CollisionDetection: 2
 --- !u!136 &8722355234977318539
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -15704,6 +15705,7 @@ MonoBehaviour:
   attackMixOutDelay: 0
   attackTimeScale: 1.2
   downAttackTimeScale: 2
+  forceOverrideGroundedHoldDuration: 0.4
   footstepEvent: {fileID: 11400000, guid: 2657d9f265aa59446b055dc0c1018419, type: 2}
   footstepSource: {fileID: 0}
   footstepPitchOffset: 0.2
