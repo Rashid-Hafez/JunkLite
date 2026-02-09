@@ -42,13 +42,13 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _FogSize: 0.2
+    - _FogSize: 1
     - _QueueControl: 0
     - _QueueOffset: 0
     - _worldSpace: 1
     m_Colors:
     - _FogColor: {r: 1, g: 1, b: 1, a: 0.47058824}
-    - _FogSpeed: {r: 0.2, g: 0.001, b: 0, a: 0}
+    - _FogSpeed: {r: 0.1, g: 1, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!114 &8336419256409362112
