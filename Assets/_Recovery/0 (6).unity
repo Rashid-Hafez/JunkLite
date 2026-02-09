@@ -5934,7 +5934,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 1448948369
   m_SortingLayer: 1
-  m_SortingOrder: 10
+  m_SortingOrder: 32767
   m_MaskInteraction: 0
   m_Sprite: {fileID: 21300000, guid: 42fa0bf02bb4c4c0ca426802f8dc1a4a, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -19438,7 +19438,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolumePerSceneData
   serializedBakingSet: {fileID: 11400000, guid: f798ac05b814e45c3985d7d26eff35ce, type: 2}
-  sceneGUID: 98c09da41fb3ec740892f1d404bab5bd
+  sceneGUID: 1dd6a63b0253d45a490be1a3277f5108
   obsoleteAsset: {fileID: 0}
   obsoleteCellSharedDataAsset: {fileID: 0}
   obsoleteCellSupportDataAsset: {fileID: 0}

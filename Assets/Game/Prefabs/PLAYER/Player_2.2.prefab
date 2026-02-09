@@ -5056,8 +5056,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.6756545, w: 0.73721844}
-  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: -0.015199999}
+  m_LocalRotation: {x: 0, y: 0, z: -0.67736596, w: 0.73564625}
+  m_LocalPosition: {x: -0.45659363, y: 1.1653959, z: -0.015199999}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5084,10 +5084,6 @@ MonoBehaviour:
   followSkeletonFlip: 1
   followLocalScale: 0
   followParentWorldScale: 0
-  localPositionOffset: {x: 34.61, y: 2442, z: 0.5}
-  localRotationOffsetEuler: {x: 1, y: 0.5, z: 55}
-  flipLocalScaleX: 1
-  flipLocalScaleY: 1
   maintainedAxisOrientation: 1
   initializeOnAwake: 1
 --- !u!1 &1995208205287665060
@@ -20974,7 +20970,7 @@ MeshRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 1448948369
   m_SortingLayer: 1
-  m_SortingOrder: 9
+  m_SortingOrder: 113
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!33 &329578290283652807

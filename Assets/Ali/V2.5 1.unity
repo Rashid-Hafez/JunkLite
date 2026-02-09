@@ -11874,6 +11874,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45d9a51e9db914c97be1c6c75412a122, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  spawnPointName: 
+  priority: 0
+  gizmoColor: {r: 0, g: 1, b: 0, a: 1}
+  gizmoRadius: 0.5
 --- !u!4 &1014042858 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4591944058372244, guid: 1d8f96bfc4327eb4f9a61c0f71a3c9b0, type: 3}
@@ -25916,24 +25920,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 23ab8fcfef4928d4d816a673f9e5aa09, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.TestManager
-  showTestPanel: 1
-  toggleKey: 282
-  panelBackgroundColor: {r: 0.1, g: 0.1, b: 0.1, a: 0.9}
-  buttonColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
-  buttonTextColor: {r: 1, g: 1, b: 1, a: 1}
-  labelColor: {r: 0, g: 1, b: 1, a: 1}
-  fontSize: 14
-  buttonHeight: 35
-  panelWidth: 280
-  panelHeight: 560
-  referenceResolution: {x: 1920, y: 1080}
-  autoScale: 1
-  manualScaleMultiplier: 1
-  robotPrefab: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
-  hyenaPrefab: {fileID: 84268223678430046, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-  enemySpawnPoints: []
-  spawnRadius: 5
-  itemPrefabs: []
 --- !u!1 &1732923433
 GameObject:
   m_ObjectHideFlags: 0
@@ -36129,15 +36115,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -27.1
+      value: -28.6
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6456319810183715003, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalPosition.z
