@@ -11885,10 +11885,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45d9a51e9db914c97be1c6c75412a122, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
-  spawnPointName: 
-  priority: 0
-  gizmoColor: {r: 0, g: 1, b: 0, a: 1}
-  gizmoRadius: 0.5
 --- !u!4 &1014042858 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4591944058372244, guid: 1d8f96bfc4327eb4f9a61c0f71a3c9b0, type: 3}
@@ -24332,12 +24328,16 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5997530873232330661, guid: a7872b1551cbebc44ab012e2f23eb13b, type: 3}
+      propertyPath: oneWaySwitch
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5997530873232330661, guid: a7872b1551cbebc44ab012e2f23eb13b, type: 3}
       propertyPath: switchCameras
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5997530873232330661, guid: a7872b1551cbebc44ab012e2f23eb13b, type: 3}
       propertyPath: rotateOnTrigger
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5997530873232330661, guid: a7872b1551cbebc44ab012e2f23eb13b, type: 3}
       propertyPath: cameraBlendDuration
@@ -25936,6 +25936,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 23ab8fcfef4928d4d816a673f9e5aa09, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.TestManager
+  showTestPanel: 1
+  toggleKey: 282
+  panelBackgroundColor: {r: 0.1, g: 0.1, b: 0.1, a: 0.9}
+  buttonColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
+  buttonTextColor: {r: 1, g: 1, b: 1, a: 1}
+  labelColor: {r: 0, g: 1, b: 1, a: 1}
+  fontSize: 14
+  buttonHeight: 35
+  panelWidth: 280
+  panelHeight: 560
+  referenceResolution: {x: 1920, y: 1080}
+  autoScale: 1
+  manualScaleMultiplier: 1
+  robotPrefab: {fileID: 0}
+  hyenaPrefab: {fileID: 0}
+  enemySpawnPoints: []
+  spawnRadius: 5
+  itemPrefabs: []
 --- !u!1 &1732923433
 GameObject:
   m_ObjectHideFlags: 0
