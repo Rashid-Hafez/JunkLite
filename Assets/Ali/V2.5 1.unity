@@ -15309,25 +15309,9 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 2322781323494506009, guid: bbb4e8d01697f7c49b44e7dac51f8bcf, type: 3}
-      propertyPath: m_Sprite
-      value: 
-      objectReference: {fileID: 21300000, guid: 42fa0bf02bb4c4c0ca426802f8dc1a4a, type: 3}
-    - target: {fileID: 2322781323494506009, guid: bbb4e8d01697f7c49b44e7dac51f8bcf, type: 3}
-      propertyPath: m_SortingOrder
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2524277413461307660, guid: bbb4e8d01697f7c49b44e7dac51f8bcf, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -0.5
-      objectReference: {fileID: 0}
     - target: {fileID: 2566796929028850443, guid: bbb4e8d01697f7c49b44e7dac51f8bcf, type: 3}
       propertyPath: m_Name
       value: sword prefab
-      objectReference: {fileID: 0}
-    - target: {fileID: 5875071594129884335, guid: bbb4e8d01697f7c49b44e7dac51f8bcf, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0.356
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
