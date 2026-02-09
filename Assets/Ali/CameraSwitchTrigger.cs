@@ -21,6 +21,7 @@ namespace junklite
         private Transform pointA;
         private Transform pointB;
 
+        [SerializeField] private bool oneWaySwitch = false;
         private bool usingFirstState = false;
         
 
@@ -39,6 +40,7 @@ namespace junklite
             var controller = other.GetComponent<Character2D5Controller>();
             if (controller != null)
             {
+                Debug.Log("Entered trigger");
                 if (rotateOnTrigger)
                 {
                     controller.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
@@ -52,22 +54,24 @@ namespace junklite
 
                     controller.FreezePerpendicularAxis();
                 }
-                
+
 
                 if (switchCameras)
                 {
+                    Debug.Log("Switching cameras");
                     // Toggle cameras
                     if (cameraA != null && cameraB != null)
                     {
                         if (usingFirstState)
                         {
+                            Debug.Log("Switching to Camera A");
                             cameraA.Prioritize();
                             cameraA.transform.Find("Particles").gameObject.SetActive(true);
                             cameraB.transform.Find("Particles").gameObject.SetActive(false);
                         }
                         else
                         {
-
+                            Debug.Log("Switching to Camera B");
                             cameraB.Prioritize();
                             cameraB.transform.Find("Particles").gameObject.SetActive(true);
                             cameraA.transform.Find("Particles").gameObject.SetActive(false);
@@ -75,10 +79,11 @@ namespace junklite
                         cinemachineBrain.DefaultBlend.Time = cameraBlendDuration;
                     }
                 }
-                
 
-                // Flip the state for next time
-                usingFirstState = !usingFirstState;
+                if (!oneWaySwitch)
+                { 
+                    usingFirstState = !usingFirstState; // Toggle state for next trigger
+                }
             }
         }
     }
