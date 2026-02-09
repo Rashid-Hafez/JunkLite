@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Unity.Cinemachine;
 
 namespace junklite
 {
@@ -426,9 +427,16 @@ namespace junklite
 
         private void UpdateFacingFromDirection(Vector3 direction)
         {
-            if (direction.x > 0.01f)
+            /*if (direction.x > 0.01f)
                 facingDirection = 1;
             else if (direction.x < -0.01f)
+                facingDirection = -1;*/
+
+            float dot = Vector3.Dot(CinemachineCore.GetVirtualCamera(0).transform.right, direction);
+
+            if (dot > 0.01f)
+                facingDirection = 1;
+            else if (dot < -0.01f)
                 facingDirection = -1;
 
             ApplyFacing();
