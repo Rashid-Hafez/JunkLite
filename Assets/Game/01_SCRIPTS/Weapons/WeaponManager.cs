@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections;
 
+
 namespace junklite
 {
     [RequireComponent(typeof(Collider))]
@@ -631,11 +632,27 @@ namespace junklite
             CurrentWeapon = pickup.weaponInstance;
             CurrentWeapon.gameObject.SetActive(true);
             CurrentWeapon.transform.parent = weaponHolder;
-            CurrentWeapon.transform.localPosition = Vector3.zero;
-            CurrentWeapon.transform.localRotation = Quaternion.Euler(0, 0, -30f);
-            CurrentWeapon.transform.localScale = Vector3.one;
             CurrentWeapon.GetComponent<SpriteRenderer>().sortingOrder = 11;
             CurrentWeapon.SetOwnerRigidbody(playerRb);
+
+            // Apply weapon offsets from WeaponData directly to the weapon's local transform
+            if (CurrentWeapon.weaponData != null)
+            {
+                var socketOffset = CurrentWeapon.weaponData.socketOffset;
+                CurrentWeapon.transform.localPosition = socketOffset.localPositionOffset;
+                CurrentWeapon.transform.localRotation = Quaternion.Euler(0, 0, -30f) * Quaternion.Euler(socketOffset.localRotationOffsetEuler);
+                Vector3 weaponScale = Vector3.one;
+                if (socketOffset.flipLocalScaleX) weaponScale.x = -1f;
+                if (socketOffset.flipLocalScaleY) weaponScale.y = -1f;
+                CurrentWeapon.transform.localScale = weaponScale;
+            }
+            else
+            {
+                CurrentWeapon.transform.localPosition = Vector3.zero;
+                CurrentWeapon.transform.localRotation = Quaternion.Euler(0, 0, -30f);
+                CurrentWeapon.transform.localScale = Vector3.one;
+            }
+
 
             var inventory = GetComponent<InventoryComponent>();
             if (inventory != null)

@@ -305,7 +305,6 @@ namespace junklite
             if (weaponSocket != null && TargetParent != null)
             {
                 weaponSocket.rotation = TargetParent.rotation;
-
             }
         }
 

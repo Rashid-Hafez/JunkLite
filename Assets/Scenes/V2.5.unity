@@ -464,6 +464,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
   flashDuration: 0.1
   flashAmount: 0.8
+  normalAmount: 1
   isSpine: 0
   flashColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1001 &208225622
@@ -5935,7 +5936,7 @@ SpriteRenderer:
   m_SortingLayer: 1
   m_SortingOrder: 32767
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 21300000, guid: 91e08ec223d94fe409b7c52db25010f9, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 42fa0bf02bb4c4c0ca426802f8dc1a4a, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -17231,6 +17232,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
   flashDuration: 0.1
   flashAmount: 0.8
+  normalAmount: 1
   isSpine: 0
   flashColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &1305499144
@@ -62244,7 +62246,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: d45d016b30ff341938aa1850c92f0508, type: 2}
+  - {fileID: 2100000, guid: 3e5302b0905a445d2bf8fa442f8ae63e, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -62265,9 +62267,9 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 98
+  m_SortingOrder: 1030
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 21300000, guid: 91e08ec223d94fe409b7c52db25010f9, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 42fa0bf02bb4c4c0ca426802f8dc1a4a, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -62276,7 +62278,7 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_SpriteSortPoint: 0
+  m_SpriteSortPoint: 1
 --- !u!1001 &4344835123733219571
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -67824,8 +67826,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.42827028, y: 1.28, z: 0.2}
-  m_Center: {x: -0.42586526, y: 0, z: 0}
+  m_Size: {x: 1.7891605, y: 1.28, z: 0.2}
+  m_Center: {x: 0.25457954, y: 0, z: 0}
 --- !u!114 &5298442139302709943
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -78538,10 +78540,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4127359202273963963, guid: 7dda5a7af1e6a8b42ad53d52b0c91f9a, type: 3}
+      propertyPath: m_Layer
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5392924781547643356, guid: 7dda5a7af1e6a8b42ad53d52b0c91f9a, type: 3}
       propertyPath: m_LocalPosition.x
       value: -68.82
       objectReference: {fileID: 0}
+    - target: {fileID: 6472065736367185545, guid: 7dda5a7af1e6a8b42ad53d52b0c91f9a, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: f5a4a51ee9cfb44f9b0814e1a3982de9, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -78868,7 +78878,7 @@ Transform:
   m_GameObject: {fileID: 8287473504981113773}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.11, y: -0.91, z: 0}
+  m_LocalPosition: {x: 0.418, y: -0.91, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -79050,6 +79060,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
   flashDuration: 0.1
   flashAmount: 0.8
+  normalAmount: 1
   isSpine: 0
   flashColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1001 &8461955617296689035

@@ -113,6 +113,21 @@ namespace junklite
         public int maxReserveSlots = 4;
 
         // =====================================================================
+        // SOCKET OFFSETS
+        // =====================================================================
+
+        [System.Serializable]
+        public struct WeaponSocketOffset {
+            public Vector3 localPositionOffset;
+            public Vector3 localRotationOffsetEuler;
+            public bool flipLocalScaleX;
+            public bool flipLocalScaleY;
+        }
+
+        [Header("Weapon Socket Offsets")]
+        public WeaponSocketOffset socketOffset;
+
+        // =====================================================================
         // HELPER METHODS
         // =====================================================================
 

@@ -29,11 +29,21 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AlphaClipThreshold: 1
     - _AmountToFlash: 1
-    - _BaseAlpha: 0.8
+    - _BaseAlpha: 1
+    - _FlashPower: 2
+    - _FlashStrength: 1
     - _GlowIntensity: 2
+    - _MaxAlpha: 1
+    - _MinAlpha: 0
+    - _PulseAmount: 0
+    - _PulseSpeed: 6
+    - _Saturation: 1
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _FlashColor: {r: 1, g: 1, b: 1, a: 1}
+    - _GlowColor: {r: 1, g: 1, b: 1, a: 1}
+    - _TintColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

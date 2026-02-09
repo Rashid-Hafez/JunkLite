@@ -5056,13 +5056,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.6756545, w: 0.73721844}
-  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalRotation: {x: 0.0069424356, y: -0.006854968, z: -0.2790378, w: 0.9602306}
+  m_LocalPosition: {x: 34.152744, y: 2443.1482, z: 0.41640002}
+  m_LocalScale: {x: -1, y: -1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2489384785993987126}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0.51, y: -0.992, z: -17.15}
 --- !u!114 &612097181165957970
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5079,44 +5079,17 @@ MonoBehaviour:
   boneName: Sword_1
   followXYPosition: 1
   followZPosition: 1
-  followAttachmentZSpacing: 0
+  followAttachmentZSpacing: 1
   followBoneRotation: 1
   followSkeletonFlip: 1
-  followLocalScale: 1
+  followLocalScale: 0
   followParentWorldScale: 0
+  localPositionOffset: {x: 34.61, y: 2442, z: 0.5}
+  localRotationOffsetEuler: {x: 1, y: 0.5, z: 55}
+  flipLocalScaleX: 1
+  flipLocalScaleY: 1
   maintainedAxisOrientation: 1
   initializeOnAwake: 1
---- !u!1 &1837720726168042859
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 3382759799894215637}
-  m_Layer: 16
-  m_Name: HandR
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &3382759799894215637
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1837720726168042859}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0.7064234, w: 0.7077894}
-  m_LocalPosition: {x: -0.337, y: 1.146, z: 0.029714286}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2489384785993987126}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 8.234}
 --- !u!1 &1995208205287665060
 GameObject:
   m_ObjectHideFlags: 0
@@ -15190,7 +15163,7 @@ MonoBehaviour:
   jumpForce: 12
   groundCheckDistance: 0.1
   groundCheckRadius: 0.08
-  TargetParent: {fileID: 3382759799894215637}
+  TargetParent: {fileID: 0}
   weaponSocket: {fileID: 4764703469501611834}
   weaponSocketSortingLayerName: 11
   minJumpHoldTime: 0.11
@@ -20952,7 +20925,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4764703469501611834}
-  - {fileID: 3382759799894215637}
   m_Father: {fileID: 7117484140060184854}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!23 &5004409500042836950
