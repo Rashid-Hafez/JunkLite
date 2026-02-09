@@ -52,7 +52,7 @@ MonoBehaviour:
   maxSpeed: 15.5
   maxForce: 68.5
   tickRate: 0.02
-  offset: {x: 1, y: 1.5, z: 0}
+  offset: {x: -1.04, y: 4, z: 0}
   smoothTime: 0.3
   overshootFactor: 0.5
 --- !u!212 &7858544837094574137

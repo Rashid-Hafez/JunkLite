@@ -221,6 +221,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
   flashDuration: 0.1
   flashAmount: 0.8
+  normalAmount: 1
   isSpine: 0
   flashColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!82 &5167669749131252260
@@ -393,7 +394,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 56e52a3e1addd49bdbf2035a39c0887a, type: 2}
+  - {fileID: 2100000, guid: f5a4a51ee9cfb44f9b0814e1a3982de9, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
