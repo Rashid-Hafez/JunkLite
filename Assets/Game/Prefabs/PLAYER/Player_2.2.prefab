@@ -16,7 +16,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &7832329793080329322
 Transform:
   m_ObjectHideFlags: 0
@@ -5056,9 +5056,9 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.0069424356, y: -0.006854968, z: -0.2790378, w: 0.9602306}
-  m_LocalPosition: {x: 34.152744, y: 2443.1482, z: 0.41640002}
-  m_LocalScale: {x: -1, y: -1, z: 1}
+  m_LocalRotation: {x: 0, y: 0, z: -0.6756545, w: 0.73721844}
+  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: -0.015199999}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2489384785993987126}
@@ -15115,10 +15115,10 @@ GameObject:
   - component: {fileID: 6282132647400396865}
   m_Layer: 16
   m_Name: Player_2.2
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 1
+  m_StaticEditorFlags: 0
   m_IsActive: 1
 --- !u!4 &7117484140060184854
 Transform:
@@ -15218,7 +15218,7 @@ MonoBehaviour:
   wallJumpForce: 10
   wallJumpHorizontalForce: 7
   wallJumpDuration: 0.2
-  snapToZPosition: 1
+  snapToZPosition: 0
   fixedZPosition: 0
   allowZMovement: 0
   zMoveSpeed: 3
@@ -15237,6 +15237,7 @@ MonoBehaviour:
   faceMovementDirection: 1
   facingMode: 0
   rotationSpeed: 10
+  isDashing: 0
 --- !u!114 &3848022378524677996
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15377,9 +15378,9 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 0
   m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 1
+  m_Interpolate: 1
+  m_Constraints: 8
+  m_CollisionDetection: 2
 --- !u!136 &8722355234977318539
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -21004,7 +21005,7 @@ MonoBehaviour:
   updateWhenInvisible: 3
   separatorSlotNames:
   - 
-  zSpacing: -0.0022
+  zSpacing: -0.0002
   useClipping: 1
   immutableTriangles: 1
   pmaVertexColors: 1
@@ -21063,4 +21064,4 @@ MonoBehaviour:
   additive: 1
   textureFade: 1
   sortWithDistanceOnly: 0
-  zOffset: 0
+  zOffset: 2.3

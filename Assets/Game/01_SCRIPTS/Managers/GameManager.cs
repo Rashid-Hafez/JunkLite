@@ -99,7 +99,7 @@ namespace junklite
             gameplayCanvasTransform = null;
 
             // Find spawn points in the new scene
-            FindSpawnPoints();
+            //FindSpawnPoints();
 
             // Find canvas in the new scene
             FindGameplayCanvas();
@@ -162,7 +162,7 @@ namespace junklite
         private void InitializeGame()
         {
             if (spawnPoints == null || spawnPoints.Length == 0)
-                FindSpawnPoints();
+                //FindSpawnPoints();
 
             EnsurePlayerUI();
 
@@ -195,7 +195,7 @@ namespace junklite
                 Debug.LogError("Player UI prefab is missing a PlayerUI component.");
         }
 
-        private void FindSpawnPoints()
+        /*private void FindSpawnPoints()
         {
             // Find all SpawnPoint components in the scene
             var spawnPointComponents = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None);
@@ -220,7 +220,7 @@ namespace junklite
                 Debug.LogWarning("[GameManager] No spawn points found! Add SpawnPoint components or tag objects as 'SpawnPoint'.");
             else
                 Debug.Log($"[GameManager] Found {spawnPoints.Length} spawn points via tag.");
-        }
+        }*/
 
         public void SpawnPlayer()
         {

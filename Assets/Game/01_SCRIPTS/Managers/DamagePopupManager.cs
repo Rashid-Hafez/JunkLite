@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Cinemachine;
 using UnityEngine;
 
 namespace junklite
@@ -92,10 +93,11 @@ namespace junklite
             DamagePopup popup = GetPopup();
 
             // Position with offset and randomness
-            Vector3 spawnPos = position + spawnOffset;
-            spawnPos.x += Random.Range(-randomOffsetRange, randomOffsetRange);
 
-            popup.transform.position = spawnPos;
+            popup.transform.rotation = CinemachineCore.GetVirtualCamera(0).transform.rotation; // Face camera
+            Vector3 spawnPos = position + popup.transform.right * spawnOffset.x + popup.transform.up * spawnOffset.y; // Offset relative to local right and up
+            spawnPos += popup.transform.right * Random.Range(-randomOffsetRange, randomOffsetRange); // Random horizontal offset
+            popup.transform.position = spawnPos; 
             popup.gameObject.SetActive(true);
             popup.Setup(damage);
         }

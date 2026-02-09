@@ -16660,9 +16660,15 @@ MonoBehaviour:
     m_Bits: 6145
   gravityMultiplier: 1.5
   maxFallSpeed: -20
+  smoothStopTime: 0.23
+  smoothStopMaxSpeed: 10
+  smoothStopThreshold: 0.01
+  smoothStopInputMaxSpeed: 1
+  smoothStopInputThreshold: 0.001
   faceMovementDirection: 1
   facingMode: 0
   rotationSpeed: 10
+  isDashing: 0
 --- !u!114 &3848022378524677996
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -16688,31 +16694,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   baseStats: {fileID: 11400000, guid: adaa8433c252acc46a3253234b8ce0dd, type: 2}
+  attributes: {fileID: 0}
   attackRange: 2
   enemyLayerMask:
     serializedVersion: 2
     m_Bits: 0
+  soundProfile: {fileID: 0}
   attackFacingLockDuration: 0.15
   particleJumpUp: {fileID: 0}
   particleJumpDown: {fileID: 9116952141988312691}
+  skeletonGhost: {fileID: 0}
   particleDashBurst: {fileID: 0}
   dashTrail: {fileID: 0}
   feet: {fileID: 0}
   reviveInvulnerability: 1.25
   disableCollidersOnDeactivate: 0
   damageInvulnerability: 1
-  damageFlashRenderers:
-  - {fileID: 4734778122864401757}
-  - {fileID: 2828543953121847795}
-  - {fileID: 1583882516759112253}
-  - {fileID: 8648627100904144878}
-  - {fileID: 7669927211521490071}
-  - {fileID: 5504637153962364111}
-  - {fileID: 6616797964415032703}
-  autoFindFlashRenderers: 0
-  damageFlashColor: {r: 1, g: 0.07075471, b: 0.07075471, a: 0}
-  damageFlashDuration: 0.5
-  damageFlashInterval: 0.3
   damageHitVFXPrefab: {fileID: 5435998012328932994, guid: d8703a33a4eb0b84a875202fde23e8f7, type: 3}
   damageHitVFXLifetime: 1
   cameraShakeOnHit: 5
@@ -16747,7 +16744,6 @@ MonoBehaviour:
   sideAttack: {fileID: 128506076357536208}
   upAttack: {fileID: 7039884645192212358}
   downAttack: {fileID: 2881757924107890758}
-  attackDuration: 0.3
   sideRadius: 0.9
   upRadius: 0.95
   downRadius: 1
@@ -16757,17 +16753,17 @@ MonoBehaviour:
   environmentLayer:
     serializedVersion: 2
     m_Bits: 4096
-  defaultKnockback: {x: 20, y: 1}
   impulseSource: {fileID: 0}
   enemyHitHitstopDuration: 0.06
   enemyHitShakeForce: 0.5
-  enemyHitDelay: 0.05
+  delayBeforeAttack: 0.1
+  attackOpenWindow: 0.3
+  BUFFER_DURATION: 0.3
   sideRecoil: 23
-  poolSizePerSlash: 12
-  slashPoolRoot: {fileID: 3708428653336801813}
-  slashOffsetDirection: 0.5
-  slashOffsetDistance: 0.5
-  slashScale: 2
+  facingLockDuration: 0.25
+  inputThreshold: 0.5
+  lockMovementDuringAttack: 1
+  logAttacks: 0
 --- !u!114 &7181291251784971520
 MonoBehaviour:
   m_ObjectHideFlags: 0
