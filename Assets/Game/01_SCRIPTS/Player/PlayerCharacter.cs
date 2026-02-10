@@ -80,6 +80,7 @@ namespace junklite
         private WeaponManager _weaponManager;
 
         private FeedbackManager feedbackManager;
+        private PlayerAudioHandler audioHandler;
 
         protected override void Awake()
         {
@@ -98,6 +99,7 @@ namespace junklite
             _cachedColliders = GetComponentsInChildren<Collider>(includeInactive: true);
             _rb = GetComponent<Rigidbody>();
             _spriteRenderers = GetComponentsInChildren<SpriteRenderer>(includeInactive: true);
+            audioHandler = GetComponent<PlayerAudioHandler>();
 
             Collider col = GetComponent<Collider>();
             damageVFXOffset = col != null ? col.bounds.center - transform.position : Vector3.up;
@@ -624,6 +626,8 @@ namespace junklite
             // i-frames, VFX, camera shake, knockback, stun
             if (playerState != null && damageInvulnerability > 0f)
                 playerState.ApplyInvulnerability(damageInvulnerability);
+
+            audioHandler?.PlayHurt(); // TODO - Maybe move this to audio handler? IDK
 
             if (damageHitVFXPrefab != null)
             {
