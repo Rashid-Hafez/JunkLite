@@ -23946,13 +23946,17 @@ PrefabInstance:
       propertyPath: defaultFacing
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 1781644916664674612, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: movementPlane
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5597149479163235202, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_Mesh
       value: 
       objectReference: {fileID: 0}
     - target: {fileID: 6167942235133427456, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_Constraints
-      value: 8
+      value: 112
       objectReference: {fileID: 0}
     - target: {fileID: 6167942235133427456, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_Interpolate
@@ -24682,6 +24686,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1781644916664674612, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: defaultFacing
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1781644916664674612, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: movementPlane
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5597149479163235202, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
