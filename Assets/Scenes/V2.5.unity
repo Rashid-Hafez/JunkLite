@@ -503,6 +503,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a1a328020addef4d9bbb51652f23b6d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  spawnPointName: 
+  priority: 0
+  gizmoColor: {r: 0, g: 1, b: 0, a: 1}
+  gizmoRadius: 0.5
 --- !u!1001 &340046158
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1420,6 +1424,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a1a328020addef4d9bbb51652f23b6d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  spawnPointName: 
+  priority: 0
+  gizmoColor: {r: 0, g: 1, b: 0, a: 1}
+  gizmoRadius: 0.5
 --- !u!1001 &1036564025
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4217,7 +4225,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1714536387}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 23ab8fcfef4928d4d816a673f9e5aa09, type: 3}
+  m_Script: {fileID: 11500000, guid: a97abed1acf552647bf7042a1c0173f1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.TestManager
   showTestPanel: 1
@@ -4233,9 +4241,10 @@ MonoBehaviour:
   referenceResolution: {x: 1920, y: 1080}
   autoScale: 1
   manualScaleMultiplier: 1
-  robotPrefab: {fileID: 0}
-  hyenaPrefab: {fileID: 0}
-  enemySpawnPoints: []
+  robotPrefab: {fileID: 8676920073786956694, guid: 5da95c4a173134ba88c3b8a0e66429b4, type: 3}
+  hyenaPrefab: {fileID: 84268223678430046, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+  enemySpawnPoints:
+  - {fileID: 1004551717}
   spawnRadius: 5
   itemPrefabs: []
 --- !u!1 &1737470713
@@ -4815,11 +4824,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 84268223678430046, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5597149479163235202, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_Mesh
       value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 8620707696424177089, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: dashChance
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8620707696424177089, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: dodgeChance
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_LocalPosition.x

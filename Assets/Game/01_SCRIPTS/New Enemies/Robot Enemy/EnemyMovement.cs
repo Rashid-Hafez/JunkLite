@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using Unity.Cinemachine;
 
@@ -181,7 +181,7 @@ namespace junklite
                 rb.linearVelocity = knockbackVelocity;
             }
 
-            // Timer is the only end condition � clean and predictable
+            // Timer is the only end condition — clean and predictable
             if (knockbackTimer >= knockbackDuration)
                 EndKnockback();
         }
