@@ -25,16 +25,19 @@ namespace junklite
     public struct DamageInfo
     {
         public float Amount;
-        public GameObject Source;
+        public UnityEngine.GameObject Source;
         public DamageType Type;
-        public Vector2 KnockbackForce;
+        public UnityEngine.Vector2 KnockbackForce;
+        public bool IsTickDamage; // NEW: true for DOT ticks (fire, electric, etc.) — skips hitstun
 
-        public DamageInfo(float amount, GameObject source = null, DamageType type = DamageType.Physical, Vector2 knockback = default)
+        public DamageInfo(float amount, UnityEngine.GameObject source = null, DamageType type = DamageType.Physical,
+            UnityEngine.Vector2 knockback = default, bool isTickDamage = false)
         {
             Amount = amount;
             Source = source;
             Type = type;
             KnockbackForce = knockback;
+            IsTickDamage = isTickDamage;
         }
     }
 

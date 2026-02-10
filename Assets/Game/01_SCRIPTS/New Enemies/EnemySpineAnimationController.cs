@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Spine;
 using Spine.Unity;
 
@@ -158,6 +158,12 @@ namespace junklite
 
             var state = skeletonAnimation.AnimationState;
 
+            // Reset skeleton to default pose, then clear the track.
+            // ClearTrack alone leaves bones wherever the previous animation left them.
+            // SetToSetupPose resets ALL bones to their original transforms first.
+            skeletonAnimation.Skeleton.SetToSetupPose();
+            state.ClearTrack(0);
+
             if (to is IdleState)
                 state.SetAnimation(0, idle, true);
             else if (to is PatrolState)
@@ -172,6 +178,8 @@ namespace junklite
                 state.SetAnimation(0, dash, false);
             else if (to is DodgeState)
                 state.SetAnimation(0, dodge, false);
+            else if (to is HurtState)
+                state.SetAnimation(0, hurt, false);
             else if (to is StunnedState)
                 state.SetAnimation(0, hurt, false);
         }
@@ -187,6 +195,7 @@ namespace junklite
             ResetAttackState();
 
             var state = skeletonAnimation.AnimationState;
+            skeletonAnimation.Skeleton.SetToSetupPose();
             state.ClearTracks();
             var entry = state.SetAnimation(0, death, false);
 
@@ -256,7 +265,6 @@ namespace junklite
             attackStartTime = Time.time;
 
             var state = skeletonAnimation.AnimationState;
-            state.ClearTrack(0);
             currentAttackEntry = state.SetAnimation(0, attack, false);
             currentAttackEntry.MixDuration = 0f;
 

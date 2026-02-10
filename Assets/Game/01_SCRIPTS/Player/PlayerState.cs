@@ -22,6 +22,11 @@ namespace junklite
         public bool IsRolling { get; private set; }
         public bool IsInputLocked { get; private set; }
 
+        private bool isInvincible;
+        public bool IsInvincible => isInvincible;
+        public void SetInvincible(bool value) => isInvincible = value;
+
+
         // Movement states
         public bool IsWallSliding { get; private set; }
         public bool IsWallJumping { get; private set; }

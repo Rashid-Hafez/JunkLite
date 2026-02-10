@@ -61,7 +61,7 @@ CapsuleCollider:
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 16385
+    m_Bits: 65536
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
@@ -200,6 +200,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1
   canBeKnockedBack: 1
+  hitstunDuration: 0.3
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
   enemyAnimation: {fileID: 0}
@@ -211,44 +212,43 @@ MonoBehaviour:
   spineController: {fileID: 6885050171418826779}
   patrol:
     patrolDistance: 6.05
-    patrolSpeed: 2
+    patrolSpeed: 5
     wallCheckDistance: 0.5
     wallLayer:
       serializedVersion: 2
       m_Bits: 6144
     wallCheckPoint: {fileID: 5151501263871442441}
-  melee:
-    attackSpeed: 0.5
-    damage: 10
-    knockback: {x: 10, y: 1}
-    hitbox: {fileID: 4213466484449388956}
-    vfxPrefab: {fileID: 0}
   chase:
-    chaseSpeed: 5
+    chaseSpeed: 7
     chaseStopDistance: 2
   pursuitRadius: 15
+  melee:
+    attackSpeed: 0.4
+    damage: 20
+    knockback: {x: 5, y: 2}
+    hitbox: {fileID: 4213466484449388956}
+    vfxPrefab: {fileID: 0}
   dodge:
     dodgeDistance: 5
-    dodgeSpeed: 50
-    dodgeHeight: 0
+    dodgeSpeed: 15
+    dodgeHeight: 0.5
     hasIFrames: 1
     dodgeVFXPrefab: {fileID: 0}
-  dodgeChance: 0.512
-  dodgeCheckRange: 3
-  dodgeCooldown: 5
-  counterAttackChance: 1
+  dodgeChance: 0.9
+  dodgeCheckRange: 4
+  dodgeCooldown: 0.2
   charge:
-    chargeTime: 0.5
+    chargeTime: 0.2
     chargeVFXPrefab: {fileID: 0}
   dash:
     dashSpeed: 30
-    dashDamage: 10
-    dashStopDistance: 1
+    dashDamage: 15
+    dashStopDistance: 0.5
     dashKnockback: {x: 15, y: 5}
     dashHitbox: {fileID: 8054053361408564859}
     dashVFXPrefab: {fileID: 0}
-  maxDashChance: 0.671
-  vulnerableStunWindow: 2
+  dashChance: 0.8
+  vulnerableStunWindow: 1.5
 --- !u!114 &424022102533304986
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -284,7 +284,7 @@ MonoBehaviour:
   run: Run
   attack: Attack_1_2
   charge: Charge
-  dash: Dash
+  dash: Dash_1
   dodge: JumpBack
   hurt: Hurt
   death: Death
@@ -708,7 +708,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.DetectionZone
   targetLayers:
     serializedVersion: 2
-    m_Bits: 65537
+    m_Bits: 65536
   requireLineOfSight: 1
   losBlockingLayers:
     serializedVersion: 2

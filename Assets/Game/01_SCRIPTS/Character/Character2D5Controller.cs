@@ -484,7 +484,7 @@ namespace junklite
 
         public void Dash()
         {
-            Debug.Log("Dash");
+           // Debug.Log("Dash");
             if (!CanDash) return;
 
             Vector3 dir = transform.right * (IsFacingRight ? 1f : -1f);
@@ -803,7 +803,7 @@ namespace junklite
 
         private IEnumerator DashCoroutine()
         {
-            Debug.Log("Dash started");
+            //Debug.Log("Dash started");
             isDashing = true;
             dashEndTime = Time.time + dashDuration;
             dashCooldownTimer = dashCooldown;

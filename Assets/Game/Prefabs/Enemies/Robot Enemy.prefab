@@ -377,7 +377,7 @@ CapsuleCollider:
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 81920
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
@@ -465,13 +465,14 @@ MonoBehaviour:
   baseStats: {fileID: 11400000, guid: 9c72d1ca99bf4a341b6578b22cb2b01c, type: 2}
   attributes: {fileID: 0}
   config: {fileID: 11400000, guid: a06c1f2f196407e4683d5cd382702c22, type: 2}
-  soundProfile: {fileID: 0}
+  soundProfile: {fileID: 11400000, guid: 8ea661e92a2b9cc48aa6bfa6c75a470e, type: 2}
   detectionZone: {fileID: 8900037622000748683}
   attackRange: 2
   targetLayer:
     serializedVersion: 2
     m_Bits: 1
   canBeKnockedBack: 1
+  hitstunDuration: 0.3
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
   enemyAnimation: {fileID: 0}
@@ -541,6 +542,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
   flashDuration: 0.1
   flashAmount: 0.8
+  normalAmount: 1
   isSpine: 0
   flashColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!82 &1686940009611622928

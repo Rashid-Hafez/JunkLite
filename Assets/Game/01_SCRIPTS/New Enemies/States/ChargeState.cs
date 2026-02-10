@@ -38,7 +38,7 @@ namespace junklite
 
             activeVFX = VFXPool.Get(charger.ChargeVFXPrefab, enemy.transform);
 
-            Debug.Log($"{enemy.gameObject.name}: Charging! ({timer}s)");
+           // Debug.Log($"{enemy.gameObject.name}: Charging! ({timer}s)");
         }
 
         public override void Update()

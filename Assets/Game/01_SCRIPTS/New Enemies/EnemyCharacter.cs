@@ -20,6 +20,7 @@ namespace junklite
     /// - Combat state management
     /// - Death handling, VFX basics
     /// - State machine reference
+    /// - Hitstun on direct damage (HurtState)
     /// 
     /// CAPABILITY-SPECIFIC (lives in interfaces):
     /// - Patrol, Dash, Grab, Melee, Dodge, Chase, Ranged, etc.
@@ -42,7 +43,7 @@ namespace junklite
         [SerializeField] protected EnemyConfig config;
         [Header("Audio")]
         [SerializeField] private EnemySoundProfile soundProfile;
-       
+
 
         [Header("Detection")]
         [SerializeField] protected DetectionZone detectionZone;
@@ -52,6 +53,10 @@ namespace junklite
         [Header("Knockback")]
         [Tooltip("If false, this enemy cannot be knocked back")]
         [SerializeField] protected bool canBeKnockedBack = true;
+
+        [Header("Hitstun")]
+        [Tooltip("Duration of hitstun on direct hits. Set to 0 to disable hitstun.")]
+        [SerializeField] protected float hitstunDuration = 0.3f;
 
         [Header("Debug")]
         [SerializeField] protected bool showGizmos = true;
@@ -107,6 +112,7 @@ namespace junklite
         public PlayerCharacter TargetCharacter => targetCharacter;
         public float AttackRange => attackRange;
         public bool CanBeKnockedBack => canBeKnockedBack;
+        public float HitstunDuration => hitstunDuration;
 
         // Computed properties - Target
         public bool HasTarget => target != null && targetCharacter != null && targetCharacter.IsAlive;
@@ -126,25 +132,21 @@ namespace junklite
             if (enemyAnimation == null)
                 enemyAnimation = GetComponentInChildren<EnemyAnimationController>(true);
 
-            // Auto-wire DamageFlashUniversal if not set in inspector
             if (damageFlashUniversal == null)
                 damageFlashUniversal = GetComponentInChildren<DamageFlashUniversal>(true);
 
-            // Sync knockback setting to movement component
             if (movement != null)
             {
                 movement.IgnoreKnockback = !canBeKnockedBack;
-                movement.OnKnockbackEnd += OnStunComplete;
+                movement.OnKnockbackEnd += HandleKnockbackEnd;
             }
 
-            // Setup detection zone events
             if (detectionZone != null)
             {
                 detectionZone.OnTargetEnter += OnDetectionZoneEnter;
                 detectionZone.OnTargetExit += OnDetectionZoneExit;
             }
 
-            // Setup damage VFX event
             if (damageable != null)
                 damageable.OnDamaged += OnDamagedVFX;
         }
@@ -160,9 +162,6 @@ namespace junklite
         protected virtual void OnDisable() { }
         protected virtual void Update() { }
 
-        /// <summary>
-        /// Override to register states and set initial state.
-        /// </summary>
         protected virtual void InitializeStateMachine() { }
 
         #region Detection Zone Events
@@ -183,42 +182,33 @@ namespace junklite
 
         #region Core Behavior Decisions - Override in subclasses
 
-        /// <summary>
-        /// DECISION: Called when player is spotted. What should enemy do?
-        /// </summary>
         public virtual void OnPlayerSpotted()
         {
             Debug.Log($"{gameObject.name}: Player spotted but no behavior defined!");
         }
 
-        /// <summary>
-        /// DECISION: Called when player leaves detection. What should enemy do?
-        /// </summary>
         public virtual void OnPlayerLost()
         {
             if (!IsAlive) return;
             stateMachine.ChangeState<IdleState>();
         }
 
-        /// <summary>
-        /// DECISION: Called when player enters attack range.
-        /// </summary>
         public virtual void OnPlayerInAttackRange()
         {
             OnPlayerSpotted();
         }
 
-        /// <summary>
-        /// DECISION: Called when stun/knockback state completes.
-        /// </summary>
         public virtual void OnStunComplete()
         {
             Debug.Log($"{gameObject.name}: Stun complete but no behavior defined!");
         }
 
-        /// <summary>
-        /// DECISION: Called when any attack finishes (legacy support).
-        /// </summary>
+        public virtual void OnHurtComplete()
+        {
+            if (!IsAlive) return;
+            stateMachine.ChangeState<IdleState>();
+        }
+
         public virtual void OnAttackFinished()
         {
             if (HasTarget)
@@ -272,7 +262,6 @@ namespace junklite
 
         private void TryIgnorePlayerBodyCollision()
         {
-            // Avoid blocking the player while preserving trigger-based detection.
             var player = targetCharacter != null
                 ? targetCharacter
                 : FindObjectOfType<PlayerCharacter>(true);
@@ -297,8 +286,10 @@ namespace junklite
         #region Combat & Death
 
         /// <summary>
-        /// Override to check state-based damage blocking.
-        /// Returns true if damage was actually dealt.
+        /// IMPORTANT: Hitstun is applied BEFORE knockback.
+        /// This ensures the state change (→ HurtState) stops chase movement first,
+        /// then knockback force is applied on top of the stopped enemy.
+        /// If knockback came first, the subsequent state change would call Stop() and kill it.
         /// </summary>
         public override bool TakeDamage(DamageInfo info)
         {
@@ -308,17 +299,48 @@ namespace junklite
             bool damageDealt = base.TakeDamage(info);
 
             if (damageDealt)
-                ApplyKnockback(info);  // ← NEW: Auto-apply knockback
+            {
+                // 1. Hitstun FIRST — stops movement, enters HurtState
+                if (!info.IsTickDamage)
+                    ApplyHitstun();
+
+                // 2. Knockback SECOND — applied on top of stopped movement
+                ApplyKnockback(info);
+            }
 
             return damageDealt;
         }
 
+        protected virtual void ApplyHitstun()
+        {
+            if (!IsAlive) return;
+            if (hitstunDuration <= 0f) return;
+
+            // Already in HurtState? Just reset the timer for combo extension
+            if (stateMachine.CurrentState is HurtState hurt)
+            {
+                hurt.ResetTimer();
+                return;
+            }
+
+            stateMachine.ChangeState<HurtState>();
+        }
+
+        /// <summary>
+        /// Knockback end callback. Skips while in HurtState — HurtState
+        /// manages its own exit (waits for both timer AND knockback to finish).
+        /// </summary>
+        private void HandleKnockbackEnd()
+        {
+            if (stateMachine.CurrentState is HurtState) return;
+            OnStunComplete();
+        }
+
         protected virtual void ApplyKnockback(DamageInfo info)
         {
-            if (!canBeKnockedBack) return;  // ← Respects inspector setting
+            if (!canBeKnockedBack) return;
             if (info.KnockbackForce.sqrMagnitude <= 0f) return;
 
-            // Calculate direction away from source
             Vector3 knockbackDir = Vector3.right;
             if (info.Source != null)
             {
@@ -332,8 +354,6 @@ namespace junklite
                 0f
             );
 
-            // Route through EnemyMovement — it handles knockback state,
-            // blocks movement during knockback, and decays the force properly
             if (movement != null)
                 movement.ApplyKnockback(knockback);
         }
@@ -352,7 +372,6 @@ namespace junklite
             DisableEnemyVisual();
             DisablePhysics();
 
-            // Request drop from DropManager
             if (DropManager.Instance != null)
             {
                 if (customDropTable != null)
@@ -361,34 +380,27 @@ namespace junklite
                     DropManager.Instance.RequestDrop(transform.position, dropChance);
             }
 
-            // Clear status effects
             if (statusEffects != null)
                 statusEffects.ClearAllEffects();
 
-            // Stop damage flash if active
             if (damageFlashCoroutine != null)
             {
                 StopCoroutine(damageFlashCoroutine);
                 damageFlashCoroutine = null;
             }
 
-            // Stop movement
             if (movement != null)
                 movement.Stop();
 
-            // Disable detection zone
             if (detectionZone != null)
                 detectionZone.enabled = false;
 
-            // Notify combat tracker before clearing target (so tracker can remove us)
             PlayerCombatTracker.Instance?.NotifyEnemyExitedCombat(this);
 
-            // Clear target references WITHOUT calling OnTargetLost
             target = null;
             targetCharacter = null;
             isInCombat = false;
 
-            // Change to dead state
             if (stateMachine != null)
                 stateMachine.ChangeState<DeadState>();
 
@@ -480,7 +492,7 @@ namespace junklite
                 damageable.OnDamaged -= OnDamagedVFX;
 
             if (movement != null)
-                movement.OnKnockbackEnd -= OnStunComplete;
+                movement.OnKnockbackEnd -= HandleKnockbackEnd;
         }
 
         #endregion
@@ -491,11 +503,9 @@ namespace junklite
         {
             if (!showGizmos) return;
 
-            // Attack range
             Gizmos.color = new Color(1f, 0f, 0f, 0.3f);
             Gizmos.DrawWireSphere(transform.position, attackRange);
 
-            // Line to target
             if (target != null)
             {
                 Gizmos.color = IsTargetInAttackRange ? Color.red : Color.yellow;

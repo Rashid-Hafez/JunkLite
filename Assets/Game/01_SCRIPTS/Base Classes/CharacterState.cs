@@ -21,7 +21,7 @@ namespace junklite
         public virtual bool CanMove => IsAlive && !IsStunned;
         public virtual bool CanJump => IsAlive && !IsStunned;
         public virtual bool CanAttack => IsAlive && !IsAttacking && !IsStunned;
-        public virtual bool CanTakeDamage => IsAlive && IsVulnerable;
+        public virtual bool CanTakeDamage => IsAlive && IsVulnerable && !IsStunned;
 
 
         // ==== Core State Flags ====

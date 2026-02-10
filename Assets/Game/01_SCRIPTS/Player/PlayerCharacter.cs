@@ -40,12 +40,15 @@ namespace junklite
         [SerializeField] private float damageInvulnerability = 0.5f;
         [SerializeField] private GameObject damageHitVFXPrefab;
         [SerializeField] private float damageHitVFXLifetime = 0.5f;
+
         [SerializeField] private float cameraShakeOnHit = 5f;
         [SerializeField] private CinemachineImpulseSource damageImpulseSource;
 
         public AttackDirection LastAttackDirection => _weaponManager?.CurrentAttackDirection ?? AttackDirection.Side;
         public bool JumpHeld => inputManager != null && inputManager.IsJumpHeld;
         public event Action<bool> OnCameraFollowRequested;
+
+        private Vector3 damageVFXOffset;
 
         // Movement input
         float horizontalAxis = 0f;
@@ -77,6 +80,7 @@ namespace junklite
         private WeaponManager _weaponManager;
 
         private FeedbackManager feedbackManager;
+        private PlayerAudioHandler audioHandler;
 
         protected override void Awake()
         {
@@ -95,6 +99,10 @@ namespace junklite
             _cachedColliders = GetComponentsInChildren<Collider>(includeInactive: true);
             _rb = GetComponent<Rigidbody>();
             _spriteRenderers = GetComponentsInChildren<SpriteRenderer>(includeInactive: true);
+            audioHandler = GetComponent<PlayerAudioHandler>();
+
+            Collider col = GetComponent<Collider>();
+            damageVFXOffset = col != null ? col.bounds.center - transform.position : Vector3.up;
 
             Deactivate();
         }
@@ -595,39 +603,41 @@ namespace junklite
         // ====================================================================
 
         #region Damage
-
         public override bool TakeDamage(DamageInfo info)
         {
             if (playerState != null && !playerState.CanTakeDamage)
                 return false;
 
-            bool damageDealt = base.TakeDamage(info);
+            // Invincible: skip health reduction but still do all reactions
+            bool damageDealt;
+            if (playerState != null && playerState.IsInvincible)
+                damageDealt = true; // Pretend damage was dealt
+            else
+            {
+                damageDealt = base.TakeDamage(info);
+                if (!damageDealt)
+                    return false;
+            }
 
-            if (!damageDealt)
-                return false;
-
-            // If this hit killed us, don't apply post-hit effects (stun, knockback, etc.)
-            // Death animation is already triggered via AttributeManager.OnDeath -> CharacterState.HandleDeathForward
             if (!IsAlive)
                 return true;
 
-            // i-frames on hit
+            // Everything below still runs when invincible:
+            // i-frames, VFX, camera shake, knockback, stun
             if (playerState != null && damageInvulnerability > 0f)
                 playerState.ApplyInvulnerability(damageInvulnerability);
 
-            // Optional hit VFX
+            audioHandler?.PlayHurt(); // TODO - Maybe move this to audio handler? IDK
+
             if (damageHitVFXPrefab != null)
             {
-                Vector3 spawnPos = feet != null ? feet.position : transform.position;
+                Vector3 spawnPos = transform.position + damageVFXOffset;
                 GameObject vfx = Instantiate(damageHitVFXPrefab, spawnPos, Quaternion.identity);
-                if (damageHitVFXLifetime > 0f)
-                    Destroy(vfx, damageHitVFXLifetime);
             }
 
             if (feedbackManager != null)
                 feedbackManager.DoCameraShake(damageImpulseSource, cameraShakeOnHit);
 
-            // Apply knockback
             if (info.Source != null && Controller != null && info.KnockbackForce.sqrMagnitude > 0f)
             {
                 Vector3 dir = (transform.position - info.Source.transform.position).normalized;
@@ -639,7 +649,6 @@ namespace junklite
                 Controller.AddForce(knockback, ForceMode.VelocityChange);
             }
 
-            // Stun duration covers knockback time
             if (playerState != null)
                 playerState.ApplyStun(0.25f);
 
@@ -789,7 +798,7 @@ namespace junklite
         // Toggle ghosting
         skeletonGhost.ghostingEnabled = activate;
         
-        Debug.Log($"[PlayerCharacter] SkeletonGhost ghostingEnabled set to: {skeletonGhost.ghostingEnabled}, Component enabled: {skeletonGhost.enabled}, GameObject active: {skeletonGhost.gameObject.activeInHierarchy}", this);
+        //Debug.Log($"[PlayerCharacter] SkeletonGhost ghostingEnabled set to: {skeletonGhost.ghostingEnabled}, Component enabled: {skeletonGhost.enabled}, GameObject active: {skeletonGhost.gameObject.activeInHierarchy}", this);
     }
 
     #endregion

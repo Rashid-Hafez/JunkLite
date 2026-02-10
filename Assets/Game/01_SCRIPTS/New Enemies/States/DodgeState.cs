@@ -80,7 +80,7 @@ namespace junklite
 
             activeVFX = VFXPool.Get(dodger.DodgeVFXPrefab, enemy.transform);
 
-            Debug.Log($"{enemy.gameObject.name}: DODGE! (distance: {dodger.DodgeDistance}, duration: {dodger.DodgeDuration}s, i-frames: {dodger.DodgeHasIFrames})");
+           // Debug.Log($"{enemy.gameObject.name}: DODGE! (distance: {dodger.DodgeDistance}, duration: {dodger.DodgeDuration}s, i-frames: {dodger.DodgeHasIFrames})");
         }
 
         public override void Update()

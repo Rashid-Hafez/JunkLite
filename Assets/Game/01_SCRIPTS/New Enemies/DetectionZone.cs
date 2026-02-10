@@ -88,10 +88,34 @@ namespace junklite
 
         private void OnTriggerStay(Collider other)
         {
-            // Only check LOS if required and we have a target
-            if (!requireLineOfSight || !HasTarget) return;
+            // RE-ACQUISITION: If we lost our target (player died, respawned, etc.),
+            // try to pick them up again. OnTriggerEnter won't fire because they
+            // never left the collider.
+            if (!HasTarget)
+            {
+                // Clear stale reference (e.g. dead player object still cached)
+                // so we can re-acquire when they respawn and IsAlive becomes true again
+                detectedPlayer = null;
+                detectedTarget = null;
 
-            // Only check periodically to save performance (every ~10 frames)
+                if ((targetLayers & (1 << other.gameObject.layer)) == 0) return;
+
+                var player = other.GetComponent<PlayerCharacter>()
+                          ?? other.GetComponentInParent<PlayerCharacter>();
+
+                if (player != null && player.IsAlive)
+                {
+                    if (requireLineOfSight && !HasLineOfSight(player.transform))
+                        return;
+
+                    SetTarget(player);
+                }
+                return;
+            }
+
+            // LOS check for existing target
+            if (!requireLineOfSight) return;
+
             if (Time.frameCount % 10 != 0) return;
 
             if (!HasLineOfSight(detectedTarget))
@@ -116,8 +140,8 @@ namespace junklite
 
             owner?.SetTarget(player);
 
-            if (owner == null || !owner.IsInCombat)
-                OnTargetEnter?.Invoke(player);
+            // Always fire — enemy's OnPlayerSpotted handles "already in combat" gracefully
+            OnTargetEnter?.Invoke(player);
         }
 
         private void ClearTarget()
