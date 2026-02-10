@@ -1,15 +1,16 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace junklite
 {
     /// <summary>
     /// Chase state - enemy runs toward the player.
     /// 
-    /// OPTIONAL: Enemy can implement IChaser for custom chase speed and last known position tracking.
-    /// If not implemented, falls back to EnemyConfig.chaseSpeed.
+    /// Two modes:
+    /// 1. HasTarget → chase the player directly
+    /// 2. No target but HasLastKnownPosition → run to last known spot, then call OnReachedTarget
     /// 
-    /// Calls enemy.OnPlayerInAttackRange() when close enough.
-    /// Calls enemy.OnPlayerLost() if target is lost.
+    /// Uses HORIZONTAL distance for last-known arrival check (avoids getting stuck
+    /// when last known position was captured mid-air during a jump).
     /// </summary>
     public class ChaseState : EnemyStateBase
     {
@@ -25,7 +26,6 @@ namespace junklite
             config = enemy.Config;
             chaser = GetCapability<IChaser>();
 
-            // Set chase speed - prefer IChaser, fallback to config
             if (movement != null)
             {
                 if (chaser != null)
@@ -33,8 +33,6 @@ namespace junklite
                 else if (config != null)
                     movement.MoveSpeed = config.chaseSpeed;
             }
-
-            Debug.Log($"{enemy.gameObject.name}: Chasing player!");
         }
 
         public override void Update()
@@ -43,7 +41,6 @@ namespace junklite
             {
                 chaser?.UpdateLastKnownPosition(Target.position);
 
-                // Check chase stop distance first (if set)
                 if (chaser != null && chaser.ChaseStopDistance > 0f)
                 {
                     float distanceToTarget = Vector3.Distance(Transform.position, Target.position);
@@ -51,11 +48,10 @@ namespace junklite
                     {
                         movement?.Stop();
                         movement?.FaceTarget(Target.position);
-                        enemy.OnPlayerInAttackRange();  // Let enemy decide what to do
+                        enemy.OnPlayerInAttackRange();
                         return;
                     }
                 }
-                // Then check attack range
                 else if (IsTargetInAttackRange)
                 {
                     enemy.OnPlayerInAttackRange();
@@ -67,11 +63,11 @@ namespace junklite
             }
             else if (chaser != null && chaser.HasLastKnownPosition)
             {
-                float distanceToLastKnown = Vector3.Distance(Transform.position, chaser.LastKnownTargetPosition);
+                float horizontalDist = enemy.Movement.GetAbsAxisDistance(Transform.position, chaser.LastKnownTargetPosition);
 
-                if (distanceToLastKnown <= 1f)
+                if (horizontalDist <= 1f)
                 {
-                    enemy.OnPlayerLost();
+                    chaser.OnReachedTarget();
                     return;
                 }
 

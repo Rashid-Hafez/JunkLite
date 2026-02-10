@@ -56,6 +56,8 @@ namespace junklite
         private float currentSpeed;
         private float dashSpeed;
         private int facingDirection = 1;
+        private Vector3 movementAxis = Vector3.right;
+        public Vector3 MovementAxis => movementAxis;
 
         // Knockback state
         private Vector3 knockbackVelocity;
@@ -116,6 +118,23 @@ namespace junklite
 
             facingDirection = defaultFacing;
             ApplyFacing();
+        }
+
+        private void Start()
+        {
+            CacheMovementAxis();
+        }
+
+        private void CacheMovementAxis()
+        {
+            var cam = CinemachineCore.GetVirtualCamera(0);
+            if (cam != null)
+            {
+                movementAxis = GetPlanarDirection(cam.transform.right);
+                if (movementAxis.sqrMagnitude < 0.01f)
+                    movementAxis = Vector3.right; // fallback
+                movementAxis.Normalize();
+            }
         }
 
         private void FixedUpdate()
@@ -476,6 +495,20 @@ namespace junklite
                 default:
                     return Vector3.Distance(a, b);
             }
+        }
+
+
+
+        /// <summary>Distance between two points along the camera-relative movement axis.</summary>
+        public float GetAbsAxisDistance(Vector3 a, Vector3 b)
+        {
+            return Mathf.Abs(Vector3.Dot(a - b, movementAxis));
+        }
+
+        /// <summary>Signed distance from a to b along the movement axis (positive = "right").</summary>
+        public float GetSignedAxisDistance(Vector3 from, Vector3 to)
+        {
+            return Vector3.Dot(to - from, movementAxis);
         }
 
         private void OnDrawGizmosSelected()

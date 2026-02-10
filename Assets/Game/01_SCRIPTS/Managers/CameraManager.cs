@@ -50,8 +50,9 @@ namespace junklite
             Instance = this;
 
             InitializeCameras();
-            
-            GameManager.Instance.OnPlayerSpawned += ConnectToPlayer;
+
+            if (GameManager.Instance != null)
+                GameManager.Instance.OnPlayerSpawned += ConnectToPlayer;
         }
 
         private void Start()
@@ -74,7 +75,7 @@ namespace junklite
             UnsubscribeFromPlayer();
         }
 
-        private void ConnectToPlayer(PlayerCharacter character)
+        public void ConnectToPlayer(PlayerCharacter character)
         {
             UnsubscribeFromPlayer();
 

@@ -69,7 +69,8 @@ namespace junklite
         {
             if (movement == null || patroller == null) return;
 
-            Vector3 direction = patroller.PatrolDirection > 0 ? Vector3.right : Vector3.left;
+            Vector3 axis = movement.MovementAxis;
+            Vector3 direction = patroller.PatrolDirection > 0 ? axis : -axis;
             movement.MoveInDirection(direction);
         }
     }

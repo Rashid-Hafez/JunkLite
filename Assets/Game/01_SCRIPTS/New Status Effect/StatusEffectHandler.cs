@@ -62,7 +62,7 @@ namespace junklite
                 return;
             }
 
-            if(enemy.IsAlive)
+            if (enemy.IsAlive)
                 TickEffects();
         }
 
@@ -199,7 +199,8 @@ namespace junklite
                 effect.DamagePerTick,
                 effect.Source,
                 effect.DamageType,
-                Vector2.zero // No knockback for DoT
+                Vector2.zero, // No knockback for DoT
+                isTickDamage: true
             );
 
             // Apply damage through the enemy's damage system

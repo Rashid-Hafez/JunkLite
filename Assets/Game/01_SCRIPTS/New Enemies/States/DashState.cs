@@ -61,13 +61,13 @@ namespace junklite
                 }
                 else
                 {
-                    Debug.Log($"{enemy.gameObject.name}: Already within stop distance, skipping dash.");
+                   // Debug.Log($"{enemy.gameObject.name}: Already within stop distance, skipping dash.");
                     dasher.OnDashComplete();
                 }
             }
             else
             {
-                Debug.Log($"{enemy.gameObject.name}: No target for dash.");
+               // Debug.Log($"{enemy.gameObject.name}: No target for dash.");
                 dasher.OnDashComplete();
             }
         }
@@ -80,7 +80,7 @@ namespace junklite
             hitbox?.Activate();
             movement?.DashTo(dashTarget, dasher.DashSpeed);
 
-            Debug.Log($"{enemy.gameObject.name}: Dashing! (speed: {dasher.DashSpeed}, stopDistance: {stopDistance})");
+            //Debug.Log($"{enemy.gameObject.name}: Dashing! (speed: {dasher.DashSpeed}, stopDistance: {stopDistance})");
         }
 
         public override void Update()
@@ -90,7 +90,7 @@ namespace junklite
             // Safety timeout
             if (Time.time - dashStartTime > MAX_DASH_DURATION)
             {
-                Debug.LogWarning($"{enemy.gameObject.name}: Dash timeout!");
+               // Debug.LogWarning($"{enemy.gameObject.name}: Dash timeout!");
                 CompleteDash();
                 return;
             }
@@ -127,7 +127,7 @@ namespace junklite
             hitbox?.Deactivate();
             movement?.Stop();
 
-            Debug.Log($"{enemy.gameObject.name}: Dash complete!");
+            //Debug.Log($"{enemy.gameObject.name}: Dash complete!");
             dasher.OnDashComplete();
         }
 

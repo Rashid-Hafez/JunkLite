@@ -15169,7 +15169,7 @@ MonoBehaviour:
   apexThreshold: 6
   JumpHeldExternally: 1
   maxAirJumps: 1
-  doubleJumpForce: 8
+  doubleJumpForce: 10
   doubleJumpStallTime: 0.05
   minAirtimeForDoubleJump: 0.25
   coyoteTime: 0.2
