@@ -21,6 +21,7 @@ namespace junklite
         [SerializeField] private GameObject enemyHitVFXPrefab;
         [SerializeField] private int enemyHitVFXPoolSize = 8;
         [SerializeField] private float enemyHitVFXLifetime = 0.3f;
+        [SerializeField] private Vector3 enemyHitVFXLocalOffset = Vector3.zero;
 
         [Header("Enemy Hurt Particle (Blood)")]
         [SerializeField] private GameObject enemyHurtParticlePrefab;
@@ -147,7 +148,7 @@ namespace junklite
                 return;
 
             GameObject go = GetFromPool(enemyHitVFXPool, enemyHitVFXPrefab, enemyHitVFXPoolRoot);
-            SetupParticle(go, position, attackDirection);
+            SetupParticle(go, position, attackDirection, enemyHitVFXLocalOffset);
             StartCoroutine(ReturnAfterDelay(go, enemyHitVFXPool, enemyHitVFXPoolRoot, enemyHitVFXLifetime));
         }
 
@@ -213,7 +214,7 @@ namespace junklite
             return Instantiate(prefab, poolRoot);
         }
 
-        private void SetupParticle(GameObject go, Vector3 position, Vector3 attackDirection)
+        private void SetupParticle(GameObject go, Vector3 position, Vector3 attackDirection, Vector3 localOffset = default)
         {
             const float directionalOffset = 0.12f;
             Vector3 spawnPos = position + attackDirection * directionalOffset;
@@ -221,8 +222,8 @@ namespace junklite
             float angle = Mathf.Atan2(attackDirection.y, attackDirection.x) * Mathf.Rad2Deg;
 
             go.transform.SetParent(null);
-            go.transform.position = spawnPos;
             go.transform.rotation = Quaternion.Euler(0f, 0f, angle);
+            go.transform.position = spawnPos + go.transform.TransformVector(localOffset);
             go.SetActive(true);
 
             var ps = go.GetComponent<ParticleSystem>();

@@ -35,6 +35,7 @@ namespace junklite
         [Header("Respawn Settings")]
         [SerializeField] private float reviveInvulnerability = 1.25f;
         [SerializeField] private bool disableCollidersOnDeactivate = true;
+        [SerializeField] private bool reloadSceneOnDeathTemp = false;
 
         [Header("Damage Feedback")]
         [SerializeField] private float damageInvulnerability = 0.5f;
@@ -46,6 +47,7 @@ namespace junklite
 
         public AttackDirection LastAttackDirection => _weaponManager?.CurrentAttackDirection ?? AttackDirection.Side;
         public bool JumpHeld => inputManager != null && inputManager.IsJumpHeld;
+        public bool ReloadSceneOnDeathTemp => reloadSceneOnDeathTemp;
         public event Action<bool> OnCameraFollowRequested;
 
         private Vector3 damageVFXOffset;

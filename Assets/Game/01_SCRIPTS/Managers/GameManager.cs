@@ -27,6 +27,7 @@ namespace junklite
 
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
+        [SerializeField] private bool reloadSceneOnDeathTemp = false;
 
         // Game state
         private GameState currentState = GameState.Playing;
@@ -342,10 +343,29 @@ namespace junklite
             Debug.Log("Player died!");
             OnPlayerDied?.Invoke();
 
+            if (ShouldReloadSceneOnDeath())
+            {
+                Debug.Log("[GameManager] TEMP death reload enabled. Reloading active scene.");
+                int activeSceneIndex = SceneManager.GetActiveScene().buildIndex;
+                SceneManager.LoadScene(activeSceneIndex);
+                return;
+            }
+
             if (currentPlayer != null) currentPlayer.Deactivate();
 
             if (respawnRoutine != null) StopCoroutine(respawnRoutine);
             respawnRoutine = StartCoroutine(SoftRespawnAfterDelay(respawnDelay));
+        }
+
+        private bool ShouldReloadSceneOnDeath()
+        {
+            if (reloadSceneOnDeathTemp)
+                return true;
+
+            if (currentPlayer != null && currentPlayer.ReloadSceneOnDeathTemp)
+                return true;
+
+            return false;
         }
 
         private IEnumerator SoftRespawnAfterDelay(float delaySeconds)

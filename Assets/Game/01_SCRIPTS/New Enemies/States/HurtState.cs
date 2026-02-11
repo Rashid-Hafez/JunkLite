@@ -9,7 +9,7 @@ namespace junklite
     /// - Stops movement on enter (interrupts chase, patrol, etc.)
     /// - Timer resets on each new hit (ResetTimer) so combos keep the enemy locked
     /// - Waits for BOTH timer AND knockback to finish before exiting
-    /// - Calls enemy.OnHurtComplete() when done — enemy decides what to do next
+    /// - Calls enemy.OnHurtComplete() when done ï¿½ enemy decides what to do next
     /// </summary>
     public class HurtState : EnemyStateBase
     {

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c17f35520339eda49a992538e6ddd4d0
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318135
+  packageName: UI Hologram VFX
+  packageVersion: 1.1
+  assetPath: Assets/TurishaderPackages/HologramUI/UIHologramMaterials/HologramUIPixels.mat
+  uploadId: 756720

@@ -5056,8 +5056,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.67736596, w: 0.73564625}
-  m_LocalPosition: {x: -0.45659363, y: 1.1653959, z: -0.015199999}
+  m_LocalRotation: {x: 0, y: 0, z: -0.69871897, w: 0.7153963}
+  m_LocalPosition: {x: -0.46790627, y: 1.1420469, z: -0.015199999}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -15274,6 +15274,7 @@ MonoBehaviour:
   feet: {fileID: 0}
   reviveInvulnerability: 1.25
   disableCollidersOnDeactivate: 0
+  reloadSceneOnDeathTemp: 0
   damageInvulnerability: 0.3
   damageHitVFXPrefab: {fileID: 5435998012328932994, guid: d8703a33a4eb0b84a875202fde23e8f7, type: 3}
   damageHitVFXLifetime: 1
