@@ -127,14 +127,16 @@ namespace junklite
 
         private void CacheMovementAxis()
         {
-            var cam = CinemachineCore.GetVirtualCamera(0);
-            if (cam != null)
-            {
-                movementAxis = GetPlanarDirection(cam.transform.right);
-                if (movementAxis.sqrMagnitude < 0.01f)
-                    movementAxis = Vector3.right; // fallback
-                movementAxis.Normalize();
-            }
+            //var cam = CinemachineCore.GetVirtualCamera(0);
+            //if (cam != null)
+            //{
+            //    movementAxis = GetPlanarDirection(cam.transform.right);
+            //    if (movementAxis.sqrMagnitude < 0.01f)
+            //        movementAxis = Vector3.right; // fallback
+            //    movementAxis.Normalize();
+            //}
+
+            movementAxis = transform.right;
         }
 
         private void FixedUpdate()
@@ -451,7 +453,7 @@ namespace junklite
             else if (direction.x < -0.01f)
                 facingDirection = -1;*/
 
-            float dot = Vector3.Dot(CinemachineCore.GetVirtualCamera(0).transform.right, direction);
+            float dot = Vector3.Dot(transform.right, direction);
 
             if (dot > 0.01f)
                 facingDirection = 1;

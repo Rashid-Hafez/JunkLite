@@ -52,9 +52,9 @@ namespace junklite
             Vector3 dodgeDirection;
             if (HasTarget)
             {
-                dodgeDirection = (Transform.position - Target.position).normalized;
-                dodgeDirection.y = 0f;
-                dodgeDirection.z = 0f;
+                dodgeDirection = Transform.right * -1f* movement.FacingDirection;
+                //dodgeDirection.y = 0f;
+                //dodgeDirection.z = 0f;
 
                 if (dodgeDirection.sqrMagnitude < 0.01f)
                 {

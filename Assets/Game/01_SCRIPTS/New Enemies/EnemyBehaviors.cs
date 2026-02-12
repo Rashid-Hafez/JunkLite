@@ -54,7 +54,7 @@ namespace junklite
         {
             if (owner == null) return false;
 
-            float dist = owner.position.x - spawnPosition.x;
+            float dist = Vector3.Dot(owner.position - spawnPosition,owner.right);
             return (direction > 0 && dist >= patrolDistance) ||
                    (direction < 0 && dist <= -patrolDistance);
         }
@@ -71,8 +71,8 @@ namespace junklite
 
             // Patrol range
             Gizmos.color = Color.cyan;
-            Vector3 left = origin + Vector3.left * patrolDistance;
-            Vector3 right = origin + Vector3.right * patrolDistance;
+            Vector3 left = origin + enemyTransform.right * -1f * patrolDistance;
+            Vector3 right = origin + enemyTransform.right * patrolDistance;
             Gizmos.DrawLine(left, right);
             Gizmos.DrawWireSphere(left, 0.2f);
             Gizmos.DrawWireSphere(right, 0.2f);
