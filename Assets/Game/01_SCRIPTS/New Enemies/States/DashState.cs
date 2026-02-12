@@ -48,6 +48,7 @@ namespace junklite
             {
                 Vector3 toTarget = Target.position - Transform.position;
                 toTarget.y = 0f;
+                toTarget.z = 0f; // 2.5D: only horizontal distance matters
                 float distanceToTarget = toTarget.magnitude;
 
                 if (distanceToTarget > stopDistance)
@@ -55,19 +56,20 @@ namespace junklite
                     Vector3 direction = toTarget.normalized;
                     dashTarget = Target.position - direction * stopDistance;
                     dashTarget.y = Transform.position.y;
+                    dashTarget.z = Transform.position.z; // Lock Z depth
 
                     activeVFX = VFXPool.Get(dasher.DashVFXPrefab, enemy.transform);
                     StartDash();
                 }
                 else
                 {
-                   // Debug.Log($"{enemy.gameObject.name}: Already within stop distance, skipping dash.");
+                    // Debug.Log($"{enemy.gameObject.name}: Already within stop distance, skipping dash.");
                     dasher.OnDashComplete();
                 }
             }
             else
             {
-               // Debug.Log($"{enemy.gameObject.name}: No target for dash.");
+                // Debug.Log($"{enemy.gameObject.name}: No target for dash.");
                 dasher.OnDashComplete();
             }
         }
@@ -90,7 +92,7 @@ namespace junklite
             // Safety timeout
             if (Time.time - dashStartTime > MAX_DASH_DURATION)
             {
-               // Debug.LogWarning($"{enemy.gameObject.name}: Dash timeout!");
+                // Debug.LogWarning($"{enemy.gameObject.name}: Dash timeout!");
                 CompleteDash();
                 return;
             }
@@ -102,10 +104,10 @@ namespace junklite
                 return;
             }
 
-            // Check distance to player
+            // Check distance to player (horizontal only)
             if (HasTarget)
             {
-                float distanceToPlayer = Vector3.Distance(Transform.position, Target.position);
+                float distanceToPlayer = Mathf.Abs(Transform.position.x - Target.position.x);
                 if (distanceToPlayer <= stopDistance)
                 {
                     CompleteDash();
@@ -113,8 +115,8 @@ namespace junklite
                 }
             }
 
-            // Check distance to dash target
-            float distanceToDashTarget = Vector3.Distance(Transform.position, dashTarget);
+            // Check distance to dash target (horizontal only)
+            float distanceToDashTarget = Mathf.Abs(Transform.position.x - dashTarget.x);
             if (distanceToDashTarget <= 0.3f)
                 CompleteDash();
         }

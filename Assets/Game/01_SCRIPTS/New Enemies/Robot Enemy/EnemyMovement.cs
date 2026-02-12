@@ -5,15 +5,8 @@ using Unity.Cinemachine;
 namespace junklite
 {
     /// <summary>
-    /// Handles enemy movement using Rigidbody velocity for physics-accurate collider positioning.
-    /// States tell it WHERE to go, this handles HOW.
-    /// Works for 2.5D (movement on XZ plane, or XY - configurable).
-    /// 
-    /// IMPORTANT: Requires a Rigidbody component. This script configures it automatically:
-    /// - isKinematic = false (velocity-based movement)
-    /// - useGravity = true (real gravity)
-    /// - Interpolate = Interpolate (for smooth visuals)
-    /// - Constraints = FreezeRotation (prevents tumbling)
+    
+
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public class EnemyMovement : MonoBehaviour
@@ -21,10 +14,7 @@ namespace junklite
         [Header("Movement Settings")]
         [SerializeField] private float moveSpeed = 3f;
         [SerializeField] private float stoppingDistance = 0.1f;
-
-        [Header("2.5D Settings")]
-        [Tooltip("Lock movement to a specific axis")]
-        [SerializeField] private MovementPlane movementPlane = MovementPlane.XZ;
+        [SerializeField] private float gravityScale = 1f;
 
         [Header("Sprite Facing")]
         [Tooltip("Use scale flip for 2D sprites (recommended for 2.5D)")]
@@ -90,12 +80,6 @@ namespace junklite
         public bool IsInKnockback => isInKnockback;
         public bool IgnoreKnockback { get => ignoreKnockback; set => ignoreKnockback = value; }
 
-        public enum MovementPlane
-        {
-            XZ,  // Top-down or 3D (Y is up)
-            XY   // Side-scroller (Z is depth)
-        }
-
         private void Awake()
         {
             rb = GetComponent<Rigidbody>();
@@ -105,16 +89,11 @@ namespace junklite
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic; // Better collision detection at high speeds
 
-            // Freeze rotation to prevent tumbling
+            // Freeze rotation to prevent tumbling + lock Z for 2.5D
             rb.constraints = RigidbodyConstraints.FreezeRotationX |
                             RigidbodyConstraints.FreezeRotationY |
-                            RigidbodyConstraints.FreezeRotationZ;
-
-            // Lock Z position for XY plane (side-scroller) or lock Y rotation for XZ plane
-            if (movementPlane == MovementPlane.XY)
-            {
-                rb.constraints |= RigidbodyConstraints.FreezePositionZ;
-            }
+                            RigidbodyConstraints.FreezeRotationZ |
+                            RigidbodyConstraints.FreezePositionZ;
 
             facingDirection = defaultFacing;
             ApplyFacing();
@@ -145,6 +124,11 @@ namespace junklite
 
             CheckGrounded();
 
+            if (rb.useGravity && gravityScale > 1f)
+            {
+                rb.AddForce(Vector3.down * Physics.gravity.magnitude * (gravityScale - 1f), ForceMode.Acceleration);
+            }
+
             if (isInKnockback)
             {
                 HandleKnockback();
@@ -173,14 +157,13 @@ namespace junklite
             // Decay velocity for smooth visual deceleration
             float t = knockbackDrag * Time.fixedDeltaTime;
             knockbackVelocity.x = Mathf.Lerp(knockbackVelocity.x, 0f, t);
-            knockbackVelocity.z = Mathf.Lerp(knockbackVelocity.z, 0f, t);
 
             if (rb.useGravity)
-                rb.linearVelocity = new Vector3(knockbackVelocity.x, rb.linearVelocity.y, knockbackVelocity.z);
+                rb.linearVelocity = new Vector3(knockbackVelocity.x, rb.linearVelocity.y, 0f);
             else
             {
                 knockbackVelocity.y = Mathf.Lerp(knockbackVelocity.y, 0f, t);
-                rb.linearVelocity = knockbackVelocity;
+                rb.linearVelocity = new Vector3(knockbackVelocity.x, knockbackVelocity.y, 0f);
             }
 
             // Timer is the only end condition — clean and predictable
@@ -199,7 +182,7 @@ namespace junklite
         {
             if (!isMoving)
             {
-                // When not moving, zero out velocity (preserve Y for gravity-based enemies)
+                // When not moving, zero out horizontal velocity (preserve Y for gravity)
                 Vector3 vel = rb.linearVelocity;
                 vel.x = 0f;
                 vel.z = 0f;
@@ -223,17 +206,17 @@ namespace junklite
                 desiredVelocity = CalculateTargetVelocity();
             }
 
-            // Apply velocity - preserve Y for gravity-based enemies, use full velocity for flyers
+            // Apply velocity - preserve Y for gravity, always zero Z (2.5D)
             Vector3 newVelocity;
             if (rb.useGravity)
             {
                 // Ground enemy - apply horizontal velocity, let physics handle Y
-                newVelocity = new Vector3(desiredVelocity.x, rb.linearVelocity.y, desiredVelocity.z);
+                newVelocity = new Vector3(desiredVelocity.x, rb.linearVelocity.y, 0f);
             }
             else
             {
-                // Flying enemy - apply full velocity including Y
-                newVelocity = desiredVelocity;
+                // Flying enemy - apply X and Y velocity, zero Z
+                newVelocity = new Vector3(desiredVelocity.x, desiredVelocity.y, 0f);
             }
             rb.linearVelocity = newVelocity;
         }
@@ -400,8 +383,8 @@ namespace junklite
             knockbackVelocity = force;
             knockbackTimer = 0f;
 
-            // Immediately apply the knockback velocity
-            rb.linearVelocity = new Vector3(force.x, force.y, force.z);
+            // Immediately apply the knockback velocity (zero Z for 2.5D)
+            rb.linearVelocity = new Vector3(force.x, force.y, 0f);
 
             // Notify listeners (FSM)
             OnKnockbackStart?.Invoke();
@@ -475,28 +458,12 @@ namespace junklite
 
         private Vector3 GetPlanarDirection(Vector3 direction)
         {
-            switch (movementPlane)
-            {
-                case MovementPlane.XZ:
-                    return new Vector3(direction.x, 0f, direction.z).normalized;
-                case MovementPlane.XY:
-                    return new Vector3(direction.x, direction.y, 0f).normalized;
-                default:
-                    return direction.normalized;
-            }
+            return new Vector3(direction.x, direction.y, 0f).normalized;
         }
 
         private float GetPlanarDistance(Vector3 a, Vector3 b)
         {
-            switch (movementPlane)
-            {
-                case MovementPlane.XZ:
-                    return Vector2.Distance(new Vector2(a.x, a.z), new Vector2(b.x, b.z));
-                case MovementPlane.XY:
-                    return Vector2.Distance(new Vector2(a.x, a.y), new Vector2(b.x, b.y));
-                default:
-                    return Vector3.Distance(a, b);
-            }
+            return Vector2.Distance(new Vector2(a.x, a.y), new Vector2(b.x, b.y));
         }
 
 

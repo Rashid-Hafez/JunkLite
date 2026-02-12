@@ -4822,29 +4822,17 @@ PrefabInstance:
       propertyPath: m_Name
       value: Hyena
       objectReference: {fileID: 0}
-    - target: {fileID: 84268223678430046, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: m_IsActive
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 5597149479163235202, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_Mesh
       value: 
       objectReference: {fileID: 0}
-    - target: {fileID: 8620707696424177089, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: dashChance
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 8620707696424177089, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: dodgeChance
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -46.49
+      value: -39.37
       objectReference: {fileID: 0}
     - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.23
+      value: 0.201
       objectReference: {fileID: 0}
     - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_LocalPosition.z
@@ -10136,7 +10124,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyMovement
   moveSpeed: 3
   stoppingDistance: 0.1
-  movementPlane: 1
+  gravityScale: 1
   useScaleFlip: 1
   defaultFacing: 1
   ignoreKnockback: 0

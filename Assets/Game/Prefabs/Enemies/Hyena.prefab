@@ -126,7 +126,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyMovement
   moveSpeed: 3
   stoppingDistance: 0.1
-  movementPlane: 0
+  gravityScale: 2
   useScaleFlip: 1
   defaultFacing: 1
   ignoreKnockback: 0
@@ -235,7 +235,7 @@ MonoBehaviour:
     dodgeHeight: 0.5
     hasIFrames: 1
     dodgeVFXPrefab: {fileID: 0}
-  dodgeChance: 0.8
+  dodgeChance: 1
   dodgeCheckRange: 4
   dodgeCooldown: 0.2
   charge:
@@ -244,11 +244,11 @@ MonoBehaviour:
   dash:
     dashSpeed: 30
     dashDamage: 15
-    dashStopDistance: 0.5
+    dashStopDistance: 1
     dashKnockback: {x: 15, y: 5}
     dashHitbox: {fileID: 8054053361408564859}
     dashVFXPrefab: {fileID: 0}
-  dashChance: 0.8
+  dashChance: 1
   vulnerableStunWindow: 1.5
 --- !u!114 &424022102533304986
 MonoBehaviour:
