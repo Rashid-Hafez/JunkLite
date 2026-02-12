@@ -75,13 +75,15 @@ namespace junklite
 
                 if (rotateOnTrigger)
                 {
-                    // Set the correct rotation
-                    controller.RotatePLayer(usingFirstState ? rotationA : rotationB);
 
                     // Fix the player's position to prevent sliding
                     controller.transform.position = usingFirstState ?
                         new Vector3(pointA.position.x, controller.transform.position.y, pointA.position.z)
                         : new Vector3(pointB.position.x, controller.transform.position.y, pointB.position.z);
+
+
+                    // Set the correct rotation
+                    controller.RotatePLayer(usingFirstState ? rotationA : rotationB);
 
                     controller.FreezePerpendicularAxis();
 
@@ -99,9 +101,8 @@ namespace junklite
 
         public IEnumerator BillboardRotate(Transform playerSpine)
         {
+            playerSpine.localRotation = Quaternion.Euler(0f, 90f, 0f);
             yield return null; // Wait for the next frame to ensure the camera switch has taken effect
-            playerSpine.localRotation = Quaternion.Euler(0f,90f,0f);
-
             while (cinemachineBrain.ActiveBlend.BlendWeight < 0.9f && cinemachineBrain.ActiveBlend != null)
             {
                 Debug.Log("Blending cameras, progress: " + cinemachineBrain.ActiveBlend.BlendWeight);

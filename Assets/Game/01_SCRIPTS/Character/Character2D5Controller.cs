@@ -203,7 +203,7 @@ namespace junklite
             Vector3 mostPerpendicularAxis =
                 (dotX < dotZ) ? Vector3.right : Vector3.forward;
 
-            RigidbodyConstraints constraints = RigidbodyConstraints.FreezeRotation;
+            RigidbodyConstraints constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
 
             if (mostPerpendicularAxis == Vector3.right)
                 constraints |= RigidbodyConstraints.FreezePositionX;
