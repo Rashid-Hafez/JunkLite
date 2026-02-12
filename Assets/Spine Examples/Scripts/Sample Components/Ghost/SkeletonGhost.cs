@@ -156,7 +156,7 @@ namespace Spine.Unity.Examples {
 
 				goTransform.localPosition = new Vector3(0f, 0f, zOffset);
 				goTransform.localRotation = Quaternion.identity;
-				goTransform.localScale = Vector3.one;
+                goTransform.localScale = Vector3.one;
 
 				goTransform.parent = null;
 
