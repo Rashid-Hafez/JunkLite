@@ -1,7 +1,7 @@
 using UnityEngine;
 using Unity.Cinemachine;
 using System.Collections;
-using System.Threading;
+using System;
 
 namespace junklite
 {
@@ -27,19 +27,74 @@ namespace junklite
         private bool usingFirstState = false;
 
         [Header("Lock Settings")]
-        private bool locked;
-        private Collider triggerCollider;
+        [SerializeField] private bool locked = false;
+        [SerializeField] private BoxCollider triggerCollider;
+        private Action combatStartHandler;
+        private Action combatEndHandler;
+
+
+
+        private void OnEnable()
+        {
+            if (PlayerCombatTracker.Instance != null)
+            {
+                PlayerCombatTracker.Instance.OnCombatStarted += combatStartHandler;
+                PlayerCombatTracker.Instance.OnCombatEnded += combatEndHandler;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (PlayerCombatTracker.Instance != null)
+            {
+                PlayerCombatTracker.Instance.OnCombatStarted -= combatStartHandler;
+                PlayerCombatTracker.Instance.OnCombatEnded -= combatEndHandler;
+            }
+        }
 
         private void Awake()
         {
-            locked = false;
+            triggerCollider = GetComponent<BoxCollider>();
+            cinemachineBrain = FindAnyObjectByType<CinemachineBrain>();
             pointA = transform.Find("A");
             pointB = transform.Find("B");
-            cinemachineBrain = FindAnyObjectByType<CinemachineBrain>();
-            triggerCollider = GetComponent<Collider>();
+
+            locked = false;
+
+            combatStartHandler = OnCombatStarted;
+            combatEndHandler = OnCombatEnded;
+        }
+        private void Start()
+        {
+            if (PlayerCombatTracker.Instance != null)
+            {
+                PlayerCombatTracker.Instance.OnCombatStarted += OnCombatStarted;
+                PlayerCombatTracker.Instance.OnCombatEnded += OnCombatEnded;
+            }
         }
 
+        private void OnDestroy()
+        {
+            if (PlayerCombatTracker.Instance != null)
+            {
+                PlayerCombatTracker.Instance.OnCombatStarted -= OnCombatStarted;
+                PlayerCombatTracker.Instance.OnCombatEnded -= OnCombatEnded;
+            }
+        }
 
+        private void OnCombatStarted()
+        {
+            locked = true;
+            if (triggerCollider != null)
+                triggerCollider.isTrigger = false;
+        }
+
+        private void OnCombatEnded()
+        {
+            locked = false;
+            if (triggerCollider != null)
+                triggerCollider.isTrigger = true;
+        }
 
         private void OnTriggerEnter(Collider other)
         {
@@ -48,8 +103,7 @@ namespace junklite
 
             Character2D5Controller controller = other.GetComponent<Character2D5Controller>();
             Transform playerSpine = other.transform.Find("BODY SPINE");
-            PlayerCombatTracker.Instance.OnCombatStarted += () => { locked = true; triggerCollider.isTrigger = false; };
-            PlayerCombatTracker.Instance.OnCombatEnded += () => { locked = false; triggerCollider.isTrigger =true; }; // Register with combat tracker if it exists
+           
 
             if (controller != null && playerSpine != null)
             {
@@ -65,14 +119,12 @@ namespace junklite
                     {
                         if (usingFirstState)
                         {
-                            Debug.Log("Switching to Camera A");
                             cameraA.Prioritize();
                             cameraA.transform.Find("Particles").gameObject.SetActive(true);
                             cameraB.transform.Find("Particles").gameObject.SetActive(false);
                         }
                         else
                         {
-                            Debug.Log("Switching to Camera B");
                             cameraB.Prioritize();
                             cameraB.transform.Find("Particles").gameObject.SetActive(true);
                             cameraA.transform.Find("Particles").gameObject.SetActive(false);
@@ -115,7 +167,7 @@ namespace junklite
             yield return null; // Wait for the next frame to ensure the camera switch has taken effect
             while (cinemachineBrain.ActiveBlend.BlendWeight < 0.9f && cinemachineBrain.ActiveBlend != null)
             {
-                Debug.Log("Blending cameras, progress: " + cinemachineBrain.ActiveBlend.BlendWeight);
+                //Debug.Log("Blending cameras, progress: " + cinemachineBrain.ActiveBlend.BlendWeight);
                 float progress = cinemachineBrain.ActiveBlend.BlendWeight;
 
                 playerSpine.localRotation = Quaternion.Euler(0f, Mathf.Lerp(90f, 0f, progress), 0f);
@@ -129,12 +181,11 @@ namespace junklite
         }
         private void OnDrawGizmos()
         {
-            Gizmos.color = locked? Color.red : Color.green;
-            Gizmos.DrawCube(transform.position, triggerCollider.bounds.size);
+            Gizmos.color = locked ? Color.red : Color.green;
+            if (triggerCollider != null)
+                Gizmos.DrawCube(transform.position, triggerCollider.bounds.size);
         }
     }
-
-   
 }
 
 
