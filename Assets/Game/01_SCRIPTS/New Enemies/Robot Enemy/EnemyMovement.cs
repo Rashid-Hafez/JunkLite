@@ -110,12 +110,13 @@ namespace junklite
                             RigidbodyConstraints.FreezeRotationY |
                             RigidbodyConstraints.FreezeRotationZ;
 
-            // Lock Z position for XY plane (side-scroller) or lock Y rotation for XZ plane
+            /* //Lock Z position for XY plane (side-scroller) or lock Y rotation for XZ plane
             if (movementPlane == MovementPlane.XY)
             {
                 rb.constraints |= RigidbodyConstraints.FreezePositionZ;
-            }
+            }*/
 
+            rb.constraints |= GetFreezePositionConstraint(transform);
             facingDirection = defaultFacing;
             ApplyFacing();
         }
@@ -280,6 +281,23 @@ namespace junklite
             }
 
             return moveDirection * currentSpeed;
+        }
+
+        public static RigidbodyConstraints GetFreezePositionConstraint(Transform t)
+        {
+            Vector3 forward = t.forward.normalized;
+
+            float absX = Mathf.Abs(forward.x);
+            float absY = Mathf.Abs(forward.y);
+            float absZ = Mathf.Abs(forward.z);
+
+            if (absX > absY && absX > absZ)
+                return RigidbodyConstraints.FreezePositionX;
+
+            if (absY > absX && absY > absZ)
+                return RigidbodyConstraints.FreezePositionY;
+
+            return RigidbodyConstraints.FreezePositionZ;
         }
 
         /// <summary>
