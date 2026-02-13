@@ -319,9 +319,10 @@ namespace junklite
         private bool IsPlayerFacingMe()
         {
             if (Target == null) return false;
-            float facing = Mathf.Sign(Target.localScale.x);
-            float toMe = Movement.GetSignedAxisDistance(Target.position, transform.position);
-            return (facing > 0 && toMe > 0) || (facing < 0 && toMe < 0);
+            
+            float targetDir = Mathf.Sign(Target.localScale.x);
+            float myDir = movement.FacingDirection;
+            return (targetDir > 0 && myDir < 0) || (targetDir < 0 && myDir > 0);
         }
 
         // ============================================================
