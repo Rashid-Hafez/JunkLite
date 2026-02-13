@@ -1,6 +1,7 @@
 using UnityEngine;
 using Unity.Cinemachine;
 using System.Collections;
+using System.Threading;
 
 namespace junklite
 {
@@ -24,14 +25,21 @@ namespace junklite
 
         [SerializeField] private bool oneWaySwitch = false;
         private bool usingFirstState = false;
-        
+
+        [Header("Lock Settings")]
+        private bool locked;
+        private Collider triggerCollider;
 
         private void Awake()
         {
-                pointA = transform.Find("A");
-                pointB = transform.Find("B");
-                cinemachineBrain = FindAnyObjectByType<CinemachineBrain>();
+            locked = false;
+            pointA = transform.Find("A");
+            pointB = transform.Find("B");
+            cinemachineBrain = FindAnyObjectByType<CinemachineBrain>();
+            triggerCollider = GetComponent<Collider>();
         }
+
+
 
         private void OnTriggerEnter(Collider other)
         {
@@ -40,6 +48,8 @@ namespace junklite
 
             Character2D5Controller controller = other.GetComponent<Character2D5Controller>();
             Transform playerSpine = other.transform.Find("BODY SPINE");
+            PlayerCombatTracker.Instance.OnCombatStarted += () => { locked = true; triggerCollider.isTrigger = false; };
+            PlayerCombatTracker.Instance.OnCombatEnded += () => { locked = false; triggerCollider.isTrigger =true; }; // Register with combat tracker if it exists
 
             if (controller != null && playerSpine != null)
             {
@@ -113,8 +123,18 @@ namespace junklite
             }
 
             playerSpine.localRotation = Quaternion.Euler(0f, 0f, 0f); // Ensure final rotation is correct   
+        
+        
+        
+        }
+        private void OnDrawGizmos()
+        {
+            Gizmos.color = locked? Color.red : Color.green;
+            Gizmos.DrawCube(transform.position, triggerCollider.bounds.size);
         }
     }
+
+   
 }
 
 
