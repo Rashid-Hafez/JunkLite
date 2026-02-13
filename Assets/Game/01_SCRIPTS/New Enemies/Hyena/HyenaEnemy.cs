@@ -319,10 +319,13 @@ namespace junklite
         private bool IsPlayerFacingMe()
         {
             if (Target == null) return false;
-            
-            float targetDir = Mathf.Sign(Target.localScale.x);
-            float myDir = movement.FacingDirection;
-            return (targetDir > 0 && myDir < 0) || (targetDir < 0 && myDir > 0);
+
+            // Player's world-space facing direction (works regardless of rotation)
+            Vector3 playerFacing = Target.right * Mathf.Sign(Target.localScale.x);
+
+            // Is the player facing toward me?
+            Vector3 playerToEnemy = (transform.position - Target.position).normalized;
+            return Vector3.Dot(playerFacing, playerToEnemy) > 0f;
         }
 
         // ============================================================

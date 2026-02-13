@@ -26,6 +26,7 @@ namespace junklite
         private Transform owner;
         private Vector3 spawnPosition;
         private int direction = 1;
+        private Vector3 horizontalAxis = Vector3.right;
 
         public float PatrolDistance => patrolDistance;
         public float PatrolSpeed => patrolSpeed;
@@ -46,7 +47,7 @@ namespace junklite
             Vector3 origin = wallCheckPoint != null
                 ? wallCheckPoint.position
                 : owner.position + Vector3.up * 0.5f;
-            Vector3 dir = direction > 0 ? Vector3.right : Vector3.left;
+            Vector3 dir = horizontalAxis * direction;
             return Physics.Raycast(origin, dir, wallCheckDistance, wallLayer);
         }
 
@@ -60,6 +61,16 @@ namespace junklite
         }
 
         public void ReverseDirection() => direction *= -1;
+
+        private Vector3 SnapToNearestAxis(Vector3 dir)
+        {
+            float absX = Mathf.Abs(dir.x);
+            float absZ = Mathf.Abs(dir.z);
+            if (absX >= absZ)
+                return new Vector3(Mathf.Sign(dir.x), 0f, 0f);
+            else
+                return new Vector3(0f, 0f, Mathf.Sign(dir.z));
+        }
 
         public void DrawGizmos(Transform enemyTransform)
         {
@@ -86,7 +97,7 @@ namespace junklite
             Vector3 checkOrigin = wallCheckPoint != null
                 ? wallCheckPoint.position
                 : enemyTransform.position + Vector3.up * 0.5f;
-            Vector3 checkDir = direction > 0 ? Vector3.right : Vector3.left;
+            Vector3 checkDir = (Application.isPlaying ? horizontalAxis : SnapToNearestAxis(enemyTransform.right)) * direction;
             Gizmos.DrawRay(checkOrigin, checkDir * wallCheckDistance);
         }
     }

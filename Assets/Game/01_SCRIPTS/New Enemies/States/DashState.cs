@@ -9,6 +9,8 @@ namespace junklite
     /// 
     /// Pure ACTION state: moves enemy, enables hitbox, ends when close enough to target.
     /// Calls IDasher.OnDashComplete() when done - enemy decides what to do next.
+    /// 
+    /// Axis-agnostic: uses EnemyMovement.MovementAxis and helpers for all distance checks.
     /// </summary>
     public class DashState : EnemyStateBase
     {
@@ -46,30 +48,35 @@ namespace junklite
 
             if (HasTarget)
             {
-                Vector3 toTarget = Target.position - Transform.position;
-                toTarget.y = 0f;
-                toTarget.z = 0f; // 2.5D: only horizontal distance matters
-                float distanceToTarget = toTarget.magnitude;
+                // Horizontal distance along the movement axis
+                float distanceToTarget = movement.GetAbsAxisDistance(Transform.position, Target.position);
 
                 if (distanceToTarget > stopDistance)
                 {
-                    Vector3 direction = toTarget.normalized;
-                    dashTarget = Target.position - direction * stopDistance;
+                    // Direction along movement axis toward target
+                    float sign = Mathf.Sign(movement.GetSignedAxisDistance(Transform.position, Target.position));
+                    Vector3 horizontalDir = movement.MovementAxis * sign;
+
+                    // Stop short of the target by stopDistance
+                    dashTarget = Target.position - horizontalDir * stopDistance;
+
+                    // Keep our Y and lock depth to our current position
                     dashTarget.y = Transform.position.y;
-                    dashTarget.z = Transform.position.z; // Lock Z depth
+                    // Strip any depth-axis offset (keep enemy on its movement plane)
+                    Vector3 depthAxis = Vector3.Cross(Vector3.up, movement.MovementAxis).normalized;
+                    float depthOffset = Vector3.Dot(dashTarget - Transform.position, depthAxis);
+                    dashTarget -= depthAxis * depthOffset;
 
                     activeVFX = VFXPool.Get(dasher.DashVFXPrefab, enemy.transform);
                     StartDash();
                 }
                 else
                 {
-                    // Debug.Log($"{enemy.gameObject.name}: Already within stop distance, skipping dash.");
                     dasher.OnDashComplete();
                 }
             }
             else
             {
-                // Debug.Log($"{enemy.gameObject.name}: No target for dash.");
                 dasher.OnDashComplete();
             }
         }
@@ -81,8 +88,6 @@ namespace junklite
             movement?.FaceTarget(dashTarget);
             hitbox?.Activate();
             movement?.DashTo(dashTarget, dasher.DashSpeed);
-
-            //Debug.Log($"{enemy.gameObject.name}: Dashing! (speed: {dasher.DashSpeed}, stopDistance: {stopDistance})");
         }
 
         public override void Update()
@@ -92,7 +97,6 @@ namespace junklite
             // Safety timeout
             if (Time.time - dashStartTime > MAX_DASH_DURATION)
             {
-                // Debug.LogWarning($"{enemy.gameObject.name}: Dash timeout!");
                 CompleteDash();
                 return;
             }
@@ -104,10 +108,10 @@ namespace junklite
                 return;
             }
 
-            // Check distance to player (horizontal only)
+            // Check distance to player (horizontal only, along movement axis)
             if (HasTarget)
             {
-                float distanceToPlayer = Mathf.Abs(Transform.position.x - Target.position.x);
+                float distanceToPlayer = movement.GetAbsAxisDistance(Transform.position, Target.position);
                 if (distanceToPlayer <= stopDistance)
                 {
                     CompleteDash();
@@ -115,8 +119,8 @@ namespace junklite
                 }
             }
 
-            // Check distance to dash target (horizontal only)
-            float distanceToDashTarget = Mathf.Abs(Transform.position.x - dashTarget.x);
+            // Check distance to dash target (horizontal only, along movement axis)
+            float distanceToDashTarget = movement.GetAbsAxisDistance(Transform.position, dashTarget);
             if (distanceToDashTarget <= 0.3f)
                 CompleteDash();
         }
@@ -129,7 +133,6 @@ namespace junklite
             hitbox?.Deactivate();
             movement?.Stop();
 
-            //Debug.Log($"{enemy.gameObject.name}: Dash complete!");
             dasher.OnDashComplete();
         }
 

@@ -11,17 +11,24 @@ namespace junklite
     /// Calls IDodger.OnDodgeComplete() when done - enemy decides what to do next.
     /// 
     /// I-FRAMES: Handled via CanTakeDamage property - enemy's TakeDamage checks this.
+    /// 
+    /// Axis-agnostic: uses movement.MovementAxis for fallback directions.
+    /// 
+    /// Sets Rigidbody to kinematic during dodge to prevent physics/gravity from
+    /// fighting the direct position manipulation, then restores it on exit.
     /// </summary>
     public class DodgeState : EnemyStateBase
     {
         private IDodger dodger;
         private EnemyMovement movement;
+        private Rigidbody rb;
 
         private Vector3 startPosition;
         private Vector3 targetPosition;
         private float timer;
         private bool hasStarted;
         private bool dodgeComplete;
+        private bool wasKinematic;
         private GameObject activeVFX;
 
         public DodgeState(EnemyCharacter enemy) : base(enemy) { }
@@ -36,6 +43,7 @@ namespace junklite
             }
 
             movement = enemy.Movement;
+            rb = enemy.GetComponent<Rigidbody>();
             hasStarted = false;
             dodgeComplete = false;
             timer = 0f;
@@ -48,26 +56,34 @@ namespace junklite
             hasStarted = true;
             movement?.Stop();
 
+            // Go kinematic so physics/gravity don't fight the position lerp
+            if (rb != null)
+            {
+                wasKinematic = rb.isKinematic;
+                rb.linearVelocity = Vector3.zero;
+                rb.isKinematic = true;
+            }
+
             // Calculate dodge direction (away from target, or backward)
             Vector3 dodgeDirection;
             if (HasTarget)
             {
-                dodgeDirection = Transform.right * -1f* movement.FacingDirection;
-                //dodgeDirection.y = 0f;
-                //dodgeDirection.z = 0f;
+                dodgeDirection = Transform.right * -1f * movement.FacingDirection;
 
                 if (dodgeDirection.sqrMagnitude < 0.01f)
                 {
+                    // Fallback: use movement axis instead of hardcoded world axes
                     dodgeDirection = movement != null && movement.FacingDirection > 0
-                        ? Vector3.left
-                        : Vector3.right;
+                        ? -movement.MovementAxis
+                        : movement.MovementAxis;
                 }
             }
             else
             {
+                // No target fallback: use movement axis
                 dodgeDirection = movement != null && movement.FacingDirection > 0
-                    ? Vector3.left
-                    : Vector3.right;
+                    ? -movement.MovementAxis
+                    : movement.MovementAxis;
             }
 
             dodgeDirection = dodgeDirection.normalized;
@@ -79,8 +95,6 @@ namespace junklite
                 movement.FaceTarget(Target.position);
 
             activeVFX = VFXPool.Get(dodger.DodgeVFXPrefab, enemy.transform);
-
-           // Debug.Log($"{enemy.gameObject.name}: DODGE! (distance: {dodger.DodgeDistance}, duration: {dodger.DodgeDuration}s, i-frames: {dodger.DodgeHasIFrames})");
         }
 
         public override void Update()
@@ -105,9 +119,11 @@ namespace junklite
         {
             dodgeComplete = true;
 
-            Vector3 finalPos = Transform.position;
-            finalPos.y = startPosition.y;
-            Transform.position = finalPos;
+            // Land exactly at the target position (no Y snap needed, targetPosition is at ground level)
+            Transform.position = targetPosition;
+
+            // Restore physics before callback so the enemy is ready for whatever comes next
+            RestoreRigidbody();
 
             dodger.OnDodgeComplete();
         }
@@ -115,8 +131,18 @@ namespace junklite
         public override void Exit()
         {
             VFXPool.Release(ref activeVFX);
+            RestoreRigidbody();
             timer = 0f;
             dodgeComplete = true;
+        }
+
+        private void RestoreRigidbody()
+        {
+            if (rb != null && rb.isKinematic != wasKinematic)
+            {
+                rb.isKinematic = wasKinematic;
+                rb.linearVelocity = Vector3.zero;
+            }
         }
 
         /// <summary>

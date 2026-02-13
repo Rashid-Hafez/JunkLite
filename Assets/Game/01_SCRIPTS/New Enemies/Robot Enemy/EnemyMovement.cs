@@ -5,8 +5,18 @@ using Unity.Cinemachine;
 namespace junklite
 {
     /// <summary>
-    
-
+    /// Axis-agnostic enemy movement for 2.5D platformer.
+    /// 
+    /// Movement plane is determined once at startup from the enemy's transform orientation:
+    ///   - horizontalAxis = transform.right  (the "left/right" axis the enemy moves along)
+    ///   - upAxis         = Vector3.up        (gravity is always world Y)
+    ///   - depthAxis      = cross(up, horizontal) — the locked axis
+    ///
+    /// XY-plane enemy (rotation Y=0):   horizontal=(1,0,0), depth=(0,0,1) → freezes Z
+    /// ZY-plane enemy (rotation Y=90):  horizontal=(0,0,-1), depth=(1,0,0) → freezes X
+    ///
+    /// Place the enemy in the scene, rotate its Y to face the correct wall,
+    /// and all movement, knockback, and facing works automatically.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public class EnemyMovement : MonoBehaviour
@@ -46,8 +56,13 @@ namespace junklite
         private float currentSpeed;
         private float dashSpeed;
         private int facingDirection = 1;
-        private Vector3 movementAxis = Vector3.right;
-        public Vector3 MovementAxis => movementAxis;
+
+        // Axis-agnostic movement plane (cached once at startup)
+        private Vector3 horizontalAxis = Vector3.right; // the "left/right" movement axis
+        private Vector3 depthAxis = Vector3.forward;     // the locked axis
+        // upAxis is always Vector3.up
+
+        public Vector3 MovementAxis => horizontalAxis;
 
         // Knockback state
         private Vector3 knockbackVelocity;
@@ -87,35 +102,69 @@ namespace junklite
             // Configure Rigidbody for velocity-based movement with gravity
             rb.isKinematic = false;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
-            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic; // Better collision detection at high speeds
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
-            // Freeze rotation to prevent tumbling + lock Z for 2.5D
+            // Cache the movement plane axes from the enemy's initial orientation
+            CacheMovementAxes();
+
+            // Freeze rotation + freeze the depth axis position
             rb.constraints = RigidbodyConstraints.FreezeRotationX |
                             RigidbodyConstraints.FreezeRotationY |
                             RigidbodyConstraints.FreezeRotationZ |
-                            RigidbodyConstraints.FreezePositionZ;
+                            GetDepthConstraint();
 
             facingDirection = defaultFacing;
             ApplyFacing();
         }
 
-        private void Start()
+        /// <summary>
+        /// Determine movement plane from the enemy's transform orientation.
+        /// Called once at Awake — enemies don't rotate at runtime.
+        /// </summary>
+        private void CacheMovementAxes()
         {
-            CacheMovementAxis();
+            // The enemy's local right IS the horizontal movement axis
+            horizontalAxis = transform.right;
+
+            // Snap to nearest world axis to avoid floating-point drift
+            // (enemies are placed at 0, 90, 180, or 270 degree Y rotation)
+            horizontalAxis = SnapToNearestAxis(horizontalAxis);
+
+            // Depth axis = the axis we want to lock
+            // It's perpendicular to both horizontal and up
+            depthAxis = Vector3.Cross(Vector3.up, horizontalAxis).normalized;
+
+            // If cross product is zero (shouldn't happen), fall back to Z
+            if (depthAxis.sqrMagnitude < 0.01f)
+                depthAxis = Vector3.forward;
         }
 
-        private void CacheMovementAxis()
+        /// <summary>
+        /// Snap a direction to the nearest world axis (X or Z).
+        /// Keeps things clean for the 4 cardinal placements.
+        /// </summary>
+        private Vector3 SnapToNearestAxis(Vector3 dir)
         {
-            //var cam = CinemachineCore.GetVirtualCamera(0);
-            //if (cam != null)
-            //{
-            //    movementAxis = GetPlanarDirection(cam.transform.right);
-            //    if (movementAxis.sqrMagnitude < 0.01f)
-            //        movementAxis = Vector3.right; // fallback
-            //    movementAxis.Normalize();
-            //}
+            float absX = Mathf.Abs(dir.x);
+            float absZ = Mathf.Abs(dir.z);
 
-            movementAxis = transform.right;
+            if (absX >= absZ)
+                return new Vector3(Mathf.Sign(dir.x), 0f, 0f);
+            else
+                return new Vector3(0f, 0f, Mathf.Sign(dir.z));
+        }
+
+        /// <summary>
+        /// Returns the appropriate RigidbodyConstraints to freeze the depth axis.
+        /// </summary>
+        private RigidbodyConstraints GetDepthConstraint()
+        {
+            if (Mathf.Abs(depthAxis.z) > 0.5f)
+                return RigidbodyConstraints.FreezePositionZ; // Standard XY movement
+            else if (Mathf.Abs(depthAxis.x) > 0.5f)
+                return RigidbodyConstraints.FreezePositionX; // ZY movement
+            else
+                return RigidbodyConstraints.FreezePositionZ; // Fallback
         }
 
         private void FixedUpdate()
@@ -141,7 +190,7 @@ namespace junklite
 
         private void CheckGrounded()
         {
-            // Simple ground check using raycast
+            // Ground check is always downward — axis-independent
             isGrounded = Physics.Raycast(
                 rb.position + Vector3.up * 0.05f,
                 Vector3.down,
@@ -150,23 +199,69 @@ namespace junklite
             );
         }
 
+        // ============================================================
+        // VELOCITY HELPERS — all axis-agnostic
+        // ============================================================
+
+        /// <summary>
+        /// Extract the horizontal speed component from a velocity vector.
+        /// </summary>
+        private float GetHorizontalSpeed(Vector3 velocity)
+        {
+            return Vector3.Dot(velocity, horizontalAxis);
+        }
+
+        /// <summary>
+        /// Build a final velocity vector from horizontal and vertical components.
+        /// Depth axis is always zero.
+        /// </summary>
+        private Vector3 BuildVelocity(float horizontal, float vertical)
+        {
+            return horizontalAxis * horizontal + Vector3.up * vertical;
+        }
+
+        /// <summary>
+        /// Project a world-space velocity onto the movement plane (horizontal + up).
+        /// Strips out any depth component.
+        /// </summary>
+        private Vector3 ProjectOntoMovementPlane(Vector3 velocity)
+        {
+            float h = Vector3.Dot(velocity, horizontalAxis);
+            float v = velocity.y;
+            return BuildVelocity(h, v);
+        }
+
+        // ============================================================
+        // KNOCKBACK
+        // ============================================================
+
         private void HandleKnockback()
         {
             knockbackTimer += Time.fixedDeltaTime;
 
-            // Decay velocity for smooth visual deceleration
             float t = knockbackDrag * Time.fixedDeltaTime;
-            knockbackVelocity.x = Mathf.Lerp(knockbackVelocity.x, 0f, t);
+
+            // Decay the horizontal component of knockback
+            float knockH = GetHorizontalSpeed(knockbackVelocity);
+            knockH = Mathf.Lerp(knockH, 0f, t);
 
             if (rb.useGravity)
-                rb.linearVelocity = new Vector3(knockbackVelocity.x, rb.linearVelocity.y, 0f);
+            {
+                // Ground enemy — let physics handle Y, decay horizontal
+                rb.linearVelocity = BuildVelocity(knockH, rb.linearVelocity.y);
+            }
             else
             {
-                knockbackVelocity.y = Mathf.Lerp(knockbackVelocity.y, 0f, t);
-                rb.linearVelocity = new Vector3(knockbackVelocity.x, knockbackVelocity.y, 0f);
+                // Flying enemy — decay both horizontal and vertical
+                float knockV = knockbackVelocity.y;
+                knockV = Mathf.Lerp(knockV, 0f, t);
+                rb.linearVelocity = BuildVelocity(knockH, knockV);
+                knockbackVelocity = BuildVelocity(knockH, knockV);
             }
 
-            // Timer is the only end condition — clean and predictable
+            // Update stored knockback so next frame's decay continues smoothly
+            knockbackVelocity = BuildVelocity(knockH, knockbackVelocity.y);
+
             if (knockbackTimer >= knockbackDuration)
                 EndKnockback();
         }
@@ -178,16 +273,17 @@ namespace junklite
             OnKnockbackEnd?.Invoke();
         }
 
+        // ============================================================
+        // MOVEMENT
+        // ============================================================
+
         private void HandleMovement()
         {
             if (!isMoving)
             {
                 // When not moving, zero out horizontal velocity (preserve Y for gravity)
-                Vector3 vel = rb.linearVelocity;
-                vel.x = 0f;
-                vel.z = 0f;
-                if (!rb.useGravity) vel.y = 0f; // Also zero Y for flyers
-                rb.linearVelocity = vel;
+                float verticalVel = rb.useGravity ? rb.linearVelocity.y : 0f;
+                rb.linearVelocity = BuildVelocity(0f, verticalVel);
                 return;
             }
 
@@ -206,17 +302,20 @@ namespace junklite
                 desiredVelocity = CalculateTargetVelocity();
             }
 
-            // Apply velocity - preserve Y for gravity, always zero Z (2.5D)
+            // Build final velocity — horizontal from desired, vertical from physics or desired
+            float desiredH = GetHorizontalSpeed(desiredVelocity);
+            float desiredV = desiredVelocity.y;
+
             Vector3 newVelocity;
             if (rb.useGravity)
             {
-                // Ground enemy - apply horizontal velocity, let physics handle Y
-                newVelocity = new Vector3(desiredVelocity.x, rb.linearVelocity.y, 0f);
+                // Ground enemy — apply horizontal, let physics handle Y
+                newVelocity = BuildVelocity(desiredH, rb.linearVelocity.y);
             }
             else
             {
-                // Flying enemy - apply X and Y velocity, zero Z
-                newVelocity = new Vector3(desiredVelocity.x, desiredVelocity.y, 0f);
+                // Flying enemy — apply both
+                newVelocity = BuildVelocity(desiredH, desiredV);
             }
             rb.linearVelocity = newVelocity;
         }
@@ -265,12 +364,16 @@ namespace junklite
             return moveDirection * currentSpeed;
         }
 
+        // ============================================================
+        // PUBLIC API — unchanged signatures
+        // ============================================================
+
         /// <summary>
         /// Start moving towards a position.
         /// </summary>
         public void MoveTo(Vector3 position)
         {
-            if (isInKnockback) return; // Don't allow movement during knockback
+            if (isInKnockback) return;
 
             targetPosition = position;
             isMoving = true;
@@ -366,29 +469,25 @@ namespace junklite
         /// <summary>
         /// Apply knockback force to the enemy.
         /// Returns true if knockback was applied, false if ignored.
+        /// The force vector is in world space — it will be projected onto this enemy's movement plane.
         /// </summary>
         public bool ApplyKnockback(Vector3 force)
         {
-            // Check if this enemy ignores knockback
             if (ignoreKnockback)
-            {
                 return false;
-            }
 
-            // Stop any current movement
             Stop();
 
-            // Enter knockback state
             isInKnockback = true;
-            knockbackVelocity = force;
             knockbackTimer = 0f;
 
-            // Immediately apply the knockback velocity (zero Z for 2.5D)
-            rb.linearVelocity = new Vector3(force.x, force.y, 0f);
+            // Project the knockback force onto our movement plane
+            knockbackVelocity = ProjectOntoMovementPlane(force);
 
-            // Notify listeners (FSM)
+            // Immediately apply
+            rb.linearVelocity = knockbackVelocity;
+
             OnKnockbackStart?.Invoke();
-
             return true;
         }
 
@@ -402,6 +501,10 @@ namespace junklite
                 EndKnockback();
             }
         }
+
+        // ============================================================
+        // FACING
+        // ============================================================
 
         /// <summary>
         /// Set facing direction (1 = right, -1 = left).
@@ -431,12 +534,8 @@ namespace junklite
 
         private void UpdateFacingFromDirection(Vector3 direction)
         {
-            /*if (direction.x > 0.01f)
-                facingDirection = 1;
-            else if (direction.x < -0.01f)
-                facingDirection = -1;*/
-
-            float dot = Vector3.Dot(transform.right, direction);
+            // Project direction onto horizontal axis to determine facing
+            float dot = Vector3.Dot(horizontalAxis, direction);
 
             if (dot > 0.01f)
                 facingDirection = 1;
@@ -456,29 +555,46 @@ namespace junklite
             }
         }
 
+        // ============================================================
+        // PLANAR MATH — axis-agnostic
+        // ============================================================
+
+        /// <summary>
+        /// Project a direction onto the movement plane (horizontal + up), stripping depth.
+        /// </summary>
         private Vector3 GetPlanarDirection(Vector3 direction)
         {
-            return new Vector3(direction.x, direction.y, 0f).normalized;
+            float h = Vector3.Dot(direction, horizontalAxis);
+            float v = direction.y;
+            return (horizontalAxis * h + Vector3.up * v).normalized;
         }
 
+        /// <summary>
+        /// Distance between two points on the movement plane (ignoring depth axis).
+        /// </summary>
         private float GetPlanarDistance(Vector3 a, Vector3 b)
         {
-            return Vector2.Distance(new Vector2(a.x, a.y), new Vector2(b.x, b.y));
+            Vector3 diff = a - b;
+            float h = Vector3.Dot(diff, horizontalAxis);
+            float v = diff.y;
+            return Mathf.Sqrt(h * h + v * v);
         }
 
-
-
-        /// <summary>Distance between two points along the camera-relative movement axis.</summary>
+        /// <summary>Distance between two points along the horizontal movement axis.</summary>
         public float GetAbsAxisDistance(Vector3 a, Vector3 b)
         {
-            return Mathf.Abs(Vector3.Dot(a - b, movementAxis));
+            return Mathf.Abs(Vector3.Dot(a - b, horizontalAxis));
         }
 
         /// <summary>Signed distance from a to b along the movement axis (positive = "right").</summary>
         public float GetSignedAxisDistance(Vector3 from, Vector3 to)
         {
-            return Vector3.Dot(to - from, movementAxis);
+            return Vector3.Dot(to - from, horizontalAxis);
         }
+
+        // ============================================================
+        // DEBUG
+        // ============================================================
 
         private void OnDrawGizmosSelected()
         {
@@ -487,6 +603,11 @@ namespace junklite
             // Draw ground check
             Gizmos.color = isGrounded ? Color.green : Color.red;
             Gizmos.DrawLine(pos + Vector3.up * 0.05f, pos + Vector3.down * groundCheckDistance);
+
+            // Draw horizontal movement axis (blue line shows which direction "right" is)
+            Gizmos.color = Color.blue;
+            Vector3 hAxis = Application.isPlaying ? horizontalAxis : transform.right;
+            Gizmos.DrawRay(pos, hAxis * 1.5f);
 
             if (isMoving)
             {
