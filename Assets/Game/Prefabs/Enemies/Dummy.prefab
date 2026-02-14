@@ -122,7 +122,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyMovement
   moveSpeed: 3
   stoppingDistance: 0.1
-  movementPlane: 1
+  gravityScale: 1
   useScaleFlip: 1
   defaultFacing: 1
   ignoreKnockback: 0
@@ -197,6 +197,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   canBeKnockedBack: 1
+  hitstunDuration: 0.3
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
   enemyAnimation: {fileID: 0}
@@ -415,7 +416,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 1073697099
   m_SortingLayer: -1
-  m_SortingOrder: -54
+  m_SortingOrder: 0
   m_MaskInteraction: 0
   m_Sprite: {fileID: -7012438606076067393, guid: 0b5a5af3fa308554386efcff70a3b970, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
