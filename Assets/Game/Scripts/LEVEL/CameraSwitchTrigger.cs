@@ -121,14 +121,14 @@ namespace junklite
                         if (usingFirstState)
                         {
                             cameraA.Prioritize();
-                            cameraA.transform.Find("Particles").gameObject.SetActive(true);
-                            cameraB.transform.Find("Particles").gameObject.SetActive(false);
+                            //cameraA.transform.Find("Particles").gameObject.SetActive(true);
+                            //cameraB.transform.Find("Particles").gameObject.SetActive(false);
                         }
                         else
                         {
                             cameraB.Prioritize();
-                            cameraB.transform.Find("Particles").gameObject.SetActive(true);
-                            cameraA.transform.Find("Particles").gameObject.SetActive(false);
+                            //cameraB.transform.Find("Particles").gameObject.SetActive(true);
+                            //cameraA.transform.Find("Particles").gameObject.SetActive(false);
                         }
                         cinemachineBrain.DefaultBlend.Time = cameraBlendDuration;
                     }
