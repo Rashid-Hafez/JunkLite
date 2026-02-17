@@ -42244,24 +42244,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 23ab8fcfef4928d4d816a673f9e5aa09, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.TestManager
-  showTestPanel: 1
-  toggleKey: 282
-  panelBackgroundColor: {r: 0.1, g: 0.1, b: 0.1, a: 0.9}
-  buttonColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
-  buttonTextColor: {r: 1, g: 1, b: 1, a: 1}
-  labelColor: {r: 0, g: 1, b: 1, a: 1}
-  fontSize: 14
-  buttonHeight: 35
-  panelWidth: 280
-  panelHeight: 560
-  referenceResolution: {x: 1920, y: 1080}
-  autoScale: 1
-  manualScaleMultiplier: 1
-  robotPrefab: {fileID: 0}
-  hyenaPrefab: {fileID: 0}
-  enemySpawnPoints: []
-  spawnRadius: 5
-  itemPrefabs: []
 --- !u!1 &1716642776
 GameObject:
   m_ObjectHideFlags: 0
@@ -53876,7 +53858,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolumePerSceneData
   serializedBakingSet: {fileID: 0}
-  sceneGUID: 18ae256dcbfb5ec498349d3bfccd4f06
+  sceneGUID: 9f6aaf5803a310d4096eff57359048cb
   obsoleteAsset: {fileID: 0}
   obsoleteCellSharedDataAsset: {fileID: 0}
   obsoleteCellSupportDataAsset: {fileID: 0}

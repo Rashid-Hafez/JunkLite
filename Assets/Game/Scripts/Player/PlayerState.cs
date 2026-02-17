@@ -14,7 +14,7 @@ namespace junklite
         public override bool CanMove => IsAlive && !IsStunned && !IsInputLocked && !IsAttacking;
         public override bool CanJump => IsAlive && !IsStunned && !IsInputLocked;
         public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsInputLocked;
-        public override bool CanAttack => IsAlive && !IsStunned && !IsInputLocked; // No IsAttacking check - WeaponManager handles cooldown
+        public override bool CanAttack => IsAlive && !IsStunned && !IsInputLocked &&!IsWallSliding; // No IsAttacking check - WeaponManager handles cooldown
         public bool CanRoll => IsAlive && !IsStunned && !IsRolling && !IsInputLocked;
 
         // State flags
