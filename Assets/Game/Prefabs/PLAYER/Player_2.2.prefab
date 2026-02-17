@@ -20971,7 +20971,7 @@ MeshRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 1448948369
   m_SortingLayer: 1
-  m_SortingOrder: 113
+  m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!33 &329578290283652807

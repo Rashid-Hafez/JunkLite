@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Unity.Cinemachine;
 using System.Collections;
 using System;
@@ -11,6 +11,7 @@ namespace junklite
         public bool rotateOnTrigger;
         public float rotationA; // first rotation (Y-axis)
         public float rotationB; // second rotation (Y-axis)
+        [SerializeField,Tooltip("Set to true if the rotation from A to B is Counter-clockwise.")] private bool ccwAB = true; // Counter-clockwise rotation flag
 
         [Header("Camera Settings")]
         public bool switchCameras;
@@ -120,14 +121,14 @@ namespace junklite
                         if (usingFirstState)
                         {
                             cameraA.Prioritize();
-                            cameraA.transform.Find("Particles").gameObject.SetActive(true);
-                            cameraB.transform.Find("Particles").gameObject.SetActive(false);
+                            //cameraA.transform.Find("Particles").gameObject.SetActive(true);
+                            //cameraB.transform.Find("Particles").gameObject.SetActive(false);
                         }
                         else
                         {
                             cameraB.Prioritize();
-                            cameraB.transform.Find("Particles").gameObject.SetActive(true);
-                            cameraA.transform.Find("Particles").gameObject.SetActive(false);
+                            //cameraB.transform.Find("Particles").gameObject.SetActive(true);
+                            //cameraA.transform.Find("Particles").gameObject.SetActive(false);
                         }
                         cinemachineBrain.DefaultBlend.Time = cameraBlendDuration;
                     }
@@ -163,14 +164,14 @@ namespace junklite
 
         public IEnumerator BillboardRotate(Transform playerSpine)
         {
-            playerSpine.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            playerSpine.localRotation = Quaternion.Euler(0f, ccwAB?90f:-90f, 0f);
             yield return null; // Wait for the next frame to ensure the camera switch has taken effect
             while (cinemachineBrain.ActiveBlend.BlendWeight < 0.9f && cinemachineBrain.ActiveBlend != null)
             {
                 //Debug.Log("Blending cameras, progress: " + cinemachineBrain.ActiveBlend.BlendWeight);
                 float progress = cinemachineBrain.ActiveBlend.BlendWeight;
 
-                playerSpine.localRotation = Quaternion.Euler(0f, Mathf.Lerp(90f, 0f, progress), 0f);
+                playerSpine.localRotation = Quaternion.Euler(0f, Mathf.Lerp(ccwAB ? 90f : -90f, 0f, progress), 0f);
                 yield return null;
             }
 

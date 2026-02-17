@@ -68,7 +68,7 @@ namespace junklite
         }
 
         // Convenience healing (health math is in AttributeManager)
-        protected void Heal(float amount)
+        public void Heal(float amount)
         {
             attributes?.Heal(amount);
         }
