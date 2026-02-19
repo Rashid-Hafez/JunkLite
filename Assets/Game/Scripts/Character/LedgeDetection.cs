@@ -3,33 +3,38 @@ using UnityEngine;
 
 public class LedgeDetection : MonoBehaviour
 {
-   [SerializeField] private float radius = 0.5f;
-   [SerializeField] private LayerMask WhatIsGround;
-   private Character2D5Controller playerController;
-   private BoxCollider playerBox;               // must be a trigger box on the same object
+    [SerializeField] private float radius = 0.5f;
+    [SerializeField] private LayerMask WhatIsGround;
+    private Character2D5Controller playerController;
+    private BoxCollider playerBox;               // must be a trigger box on the same object
 
+    // true while the player box is intersecting ground *below* the center
+    [SerializeField] private bool insideGround;
+    // tracks any overlap with the box collider (wall or floor)
+    private bool triggerActive;
 
-   // true while the player box is intersecting ground
-  [SerializeField] private bool insideGround;
-
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         playerController = GetComponentInParent<Character2D5Controller>();
         playerBox = GetComponent<BoxCollider>();
     }
 
-    // FixedUpdate is used since detection is physics‑based
     void FixedUpdate()
     {
         if (playerController == null) return;
 
-        // basic sphere check for a potential ledge
         bool hit = Physics.CheckSphere(transform.position, radius, WhatIsGround);
 
-        // if our trigger box is currently touching ground, treat it as not a ledge
-        if (insideGround)
+        if (triggerActive)
+        {
+            Debug.Log("LedgeDetection: trigger box active – cancelling ledge detection");
             hit = false;
+        }
+        else if (insideGround)
+        {
+            Debug.Log("LedgeDetection: sphere hit but insideGround==true – cancelling");
+            hit = false;
+        }
 
         playerController.LedgeDetected = hit;
         Debug.Log($"Ledge Detected: {hit}");
@@ -47,13 +52,23 @@ public class LedgeDetection : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (((1 << other.gameObject.layer) & WhatIsGround) != 0)
+        if (((1 << other.gameObject.layer) & WhatIsGround) == 0) return;
+
+        triggerActive = true;
+        Vector3 closest = other.ClosestPoint(playerBox.bounds.center);
+        bool below = closest.y < playerBox.bounds.center.y - 0.01f;
+
+        Debug.Log($"LedgeDetection: trigger enter '{other.name}' closest={closest}, below={below}");
+        if (below)
             insideGround = true;
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (((1 << other.gameObject.layer) & WhatIsGround) != 0)
-            insideGround = false;
+        if (((1 << other.gameObject.layer) & WhatIsGround) == 0) return;
+
+        Debug.Log($"LedgeDetection: trigger exit '{other.name}'");
+        triggerActive = false;
+        insideGround = false;
     }
 }

@@ -15288,7 +15288,7 @@ MonoBehaviour:
   wallJumpDuration: 0.2
   ledgeCheckTransform: {fileID: 711466271944293612}
   ledgeCheckSize: {x: 0.5, y: 0.2}
-  groundSnapMaxDistance: 0.2
+  groundSnapMaxDistance: 0.4
   groundSnapForwardOffset: 0.5
   groundSnapVerticalOffset: -1
   snapToZPosition: 0

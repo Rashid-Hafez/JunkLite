@@ -202,42 +202,66 @@ namespace junklite
         /// </summary>
         public bool TrySnapToGround()
         {
-            if (!ledgeDetected) return false;
+            if (!ledgeDetected)
+            {
+                Debug.Log("TrySnapToGround: no ledge detected, skipping");
+                return false;
+            }
 
-            // cancel any existing motion/grav before we reposition
-            if (rb != null)
-                rb.linearVelocity = Vector3.zero;
+            if (rb == null)
+            {
+                Debug.LogWarning("TrySnapToGround: missing Rigidbody");
+                return false;
+            }
+
+            // if we're moving upward don't snap
+            if (rb.linearVelocity.y > 0f)
+            {
+                Debug.Log($"TrySnapToGround: moving up (vy={rb.linearVelocity.y:F2}), no snap");
+                return false;
+            }
 
             Vector3 origin = (ledgeCheckTransform != null)
                 ? ledgeCheckTransform.position
                 : transform.position;
 
-            if (Physics.Raycast(origin + Vector3.up * 0.1f, Vector3.down,
+            if (!Physics.Raycast(origin + Vector3.up * 0.1f, Vector3.down,
                                 out RaycastHit hit, groundSnapMaxDistance, groundLayerMask))
             {
-                float halfHeight = (col != null) ? col.bounds.extents.y : 0.5f;
-                // Use purely vertical offset when snapping to avoid being pushed up along a sloped normal.
-                // Add a tunable adjustment so we can raise/lower the final position from inspector.
-                // (default offset of 0.01f was previously hardcoded.)
-                Vector3 target = hit.point + Vector3.up * (halfHeight + groundSnapVerticalOffset);
-
-                // nudge forward slightly based on facing.  Forward offset should not affect vertical.
-                Vector3 forward = IsFacingRight ? transform.right : -transform.right;
-                target += forward * groundSnapForwardOffset;
-
-                // move to the full target position (x,z included)
-                transform.position = new Vector3(target.x, target.y, target.z);
-
-                // velocity already cleared above
-
-                // mark grounded so other logic can respond
-                isGrounded = true;
-                OnGroundedStateChanged?.Invoke(true);
-
-                return true;
+                Debug.Log($"TrySnapToGround: raycast missed (origin={origin}, maxDist={groundSnapMaxDistance})");
+                return false;
             }
 
-            return false;
+            // log hit info
+            Debug.Log($"TrySnapToGround: raycast hit at {hit.point}, normal={hit.normal}");
+
+            // only consider relatively flat surfaces as ground
+            if (hit.normal.y < 0.65f)
+            {
+                Debug.Log($"TrySnapToGround: surface too steep (normal.y={hit.normal.y:F2}), ignoring");
+                return false;
+            }
+
+            float halfHeight = (col != null) ? col.bounds.extents.y : 0.5f;
+            Vector3 target = hit.point + Vector3.up * (halfHeight + groundSnapVerticalOffset);
+
+            Vector3 forward = IsFacingRight ? transform.right : -transform.right;
+            if (groundSnapForwardOffset != 0f)
+            {
+                Debug.Log($"TrySnapToGround: applying forward offset {groundSnapForwardOffset:F2} (facingRight={IsFacingRight})");
+                target += forward * groundSnapForwardOffset;
+            }
+
+            Debug.Log($"TrySnapToGround: final target {target}");
+
+            // move to the full target position (x,z included)
+            transform.position = new Vector3(target.x, target.y, target.z);
+
+            // mark grounded so other logic can respond
+            isGrounded = true;
+            OnGroundedStateChanged?.Invoke(true);
+
+            return true;
         }
 
         public bool IsFacingRight => facingMode == FacingMode.ScaleFlip
@@ -1068,50 +1092,20 @@ namespace junklite
         {
             if (col == null) col = GetComponent<Collider>();
 
-         /*   // Ground spherecast
-            Gizmos.color = isGrounded ? Color.green : Color.red;
-            Vector3 origin = col.bounds.center;
-            Vector3 end = origin + Vector3.down * (col.bounds.extents.y + groundCheckDistance);
-            // draw center line
-            Gizmos.DrawLine(origin, end);
-            // draw start sphere
-            Gizmos.DrawWireSphere(origin, groundCheckRadius);
-            // draw end sphere
-            Gizmos.DrawWireSphere(end, groundCheckRadius);
-
-            // Z lock marker
-            if (snapToZPosition)
+            // draw the origin of the ledge snap ray as a small green sphere
+            if (ledgeCheckTransform != null)
             {
-                Gizmos.color = Color.blue;
-                Vector3 p = transform.position;
-                Gizmos.DrawLine(new Vector3(p.x - 1f, p.y, fixedZPosition),
-                                new Vector3(p.x + 1f, p.y, fixedZPosition));
-            }
+                Gizmos.color = Color.green;
+                Gizmos.DrawWireSphere(ledgeCheckTransform.position, 0.05f);
 
-            // Z bounds if roaming
-            if (allowZMovement && !snapToZPosition)
-            {
+                // draw the ray downward to max distance
+                Vector3 rayOrigin = ledgeCheckTransform.position + Vector3.up * 0.1f;
+                Vector3 rayEnd = rayOrigin + Vector3.down * groundSnapMaxDistance;
                 Gizmos.color = Color.yellow;
-                Vector3 p = transform.position;
-                Gizmos.DrawLine(new Vector3(p.x, p.y, minZPosition),
-                                new Vector3(p.x, p.y, maxZPosition));
+                Gizmos.DrawLine(rayOrigin, rayEnd);
             }
 
-            // Dash preview (debug)
-            if (isDashing)
-            {
-                Gizmos.color = Color.cyan;
-                Vector3 dashEnd = transform.position + dashDirection * dashForce * 0.1f;
-                Gizmos.DrawLine(transform.position, dashEnd);
-                Gizmos.DrawWireSphere(dashEnd, 0.2f);
-            }
-
-            // Wall check gizmo
-            if (wallCheckTransform != null)
-            {
-                Gizmos.color = Color.magenta;
-                Gizmos.DrawWireSphere(wallCheckTransform.position, wallCheckRadius);
-            }*/
+            // Retain existing commented debug for reference /* ... */
         }
     }
 }
