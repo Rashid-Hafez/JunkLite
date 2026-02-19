@@ -66,6 +66,31 @@ namespace junklite
         }
 
         /// <summary>
+        /// Convenience version that finds a suitable impulse source automatically.
+        /// Uses the first CINEMACHINE source found on the player or main camera.
+        /// Falls back to doing nothing if none exists.
+        /// </summary>
+        public void DoCameraShake(float force = -1f)
+        {
+            CinemachineImpulseSource src = null;
+            // try player character first
+            var player = GameObject.FindObjectOfType<PlayerCharacter>();
+            if (player != null)
+                src = player.GetComponent<CinemachineImpulseSource>()
+                      ?? player.GetComponentInChildren<CinemachineImpulseSource>();
+
+            // try main camera second
+            if (src == null && Camera.main != null)
+                src = Camera.main.GetComponent<CinemachineImpulseSource>()
+                      ?? Camera.main.GetComponentInChildren<CinemachineImpulseSource>();
+
+            if (src == null)
+                return;
+
+            DoCameraShake(src, force);
+        }
+
+        /// <summary>
         /// Convenience method to trigger both hitstop and camera shake together.
         /// </summary>
         public void DoHitFeedback(CinemachineImpulseSource impulseSource, float hitstopDuration = -1f, float shakeForce = -1f)

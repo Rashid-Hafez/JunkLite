@@ -11,10 +11,10 @@ namespace junklite
     public class PlayerState : CharacterState
     {
         // Capability checks
-        public override bool CanMove => IsAlive && !IsStunned && !IsInputLocked && !IsAttacking;
-        public override bool CanJump => IsAlive && !IsStunned && !IsInputLocked;
+        public override bool CanMove => IsAlive && !IsStunned && !IsInputLocked && !IsAttacking && !IsParrying;
+        public override bool CanJump => IsAlive && !IsStunned && !IsInputLocked && !IsParrying;
         public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsInputLocked;
-        public override bool CanAttack => IsAlive && !IsStunned && !IsInputLocked &&!IsWallSliding; // No IsAttacking check - WeaponManager handles cooldown
+        public override bool CanAttack => IsAlive && !IsStunned && !IsInputLocked && !IsWallSliding && !IsParrying; // No IsAttacking check - WeaponManager handles cooldown
         public bool CanRoll => IsAlive && !IsStunned && !IsRolling && !IsInputLocked;
 
         // State flags
@@ -35,6 +35,13 @@ namespace junklite
         // ledge detection
         public bool IsLedgeDetected { get; private set; }
         public event Action<bool> OnLedgeDetectedChanged;
+
+        // parry state
+        public bool IsParrying { get; private set; }
+        public event Action<bool> OnParryChanged;
+
+        /// <summary>True when player is allowed to initiate a parry (grounded, alive, not stunned/attacking/etc).</summary>
+        public bool CanParry => IsAlive && IsGrounded && !IsFalling && !IsStunned && !IsInputLocked && !IsAttacking;
 
         /// <summary>How many air attacks have been used this air time.</summary>
         public int AirAttacksUsed { get; private set; }
@@ -80,6 +87,12 @@ namespace junklite
             SetDoubleJumping(false);
             SetInputLocked(false);
             SetLedgeDetected(false);
+            SetParrying(false);
+            SetAttacking(false);
+            SetDashing(false);
+            SetRolling(false);
+            AirAttacksUsed = 0;
+            refundAirAttackAfterNextDoubleJump = false;
         }
 
         public override void ClearTransient()
@@ -89,6 +102,7 @@ namespace junklite
             SetRolling(false);
             SetWallJumping(false);
             SetDoubleJumping(false);
+            SetParrying(false);
         }
 
         // State setters
@@ -186,6 +200,14 @@ namespace junklite
             OnLedgeDetectedChanged?.Invoke(detected);
         }
 
+        /// <summary>Set whether the player is currently in a parry animation/window.</summary>
+        public void SetParrying(bool parrying)
+        {
+            if (IsParrying == parrying) return;
+            IsParrying = parrying;
+            OnParryChanged?.Invoke(parrying);
+        }
+
         public void SetWallJumping(bool jumping)
         {
             if (IsWallJumping == jumping) return;
@@ -259,6 +281,7 @@ namespace junklite
             if (IsWallJumping) list.Add("WallJumping");
             if (IsDoubleJumping) list.Add("DoubleJumping");
             if (IsLedgeDetected) list.Add("LedgeDetected");
+            if (IsParrying) list.Add("Parrying");
             if (IsDashing) list.Add("Dashing");
             if (IsAttacking) list.Add("Attacking");
             if (IsRolling) list.Add("Rolling");

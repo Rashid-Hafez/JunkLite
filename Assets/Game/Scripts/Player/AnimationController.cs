@@ -39,6 +39,7 @@ namespace junklite
                 characterSystem.OnDeath += OnDeath;
                 characterSystem.OnWallSlideChanged += OnWallSlideChanged;
                 characterSystem.OnLedgeDetectedChanged += OnLedgeDetectedChanged;
+            characterSystem.OnParryChanged += OnParryChanged;
                 characterSystem.OnJumpStateChanged += OnJumpStateChanged;
                 characterSystem.OnDoubleJumpChanged += OnDoubleJumpChanged;
                 characterSystem.OnComboAttackTriggered += OnComboAttackTriggered;
@@ -154,6 +155,14 @@ namespace junklite
             animator.SetTrigger("Die");
         }
 
+        private void OnParryChanged(bool parrying)
+        {
+            if (animator == null) return;
+            animator.SetBool("IsParrying", parrying);
+            if (parrying)
+                animator.SetTrigger("Parry");
+        }
+
         #endregion
 
         private void OnDestroy()
@@ -167,6 +176,7 @@ namespace junklite
             characterSystem.OnDeath -= OnDeath;
             characterSystem.OnWallSlideChanged -= OnWallSlideChanged;
             characterSystem.OnLedgeDetectedChanged -= OnLedgeDetectedChanged;
+            characterSystem.OnParryChanged -= OnParryChanged;
             characterSystem.OnJumpStateChanged -= OnJumpStateChanged;
             characterSystem.OnDoubleJumpChanged -= OnDoubleJumpChanged;
             characterSystem.OnComboAttackTriggered -= OnComboAttackTriggered;

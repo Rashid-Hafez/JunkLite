@@ -37,7 +37,7 @@ public class LedgeDetection : MonoBehaviour
         }
 
         playerController.LedgeDetected = hit;
-        Debug.Log($"Ledge Detected: {hit}");
+       // Debug.Log($"Ledge Detected: {hit}");
     }
 
     private void OnDrawGizmos()

@@ -24,6 +24,7 @@ Each combo step has an `animationName` string. That is the exact Spine animation
 3. **WeaponManager updates PlayerState**
    - It sets `IsAttacking` and sets attack context (e.g., “down attack requested” when needed).
    - It forwards the animation name to PlayerState.
+   - (Parry animations use the same `OnAttackAnimationRequested` pathway.)
 
 4. **PlayerState broadcasts the request**
    - `PlayerState` fires `OnAttackAnimationRequested(animationName)`.

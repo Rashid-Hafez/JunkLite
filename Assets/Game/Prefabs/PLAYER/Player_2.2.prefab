@@ -5056,8 +5056,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.6756545, w: 0.73721844}
-  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: -0.0156}
+  m_LocalRotation: {x: 0, y: 0, z: -0.6756195, w: 0.7372505}
+  m_LocalPosition: {x: -0.45262238, y: 1.1655427, z: -0.0156}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -15180,6 +15180,7 @@ GameObject:
   - component: {fileID: 1363585882905400157}
   - component: {fileID: 6662307106127401667}
   - component: {fileID: 6282132647400396865}
+  - component: {fileID: 4757580962548572918}
   m_Layer: 16
   m_Name: Player_2.2
   m_TagString: Player
@@ -15289,7 +15290,7 @@ MonoBehaviour:
   ledgeCheckTransform: {fileID: 711466271944293612}
   ledgeCheckSize: {x: 0.5, y: 0.2}
   groundSnapMaxDistance: 0.4
-  groundSnapForwardOffset: 0.5
+  groundSnapForwardOffset: 0.3
   groundSnapVerticalOffset: -1
   snapToZPosition: 0
   fixedZPosition: 0
@@ -15758,6 +15759,28 @@ MonoBehaviour:
   footstepPitchOffset: 0.2
   logStateChanges: 0
   logAttacks: 0
+--- !u!114 &4757580962548572918
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7038683931279381878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b42dd13ff74a647ebaf8d467b8357db0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.ParryHandler
+  parryDuration: 0.25
+  parryCooldown: 0.2
+  parryRadius: 3
+  enemyLayer:
+    serializedVersion: 2
+    m_Bits: 16384
+  parryVFXPrefab: {fileID: 0}
+  pushForce: 20
+  stunDuration: 0.6
+  hitstopDuration: 0.1
 --- !u!1 &7274307847916610454
 GameObject:
   m_ObjectHideFlags: 0

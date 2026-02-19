@@ -80,6 +80,7 @@ namespace junklite
 
         // Attached Comps
         private WeaponManager _weaponManager;
+        private ParryHandler parryHandler;
 
         private FeedbackManager feedbackManager;
         private PlayerAudioHandler audioHandler;
@@ -90,6 +91,7 @@ namespace junklite
 
             controller = GetComponent<Character2D5Controller>();
             playerState = GetComponent<PlayerState>();
+            parryHandler = GetComponent<ParryHandler>();
 
             skeletonGhost = GetComponentInChildren<SkeletonGhost>();
             if (skeletonGhost == null)
@@ -627,6 +629,10 @@ namespace junklite
         #region Damage
         public override bool TakeDamage(DamageInfo info)
         {
+            // parry check comes first
+            if (parryHandler != null && parryHandler.HandleIncomingHit(info.Source))
+                return false;
+
             if (playerState != null && !playerState.CanTakeDamage)
                 return false;
 

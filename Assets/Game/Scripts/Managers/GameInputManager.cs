@@ -18,6 +18,7 @@ namespace junklite
         public event Action OnDash = delegate { };
         public event Action OnRoll = delegate { };
         public event Action OnSpecialAttack = delegate { };
+        public event Action OnParry = delegate { };
 
         // UI events (always active)
         public event Action OnInventoryToggle = delegate { };
@@ -126,6 +127,24 @@ namespace junklite
                 if (!IsGameplayInputEnabled) return;
                 OnSpecialAttack();
             };
+
+            // === PARRY (Press Only) ===
+            // This input may not exist yet in the generated asset.  Look up on the root
+            var parryAction = controls.FindAction("Parry", throwIfNotFound: false);
+            if (parryAction != null)
+            {
+                Debug.Log("[Input] Parry action found and bound");
+                parryAction.performed += ctx =>
+                {
+                    Debug.Log("[Input] Parry performed, gameplay enabled? " + IsGameplayInputEnabled);
+                    if (!IsGameplayInputEnabled) return;
+                    OnParry();
+                };
+            }
+            else
+            {
+                Debug.LogWarning("[Input] Parry action not found on controls. Make sure the input asset defines it.");
+            }
 
             // === INVENTORY TOGGLE (Always active - UI input) ===
             controls.Player.Inventory.performed += _ => OnInventoryToggle();

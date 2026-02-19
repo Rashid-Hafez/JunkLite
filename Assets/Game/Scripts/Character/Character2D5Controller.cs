@@ -812,8 +812,8 @@ namespace junklite
             if (playerState != null && playerState.IsStunned)
                 return;
 
-            // --- Input locked (attacks, etc.) - allow smooth stop to control velocity ---
-            if (playerState != null && (playerState.IsInputLocked || playerState.IsAttacking))
+            // --- Input locked (attacks, parry, etc.) - allow smooth stop to control velocity ---
+            if (playerState != null && (playerState.IsInputLocked || playerState.IsAttacking || playerState.IsParrying))
                 return;
 
             // --- Ground Jump via Buffer + Coyote ---

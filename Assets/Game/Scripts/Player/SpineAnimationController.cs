@@ -95,6 +95,9 @@ namespace junklite
         private TrackEntry currentAttackEntry = null;
         private bool forceOverrideActive = false;
 
+        // when an attack animation finishes during a parry, we defer the end until parry state clears
+        private bool waitingForParryEnd = false;
+
         #region Unity Lifecycle
 
         private void Awake()
@@ -129,6 +132,7 @@ namespace junklite
             playerState.OnDashingChanged += OnDashingChanged;
             playerState.OnWallSlideChanged += OnWallSlideChanged;
             playerState.OnLedgeDetectedChanged += OnLedgeDetectedChanged;
+            playerState.OnParryChanged += OnParryChanged;
             playerState.OnDoubleJumpChanged += OnDoubleJumpChanged;
             playerState.OnStunnedChanged += OnStunnedChanged;
             playerState.OnDeath += OnDeath;
@@ -167,6 +171,7 @@ namespace junklite
                 playerState.OnDashingChanged -= OnDashingChanged;
                 playerState.OnWallSlideChanged -= OnWallSlideChanged;
                 playerState.OnLedgeDetectedChanged -= OnLedgeDetectedChanged;
+                playerState.OnParryChanged -= OnParryChanged;
                 playerState.OnDoubleJumpChanged -= OnDoubleJumpChanged;
                 playerState.OnStunnedChanged -= OnStunnedChanged;
                 playerState.OnDeath -= OnDeath;
@@ -248,6 +253,14 @@ namespace junklite
 
             LogAttack("Attack overlay complete");
 
+            // hold last frame if parry still active
+            if (playerState != null && playerState.IsParrying)
+            {
+                LogAttack("Holding overlay because parry still active");
+                waitingForParryEnd = true;
+                return;
+            }
+
             attackActive = false;
             attackOverwriteActive = false;
             currentAttackEntry = null;
@@ -263,6 +276,14 @@ namespace junklite
             if (!attackActive) return;
 
             LogAttack("Attack overwrite complete");
+
+            // hold last frame if parry still active
+            if (playerState != null && playerState.IsParrying)
+            {
+                LogAttack("Holding overwrite because parry still active");
+                waitingForParryEnd = true;
+                return;
+            }
 
             attackActive = false;
             attackOverwriteActive = false;
@@ -534,6 +555,35 @@ namespace junklite
             }
             else
             {
+                if (playerState.IsGrounded)
+                {
+                    float speed = GetSpeed();
+                    PlayLocomotion(speed > speedThreshold ? run : idle, true);
+                }
+                else
+                {
+                    PlayJumpAir();
+                }
+            }
+        }
+
+        private void OnParryChanged(bool parrying)
+        {
+            if (parrying)
+            {
+                // force a parry locomotion if available
+                PlayLocomotion("parry", false);
+            }
+            else
+            {
+                // if we were holding an attack animation, end it now
+                if (waitingForParryEnd)
+                {
+                    waitingForParryEnd = false;
+                    ForceFinishAttack();
+                }
+
+                // resume normal locomotion state
                 if (playerState.IsGrounded)
                 {
                     float speed = GetSpeed();

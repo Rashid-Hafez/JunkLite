@@ -170,6 +170,28 @@ namespace junklite
             zoomCoroutine = StartCoroutine(CoZoom(defaultZoomValue, zoomInDuration));
         }
 
+        // ------------------------------------------------------------------
+        // Parry camera effect helpers
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Simple camera effect triggered when the player successfully parries.
+        /// Currently performs a very quick zoom-out/zoom-back-in using the existing
+        /// zoom routines.  You can replace this with a dedicated camera or any other
+        /// fancy behaviour (brighten, color shift, etc.).
+        /// </summary>
+        public void DoParryCameraEffect()
+        {
+            RequestZoomOut(zoomOutValue * 0.8f);
+            StartCoroutine(CoZoomBackAfterDelay(0.1f));
+        }
+
+        private IEnumerator CoZoomBackAfterDelay(float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            RequestZoomBackIn();
+        }
+
         private IEnumerator CoZoom(float targetValue, float duration)
         {
             if (mainCamera == null || duration <= 0f)
