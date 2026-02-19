@@ -203,23 +203,14 @@ namespace junklite
         public bool TrySnapToGround()
         {
             if (!ledgeDetected)
-            {
-                Debug.Log("TrySnapToGround: no ledge detected, skipping");
                 return false;
-            }
 
             if (rb == null)
-            {
-                Debug.LogWarning("TrySnapToGround: missing Rigidbody");
                 return false;
-            }
 
             // if we're moving upward don't snap
             if (rb.linearVelocity.y > 0f)
-            {
-                Debug.Log($"TrySnapToGround: moving up (vy={rb.linearVelocity.y:F2}), no snap");
                 return false;
-            }
 
             Vector3 origin = (ledgeCheckTransform != null)
                 ? ledgeCheckTransform.position
@@ -228,31 +219,19 @@ namespace junklite
             if (!Physics.Raycast(origin + Vector3.up * 0.1f, Vector3.down,
                                 out RaycastHit hit, groundSnapMaxDistance, groundLayerMask))
             {
-                Debug.Log($"TrySnapToGround: raycast missed (origin={origin}, maxDist={groundSnapMaxDistance})");
                 return false;
             }
-
-            // log hit info
-            Debug.Log($"TrySnapToGround: raycast hit at {hit.point}, normal={hit.normal}");
 
             // only consider relatively flat surfaces as ground
             if (hit.normal.y < 0.65f)
-            {
-                Debug.Log($"TrySnapToGround: surface too steep (normal.y={hit.normal.y:F2}), ignoring");
                 return false;
-            }
 
             float halfHeight = (col != null) ? col.bounds.extents.y : 0.5f;
             Vector3 target = hit.point + Vector3.up * (halfHeight + groundSnapVerticalOffset);
 
             Vector3 forward = IsFacingRight ? transform.right : -transform.right;
             if (groundSnapForwardOffset != 0f)
-            {
-                Debug.Log($"TrySnapToGround: applying forward offset {groundSnapForwardOffset:F2} (facingRight={IsFacingRight})");
                 target += forward * groundSnapForwardOffset;
-            }
-
-            Debug.Log($"TrySnapToGround: final target {target}");
 
             // move to the full target position (x,z included)
             transform.position = new Vector3(target.x, target.y, target.z);
