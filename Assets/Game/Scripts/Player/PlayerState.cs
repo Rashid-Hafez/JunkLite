@@ -32,6 +32,10 @@ namespace junklite
         public bool IsWallJumping { get; private set; }
         public bool IsDoubleJumping { get; private set; }
 
+        // ledge detection
+        public bool IsLedgeDetected { get; private set; }
+        public event Action<bool> OnLedgeDetectedChanged;
+
         /// <summary>How many air attacks have been used this air time.</summary>
         public int AirAttacksUsed { get; private set; }
 
@@ -75,6 +79,7 @@ namespace junklite
             SetWallJumping(false);
             SetDoubleJumping(false);
             SetInputLocked(false);
+            SetLedgeDetected(false);
         }
 
         public override void ClearTransient()
@@ -174,6 +179,13 @@ namespace junklite
             OnWallSlideChanged?.Invoke(sliding);
         }
 
+        public void SetLedgeDetected(bool detected)
+        {
+            if (IsLedgeDetected == detected) return;
+            IsLedgeDetected = detected;
+            OnLedgeDetectedChanged?.Invoke(detected);
+        }
+
         public void SetWallJumping(bool jumping)
         {
             if (IsWallJumping == jumping) return;
@@ -246,6 +258,7 @@ namespace junklite
             if (IsWallSliding) list.Add("WallSliding");
             if (IsWallJumping) list.Add("WallJumping");
             if (IsDoubleJumping) list.Add("DoubleJumping");
+            if (IsLedgeDetected) list.Add("LedgeDetected");
             if (IsDashing) list.Add("Dashing");
             if (IsAttacking) list.Add("Attacking");
             if (IsRolling) list.Add("Rolling");

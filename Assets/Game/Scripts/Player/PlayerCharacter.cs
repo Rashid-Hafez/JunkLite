@@ -304,6 +304,19 @@ namespace junklite
                 Controller.SetJumpHeld(JumpHeld);
             }
 
+            // if we're airborne but our ledge probe is active, try snapping down
+            if (controller != null && playerState != null && !playerState.IsGrounded)
+            {
+                if (controller.LedgeDetected)
+                {
+                    if (controller.TrySnapToGround())
+                    {
+                        // landing logic already handled in TrySnapToGround
+                        playerState.SetGrounded(true);
+                    }
+                }
+            }
+
             // Handle velocity-based state transitions
             UpdateAirborneStates();
 
@@ -373,6 +386,7 @@ namespace junklite
 
                 // === NEW MOVEMENT STATES ===
                 Controller.OnWallSlideChanged += HandleWallSlideChanged;
+                Controller.OnLedgeDetectedChanged += HandleLedgeDetectedChanged;
                 Controller.OnWallJumped += HandleWallJumped;
                 Controller.OnDoubleJumpPerformed += HandleDoubleJump;
                 Controller.OnJumpStarted += HandleJumpStarted;
@@ -400,6 +414,7 @@ namespace junklite
 
                 // New movement unsubscriptions
                 Controller.OnWallSlideChanged -= HandleWallSlideChanged;
+                Controller.OnLedgeDetectedChanged -= HandleLedgeDetectedChanged;
                 Controller.OnWallJumped -= HandleWallJumped;
                 Controller.OnDoubleJumpPerformed -= HandleDoubleJump;
                 Controller.OnJumpStarted -= HandleJumpStarted;
@@ -430,6 +445,11 @@ namespace junklite
         void HandleWallSlideChanged(bool sliding)
         {
             playerState?.SetWallSliding(sliding);
+        }
+
+        void HandleLedgeDetectedChanged(bool detected)
+        {
+            playerState?.SetLedgeDetected(detected);
         }
 
         void HandleWallJumped()

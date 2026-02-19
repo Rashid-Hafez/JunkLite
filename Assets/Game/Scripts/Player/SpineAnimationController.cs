@@ -128,6 +128,7 @@ namespace junklite
             playerState.OnFallStateChanged += OnFallStateChanged;
             playerState.OnDashingChanged += OnDashingChanged;
             playerState.OnWallSlideChanged += OnWallSlideChanged;
+            playerState.OnLedgeDetectedChanged += OnLedgeDetectedChanged;
             playerState.OnDoubleJumpChanged += OnDoubleJumpChanged;
             playerState.OnStunnedChanged += OnStunnedChanged;
             playerState.OnDeath += OnDeath;
@@ -165,6 +166,7 @@ namespace junklite
                 playerState.OnFallStateChanged -= OnFallStateChanged;
                 playerState.OnDashingChanged -= OnDashingChanged;
                 playerState.OnWallSlideChanged -= OnWallSlideChanged;
+                playerState.OnLedgeDetectedChanged -= OnLedgeDetectedChanged;
                 playerState.OnDoubleJumpChanged -= OnDoubleJumpChanged;
                 playerState.OnStunnedChanged -= OnStunnedChanged;
                 playerState.OnDeath -= OnDeath;
@@ -507,6 +509,28 @@ namespace junklite
             if (sliding)
             {
                 PlayLocomotion(wallSlide, false);
+            }
+            else
+            {
+                if (playerState.IsGrounded)
+                {
+                    float speed = GetSpeed();
+                    PlayLocomotion(speed > speedThreshold ? run : idle, true);
+                }
+                else
+                {
+                    PlayJumpAir();
+                }
+            }
+        }
+
+        private void OnLedgeDetectedChanged(bool detected)
+        {
+            // placeholder: could play specific animation or adjust logic
+            if (detected)
+            {
+                // maybe a ledgegrab animation exists
+                PlayLocomotion("ledge", false);
             }
             else
             {

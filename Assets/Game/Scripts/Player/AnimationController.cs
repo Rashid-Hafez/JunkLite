@@ -38,6 +38,7 @@ namespace junklite
                 characterSystem.OnRollingChanged += OnRollingChanged;
                 characterSystem.OnDeath += OnDeath;
                 characterSystem.OnWallSlideChanged += OnWallSlideChanged;
+                characterSystem.OnLedgeDetectedChanged += OnLedgeDetectedChanged;
                 characterSystem.OnJumpStateChanged += OnJumpStateChanged;
                 characterSystem.OnDoubleJumpChanged += OnDoubleJumpChanged;
                 characterSystem.OnComboAttackTriggered += OnComboAttackTriggered;
@@ -66,6 +67,7 @@ namespace junklite
             animator.SetBool("IsJumping", characterSystem.IsJumping);
             animator.SetBool("IsFalling", characterSystem.IsFalling);
             animator.SetBool("IsWallSliding", characterSystem.IsWallSliding);
+            animator.SetBool("IsLedgeDetected", characterSystem.IsLedgeDetected);
 
             // --- Optional landing trigger ---
             if (!wasGroundedLastFrame && characterSystem.IsGrounded)
@@ -115,6 +117,11 @@ namespace junklite
             animator.SetBool("IsWallSliding", wallSliding);
         }
 
+        private void OnLedgeDetectedChanged(bool detected)
+        {
+            animator.SetBool("IsLedgeDetected", detected);
+        }
+
         private void OnJumpStateChanged(bool jumping)
         {
             // Handled in Update() for consistency, but also respond to events for immediate feedback
@@ -159,6 +166,7 @@ namespace junklite
             characterSystem.OnRollingChanged -= OnRollingChanged;
             characterSystem.OnDeath -= OnDeath;
             characterSystem.OnWallSlideChanged -= OnWallSlideChanged;
+            characterSystem.OnLedgeDetectedChanged -= OnLedgeDetectedChanged;
             characterSystem.OnJumpStateChanged -= OnJumpStateChanged;
             characterSystem.OnDoubleJumpChanged -= OnDoubleJumpChanged;
             characterSystem.OnComboAttackTriggered -= OnComboAttackTriggered;

@@ -74,6 +74,33 @@ namespace junklite
         private bool isWallJumping = false;
         private float wallJumpEndTime = 0f;
 
+        [Header ("Ledge Detection Settings")]
+        [SerializeField] private Transform ledgeCheckTransform;
+        [SerializeField] private Vector2 ledgeCheckSize = new Vector2(0.5f, 1f);
+        // how far below the probe we raycast when attempting to snap
+        [SerializeField] private float groundSnapMaxDistance = 5f;
+        // small push forward when we land so we don't snag on the corner
+        [SerializeField] private float groundSnapForwardOffset = 0.1f;
+        // additional vertical offset applied when snapping (can be negative to sink slightly)
+        [SerializeField] private float groundSnapVerticalOffset = 0f;
+        
+        // ledge detection state (written by external helper or logic)
+        private bool ledgeDetected;
+        /// <summary>True when controller has detected a ledge (via an external component such as LedgeDetection).</summary>
+        public bool LedgeDetected
+        {
+            get => ledgeDetected;
+            set
+            {
+                if (ledgeDetected == value) return;
+                ledgeDetected = value;
+                OnLedgeDetectedChanged?.Invoke(value);
+            }
+        }
+        
+        // event fired when ledge detection state changes (true=>started, false=>ended)
+        public System.Action<bool> OnLedgeDetectedChanged;
+
         [Header("2.5D Settings")]
         [SerializeField] private bool snapToZPosition = true;
         [SerializeField] private float fixedZPosition = 0f;
@@ -165,6 +192,53 @@ namespace junklite
         public float DashDuration { get => dashDuration; set => dashDuration = value; }
         public bool SnapToZPosition { get => snapToZPosition; set => snapToZPosition = value; }
         public float FixedZPosition { get => fixedZPosition; set => fixedZPosition = value; }
+
+        // expose ground mask for external raycasts
+        public LayerMask GroundLayerMask => groundLayerMask;
+
+        /// <summary>
+        /// When skimming near a ledge we may want to snap down to the real ground.
+        /// Returns true if a floor surface was found and the character was repositioned.
+        /// </summary>
+        public bool TrySnapToGround()
+        {
+            if (!ledgeDetected) return false;
+
+            // cancel any existing motion/grav before we reposition
+            if (rb != null)
+                rb.linearVelocity = Vector3.zero;
+
+            Vector3 origin = (ledgeCheckTransform != null)
+                ? ledgeCheckTransform.position
+                : transform.position;
+
+            if (Physics.Raycast(origin + Vector3.up * 0.1f, Vector3.down,
+                                out RaycastHit hit, groundSnapMaxDistance, groundLayerMask))
+            {
+                float halfHeight = (col != null) ? col.bounds.extents.y : 0.5f;
+                // Use purely vertical offset when snapping to avoid being pushed up along a sloped normal.
+                // Add a tunable adjustment so we can raise/lower the final position from inspector.
+                // (default offset of 0.01f was previously hardcoded.)
+                Vector3 target = hit.point + Vector3.up * (halfHeight + groundSnapVerticalOffset);
+
+                // nudge forward slightly based on facing.  Forward offset should not affect vertical.
+                Vector3 forward = IsFacingRight ? transform.right : -transform.right;
+                target += forward * groundSnapForwardOffset;
+
+                // move to the full target position (x,z included)
+                transform.position = new Vector3(target.x, target.y, target.z);
+
+                // velocity already cleared above
+
+                // mark grounded so other logic can respond
+                isGrounded = true;
+                OnGroundedStateChanged?.Invoke(true);
+
+                return true;
+            }
+
+            return false;
+        }
 
         public bool IsFacingRight => facingMode == FacingMode.ScaleFlip
             ? transform.localScale.x > 0f

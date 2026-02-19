@@ -5056,8 +5056,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.6829266, w: 0.730487}
-  m_LocalPosition: {x: -0.46396458, y: 1.1634718, z: -0.0156}
+  m_LocalRotation: {x: 0, y: 0, z: -0.6756545, w: 0.73721844}
+  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: -0.0156}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5148,6 +5148,77 @@ Transform:
   m_Children: []
   m_Father: {fileID: 3708428653336801813}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &3139515997621657487
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 711466271944293612}
+  - component: {fileID: 7315859062911701114}
+  - component: {fileID: 2820452089413164089}
+  m_Layer: 0
+  m_Name: LedgeCheck
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &711466271944293612
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3139515997621657487}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.28, y: 0.4, z: 0.008}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 1
+  m_Children: []
+  m_Father: {fileID: 7117484140060184854}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7315859062911701114
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3139515997621657487}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d25b133a252844bfaf8464c5e643dc7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LedgeDetection
+  radius: 0.3
+  WhatIsGround:
+    serializedVersion: 2
+    m_Bits: 2048
+  insideGround: 0
+--- !u!65 &2820452089413164089
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3139515997621657487}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.53842956, y: 1.6701299, z: 1}
+  m_Center: {x: 0.02698179, y: 0.9928627, z: 0}
 --- !u!1 &3569891202695748256
 GameObject:
   m_ObjectHideFlags: 0
@@ -15132,6 +15203,7 @@ Transform:
   - {fileID: 2489384785993987126}
   - {fileID: 8149285406505930558}
   - {fileID: 2407450160901892144}
+  - {fileID: 711466271944293612}
   - {fileID: 1814897658590377715}
   - {fileID: 4202146915303784396}
   - {fileID: 3315158317788349695}
@@ -15214,6 +15286,11 @@ MonoBehaviour:
   wallJumpForce: 10
   wallJumpHorizontalForce: 7
   wallJumpDuration: 0.2
+  ledgeCheckTransform: {fileID: 711466271944293612}
+  ledgeCheckSize: {x: 0.5, y: 0.2}
+  groundSnapMaxDistance: 0.2
+  groundSnapForwardOffset: 0.5
+  groundSnapVerticalOffset: -1
   snapToZPosition: 0
   fixedZPosition: 0
   allowZMovement: 0
