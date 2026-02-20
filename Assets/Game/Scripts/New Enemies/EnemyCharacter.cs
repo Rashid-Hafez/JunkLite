@@ -87,6 +87,14 @@ namespace junklite
         protected StateMachine stateMachine;
         protected EnemyMovement movement;
         protected StatusEffectHandler statusEffects;
+            // optional forced stun duration set by external callers (e.g. parry)
+            private float forcedStunDuration = 0f;
+
+            public float ForcedStunDuration
+            {
+                get => forcedStunDuration;
+                set => forcedStunDuration = value;
+            }
 
         // Target tracking
         protected Transform target;
@@ -217,6 +225,21 @@ namespace junklite
                 OnPlayerLost();
         }
 
+        /// <summary>
+        /// Notifies the enemy that they were struck by a successful parry.  Duration is the
+        /// length of the stun effect the parry wants to enforce (the caller may also manage
+        /// the actual timing via its own coroutine).
+        ///
+        /// Default behavior: apply a stun state so the FSM is interrupted.  Subclasses can
+        /// override to add VFX/animation but should call <c>base.OnParryStunned</c> so the
+        /// stun actually takes effect.
+        /// </summary>
+        public virtual void OnParryStunned(float duration)
+        {
+            if (duration > 0f)
+                ApplyStun(duration);
+        }
+
         #endregion
 
         #region Combat State
@@ -309,6 +332,16 @@ namespace junklite
             }
 
             return damageDealt;
+        }
+
+        public virtual void ApplyStun(float duration)
+        {
+            if (stateMachine == null) return;
+
+            // If a duration is provided, store it so the StunnedState can honor it.
+            ForcedStunDuration = duration;
+            stateMachine.ChangeState<StunnedState>();
+            
         }
 
         protected virtual void ApplyHitstun()

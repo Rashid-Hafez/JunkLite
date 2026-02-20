@@ -9,11 +9,16 @@ namespace junklite
         [Header("Parry Settings")]
         [SerializeField] private float parryDuration = 0.25f;
         [SerializeField] private float parryCooldown = 0.2f;
+        [SerializeField, Tooltip("How long player input remains locked after successful parry (usually matches Perry_2 length)")]
+        private float parryLockDuration = 0.3f;
         [SerializeField] private float parryRadius = 3f;
         [SerializeField] private LayerMask enemyLayer;
         [SerializeField] private GameObject parryVFXPrefab;
-        [SerializeField] private float pushForce = 12f;
+        [SerializeField] private float pushForce = 20.5f;
+        [SerializeField] private float pushDuration = 0.18f; // how long to apply push impulse over time
         [SerializeField] private float stunDuration = 0.3f;
+
+        [SerializeField] private float parryStunDuration = 0.5f; // how long enemies are stunned when hit by a parry (primary attacker gets full duration, others get half)
 
         [Header("Feedback")]
         [SerializeField] private float hitstopDuration = 0.1f;
@@ -124,38 +129,48 @@ namespace junklite
 
                 Debug.Log("[Parry] Hit detected during stage1 -> entering stage2");
                 playerState?.ApplyInvulnerability(parryDuration);
+                // immediately switch to the hit animation before anything else
                 playerState?.RequestAttackAnimation("Perry_2");
 
                 if (parryVFXPrefab != null)
                     Instantiate(parryVFXPrefab, transform.position, Quaternion.identity);
 
                 // feedback effects
-                FeedbackManager.Instance?.DoHitstop(hitstopDuration);
+               // FeedbackManager.Instance?.DoHitstop(hitstopDuration);
                 FeedbackManager.Instance?.DoCameraShake(); // uses default impulse internally
-                // camera manager could also dolly/zoom if you add a method there (implement DoParryCameraEffect in CameraManager)
-                camManager?.DoParryCameraEffect();
 
-                PushEnemies();
+                // delay slow‑motion/zoom slightly so animation plays first
+                StartCoroutine(DelayedCameraEffect());
 
-                parryRoutine = StartCoroutine(ParryStage2Coroutine());
             }
 
             // always block damage while active
             return true;
         }
 
+        private IEnumerator DelayedCameraEffect()
+        {
+            yield return new WaitForSeconds(0.2f);
+                PushEnemies();
+
+                parryRoutine = StartCoroutine(ParryStage2Coroutine());
+            camManager?.DoParryCameraEffect();
+        }
+
+        //cooldown
         private IEnumerator ParryStage2Coroutine()
         {
             yield return new WaitForSeconds(parryDuration);
             parryActive = false;
             playerState?.SetParrying(false);
 
-            Debug.Log("[Parry] Stage2 complete, applying post-parry cooldown");
-            // lock input briefly after successful parry, then run cooldown just like a whiff
+            Debug.Log("[Parry] Stage2 complete, holding input lock until animation ends");
             if (playerState != null)
             {
                 playerState.SetInputLocked(true);
-                StartCoroutine(CooldownCoroutine());
+                // hold lock for the duration of the parry hit animation (tunable)
+                yield return new WaitForSeconds(parryLockDuration);
+                playerState.SetInputLocked(false);
             }
         }
 
@@ -176,13 +191,27 @@ namespace junklite
                 if (isPrimary)
                 {
                     // custom logic for the attacker
-                    var dmg = c.GetComponent<Damageable>() ?? c.GetComponentInParent<Damageable>();
-                    if (dmg != null)
+                    var enemy = c.GetComponent<EnemyCharacter>();
+                    if (enemy != null)
                     {
                         // example: deal a little retaliatory damage
-                        dmg.TakeDamage(new DamageInfo(5f, gameObject));
+                        enemy.TakeDamage(new DamageInfo(5f, gameObject));
+                        enemy.ApplyStun(parryStunDuration);
                     }
                     // TODO: call any other special handling you want for this enemy
+
+                }
+
+                // schedule a timed stun so enemies stay locked down for the full parry duration
+                {
+                    float hold = isPrimary ? parryStunDuration : parryStunDuration * 0.5f;
+                    if (state != null)
+                        StartCoroutine(KeepEnemyStunned(state, hold));
+
+                    // inform the enemy so it can play a looping stun animation if desired
+                    var enemy = c.GetComponent<EnemyCharacter>();
+                    if (enemy != null)
+                        enemy.OnParryStunned(hold);
                 }
 
                 // apply physical push if it has a rigidbody
@@ -190,9 +219,11 @@ namespace junklite
                 if (rb != null)
                 {
                     Vector3 dir = (c.transform.position - transform.position);
-                    dir.z = 0f; // flatten to 2.5D plane
                     dir.Normalize();
-                    rb.AddForce(dir * pushForce, ForceMode.Impulse);
+                    dir.z = 0f; // flatten to 2.5D plane
+
+                    // start a coroutine that applies acceleration over time (results in smoother push)
+                    StartCoroutine(ApplyPushOverTime(rb, dir, pushForce, 1f, pushDuration));
                 }
             }
 
@@ -200,10 +231,43 @@ namespace junklite
             primaryAttacker = null;
         }
 
-        private void OnDrawGizmosSelected()
-        {
-            Gizmos.color = Color.magenta;
-            Gizmos.DrawWireSphere(transform.position, parryRadius);
-        }
+    // coroutine used by PushEnemies to enforce a timed stun independent of the character's own logic
+    private IEnumerator KeepEnemyStunned(CharacterState state, float duration)
+    {
+        if (state == null) yield break;
+
+        state.SetStunned(true);
+        yield return new WaitForSeconds(duration);
+        if (state != null)
+            state.SetStunned(false);
     }
+
+        // Applies a directional push to a rigidbody over several fixed updates.
+        // totalHorizontalImpulse: desired change in horizontal velocity (units per second)
+        // totalUpwardImpulse: desired total upward velocity change (small, e.g. 1f)
+        private IEnumerator ApplyPushOverTime(Rigidbody rb, Vector3 dir, float totalHorizontalImpulse, float totalUpwardImpulse, float duration)
+        {
+            if (rb == null || duration <= 0f) yield break;
+
+            float elapsed = 0f;
+            // acceleration needed to achieve total deltaV over time: a = deltaV / duration
+            Vector3 horizAccel = new Vector3(dir.x, 0f, dir.z) * (totalHorizontalImpulse / Mathf.Max(0.0001f, duration));
+            Vector3 upAccel = Vector3.up * (totalUpwardImpulse / Mathf.Max(0.0001f, duration));
+
+            // run during physics steps
+            while (elapsed < duration)
+            {
+                rb.AddForce(horizAccel, ForceMode.Acceleration);
+                rb.AddForce(upAccel, ForceMode.Acceleration);
+                yield return new WaitForFixedUpdate();
+                elapsed += Time.fixedDeltaTime;
+            }
+        }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.magenta;
+        Gizmos.DrawWireSphere(transform.position, parryRadius);
+    }
+}
 }

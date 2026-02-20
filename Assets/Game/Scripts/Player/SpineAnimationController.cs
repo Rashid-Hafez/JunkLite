@@ -215,6 +215,42 @@ namespace junklite
                 ForceFinishAttack();
             }
 
+            // Special-case: ensure the parry hit animation fully replaces everything
+            // and does not blend bones. This prevents head twisting from blending.
+            if (string.Equals(animationName, "Perry_2", System.StringComparison.OrdinalIgnoreCase))
+            {
+                bool has = HasAnimation(animationName);
+                Debug.Log($"[SpineAnim] parry2 special case – HasAnimation={has}, timeScale={Time.timeScale}");
+                if (!has)
+                {
+                    Debug.LogWarning("Perry_2 not found on skeleton data! Check naming.");
+                }
+
+                Debug.Log("Playing parry hit animation with special settings to prevent blending issues");
+                attackActive = true;
+                attackOverwriteActive = true;
+                // clear overlay so it cannot influence locomotion bones (we'll play on overlay)
+                skeletonAnimation?.AnimationState.ClearTrack(overlayTrack);
+                var entry = skeletonAnimation.AnimationState.SetAnimation(overlayTrack, animationName, false);
+                if (entry == null)
+                {
+                    Debug.LogWarning("SetAnimation returned null entry for Perry_2");
+                }
+                // immediate replace (no blend) to avoid bone mixing
+                if (entry != null)
+                {
+                    entry.MixDuration = 0f;
+                    entry.MixBlend = MixBlend.Replace;
+                    // standard time scale (no global compensation)
+                    entry.TimeScale = GetTimeScaleFor(animationName, 1f);
+                    entry.Complete += _ => FinishAttackOverwrite();
+                    entry.Interrupt += _ => OnAttackInterrupted();
+                }
+                currentAttackEntry = entry;
+                LogAttack($"Playing forced overwrite attack: '{animationName}'");
+                return;
+            }
+
             attackActive = true;
 
             LogAttack($"Playing attack: '{animationName}'");

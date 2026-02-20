@@ -194,6 +194,16 @@ namespace junklite
             }
         }
 
+        public override void OnParryStunned(float duration)
+        {
+            // first, let base class handle the stun state transition
+            base.OnParryStunned(duration);
+
+            // hyena-specific: play a looping stun animation for the requested duration
+            if (spineController != null)
+                spineController.PlayStunLoop(duration);
+        }
+
         protected override void Update()
         {
             base.Update();

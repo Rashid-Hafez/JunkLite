@@ -39,7 +39,7 @@ namespace junklite
                 characterSystem.OnDeath += OnDeath;
                 characterSystem.OnWallSlideChanged += OnWallSlideChanged;
                 characterSystem.OnLedgeDetectedChanged += OnLedgeDetectedChanged;
-            characterSystem.OnParryChanged += OnParryChanged;
+                characterSystem.OnParryChanged += OnParryChanged;
                 characterSystem.OnJumpStateChanged += OnJumpStateChanged;
                 characterSystem.OnDoubleJumpChanged += OnDoubleJumpChanged;
                 characterSystem.OnComboAttackTriggered += OnComboAttackTriggered;

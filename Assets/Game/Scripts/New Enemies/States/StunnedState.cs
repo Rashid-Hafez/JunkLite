@@ -17,6 +17,7 @@ namespace junklite
     {
         private EnemyMovement movement;
         private bool knockbackEnded;
+        private float stunTimer = 0f;
 
         public StunnedState(EnemyCharacter enemy) : base(enemy) { }
 
@@ -26,14 +27,31 @@ namespace junklite
         {
             movement = enemy.Movement;
             knockbackEnded = false;
+            // read any externally-forced stun duration (e.g. from parry)
+            stunTimer = enemy.ForcedStunDuration;
 
+            // stop movement immediately
             movement?.Stop();
 
-            Debug.Log($"{enemy.gameObject.name}: Entered StunnedState");
+            Debug.Log($"{enemy.gameObject.name}: Entered StunnedState (timer={stunTimer})");
         }
 
         public override void Update()
         {
+            // If a forced timer is present, wait for it to expire
+            if (stunTimer > 0f)
+            {
+                stunTimer -= Time.deltaTime;
+                if (stunTimer <= 0f)
+                {
+                    // clear forced stun so future entries don't reuse it
+                    enemy.ForcedStunDuration = 0f;
+                    enemy.OnStunComplete();
+                }
+                return;
+            }
+
+            // Otherwise, wait for knockback to finish as before
             if (!knockbackEnded && movement != null && !movement.IsInKnockback)
             {
                 knockbackEnded = true;

@@ -21,6 +21,20 @@ namespace junklite
         [Header("Zoom (e.g. Phantom Strike)")]
         [Tooltip("When using Physical/Perspective: zoom-out Field of View in degrees (wider = more zoomed out). When Orthographic: zoom-out ortho size.")]
         [SerializeField] private float zoomOutValue = 55f;
+        [SerializeField] private float parryZoomOut = 40f;
+        [Header("Parry Zoom / SlowMo")]
+        [Tooltip("Target zoom value to use when parry zooms IN (smaller = closer for FOV).")]
+        [SerializeField] private float parryZoomInTarget = 30f;
+        [Tooltip("Duration (s) to tween into parry zoom (uses normal time scale).")]
+        [SerializeField] private float parryZoomInDuration = 0.12f;
+        [Tooltip("How long to hold the parry zoom/slow-mo in real seconds (unscaled).")]
+        [SerializeField] private float parryZoomHoldRealtime = 0.06f;
+        [Tooltip("Duration (s) to tween back to normal zoom after parry (uses normal time scale).")]
+        [SerializeField] private float parryZoomReturnDuration = 0.2f;
+        [Tooltip("Time.timeScale to use during parry slow-motion (0..1).")]
+        [SerializeField] private float parrySlowMoScale = 0.12f;
+        [Tooltip("How long (real seconds) to stay in slow-motion during parry (unscaled).")]
+        [SerializeField] private float parrySlowMoRealtimeDuration = 0.14f;
         [SerializeField] private float zoomOutDuration = 0.25f;
         [SerializeField] private float zoomInDuration = 0.35f;
 
@@ -176,14 +190,49 @@ namespace junklite
 
         /// <summary>
         /// Simple camera effect triggered when the player successfully parries.
-        /// Currently performs a very quick zoom-out/zoom-back-in using the existing
-        /// zoom routines.  You can replace this with a dedicated camera or any other
-        /// fancy behaviour (brighten, color shift, etc.).
+        /// Performs a parry effect: quick slow-motion + zoom-in, hold, then restore.
         /// </summary>
         public void DoParryCameraEffect()
         {
-            RequestZoomOut(zoomOutValue * 0.8f);
-            StartCoroutine(CoZoomBackAfterDelay(0.1f));
+            if (zoomCoroutine != null)
+                StopCoroutine(zoomCoroutine);
+            StartCoroutine(CoParryEffect());
+        }
+
+        private IEnumerator CoParryEffect()
+        {
+            if (mainCamera == null)
+                yield break;
+
+            // capture current lens as default to restore later
+            var lens = mainCamera.Lens;
+            defaultIsOrthographic = lens.Orthographic;
+            defaultZoomValue = defaultIsOrthographic ? lens.OrthographicSize : lens.FieldOfView;
+
+            // zoom into the parry target (use our CoZoom for smooth tween)
+            if (zoomCoroutine != null) StopCoroutine(zoomCoroutine);
+            zoomCoroutine = StartCoroutine(CoZoom(parryZoomInTarget, parryZoomInDuration));
+
+            // keep the slow-mo for the configured real-time duration
+            yield return new WaitForSecondsRealtime(parrySlowMoRealtimeDuration);
+
+                        // enter slow-motion (use unscaled wait for hold length)
+            float origTime = Time.timeScale;
+            float origFixed = Time.fixedDeltaTime;
+            Time.timeScale = Mathf.Clamp01(parrySlowMoScale);
+            Time.fixedDeltaTime = origFixed * Time.timeScale;
+            
+            // optional extra hold at full zoom (unscaled)
+            if (parryZoomHoldRealtime > 0f)
+                yield return new WaitForSecondsRealtime(parryZoomHoldRealtime);
+
+            // restore time scale
+            Time.timeScale = origTime;
+            Time.fixedDeltaTime = origFixed;
+
+            // smoothly return to default zoom
+            if (zoomCoroutine != null) StopCoroutine(zoomCoroutine);
+            zoomCoroutine = StartCoroutine(CoZoom(defaultZoomValue, parryZoomReturnDuration));
         }
 
         private IEnumerator CoZoomBackAfterDelay(float delay)

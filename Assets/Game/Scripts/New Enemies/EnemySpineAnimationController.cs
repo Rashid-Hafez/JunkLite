@@ -23,6 +23,9 @@ namespace junklite
         [SerializeField] private string dodge = "JumpBack";
         [SerializeField] private string hurt = "Hurt";
         [SerializeField] private string death = "Death";
+        [Header("Stun")]
+        [Tooltip("Looping animation to play while stunned due to a parry; leave blank to use 'hurt'")]
+        [SerializeField] private string stunLoop = "";
 
         [Header("Hitbox Timing (Timer Fallback)")]
         [SerializeField] private bool useTimerFallback = true;
@@ -181,7 +184,7 @@ namespace junklite
             else if (to is HurtState)
                 state.SetAnimation(0, hurt, false);
             else if (to is StunnedState)
-                state.SetAnimation(0, hurt, false);
+                state.SetAnimation(0, hurt, true); // loop 'hurt' while stunned
         }
 
         private void PlayDeath()
@@ -248,11 +251,27 @@ namespace junklite
                     isInCooldown = true;
                     cooldownTimer = cooldown;
                 }
-                else
-                {
-                    StartAttackAnimation();
-                }
             }
+        }
+
+        /// <summary>
+        /// External call to play a looping stun animation for a set duration.
+        /// After the timer expires we simply re-sync the animation based on current state.
+        /// </summary>
+        public void PlayStunLoop(float duration)
+        {
+            if (skeletonAnimation == null) return;
+            string anim = string.IsNullOrEmpty(stunLoop) ? hurt : stunLoop;
+            var state = skeletonAnimation.AnimationState;
+            state.SetAnimation(0, anim, true);
+            StartCoroutine(ClearStunAfter(duration));
+        }
+
+        private System.Collections.IEnumerator ClearStunAfter(float duration)
+        {
+            yield return new WaitForSeconds(duration);
+            if (stateMachine != null && stateMachine.CurrentState != null)
+                HandleStateChanged(null, stateMachine.CurrentState);
         }
 
         private void StartAttackAnimation()
