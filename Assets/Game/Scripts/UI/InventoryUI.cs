@@ -1,32 +1,40 @@
 using UnityEngine;
-using UnityEngine.UI;
 using System.Collections.Generic;
 
 namespace junklite
 {
     public class InventoryUI : MonoBehaviour
     {
-        [Header("Mod Slot Prefab")]
-        [SerializeField] private GameObject modSlotPrefab;
+        #region Fields
 
         [Header("Inventory Slots")]
+        [SerializeField] private GameObject inventorySlotPrefab;
         [SerializeField] private Transform inventorySlotParent;
 
-        [Header("Weapon Display")]
-        [SerializeField] private Image weaponIconImage;
+        [Header("Active Mod Slots")]
+        [SerializeField] private GameObject activeModSlotPrefab;
+        [SerializeField] private Transform activeModSlotParent;
 
-        [Header("Weapon Mod Slots")]
+        [Header("Passive Mod Slots")]
+        [SerializeField] private GameObject passiveModSlotPrefab;
+        [SerializeField] private Transform passiveModSlotParent;
+
+        [Header("Weapon Slots")]
+        [SerializeField] private GameObject weaponSlotPrefab;
         [SerializeField] private Transform weaponSlotParent;
 
         private InventoryComponent inventory;
         private WeaponManager weaponManager;
-        private WeaponInstance subscribedWeapon;
+        private ModManager modManager;
 
         private readonly List<ModSlotUI> inventorySlots = new();
-        private readonly List<ModSlotUI> weaponSlots = new();
-        private Transform[] slotTransforms;
+        private readonly List<ModSlotUI> activeModSlots = new();
+        private readonly List<ModSlotUI> passiveModSlots = new();
+        private readonly List<InventoryWeaponSlotUI> weaponSlots = new();
 
-       
+        #endregion
+
+        #region Bind / Unbind
 
         public void Bind(InventoryComponent inv, WeaponManager wm)
         {
@@ -34,17 +42,16 @@ namespace junklite
 
             inventory = inv;
             weaponManager = wm;
-
-            CacheSlotTransforms();
+            modManager = wm != null ? wm.GetComponent<ModManager>() : null;
 
             if (inventory != null)
                 inventory.OnInventoryChanged += RefreshInventory;
 
             if (weaponManager != null)
-            {
-                weaponManager.OnWeaponChanged += RefreshWeapon;
-                SubscribeToWeaponMods();
-            }
+                weaponManager.OnWeaponChanged += RefreshWeapons;
+
+            if (modManager != null)
+                modManager.OnModSlotsChanged += RefreshModSlots;
 
             RefreshAll();
         }
@@ -55,56 +62,46 @@ namespace junklite
                 inventory.OnInventoryChanged -= RefreshInventory;
 
             if (weaponManager != null)
-                weaponManager.OnWeaponChanged -= RefreshWeapon;
+                weaponManager.OnWeaponChanged -= RefreshWeapons;
 
-            UnsubscribeFromWeaponMods();
+            if (modManager != null)
+                modManager.OnModSlotsChanged -= RefreshModSlots;
 
             ClearSlots(inventorySlots);
-            ClearSlots(weaponSlots);
-
-            if (weaponIconImage != null)
-                weaponIconImage.enabled = false;
+            ClearSlots(activeModSlots);
+            ClearSlots(passiveModSlots);
+            ClearWeaponSlots();
 
             inventory = null;
             weaponManager = null;
+            modManager = null;
         }
 
         public void RefreshAll()
         {
             RefreshInventory();
-            RefreshWeapon();
+            RefreshWeapons();
+            RefreshModSlots();
         }
 
-        // -----------------------------------------------------------------------
+        #endregion
 
-        private void CacheSlotTransforms()
-        {
-            if (inventorySlotParent == null)
-            {
-                slotTransforms = new Transform[0];
-                return;
-            }
-
-            int count = inventorySlotParent.childCount;
-            slotTransforms = new Transform[count];
-
-            for (int i = 0; i < count; i++)
-                slotTransforms[i] = inventorySlotParent.GetChild(i);
-        }
+        #region Inventory
 
         private void RefreshInventory()
         {
             ClearSlots(inventorySlots);
 
-            if (inventory == null || slotTransforms == null)
-                return;
+            if (inventory == null || inventorySlotPrefab == null || inventorySlotParent == null) return;
 
-            var mods = inventory.StoredMods;
+            int count = inventory.SlotCount;
 
-            for (int i = 0; i < slotTransforms.Length; i++)
+            for (int i = 0; i < count; i++)
             {
-                ActiveMod mod = (i < mods.Count) ? mods[i] : null;
-                ModSlotUI slot = SpawnSlot(slotTransforms[i]);
+                ModInstance mod = inventory.GetModAt(i);
+
+                var go = Instantiate(inventorySlotPrefab, inventorySlotParent);
+                var slot = go.GetComponent<ModSlotUI>();
 
                 if (slot != null)
                 {
@@ -114,107 +111,94 @@ namespace junklite
             }
         }
 
-        private void RefreshWeapon()
+        #endregion
+
+        #region Weapons
+
+        private void RefreshWeapons()
         {
-            // Weapon icon
-            if (weaponIconImage != null)
+            ClearWeaponSlots();
+
+            if (weaponManager == null || weaponSlotPrefab == null || weaponSlotParent == null) return;
+
+            for (int i = 1; i <= 2; i++)
             {
-                var weapon = weaponManager?.CurrentWeapon;
-                if (weapon != null)
+                var go = Instantiate(weaponSlotPrefab, weaponSlotParent);
+                var ui = go.GetComponent<InventoryWeaponSlotUI>();
+                if (ui != null)
                 {
-                    var sr = weapon.GetComponent<SpriteRenderer>();
-                    weaponIconImage.sprite = sr != null ? sr.sprite : null;
-                    weaponIconImage.enabled = weaponIconImage.sprite != null;
+                    ui.Bind(weaponManager, i);
+                    weaponSlots.Add(ui);
                 }
-                else
+            }
+        }
+
+        private void ClearWeaponSlots()
+        {
+            foreach (var slot in weaponSlots)
+                if (slot != null) Destroy(slot.gameObject);
+            weaponSlots.Clear();
+        }
+
+        #endregion
+
+        #region Mod Manager Slots
+
+        private void RefreshModSlots()
+        {
+            ClearSlots(activeModSlots);
+            ClearSlots(passiveModSlots);
+
+            if (modManager == null) return;
+
+            if (activeModSlotParent != null && activeModSlotPrefab != null)
+            {
+                for (int i = 0; i < modManager.UnlockedActiveSlots; i++)
                 {
-                    weaponIconImage.enabled = false;
+                    var go = Instantiate(activeModSlotPrefab, activeModSlotParent);
+                    var slot = go.GetComponent<ModSlotUI>();
+                    if (slot != null)
+                    {
+                        slot.Bind(modManager.GetActiveMod(i), modManager, inventory, i, true);
+                        activeModSlots.Add(slot);
+                    }
                 }
             }
 
-            RefreshWeaponMods();
-            SubscribeToWeaponMods();
-        }
-
-        private void RefreshWeaponMods()
-        {
-            ClearSlots(weaponSlots);
-
-            var weapon = weaponManager?.CurrentWeapon;
-            if (weapon == null || weaponSlotParent == null)
-                return;
-
-            int maxSlots = weapon.MaxModSlots;
-            var activeMods = weapon.GetMods();
-
-            for (int i = 0; i < maxSlots; i++)
+            if (passiveModSlotParent != null && passiveModSlotPrefab != null)
             {
-                ModSlotUI slot = SpawnSlot(weaponSlotParent);
-                if (slot == null)
-                    continue;
-
-                ActiveMod mod = (i < activeMods.Count) ? activeMods[i] : null;
-                slot.Bind(mod, weapon, inventory, i);
-
-                weaponSlots.Add(slot);
+                for (int i = 0; i < modManager.UnlockedPassiveSlots; i++)
+                {
+                    var go = Instantiate(passiveModSlotPrefab, passiveModSlotParent);
+                    var slot = go.GetComponent<ModSlotUI>();
+                    if (slot != null)
+                    {
+                        slot.Bind(modManager.GetPassiveMod(i), modManager, inventory, i, false);
+                        passiveModSlots.Add(slot);
+                    }
+                }
             }
         }
 
-        // -----------------------------------------------------------------------
+        #endregion
 
-        private ModSlotUI SpawnSlot(Transform parent)
-        {
-            if (modSlotPrefab == null)
-                return null;
-
-            GameObject obj = Instantiate(modSlotPrefab, parent);
-
-            // Center in parent
-            RectTransform rt = obj.GetComponent<RectTransform>();
-            if (rt != null)
-            {
-                rt.anchorMin = new Vector2(0.5f, 0.5f);
-                rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = Vector2.zero;
-            }
-
-            return obj.GetComponent<ModSlotUI>();
-        }
+        #region Helpers
 
         private void ClearSlots(List<ModSlotUI> slots)
         {
             foreach (var slot in slots)
-            {
-                if (slot != null)
-                    Destroy(slot.gameObject);
-            }
+                if (slot != null) Destroy(slot.gameObject);
             slots.Clear();
         }
 
-        // -----------------------------------------------------------------------
-
-        private void SubscribeToWeaponMods()
+        private void OnDisable()
         {
-            UnsubscribeFromWeaponMods();
-
-            if (weaponManager?.CurrentWeapon != null)
-            {
-                subscribedWeapon = weaponManager.CurrentWeapon;
-                subscribedWeapon.OnModsChanged += RefreshWeaponMods;
-            }
+            ClearSlots(activeModSlots);
+            ClearSlots(passiveModSlots);
         }
 
-        private void UnsubscribeFromWeaponMods()
-        {
-            if (subscribedWeapon != null)
-            {
-                subscribedWeapon.OnModsChanged -= RefreshWeaponMods;
-                subscribedWeapon = null;
-            }
-        }
-
-        private void OnDisable() => UnsubscribeFromWeaponMods();
         private void OnDestroy() => Unbind();
+
+        #endregion
     }
 }

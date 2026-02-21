@@ -401,7 +401,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyMovement
   moveSpeed: 3
   stoppingDistance: 0.1
-  movementPlane: 0
+  gravityScale: 1
   useScaleFlip: 1
   defaultFacing: 1
   ignoreKnockback: 0

@@ -5,14 +5,15 @@ using System.Collections;
 namespace junklite
 {
     /// <summary>
-    /// Tracks hits for Phantom Strike mod and executes the special slam attack.
+    /// Executes the Phantom Strike slam attack. Charge tracking is handled by ModInstance.
+    /// Resets charges when player takes damage.
     /// </summary>
     [DefaultExecutionOrder(6)]
     public class PhantomStrikeTracker : MonoBehaviour
     {
-        [SerializeField] private Transform impactVFXSpawnPoint;
+        #region Fields
 
-        private const float MAX_DESCENT_TIME = 5f;
+        [SerializeField] private Transform impactVFXSpawnPoint;
 
         private const string DEFAULT_GROUND_POUND_ANIM = "GroundPound";
 
@@ -23,233 +24,56 @@ namespace junklite
         private Damageable damageable;
         private Rigidbody rb;
 
-        private int currentHits;
+        private ModInstance currentModInstance;
         private bool isActive;
         private bool isExecutingSpecial;
 
         private static readonly Collider[] overlapBuffer = new Collider[32];
 
-        public event Action<int, int> OnHitsChanged;
-        public event Action OnSpecialReady;
-        public event Action OnSpecialUsed;
-        public event Action OnHitsReset;
+        #endregion
 
-        public int CurrentHits => currentHits;
-        public int HitsRequired => modData != null ? modData.hitsRequired : 3;
-        public bool IsSpecialReady => currentHits >= HitsRequired && !isExecutingSpecial;
+        #region Properties
+
         public bool IsActive => isActive;
         public bool IsExecutingSpecial => isExecutingSpecial;
         public PhantomStrikeMod ModData => modData;
 
+        // Events for UI
+        public event Action<int, int> OnChargesChanged;
+        public event Action OnSpecialReady;
+        public event Action OnSpecialUsed;
+        public event Action OnChargesReset;
+
+        #endregion
+
+        #region Lifecycle
+
         public void Initialize(PhantomStrikeMod mod)
         {
             modData = mod;
-            player = GetComponent<PlayerCharacter>();
-            playerState = GetComponent<PlayerState>();
-            spineAnim = GetComponent<SpineAnimationController>();
-            damageable = GetComponent<Damageable>();
-            rb = GetComponent<Rigidbody>();
+            player = GetComponentInParent<PlayerCharacter>();
+            playerState = player?.GetComponent<PlayerState>();
+            spineAnim = player?.GetComponent<SpineAnimationController>();
+            damageable = player?.GetComponent<Damageable>();
+            rb = player?.GetComponent<Rigidbody>();
         }
 
         public void SetActive(bool active)
         {
             if (isActive == active) return;
-
             isActive = active;
 
             if (active)
             {
                 if (damageable != null)
                     damageable.OnDamaged += HandleDamageTaken;
-
-                if (GameInputManager.Instance != null)
-                    GameInputManager.Instance.OnSpecialAttack += HandleSpecialAttackInput;
-
-                OnHitsChanged?.Invoke(currentHits, HitsRequired);
             }
             else
             {
                 if (damageable != null)
                     damageable.OnDamaged -= HandleDamageTaken;
 
-                if (GameInputManager.Instance != null)
-                    GameInputManager.Instance.OnSpecialAttack -= HandleSpecialAttackInput;
-            }
-        }
-
-        public void AddHit()
-        {
-            if (!isActive || isExecutingSpecial || IsSpecialReady) return;
-
-            currentHits++;
-            OnHitsChanged?.Invoke(currentHits, HitsRequired);
-
-            if (IsSpecialReady)
-                OnSpecialReady?.Invoke();
-        }
-
-        public void ResetHits()
-        {
-            if (currentHits == 0) return;
-
-            currentHits = 0;
-            OnHitsReset?.Invoke();
-            OnHitsChanged?.Invoke(currentHits, HitsRequired);
-        }
-
-        private void HandleDamageTaken(float damage, GameObject source)
-        {
-            if (!isExecutingSpecial)
-                ResetHits();
-        }
-
-        private void HandleSpecialAttackInput()
-        {
-            if (!isActive || !IsSpecialReady || isExecutingSpecial) return;
-            StartCoroutine(ExecuteSpecialAttack());
-        }
-
-        private IEnumerator ExecuteSpecialAttack()
-        {
-            if (player == null || playerState == null || modData == null)
-                yield break;
-
-            isExecutingSpecial = true;
-            Vector3 startPosition = player.transform.position;
-
-            // Phase 1: Lock input and physics for full anim-driven move
-            playerState.SetInputLocked(true);
-            playerState.SetVulnerable(false);
-
-            if (player.Controller != null)
-            {
-                player.Controller.StopAllVelocity();
-                player.Controller.CanMove = false;
-                player.Controller.SetPhysicsOverride(true);
-            }
-
-            bool wasKinematic = false;
-            if (rb != null)
-            {
-                wasKinematic = rb.isKinematic;
-                rb.isKinematic = true;
-                rb.linearVelocity = Vector3.zero;
-            }
-
-            // Zoom out (use mod value if set: FOV degrees for Physical/Perspective, ortho size for Orthographic)
-            if (CameraManager.Instance != null)
-            {
-                if (modData.cameraZoomOutValue > 0f)
-                    CameraManager.Instance.RequestZoomOut(modData.cameraZoomOutValue);
-                else
-                    CameraManager.Instance.RequestZoomOut();
-            }
-
-            if (modData.vanishVFX != null)
-                Instantiate(modData.vanishVFX, startPosition, Quaternion.identity);
-
-            // Start GroundPound animation first so forceOverrideActive is set before we go airborne
-            // (otherwise ApplyAnyStateFallbacks would play Jump_2_Air during drift)
-            string animName = string.IsNullOrEmpty(modData.groundPoundAnimationName) ? DEFAULT_GROUND_POUND_ANIM : modData.groundPoundAnimationName;
-            if (spineAnim != null)
-                spineAnim.ForcePlayOverride(animName, false, () => { });
-
-            // Phase 2: Teleport into the air
-            Vector3 airPosition = new Vector3(startPosition.x, startPosition.y + modData.spawnHeight, startPosition.z);
-            player.transform.position = airPosition;
-            playerState.SetGrounded(false);
-
-            // Phase 3: Drift up slightly
-            float driftEndY = airPosition.y + modData.driftUpHeight;
-            float driftElapsed = 0f;
-            while (driftElapsed < modData.driftUpDuration)
-            {
-                driftElapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(driftElapsed / modData.driftUpDuration);
-                float y = Mathf.Lerp(airPosition.y, driftEndY, t);
-                player.transform.position = new Vector3(startPosition.x, y, startPosition.z);
-                yield return null;
-            }
-
-            float slamStartY = player.transform.position.y;
-
-            // Get ground Y for slam target (raycast down)
-            float groundY = startPosition.y;
-            if (modData.groundLayerMask != 0 && Physics.Raycast(player.transform.position + Vector3.up * 0.5f, Vector3.down, out RaycastHit groundHit, 50f, modData.groundLayerMask))
-                groundY = groundHit.point.y;
-
-            // Phase 4: Slam down to ground (velocity-based using slamDescentSpeed)
-            float currentY = slamStartY;
-            float descentSpeed = Mathf.Max(modData.slamDescentSpeed, 1f);
-            while (currentY > groundY)
-            {
-                currentY -= descentSpeed * Time.deltaTime;
-                if (currentY < groundY)
-                    currentY = groundY;
-                player.transform.position = new Vector3(startPosition.x, currentY, startPosition.z);
-                yield return null;
-            }
-
-            player.transform.position = new Vector3(startPosition.x, groundY, startPosition.z);
-            playerState.SetGrounded(true);
-
-            // Phase 5: Impact at landing position
-            Vector3 impactPosition = player.transform.position;
-
-            if (modData.impactVFX != null)
-            {
-                Vector3 vfxPos = impactVFXSpawnPoint != null ? impactVFXSpawnPoint.position : impactPosition;
-                Quaternion vfxRot = impactVFXSpawnPoint != null ? impactVFXSpawnPoint.rotation : Quaternion.identity;
-                Instantiate(modData.impactVFX, vfxPos, vfxRot);
-            }
-
-            DealSlamDamage(impactPosition);
-
-            if (modData.cameraShakeIntensity > 0f)
-            {
-                var impulse = player.GetComponent<Unity.Cinemachine.CinemachineImpulseSource>();
-                if (impulse != null && FeedbackManager.Instance != null)
-                    FeedbackManager.Instance.DoCameraShake(impulse, modData.cameraShakeIntensity);
-            }
-
-            // Phase 4: Recovery
-            yield return new WaitForSeconds(modData.recoveryTime);
-
-            if (CameraManager.Instance != null)
-                CameraManager.Instance.RequestZoomBackIn();
-
-            if (rb != null)
-                rb.isKinematic = wasKinematic;
-
-            if (player.Controller != null)
-            {
-                player.Controller.SetPhysicsOverride(false);
-                player.Controller.CanMove = true;
-            }
-
-            playerState.ApplyInvulnerability(0.2f);
-            playerState.SetInputLocked(false);
-
-            currentHits = 0;
-            OnSpecialUsed?.Invoke();
-            OnHitsChanged?.Invoke(currentHits, HitsRequired);
-
-            isExecutingSpecial = false;
-        }
-
-        private void DealSlamDamage(Vector3 position)
-        {
-            float damage = modData.slamDamage * modData.criticalMultiplier;
-            int hitCount = Physics.OverlapSphereNonAlloc(position, modData.slamRadius, overlapBuffer, modData.enemyLayerMask);
-
-            for (int i = 0; i < hitCount; i++)
-            {
-                var col = overlapBuffer[i];
-                if (col.gameObject == gameObject) continue;
-
-                var target = col.GetComponentInParent<IDamageable>();
-                if (target != null && target.IsAlive)
-                    target.TakeDamage(new DamageInfo(damage, gameObject, DamageType.Physical, Vector2.zero));
+                currentModInstance = null;
             }
         }
 
@@ -257,9 +81,6 @@ namespace junklite
         {
             if (damageable != null)
                 damageable.OnDamaged -= HandleDamageTaken;
-
-            if (GameInputManager.Instance != null)
-                GameInputManager.Instance.OnSpecialAttack -= HandleSpecialAttackInput;
         }
 
         private void OnDisable()
@@ -280,7 +101,6 @@ namespace junklite
             if (player != null)
             {
                 player.SetVisible(true);
-
                 if (player.Controller != null)
                 {
                     player.Controller.SetPhysicsOverride(false);
@@ -288,5 +108,197 @@ namespace junklite
                 }
             }
         }
+
+        #endregion
+
+        #region Charge Notifications
+
+        /// <summary>
+        /// Called by external systems to notify UI of charge changes.
+        /// </summary>
+        public void NotifyChargesChanged(int current, int required)
+        {
+            OnChargesChanged?.Invoke(current, required);
+            if (current >= required)
+                OnSpecialReady?.Invoke();
+        }
+
+        #endregion
+
+        #region Damage Reset
+
+        private void HandleDamageTaken(float damage, GameObject source)
+        {
+            if (isExecutingSpecial) return;
+
+            if (currentModInstance != null)
+            {
+                currentModInstance.ResetCharges();
+                OnChargesReset?.Invoke();
+                OnChargesChanged?.Invoke(0, modData?.chargesRequired ?? 3);
+            }
+        }
+
+        #endregion
+
+        #region Slam Execution
+
+        public void ExecuteSlam(ModInstance instance)
+        {
+            if (isExecutingSpecial) return;
+            currentModInstance = instance;
+            StartCoroutine(CoExecuteSlam());
+        }
+
+        private IEnumerator CoExecuteSlam()
+        {
+            if (player == null || playerState == null || modData == null)
+                yield break;
+
+            isExecutingSpecial = true;
+            Vector3 startPosition = player.transform.position;
+
+            // Lock input and physics
+            playerState.SetInputLocked(true);
+            playerState.SetVulnerable(false);
+
+            if (player.Controller != null)
+            {
+                player.Controller.StopAllVelocity();
+                player.Controller.CanMove = false;
+                player.Controller.SetPhysicsOverride(true);
+            }
+
+            bool wasKinematic = false;
+            if (rb != null)
+            {
+                wasKinematic = rb.isKinematic;
+                rb.isKinematic = true;
+                rb.linearVelocity = Vector3.zero;
+            }
+
+            // Camera zoom
+            if (CameraManager.Instance != null)
+            {
+                if (modData.cameraZoomOutValue > 0f)
+                    CameraManager.Instance.RequestZoomOut(modData.cameraZoomOutValue);
+                else
+                    CameraManager.Instance.RequestZoomOut();
+            }
+
+            if (modData.vanishVFX != null)
+                Instantiate(modData.vanishVFX, startPosition, Quaternion.identity);
+
+            // Start animation
+            string animName = string.IsNullOrEmpty(modData.groundPoundAnimationName)
+                ? DEFAULT_GROUND_POUND_ANIM
+                : modData.groundPoundAnimationName;
+
+            if (spineAnim != null)
+                spineAnim.ForcePlayOverride(animName, false, () => { });
+
+            // Teleport up
+            Vector3 airPosition = new Vector3(startPosition.x, startPosition.y + modData.spawnHeight, startPosition.z);
+            player.transform.position = airPosition;
+            playerState.SetGrounded(false);
+
+            // Drift up
+            float driftEndY = airPosition.y + modData.driftUpHeight;
+            float driftElapsed = 0f;
+            while (driftElapsed < modData.driftUpDuration)
+            {
+                driftElapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(driftElapsed / modData.driftUpDuration);
+                float y = Mathf.Lerp(airPosition.y, driftEndY, t);
+                player.transform.position = new Vector3(startPosition.x, y, startPosition.z);
+                yield return null;
+            }
+
+            // Raycast for ground
+            float groundY = startPosition.y;
+            if (modData.groundLayerMask != 0 &&
+                Physics.Raycast(player.transform.position + Vector3.up * 0.5f, Vector3.down, out RaycastHit groundHit, 50f, modData.groundLayerMask))
+            {
+                groundY = groundHit.point.y;
+            }
+
+            // Slam down
+            float currentY = player.transform.position.y;
+            float speed = Mathf.Max(modData.slamDescentSpeed, 1f);
+            while (currentY > groundY)
+            {
+                currentY -= speed * Time.deltaTime;
+                if (currentY < groundY) currentY = groundY;
+                player.transform.position = new Vector3(startPosition.x, currentY, startPosition.z);
+                yield return null;
+            }
+
+            player.transform.position = new Vector3(startPosition.x, groundY, startPosition.z);
+            playerState.SetGrounded(true);
+
+            // Impact
+            Vector3 impactPosition = player.transform.position;
+
+            if (modData.impactVFX != null)
+            {
+                Vector3 vfxPos = impactVFXSpawnPoint != null ? impactVFXSpawnPoint.position : impactPosition;
+                Quaternion vfxRot = impactVFXSpawnPoint != null ? impactVFXSpawnPoint.rotation : Quaternion.identity;
+                Instantiate(modData.impactVFX, vfxPos, vfxRot);
+            }
+
+            DealSlamDamage(impactPosition);
+
+            if (modData.cameraShakeIntensity > 0f)
+            {
+                var impulse = player.GetComponent<Unity.Cinemachine.CinemachineImpulseSource>();
+                if (impulse != null && FeedbackManager.Instance != null)
+                    FeedbackManager.Instance.DoCameraShake(impulse, modData.cameraShakeIntensity);
+            }
+
+            // Recovery
+            yield return new WaitForSeconds(modData.recoveryTime);
+
+            if (CameraManager.Instance != null)
+                CameraManager.Instance.RequestZoomBackIn();
+
+            if (rb != null)
+                rb.isKinematic = wasKinematic;
+
+            if (player.Controller != null)
+            {
+                player.Controller.SetPhysicsOverride(false);
+                player.Controller.CanMove = true;
+            }
+
+            playerState.ApplyInvulnerability(0.2f);
+            playerState.SetInputLocked(false);
+
+            // Reset charges on the ModInstance
+            if (currentModInstance != null)
+                currentModInstance.ResetCharges();
+
+            OnSpecialUsed?.Invoke();
+            OnChargesChanged?.Invoke(0, modData.chargesRequired);
+
+            isExecutingSpecial = false;
+        }
+
+        private void DealSlamDamage(Vector3 position)
+        {
+            float damage = modData.slamDamage * modData.criticalMultiplier;
+            int hitCount = Physics.OverlapSphereNonAlloc(position, modData.slamRadius, overlapBuffer, modData.enemyLayerMask);
+
+            for (int i = 0; i < hitCount; i++)
+            {
+                var col = overlapBuffer[i];
+                if (col.gameObject == player.gameObject) continue;
+
+                var target = col.GetComponentInParent<IDamageable>();
+                if (target != null && target.IsAlive)
+                    target.TakeDamage(new DamageInfo(damage, player.gameObject, DamageType.Physical, Vector2.zero));
+            }
+        }
+
+        #endregion
     }
 }

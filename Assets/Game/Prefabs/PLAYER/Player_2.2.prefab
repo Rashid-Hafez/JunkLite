@@ -15180,6 +15180,7 @@ GameObject:
   - component: {fileID: 1363585882905400157}
   - component: {fileID: 6662307106127401667}
   - component: {fileID: 6282132647400396865}
+  - component: {fileID: -8791361905287476187}
   m_Layer: 16
   m_Name: Player_2.2
   m_TagString: Player
@@ -15391,6 +15392,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54798ea1f27bbb441b15ce2e4107c382, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponHolder
+  fistWeaponData: {fileID: 11400000, guid: 54da3bdf177ddb741826c7ae4d0f5858, type: 2}
   weaponHolder: {fileID: 4764703469501611834}
   sideAttack: {fileID: 128506076357536208}
   upAttack: {fileID: 7039884645192212358}
@@ -15427,7 +15429,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 742461cb8ea1b944d926782607ca985a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.InventoryComponent
-  weaponManager: {fileID: 4240971418246477782}
 --- !u!54 &458443418991649798
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -15758,6 +15759,22 @@ MonoBehaviour:
   footstepPitchOffset: 0.2
   logStateChanges: 0
   logAttacks: 0
+--- !u!114 &-8791361905287476187
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7038683931279381878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6ea44cd110e2844a8046a48b6d7a5fd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.ModManager
+  maxActiveSlots: 4
+  maxPassiveSlots: 2
+  unlockedActiveSlots: 1
+  unlockedPassiveSlots: 2
 --- !u!1 &7274307847916610454
 GameObject:
   m_ObjectHideFlags: 0

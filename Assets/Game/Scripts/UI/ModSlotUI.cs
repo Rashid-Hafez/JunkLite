@@ -4,68 +4,104 @@ using UnityEngine.EventSystems;
 
 namespace junklite
 {
-    public class ModSlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler
+    public class ModSlotUI : MonoBehaviour,
+        IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler,
+        IPointerClickHandler
     {
+        #region Fields
+
         [Header("UI References")]
         [SerializeField] private Image iconImage;
         [SerializeField] private Image durabilityFill;
+        [SerializeField] private Image backgroundImage;
+        [SerializeField] private Image crossIcon;       // Incompatible indicator
+        [SerializeField] private Image highlightImage;   // Valid target glow
 
         // Data
-        private ActiveMod activeMod;
-        private WeaponInstance weapon;
+        private ModInstance modInstance;
         private InventoryComponent inventory;
+        private ModManager modManager;
         private int slotIndex;
-        private bool isWeaponSlot;
+        private SlotType slotType;
 
         // Drag state
         private static ModSlotUI draggedSlot;
         private static GameObject dragIcon;
         private static Canvas rootCanvas;
 
-        public bool IsEmpty => activeMod == null;
-        public ActiveMod ActiveMod => activeMod;
-        public bool IsWeaponSlot => isWeaponSlot;
-        public int SlotIndex => slotIndex;
+        // Click-to-place state
+        private static ModSlotUI selectedSlot;
 
-        // -----------------------------------------------------------------------
-        // BINDING
-        // -----------------------------------------------------------------------
+        #endregion
 
-        /// <summary>
-        /// Bind as weapon mod slot.
-        /// </summary>
-        public void Bind(ActiveMod mod, WeaponInstance weaponInstance, InventoryComponent inv, int index)
+        #region Types
+
+        public enum SlotType
         {
-            activeMod = mod;
-            weapon = weaponInstance;
-            inventory = inv;
-            slotIndex = index;
-            isWeaponSlot = true;
+            Inventory,
+            ActiveMod,
+            PassiveMod
+        }
 
+        #endregion
+
+        #region Properties
+
+        public bool IsEmpty => modInstance == null;
+        public ModInstance ModInstance => modInstance;
+        public SlotType Type => slotType;
+        public int SlotIndex => slotIndex;
+        public bool IsModSlot => slotType == SlotType.ActiveMod || slotType == SlotType.PassiveMod;
+
+        #endregion
+
+        #region Binding
+
+        public void Bind(ModInstance mod, InventoryComponent inv, int index)
+        {
+            modInstance = mod;
+            inventory = inv;
+            modManager = null;
+            slotIndex = index;
+            slotType = SlotType.Inventory;
             UpdateDisplay();
         }
 
-        /// <summary>
-        /// Bind as inventory slot.
-        /// </summary>
-        public void Bind(ActiveMod mod, InventoryComponent inv, int index)
+        public void Bind(ModInstance mod, ModManager manager, InventoryComponent inv, int index, bool isActiveMod)
         {
-            activeMod = mod;
-            weapon = null;
+            modInstance = mod;
+            modManager = manager;
             inventory = inv;
             slotIndex = index;
-            isWeaponSlot = false;
-
+            slotType = isActiveMod ? SlotType.ActiveMod : SlotType.PassiveMod;
             UpdateDisplay();
         }
 
         private void UpdateDisplay()
         {
+            if (backgroundImage != null)
+            {
+                backgroundImage.enabled = true;
+                backgroundImage.raycastTarget = true;
+            }
+
+            if (crossIcon != null)
+            {
+                crossIcon.enabled = false;
+                crossIcon.raycastTarget = false;
+            }
+
+            if (highlightImage != null)
+            {
+                highlightImage.enabled = false;
+                highlightImage.raycastTarget = false;
+            }
+
             if (iconImage != null)
             {
-                if (activeMod != null && activeMod.data != null && activeMod.data.icon != null)
+                if (modInstance != null && modInstance.Data != null && modInstance.Data.icon != null)
                 {
-                    iconImage.sprite = activeMod.data.icon;
+                    iconImage.sprite = modInstance.Data.icon;
                     iconImage.enabled = true;
                     iconImage.color = Color.white;
                 }
@@ -81,19 +117,89 @@ namespace junklite
 
         private void Update()
         {
-            if (activeMod != null && durabilityFill != null)
-                durabilityFill.fillAmount = activeMod.DurabilityPercent;
+            if (modInstance != null && durabilityFill != null && modInstance.Data != null)
+            {
+                float max = modInstance.Data.maxDurability;
+                durabilityFill.fillAmount = max > 0f ? modInstance.CurrentDurability / max : 0f;
+            }
+
+            UpdateOverlays();
+        }
+
+        /// <summary>
+        /// Update cross icon and highlight based on drag or click-select state.
+        /// </summary>
+        private void UpdateOverlays()
+        {
+            // Determine which mod is being moved (drag or click-select)
+            ModSlotUI source = draggedSlot != null ? draggedSlot : selectedSlot;
+
+            // --- Cross icon (incompatible mod slot) ---
+            if (crossIcon != null)
+            {
+                bool showCross = false;
+                if (source != null && source != this && IsModSlot)
+                {
+                    ModInstance srcMod = source.modInstance;
+                    if (srcMod != null)
+                    {
+                        bool compatible = slotType == SlotType.ActiveMod
+                            ? srcMod.IsActive
+                            : srcMod.IsPassive;
+                        showCross = !compatible;
+                    }
+                }
+                crossIcon.enabled = showCross;
+            }
+
+            // --- Highlight (valid target for click-select) ---
+            if (highlightImage != null)
+            {
+                bool showHighlight = false;
+                if (selectedSlot != null && selectedSlot != this)
+                {
+                    showHighlight = IsValidTargetFor(selectedSlot);
+                }
+                highlightImage.enabled = showHighlight;
+            }
+        }
+
+        /// <summary>
+        /// Can the selected mod be placed into this slot?
+        /// </summary>
+        private bool IsValidTargetFor(ModSlotUI source)
+        {
+            if (source == null || source.modInstance == null) return false;
+
+            ModInstance srcMod = source.modInstance;
+
+            // Inventory slots accept any mod
+            if (!IsModSlot) return true;
+
+            // Mod slots require type match
+            if (slotType == SlotType.ActiveMod && !srcMod.IsActive) return false;
+            if (slotType == SlotType.PassiveMod && !srcMod.IsPassive) return false;
+
+            // If this slot has a mod, check it can go back to the source
+            if (modInstance != null && source.IsModSlot)
+            {
+                bool sourceIsActive = source.slotType == SlotType.ActiveMod;
+                if (sourceIsActive && !modInstance.IsActive) return false;
+                if (!sourceIsActive && !modInstance.IsPassive) return false;
+            }
+
+            return true;
         }
 
         private void UpdateDurabilityBar()
         {
-            if (durabilityFill == null)
-                return;
+            if (durabilityFill == null) return;
 
-            if (activeMod != null)
+            if (modInstance != null)
             {
                 durabilityFill.gameObject.SetActive(true);
-                durabilityFill.fillAmount = activeMod.DurabilityPercent;
+                float max = modInstance.Data.maxDurability;
+                durabilityFill.fillAmount = max > 0f ? modInstance.CurrentDurability / max : 0f;
             }
             else
             {
@@ -101,12 +207,75 @@ namespace junklite
             }
         }
 
-        // -----------------------------------------------------------------------
-        // DRAG
-        // -----------------------------------------------------------------------
+        #endregion
+
+        #region Click-to-Place
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            // Don't process clicks during drag
+            if (draggedSlot != null) return;
+
+            // No selection yet — select this slot if it has a mod
+            if (selectedSlot == null)
+            {
+                if (!IsEmpty)
+                {
+                    selectedSlot = this;
+                    if (iconImage != null)
+                        iconImage.color = new Color(1, 1, 1, 0.5f);
+                }
+                return;
+            }
+
+            // Clicking the already-selected slot — deselect
+            if (selectedSlot == this)
+            {
+                ClearSelection();
+                return;
+            }
+
+            // Clicking a valid target — perform the move
+            if (IsValidTargetFor(selectedSlot))
+            {
+                ModSlotUI source = selectedSlot;
+                ClearSelection();
+
+                ModInstance srcMod = source.modInstance;
+                ModInstance dstMod = this.modInstance;
+
+                RemoveFromSlot(source);
+                RemoveFromSlot(this);
+
+                PlaceInSlot(this, srcMod);
+                PlaceInSlot(source, dstMod);
+            }
+            else
+            {
+                // Clicked an invalid target — cancel selection
+                ClearSelection();
+            }
+        }
+
+        private static void ClearSelection()
+        {
+            if (selectedSlot != null)
+            {
+                if (selectedSlot.iconImage != null)
+                    selectedSlot.iconImage.color = Color.white;
+                selectedSlot = null;
+            }
+        }
+
+        #endregion
+
+        #region Drag
 
         public void OnBeginDrag(PointerEventData eventData)
         {
+            // Cancel any click-selection when starting a drag
+            ClearSelection();
+
             if (IsEmpty)
             {
                 eventData.pointerDrag = null;
@@ -118,21 +287,18 @@ namespace junklite
             if (rootCanvas == null)
                 rootCanvas = GetComponentInParent<Canvas>()?.rootCanvas;
 
-            if (rootCanvas == null)
-                return;
+            if (rootCanvas == null) return;
 
-            // Create drag icon
             dragIcon = new GameObject("DragIcon");
             dragIcon.transform.SetParent(rootCanvas.transform, false);
 
             var img = dragIcon.AddComponent<Image>();
-            img.sprite = activeMod.data.icon;
+            img.sprite = modInstance.Data.icon;
             img.raycastTarget = false;
 
             var rt = dragIcon.GetComponent<RectTransform>();
             rt.sizeDelta = new Vector2(64, 64);
 
-            // Dim original
             if (iconImage != null)
                 iconImage.color = new Color(1, 1, 1, 0.3f);
 
@@ -151,8 +317,7 @@ namespace junklite
 
         private void UpdateDragPosition(PointerEventData eventData)
         {
-            if (dragIcon == null || rootCanvas == null)
-                return;
+            if (dragIcon == null || rootCanvas == null) return;
 
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 rootCanvas.GetComponent<RectTransform>(),
@@ -165,11 +330,9 @@ namespace junklite
 
         private void CleanupDrag()
         {
-            // Restore icon color
             if (iconImage != null)
                 iconImage.color = Color.white;
 
-            // Destroy drag icon
             if (dragIcon != null)
             {
                 Destroy(dragIcon);
@@ -179,114 +342,93 @@ namespace junklite
             draggedSlot = null;
         }
 
-        // -----------------------------------------------------------------------
-        // DROP
-        // -----------------------------------------------------------------------
+        #endregion
+
+        #region Drop
 
         public void OnDrop(PointerEventData eventData)
         {
             if (draggedSlot == null || draggedSlot == this || draggedSlot.IsEmpty)
                 return;
 
-            if (inventory == null)
-                return;
-
-            // Cache the source before any operations
             ModSlotUI source = draggedSlot;
 
-            // Perform the drop
-            PerformDrop(source);
+            // Validate mod type if dropping INTO a mod slot
+            if (this.IsModSlot)
+            {
+                bool targetIsActive = this.slotType == SlotType.ActiveMod;
+                if (targetIsActive && !source.modInstance.IsActive) return;
+                if (!targetIsActive && !source.modInstance.IsPassive) return;
+            }
 
-            // Cleanup drag - check if source still exists
-            if (source != null)
-                source.CleanupDrag();
+            // Validate mod type if swapping back (occupied target going into source mod slot)
+            if (source.IsModSlot && this.modInstance != null)
+            {
+                bool sourceIsActive = source.slotType == SlotType.ActiveMod;
+                if (sourceIsActive && !this.modInstance.IsActive) return;
+                if (!sourceIsActive && !this.modInstance.IsPassive) return;
+            }
+
+            source.CleanupDrag();
+
+            ModInstance srcMod = source.modInstance;
+            ModInstance dstMod = this.modInstance;
+
+            RemoveFromSlot(source);
+            RemoveFromSlot(this);
+
+            PlaceInSlot(this, srcMod);
+            PlaceInSlot(source, dstMod);
         }
 
-        private void PerformDrop(ModSlotUI source)
+        /// <summary>Remove whatever mod is in this slot from its backing store.</summary>
+        private void RemoveFromSlot(ModSlotUI slot)
         {
-            // Inventory -> Weapon
-            if (!source.IsWeaponSlot && this.IsWeaponSlot)
+            if (slot.modInstance == null) return;
+
+            if (slot.slotType == SlotType.Inventory)
             {
-                InventoryToWeapon(source);
+                slot.inventory?.RemoveMod(slot.modInstance);
             }
-            // Weapon -> Inventory
-            else if (source.IsWeaponSlot && !this.IsWeaponSlot)
+            else
             {
-                WeaponToInventory(source);
-            }
-            // Inventory -> Inventory
-            else if (!source.IsWeaponSlot && !this.IsWeaponSlot)
-            {
-                SwapInventorySlots(source);
+                bool isActive = slot.slotType == SlotType.ActiveMod;
+                slot.modManager?.UnequipMod(isActive, slot.slotIndex);
             }
         }
 
-        private void InventoryToWeapon(ModSlotUI source)
+        /// <summary>Place a mod into this slot's backing store.</summary>
+        private void PlaceInSlot(ModSlotUI slot, ModInstance mod)
         {
-            if (source.ActiveMod == null || weapon == null)
-                return;
+            if (mod == null) return;
 
-            ActiveMod sourceMod = source.ActiveMod;
-            ActiveMod existingWeaponMod = this.activeMod;
-
-            // 1. Remove source mod from inventory
-            inventory.RemoveModAt(source.SlotIndex);
-
-            // 2. If weapon slot has a mod, move it to inventory at source position
-            if (existingWeaponMod != null)
+            if (slot.slotType == SlotType.Inventory)
             {
-                weapon.RemoveMod(existingWeaponMod);
-                inventory.InsertModAt(source.SlotIndex, existingWeaponMod);
+                slot.inventory?.InsertMod(mod, slot.slotIndex);
             }
-
-            // 3. Add source mod to weapon
-            weapon.TryAddActiveMod(sourceMod);
-        }
-
-        private void WeaponToInventory(ModSlotUI source)
-        {
-            if (source.ActiveMod == null || source.weapon == null)
-                return;
-
-            ActiveMod sourceMod = source.ActiveMod;
-            ActiveMod existingInventoryMod = this.activeMod;
-
-            // 1. Remove source mod from weapon
-            source.weapon.RemoveMod(sourceMod);
-
-            // 2. If inventory slot has a mod, move it to weapon
-            if (existingInventoryMod != null)
+            else
             {
-                inventory.RemoveModAt(this.SlotIndex);
-                source.weapon.TryAddActiveMod(existingInventoryMod);
+                bool isActive = slot.slotType == SlotType.ActiveMod;
+                slot.modManager?.EquipModAt(mod, isActive, slot.slotIndex);
             }
-
-            // 3. Add source mod to inventory at target position
-            inventory.InsertModAt(this.SlotIndex, sourceMod);
         }
 
-        private void SwapInventorySlots(ModSlotUI source)
-        {
-            if (source.SlotIndex < 0 || this.SlotIndex < 0)
-                return;
+        #endregion
 
-            inventory.SwapMods(source.SlotIndex, this.SlotIndex);
-        }
-
-        // -----------------------------------------------------------------------
-        // CLEANUP
-        // -----------------------------------------------------------------------
+        #region Cleanup
 
         private void OnDisable()
         {
-            if (draggedSlot == this)
-                CleanupDrag();
+            if (draggedSlot == this) CleanupDrag();
+            if (selectedSlot == this) ClearSelection();
         }
 
         private void OnDestroy()
         {
-            if (draggedSlot == this)
-                CleanupDrag();
+            if (draggedSlot == this) CleanupDrag();
+            if (selectedSlot == this) ClearSelection();
         }
+
+        #endregion
     }
 }

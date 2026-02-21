@@ -1,0 +1,254 @@
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+
+namespace junklite
+{
+    public class InventoryWeaponSlotUI : MonoBehaviour,
+        IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler,
+        IPointerClickHandler
+    {
+        #region Fields
+
+        [Header("UI References")]
+        [SerializeField] private Image iconImage;
+        [SerializeField] private Image durabilityFill;
+        [SerializeField] private Image highlightImage; // Valid target glow
+
+        private WeaponManager weaponManager;
+        private int slotIndex; // 1 or 2
+
+        // Drag state
+        private static InventoryWeaponSlotUI draggedSlot;
+        private static GameObject dragIcon;
+        private static Canvas rootCanvas;
+
+        // Click-to-swap state
+        private static InventoryWeaponSlotUI selectedSlot;
+
+        #endregion
+
+        #region Properties
+
+        public bool IsEmpty => GetWeapon() == null;
+        public int SlotIndex => slotIndex;
+
+        #endregion
+
+        #region Bind
+
+        public void Bind(WeaponManager manager, int slot)
+        {
+            weaponManager = manager;
+            slotIndex = slot;
+            Refresh();
+        }
+
+        public void Refresh()
+        {
+            var weapon = GetWeapon();
+            bool hasWeapon = weapon != null && weapon.weaponData != null;
+
+            if (iconImage != null)
+            {
+                iconImage.enabled = hasWeapon && weapon.weaponData.icon != null;
+                if (iconImage.enabled)
+                    iconImage.sprite = weapon.weaponData.icon;
+            }
+
+            if (durabilityFill != null)
+            {
+                durabilityFill.enabled = hasWeapon;
+                if (hasWeapon && weapon.MaxDurability > 0f)
+                    durabilityFill.fillAmount = weapon.CurrentDurability / weapon.MaxDurability;
+            }
+
+            if (highlightImage != null)
+            {
+                highlightImage.enabled = false;
+                highlightImage.raycastTarget = false;
+            }
+        }
+
+        private WeaponInstance GetWeapon()
+        {
+            if (weaponManager == null) return null;
+            return slotIndex == 1 ? weaponManager.WeaponSlot1 : weaponManager.WeaponSlot2;
+        }
+
+        #endregion
+
+        #region Update
+
+        private void Update()
+        {
+            // Highlight the other weapon slot when one is selected
+            if (highlightImage != null)
+            {
+                bool showHighlight = selectedSlot != null
+                    && selectedSlot != this
+                    && selectedSlot.weaponManager == weaponManager;
+                highlightImage.enabled = showHighlight;
+            }
+        }
+
+        #endregion
+
+        #region Click-to-Swap
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            // Don't process clicks during drag
+            if (draggedSlot != null) return;
+
+            // No selection yet — select this slot if it has a weapon
+            if (selectedSlot == null)
+            {
+                if (!IsEmpty)
+                {
+                    selectedSlot = this;
+                    if (iconImage != null)
+                        iconImage.color = new Color(1, 1, 1, 0.5f);
+                }
+                return;
+            }
+
+            // Clicking the already-selected slot — deselect
+            if (selectedSlot == this)
+            {
+                ClearSelection();
+                return;
+            }
+
+            // Clicking the other weapon slot — perform swap
+            if (selectedSlot.weaponManager == weaponManager)
+            {
+                ClearSelection();
+                weaponManager.SwapWeaponSlots();
+            }
+            else
+            {
+                ClearSelection();
+            }
+        }
+
+        private static void ClearSelection()
+        {
+            if (selectedSlot != null)
+            {
+                if (selectedSlot.iconImage != null)
+                    selectedSlot.iconImage.color = Color.white;
+                selectedSlot = null;
+            }
+        }
+
+        #endregion
+
+        #region Drag
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            // Cancel any click-selection when starting a drag
+            ClearSelection();
+
+            if (IsEmpty)
+            {
+                eventData.pointerDrag = null;
+                return;
+            }
+
+            draggedSlot = this;
+
+            if (rootCanvas == null)
+                rootCanvas = GetComponentInParent<Canvas>()?.rootCanvas;
+
+            if (rootCanvas == null) return;
+
+            var weapon = GetWeapon();
+
+            dragIcon = new GameObject("DragWeaponIcon");
+            dragIcon.transform.SetParent(rootCanvas.transform, false);
+
+            var img = dragIcon.AddComponent<Image>();
+            img.sprite = weapon.weaponData.icon;
+            img.raycastTarget = false;
+
+            var rt = dragIcon.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(64, 64);
+
+            if (iconImage != null)
+                iconImage.color = new Color(1, 1, 1, 0.3f);
+
+            UpdateDragPosition(eventData);
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            UpdateDragPosition(eventData);
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            CleanupDrag();
+        }
+
+        private void UpdateDragPosition(PointerEventData eventData)
+        {
+            if (dragIcon == null || rootCanvas == null) return;
+
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                rootCanvas.GetComponent<RectTransform>(),
+                eventData.position,
+                rootCanvas.worldCamera,
+                out Vector2 pos);
+
+            dragIcon.GetComponent<RectTransform>().anchoredPosition = pos;
+        }
+
+        private void CleanupDrag()
+        {
+            if (iconImage != null)
+                iconImage.color = Color.white;
+
+            if (dragIcon != null)
+            {
+                Destroy(dragIcon);
+                dragIcon = null;
+            }
+
+            draggedSlot = null;
+        }
+
+        #endregion
+
+        #region Drop
+
+        public void OnDrop(PointerEventData eventData)
+        {
+            if (draggedSlot == null || draggedSlot == this) return;
+            if (weaponManager == null || draggedSlot.weaponManager != weaponManager) return;
+
+            draggedSlot.CleanupDrag();
+
+            weaponManager.SwapWeaponSlots();
+        }
+
+        #endregion
+
+        #region Cleanup
+
+        private void OnDisable()
+        {
+            if (draggedSlot == this) CleanupDrag();
+            if (selectedSlot == this) ClearSelection();
+        }
+
+        private void OnDestroy()
+        {
+            if (draggedSlot == this) CleanupDrag();
+            if (selectedSlot == this) ClearSelection();
+        }
+
+        #endregion
+    }
+}
