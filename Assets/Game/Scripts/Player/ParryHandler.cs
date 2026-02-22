@@ -214,16 +214,14 @@ namespace junklite
                         enemy.OnParryStunned(hold);
                 }
 
-                // apply physical push if it has a rigidbody
-                var rb = c.GetComponent<Rigidbody>() ?? c.GetComponentInParent<Rigidbody>();
-                if (rb != null)
+                // apply parry push through the enemy's axis-aware movement system
                 {
-                    Vector3 dir = (c.transform.position - transform.position);
-                    dir.Normalize();
-                    dir.z = 0f; // flatten to 2.5D plane
-
-                    // start a coroutine that applies acceleration over time (results in smoother push)
-                    StartCoroutine(ApplyPushOverTime(rb, dir, pushForce, 1f, pushDuration));
+                    var enemyChar = c.GetComponent<EnemyCharacter>() ?? c.GetComponentInParent<EnemyCharacter>();
+                    if (enemyChar != null)
+                    {
+                        Vector3 dir = (c.transform.position - transform.position).normalized;
+                        enemyChar.ApplyParryPush(dir, pushForce, 1f, pushDuration);
+                    }
                 }
             }
 
@@ -241,28 +239,6 @@ namespace junklite
         if (state != null)
             state.SetStunned(false);
     }
-
-        // Applies a directional push to a rigidbody over several fixed updates.
-        // totalHorizontalImpulse: desired change in horizontal velocity (units per second)
-        // totalUpwardImpulse: desired total upward velocity change (small, e.g. 1f)
-        private IEnumerator ApplyPushOverTime(Rigidbody rb, Vector3 dir, float totalHorizontalImpulse, float totalUpwardImpulse, float duration)
-        {
-            if (rb == null || duration <= 0f) yield break;
-
-            float elapsed = 0f;
-            // acceleration needed to achieve total deltaV over time: a = deltaV / duration
-            Vector3 horizAccel = new Vector3(dir.x, 0f, dir.z) * (totalHorizontalImpulse / Mathf.Max(0.0001f, duration));
-            Vector3 upAccel = Vector3.up * (totalUpwardImpulse / Mathf.Max(0.0001f, duration));
-
-            // run during physics steps
-            while (elapsed < duration)
-            {
-                rb.AddForce(horizAccel, ForceMode.Acceleration);
-                rb.AddForce(upAccel, ForceMode.Acceleration);
-                yield return new WaitForFixedUpdate();
-                elapsed += Time.fixedDeltaTime;
-            }
-        }
 
     private void OnDrawGizmosSelected()
     {

@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections;
 using UnityEngine;
 using Unity.Cinemachine;
 
@@ -505,6 +506,35 @@ namespace junklite
 
             OnKnockbackStart?.Invoke();
             return true;
+        }
+
+        /// <summary>
+        /// Apply a gradual push force over several physics steps (e.g. from a parry).
+        /// The worldDirection is projected onto this enemy's movement plane automatically.
+        /// </summary>
+        public void ApplyPushOverTime(Vector3 worldDirection, float horizontalImpulse, float upwardImpulse, float duration)
+        {
+            if (ignoreKnockback) return;
+            StartCoroutine(CoPushOverTime(worldDirection, horizontalImpulse, upwardImpulse, duration));
+        }
+
+        private IEnumerator CoPushOverTime(Vector3 worldDir, float totalHorizontalImpulse, float totalUpwardImpulse, float duration)
+        {
+            if (rb == null || duration <= 0f) yield break;
+
+            float hDot = Vector3.Dot(worldDir, horizontalAxis);
+            float hSign = hDot >= 0f ? 1f : -1f;
+            Vector3 horizAccel = horizontalAxis * hSign * (totalHorizontalImpulse / Mathf.Max(0.0001f, duration));
+            Vector3 upAccel = Vector3.up * (totalUpwardImpulse / Mathf.Max(0.0001f, duration));
+
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                rb.AddForce(horizAccel, ForceMode.Acceleration);
+                rb.AddForce(upAccel, ForceMode.Acceleration);
+                yield return new WaitForFixedUpdate();
+                elapsed += Time.fixedDeltaTime;
+            }
         }
 
         /// <summary>

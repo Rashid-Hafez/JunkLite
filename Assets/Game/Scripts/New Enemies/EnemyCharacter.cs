@@ -240,6 +240,17 @@ namespace junklite
                 ApplyStun(duration);
         }
 
+        /// <summary>
+        /// Apply a gradual push from a parry deflection. The raw world-space direction
+        /// is projected onto the enemy's movement plane by EnemyMovement.
+        /// </summary>
+        public virtual void ApplyParryPush(Vector3 direction, float force, float upwardForce, float duration)
+        {
+            if (!canBeKnockedBack) return;
+            if (movement != null)
+                movement.ApplyPushOverTime(direction, force, upwardForce, duration);
+        }
+
         #endregion
 
         #region Combat State
@@ -377,15 +388,18 @@ namespace junklite
             Vector3 knockbackDir = Vector3.right;
             if (info.Source != null)
             {
-                knockbackDir = (transform.position - info.Source.transform.position).normalized;
-                knockbackDir.z = 0f;
+                knockbackDir = (transform.position - info.Source.transform.position);
+                knockbackDir.y = 0f;
+                if (knockbackDir.sqrMagnitude > 0.001f)
+                    knockbackDir.Normalize();
+                else
+                    knockbackDir = Vector3.right;
             }
 
-            Vector3 knockback = new Vector3(
-                knockbackDir.x * info.KnockbackForce.x,
-                info.KnockbackForce.y,
-                0f
-            );
+            // Build full world-space knockback; EnemyMovement.ApplyKnockback
+            // projects it onto the correct movement plane automatically.
+            Vector3 knockback = knockbackDir * info.KnockbackForce.x
+                              + Vector3.up * info.KnockbackForce.y;
 
             if (movement != null)
                 movement.ApplyKnockback(knockback);
