@@ -58729,11 +58729,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: field of view
-      value: 32.095764
+      value: 30.00234
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_FocalLength
-      value: 40
+      value: 42.93747
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: near clip plane
@@ -58753,15 +58753,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 2.3154945
+      value: -6.4
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -3.3999996
+      value: 2.72
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -28.599998
+      value: -28.6
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalRotation.w
@@ -60193,7 +60193,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7949215279750415704, guid: 3c0500853fe0a9446b8da2fff4f5886a, type: 3}
       propertyPath: parrySlowMoScale
-      value: 0.72
+      value: 0.26
       objectReference: {fileID: 0}
     - target: {fileID: 7949215279750415704, guid: 3c0500853fe0a9446b8da2fff4f5886a, type: 3}
       propertyPath: parryZoomInTarget

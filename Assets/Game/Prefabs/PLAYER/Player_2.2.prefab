@@ -5056,8 +5056,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.6756545, w: 0.73721844}
-  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: -0.0156}
+  m_LocalRotation: {x: 0, y: 0, z: -0.69016, w: 0.7236569}
+  m_LocalPosition: {x: -0.45645273, y: 1.1488686, z: -0.0156}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -15181,6 +15181,7 @@ GameObject:
   - component: {fileID: 6662307106127401667}
   - component: {fileID: 6282132647400396865}
   - component: {fileID: -8791361905287476187}
+  - component: {fileID: 1478857151611631190}
   m_Layer: 16
   m_Name: Player_2.2
   m_TagString: Player
@@ -15429,6 +15430,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 742461cb8ea1b944d926782607ca985a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.InventoryComponent
+  slotCount: 12
 --- !u!54 &458443418991649798
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -15775,6 +15777,31 @@ MonoBehaviour:
   maxPassiveSlots: 2
   unlockedActiveSlots: 1
   unlockedPassiveSlots: 2
+--- !u!114 &1478857151611631190
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7038683931279381878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b42dd13ff74a647ebaf8d467b8357db0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.ParryHandler
+  parryDuration: 0.25
+  parryCooldown: 0.2
+  parryLockDuration: 0.3
+  parryRadius: 4
+  enemyLayer:
+    serializedVersion: 2
+    m_Bits: 16384
+  parryVFXPrefab: {fileID: 0}
+  pushForce: 82.04
+  pushDuration: 0.3
+  stunDuration: 0.3
+  parryStunDuration: 3
+  hitstopDuration: 0.1
 --- !u!1 &7274307847916610454
 GameObject:
   m_ObjectHideFlags: 0
