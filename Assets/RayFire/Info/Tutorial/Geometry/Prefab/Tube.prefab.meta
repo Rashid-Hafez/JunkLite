@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 76cfab6e0aa19244db498932a1167e3b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.05
+  assetPath: Assets/RayFire/Info/Tutorial/Geometry/Prefab/Tube.prefab
+  uploadId: 864132

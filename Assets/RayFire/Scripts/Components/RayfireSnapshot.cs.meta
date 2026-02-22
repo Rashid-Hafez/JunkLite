@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: da802a451f9ebf2489f264fa3b6e969c
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.05
+  assetPath: Assets/RayFire/Scripts/Components/RayfireSnapshot.cs
+  uploadId: 864132

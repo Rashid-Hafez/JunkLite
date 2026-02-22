@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 8f5e79b13bbb1d74e8a4fe76b5c902d6
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.05
+  assetPath: Assets/RayFire/Scripts/Components/RayfireDust.cs
+  uploadId: 864132

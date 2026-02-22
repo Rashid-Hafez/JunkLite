@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: af787bb9ba4750348b7d052bf4c0d36f
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.05
+  assetPath: Assets/RayFire/Scripts/Components/RFParticleMan.cs
+  uploadId: 864132

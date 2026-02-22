@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1cf607bacfe73384e9e2c92dd489e891
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 13400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.05
+  assetPath: Assets/RayFire/Info/Tutorial/Material/Rubber.physicMaterial
+  uploadId: 864132

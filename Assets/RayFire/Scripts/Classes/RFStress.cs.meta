@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 6eca06068ff9af04db249f973f9081df
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.05
+  assetPath: Assets/RayFire/Scripts/Classes/RFStress.cs
+  uploadId: 864132

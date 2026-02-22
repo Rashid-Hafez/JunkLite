@@ -45,6 +45,7 @@
   <Project Path="UnityEditor.TestRunner.csproj" />
   <Project Path="Unity.VisualScripting.Core.csproj" />
   <Project Path="Unity.RenderPipelines.Universal.Runtime.csproj" />
+  <Project Path="RayFireAssembly.csproj" />
   <Project Path="Unity.UnifiedRayTracing.Runtime.csproj" />
   <Project Path="Unity.VisualScripting.State.Editor.csproj" />
   <Project Path="Coffee.UIParticle.csproj" />
@@ -62,6 +63,7 @@
   <Project Path="PsdPlugin.csproj" />
   <Project Path="Unity.2D.IK.Editor.csproj" />
   <Project Path="Unity.InternalAPIEngineBridge.001.csproj" />
+  <Project Path="RayFireEditorAssembly.csproj" />
   <Project Path="Unity.Burst.Editor.csproj" />
   <Project Path="Unity.2D.Common.Path.Editor.csproj" />
   <Project Path="Unity.2D.Common.Editor.csproj" />
