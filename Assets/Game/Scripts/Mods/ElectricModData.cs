@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace junklite
 {
+    /*
     [CreateAssetMenu(menuName = "Junklite/Mods/Electric")]
     public class ElectricModData : ModData
     {
@@ -79,4 +80,5 @@ namespace junklite
             Debug.Log($"[ElectricMod] Unequipped");
         }
     }
+    */
 }

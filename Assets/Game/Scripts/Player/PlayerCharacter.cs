@@ -68,7 +68,7 @@ namespace junklite
         // Player State
         protected PlayerState playerState;
         public PlayerState PlayerState => playerState;
-       
+
         // attack coroutine
         Coroutine _attackCo;
 
@@ -80,6 +80,7 @@ namespace junklite
 
         // Attached Comps
         private WeaponManager _weaponManager;
+        private ModManager _modManager;
         private ParryHandler parryHandler;
 
         private FeedbackManager feedbackManager;
@@ -129,6 +130,7 @@ namespace junklite
                 damageImpulseSource = GetComponent<CinemachineImpulseSource>();
 
             _weaponManager = GetComponent<WeaponManager>();
+            _modManager = GetComponent<ModManager>();
 
             if (playerState != null)
             {
@@ -376,6 +378,15 @@ namespace junklite
                 inputManager.OnJumpReleased += OnJumpReleased;
                 inputManager.OnAttack += HandleAttackInput;
                 inputManager.OnDash += OnDashPressed;
+
+                
+                inputManager.OnCombatModeToggle += HandleCombatModeToggle;
+                inputManager.OnWeapon1Attack += HandleWeapon1Attack;
+                inputManager.OnWeapon2Attack += HandleWeapon2Attack;
+                inputManager.OnModActivate1 += HandleModActivate1;
+                inputManager.OnModActivate2 += HandleModActivate2;
+                inputManager.OnModActivate3 += HandleModActivate3;
+                inputManager.OnModActivate4 += HandleModActivate4;
             }
 
             if (Controller != null)
@@ -405,6 +416,15 @@ namespace junklite
                 inputManager.OnJumpReleased -= OnJumpReleased;
                 inputManager.OnAttack -= HandleAttackInput;
                 inputManager.OnDash -= OnDashPressed;
+
+                // TODO: Unwire when added to GameInputManager
+                inputManager.OnCombatModeToggle -= HandleCombatModeToggle;
+                inputManager.OnWeapon1Attack -= HandleWeapon1Attack;
+                inputManager.OnWeapon2Attack -= HandleWeapon2Attack;
+                inputManager.OnModActivate1 -= HandleModActivate1;
+                inputManager.OnModActivate2 -= HandleModActivate2;
+                inputManager.OnModActivate3 -= HandleModActivate3;
+                inputManager.OnModActivate4 -= HandleModActivate4;
             }
 
             if (Controller != null)
@@ -561,7 +581,7 @@ namespace junklite
             }
 
             if (dashTrail != null) dashTrail.emitting = true;
-            
+
             SkeletonGhostActivation(true);
         }
 
@@ -577,9 +597,38 @@ namespace junklite
             if (playerState == null || !playerState.CanAttack || _weaponManager == null)
                 return;
 
-            // Pass raw input - WeaponManager handles direction resolution
-            _weaponManager.Attack(inputManager.MoveDirection, playerState.IsGrounded);
+            // Regular mode: fists (slot 0). Mod combat uses weapon-specific inputs.
+            if (!_weaponManager.IsModCombat)
+                _weaponManager.Attack(0, inputManager.MoveDirection, playerState.IsGrounded);
         }
+
+        void HandleWeapon1Attack()
+        {
+            if (playerState == null || !playerState.CanAttack || _weaponManager == null)
+                return;
+
+            if (_weaponManager.IsModCombat)
+                _weaponManager.Attack(1, inputManager.MoveDirection, playerState.IsGrounded);
+        }
+
+        void HandleWeapon2Attack()
+        {
+            if (playerState == null || !playerState.CanAttack || _weaponManager == null)
+                return;
+
+            if (_weaponManager.IsModCombat)
+                _weaponManager.Attack(2, inputManager.MoveDirection, playerState.IsGrounded);
+        }
+
+        void HandleCombatModeToggle()
+        {
+            _weaponManager?.TryToggleCombatMode();
+        }
+
+        void HandleModActivate1() => _modManager?.TryActivateMod(0);
+        void HandleModActivate2() => _modManager?.TryActivateMod(1);
+        void HandleModActivate3() => _modManager?.TryActivateMod(2);
+        void HandleModActivate4() => _modManager?.TryActivateMod(3);
 
 
         public void RequestCameraFollow(bool follow)
@@ -775,7 +824,7 @@ namespace junklite
 
         #endregion
 
-#region Death Handling
+        #region Death Handling
 
         protected override void HandleDeath()
         {
@@ -794,42 +843,42 @@ namespace junklite
 
         void OnDrawGizmosSelected()
         {
-           // Gizmos.color = Color.red;
-           // Gizmos.DrawWireSphere(transform.position, attackRange);
+            // Gizmos.color = Color.red;
+            // Gizmos.DrawWireSphere(transform.position, attackRange);
         }
 
         #endregion
 
-    #region Animation
+        #region Animation
 
-    public void SkeletonGhostActivation(bool activate)
-    {
-        if (skeletonGhost == null)
+        public void SkeletonGhostActivation(bool activate)
         {
-            Debug.LogWarning("[PlayerCharacter] SkeletonGhost is null!", this);
-            return;
+            if (skeletonGhost == null)
+            {
+                Debug.LogWarning("[PlayerCharacter] SkeletonGhost is null!", this);
+                return;
+            }
+
+            // Ensure the GameObject is active
+            if (!skeletonGhost.gameObject.activeInHierarchy)
+            {
+                Debug.LogWarning("[PlayerCharacter] SkeletonGhost GameObject is inactive, activating it...", this);
+                skeletonGhost.gameObject.SetActive(true);
+            }
+
+            // Ensure the component is enabled
+            skeletonGhost.enabled = true;
+
+            // Ensure it's initialized (in case Start() hasn't run yet)
+            skeletonGhost.Initialize(false);
+
+            // Toggle ghosting
+            skeletonGhost.ghostingEnabled = activate;
+
+            //Debug.Log($"[PlayerCharacter] SkeletonGhost ghostingEnabled set to: {skeletonGhost.ghostingEnabled}, Component enabled: {skeletonGhost.enabled}, GameObject active: {skeletonGhost.gameObject.activeInHierarchy}", this);
         }
-        
-        // Ensure the GameObject is active
-        if (!skeletonGhost.gameObject.activeInHierarchy)
-        {
-            Debug.LogWarning("[PlayerCharacter] SkeletonGhost GameObject is inactive, activating it...", this);
-            skeletonGhost.gameObject.SetActive(true);
-        }
-        
-        // Ensure the component is enabled
-        skeletonGhost.enabled = true;
-        
-        // Ensure it's initialized (in case Start() hasn't run yet)
-        skeletonGhost.Initialize(false);
-        
-        // Toggle ghosting
-        skeletonGhost.ghostingEnabled = activate;
-        
-        //Debug.Log($"[PlayerCharacter] SkeletonGhost ghostingEnabled set to: {skeletonGhost.ghostingEnabled}, Component enabled: {skeletonGhost.enabled}, GameObject active: {skeletonGhost.gameObject.activeInHierarchy}", this);
+
+        #endregion
     }
 
-    #endregion
-    }
-    
 }

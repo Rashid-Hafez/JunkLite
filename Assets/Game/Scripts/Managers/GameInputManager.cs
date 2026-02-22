@@ -20,6 +20,15 @@ namespace junklite
         public event Action OnSpecialAttack = delegate { };
         public event Action OnParry = delegate { };
 
+        // Combat mode events (gated by IsGameplayInputEnabled)
+        public event Action OnCombatModeToggle = delegate { };
+        public event Action OnWeapon1Attack = delegate { };
+        public event Action OnWeapon2Attack = delegate { };
+        public event Action OnModActivate1 = delegate { };
+        public event Action OnModActivate2 = delegate { };
+        public event Action OnModActivate3 = delegate { };
+        public event Action OnModActivate4 = delegate { };
+
         // UI events (always active)
         public event Action OnInventoryToggle = delegate { };
 
@@ -148,6 +157,52 @@ namespace junklite
 
             // === INVENTORY TOGGLE (Always active - UI input) ===
             controls.Player.Inventory.performed += _ => OnInventoryToggle();
+
+            // === COMBAT MODE TOGGLE ===
+            controls.Player.CombatMode.performed += _ =>
+            {
+                if (!IsGameplayInputEnabled) return;
+                OnCombatModeToggle();
+            };
+
+            // === WEAPON 1 ATTACK ===
+            controls.Player.Weapon1Attack.performed += _ =>
+            {
+                if (!IsGameplayInputEnabled) return;
+                OnWeapon1Attack();
+            };
+
+            // === WEAPON 2 ATTACK ===
+            controls.Player.Weapon2Attack.performed += _ =>
+            {
+                if (!IsGameplayInputEnabled) return;
+                OnWeapon2Attack();
+            };
+
+            // === MOD ACTIVATIONS ===
+            controls.Player.ModActivate1.performed += _ =>
+            {
+                if (!IsGameplayInputEnabled) return;
+                OnModActivate1();
+            };
+
+            controls.Player.ModActivate2.performed += _ =>
+            {
+                if (!IsGameplayInputEnabled) return;
+                OnModActivate2();
+            };
+
+            controls.Player.ModActivate3.performed += _ =>
+            {
+                if (!IsGameplayInputEnabled) return;
+                OnModActivate3();
+            };
+
+            controls.Player.ModActivate4.performed += _ =>
+            {
+                if (!IsGameplayInputEnabled) return;
+                OnModActivate4();
+            };
         }
 
         void OnEnable()

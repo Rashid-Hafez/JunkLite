@@ -1,14 +1,20 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System;
-using System.Collections.Generic;
 using System.Collections;
-
+using System.Collections.Generic;
 
 namespace junklite
 {
     [RequireComponent(typeof(Collider))]
     public class WeaponManager : MonoBehaviour
     {
+        #region Fields
+
+        [Header("Fist Weapon")]
+        [SerializeField] private WeaponData fistWeaponData;
+
+        private CombatState fistCombat;
+
         [Header("Weapon Holder")]
         public Transform weaponHolder;
 
@@ -33,8 +39,9 @@ namespace junklite
 
         [Header("Attack Hit Window")]
         [SerializeField] private float delayBeforeAttack = 0.1f;
-        [SerializeField] [Tooltip("Time that the collision stays open to deliver the attack (make it as long as the animation)")] 
-        private float attackOpenWindow = 0.3f; 
+        [SerializeField]
+        [Tooltip("Time that the collision stays open to deliver the attack")]
+        private float attackOpenWindow = 0.3f;
         [SerializeField] private float BUFFER_DURATION = 0.3f;
 
         [Header("Recoil")]
@@ -50,8 +57,6 @@ namespace junklite
         [Header("Debug")]
         [SerializeField] private bool logAttacks = false;
 
-        private readonly Dictionary<GameObject, Queue<GameObject>> slashPools = new();
-
         // Internal refs
         private Rigidbody playerRb;
         private Transform playerTransform;
@@ -59,20 +64,22 @@ namespace junklite
         private PlayerCharacter playerCharacter;
         private Character2D5Controller controller;
 
-        public WeaponInstance CurrentWeapon { get; private set; }
-        private WorldWeaponPickup storedPickup;
+        // Weapon slots
+        private WeaponInstance weaponSlot1;
+        private WeaponInstance weaponSlot2;
+        private WorldWeaponPickup storedPickup1;
+        private WorldWeaponPickup storedPickup2;
 
-        public event Action OnWeaponChanged;
-        public event Action OnEnemyHit;
-        public event Action OnEnvironmentHit;
+        // Combat mode
+        private bool isModCombat;
 
-        public float Facing => Mathf.Sign(playerTransform.localScale.x);
-
-        // =====================================================================
-        // ATTACK STATE
-        // =====================================================================
-
+        // Attack state
         private bool isAttacking;
+        private int activeWeaponSlot;            // 0=fists, 1=slot1, 2=slot2
+        private WeaponInstance activeWeapon;      // null for fists
+        private CombatState activeCombatState;    // always set during attack
+        private WeaponData activeWeaponData;      // always set during attack
+        private int lastAttackedSlot = -1;
         private AttackDirection currentAttackDir;
         private WeaponData.ComboStep currentStep;
         private int currentComboIndex;
@@ -82,13 +89,35 @@ namespace junklite
 
         // Input buffer
         private bool hasBufferedInput;
+        private int bufferedWeaponSlot;
         private Vector2 bufferedInput;
         private bool bufferedGrounded;
         private float bufferTimer;
 
-        // Public state for external systems
+        // VFX pools
+        private readonly Dictionary<GameObject, Queue<GameObject>> slashPools = new();
+
+        #endregion
+
+        #region Properties
+
+        public bool IsModCombat => isModCombat;
         public bool IsAttacking => isAttacking;
         public AttackDirection CurrentAttackDirection => currentAttackDir;
+        public float Facing => Mathf.Sign(playerTransform.localScale.x);
+
+        public WeaponData FistWeaponData => fistWeaponData;
+        public WeaponInstance WeaponSlot1 => weaponSlot1;
+        public WeaponInstance WeaponSlot2 => weaponSlot2;
+        public WeaponInstance ActiveWeapon => activeWeapon;
+
+        public event Action OnWeaponChanged;
+        public event Action OnCombatModeChanged;
+        public event Action OnCombatModeRejected;
+        public event Action OnEnemyHit;
+        public event Action OnEnvironmentHit;
+
+        #endregion
 
         #region Unity
 
@@ -113,7 +142,7 @@ namespace junklite
                 playerState.OnAttackAnimationInterrupted += OnAttackInterrupted;
             }
 
-            UpdateMaxAirAttacks();
+            CreateFistCombatState();
         }
 
         private void OnDestroy()
@@ -124,156 +153,257 @@ namespace junklite
                 playerState.OnAttackAnimationInterrupted -= OnAttackInterrupted;
             }
 
-            if (CurrentWeapon != null)
-                CurrentWeapon.OnModsChanged -= OnWeaponModsChanged;
-
             ReleaseAttackInputLock();
         }
 
         private void Update()
         {
-            // Tick buffer timer
-            if (hasBufferedInput)
+            fistCombat?.Tick(Time.deltaTime);
+
+            if (!hasBufferedInput) return;
+
+            bufferTimer -= Time.deltaTime;
+            if (bufferTimer <= 0f)
             {
-                bufferTimer -= Time.deltaTime;
-                if (bufferTimer <= 0f)
-                {
-                    hasBufferedInput = false;
-                    Log("Buffer expired");
-                }
-                // Try to execute buffer if conditions are met
-                else if (!isAttacking && CurrentWeapon != null && CurrentWeapon.CanAttack)
-                {
-                    hasBufferedInput = false;
-                    Log("Executing buffered attack (cooldown cleared)");
-                    AttackDirection dir = ResolveAttackDirection(bufferedInput, bufferedGrounded);
-                    StartAttack(dir);
-                }
+                hasBufferedInput = false;
+                Log("Buffer expired");
+                return;
+            }
+
+            var combat = GetCombatStateForSlot(bufferedWeaponSlot);
+            if (!isAttacking && combat != null && combat.CanAttack)
+            {
+                hasBufferedInput = false;
+                Log("Executing buffered attack");
+                AttackDirection dir = ResolveAttackDirection(bufferedInput, bufferedGrounded);
+                StartAttack(bufferedWeaponSlot, dir);
             }
         }
 
         private void OnTriggerEnter(Collider other)
         {
             var weaponPickup = other.GetComponent<WorldWeaponPickup>();
-            if (weaponPickup != null && CurrentWeapon == null)
+            if (weaponPickup != null)
             {
-                PickupWeapon(weaponPickup);
+                TryPickupWeapon(weaponPickup);
                 return;
             }
 
+            // Route mod pickups to inventory for now � ModManager will handle this later
             var modPickup = other.GetComponent<WorldModPickup>();
-            if (modPickup != null)
-                PickupMod(modPickup);
+            if (modPickup != null && modPickup.gameObject.activeSelf)
+            {
+                // Disable immediately to prevent double-pickup from overlapping colliders
+                modPickup.gameObject.SetActive(false);
+
+                var modInstance = new ModInstance(modPickup.modData);
+
+                // Try auto-equip to ModManager first
+                var modManager = GetComponent<ModManager>();
+                if (modManager != null && modManager.TryEquipMod(modInstance))
+                {
+                    Destroy(modPickup.gameObject);
+                    return;
+                }
+
+                // No free mod slot - store in inventory
+                var inventory = GetComponent<InventoryComponent>();
+                if (inventory != null)
+                {
+                    inventory.AddMod(modInstance);
+                    Destroy(modPickup.gameObject);
+                    return;
+                }
+
+                // Neither worked - re-enable the pickup
+                modPickup.gameObject.SetActive(true);
+            }
         }
 
-        #endregion Unity
+        #endregion
+
+        #region Combat Mode
+
+        public bool TryToggleCombatMode()
+        {
+            if (isAttacking) return false;
+
+            if (isModCombat)
+            {
+                ExitModCombat();
+                return true;
+            }
+
+            if (weaponSlot1 == null && weaponSlot2 == null)
+            {
+                OnCombatModeRejected?.Invoke();
+                return false;
+            }
+
+            EnterModCombat();
+            return true;
+        }
+
+        private void EnterModCombat()
+        {
+            isModCombat = true;
+            fistCombat?.ResetCombo();
+            lastAttackedSlot = -1;
+            hasBufferedInput = false;
+
+            SetWeaponVisible(weaponSlot1, true);
+            SetWeaponVisible(weaponSlot2, true);
+
+            Log("Entered Mod Combat");
+            OnCombatModeChanged?.Invoke();
+        }
+
+        private void ExitModCombat()
+        {
+            isModCombat = false;
+            weaponSlot1?.ResetCombo();
+            weaponSlot2?.ResetCombo();
+            lastAttackedSlot = -1;
+            hasBufferedInput = false;
+
+            SetWeaponVisible(weaponSlot1, false);
+            SetWeaponVisible(weaponSlot2, false);
+
+            Log("Exited Mod Combat");
+            OnCombatModeChanged?.Invoke();
+        }
+
+        #endregion
 
         #region Public API
 
         /// <summary>
-        /// Main attack entry point. Takes raw input - handles direction resolution internally.
+        /// Backward-compatible attack for regular mode (fists).
+        /// PlayerCharacter can still call this until input is rewired in Step 5.
         /// </summary>
         public void Attack(Vector2 moveInput, bool isGrounded)
         {
-            if (CurrentWeapon == null)
-                return;
+            Attack(0, moveInput, isGrounded);
+        }
 
-            // If currently attacking, buffer the input
+        /// <summary>
+        /// Main attack entry point. weaponSlot: 0=fists, 1=slot1, 2=slot2.
+        /// </summary>
+        public void Attack(int weaponSlot, Vector2 moveInput, bool isGrounded)
+        {
+            var combat = GetCombatStateForSlot(weaponSlot);
+            if (combat == null) return;
+
+            // Weapons can break, fists can't
+            if (weaponSlot != 0)
+            {
+                var weapon = GetWeaponForSlot(weaponSlot);
+                if (weapon == null || weapon.IsBroken) return;
+            }
+
+            // Validate combat mode
+            if (!isModCombat && weaponSlot != 0) return;
+            if (isModCombat && weaponSlot == 0) return;
+
             if (isAttacking)
             {
-                BufferAttack(moveInput, isGrounded);
+                BufferAttack(weaponSlot, moveInput, isGrounded);
                 return;
             }
 
-            // Check weapon cooldown
-            if (!CurrentWeapon.CanAttack)
+            if (!combat.CanAttack)
             {
-                Log("Attack blocked - weapon on cooldown");
-                BufferAttack(moveInput, isGrounded);
+                BufferAttack(weaponSlot, moveInput, isGrounded);
                 return;
             }
 
-            // Resolve direction and execute
             AttackDirection dir = ResolveAttackDirection(moveInput, isGrounded);
-            StartAttack(dir);
+            StartAttack(weaponSlot, dir);
+        }
+
+        public WeaponInstance GetWeaponForSlot(int slot)
+        {
+            return slot switch
+            {
+                1 => weaponSlot1,
+                2 => weaponSlot2,
+                _ => null
+            };
         }
 
         /// <summary>
-        /// Called when attack animation completes (via PlayerState event).
+        /// Returns the CombatState for a slot. Fists (0) use fistCombat, weapons use their internal state.
         /// </summary>
-        public void OnAttackAnimationComplete()
+        private CombatState GetCombatStateForSlot(int slot)
         {
-            Log($"Attack complete - {currentAttackDir}, combo {currentComboIndex}");
-
-            // Notify weapon to advance combo and start cooldown + combo window
-            if (CurrentWeapon != null)
-                CurrentWeapon.OnAttackComplete(currentAttackDir, currentAttackGrounded);
-
-            isAttacking = false;
-
-            if (playerState != null)
+            return slot switch
             {
-                playerState.SetDownAttackRequested(false);
-                playerState.SetAttacking(false);
-            }
-
-            ClearAttackGravityOverride();
-            ReleaseAttackInputLock();
-
-            // Buffer will be executed by Update() when cooldown clears
+                0 => fistCombat,
+                1 => weaponSlot1?.Combat,
+                2 => weaponSlot2?.Combat,
+                _ => null
+            };
         }
 
         /// <summary>
-        /// Called when attack is interrupted (dash, stun, death, etc.)
+        /// Returns the WeaponData for a slot. Fists (0) use fistWeaponData, weapons use their own data.
         /// </summary>
-        public void OnAttackInterrupted()
+        private WeaponData GetWeaponDataForSlot(int slot)
         {
-            Log("Attack interrupted");
-
-            if (CurrentWeapon != null)
-                CurrentWeapon.OnAttackInterrupted();
-
-            isAttacking = false;
-            hasBufferedInput = false;
-
-            if (playerState != null)
+            return slot switch
             {
-                playerState.SetDownAttackRequested(false);
-                playerState.SetAttacking(false);
-            }
-
-            ClearAttackGravityOverride();
-            ReleaseAttackInputLock();
+                0 => fistWeaponData,
+                1 => weaponSlot1?.weaponData,
+                2 => weaponSlot2?.weaponData,
+                _ => null
+            };
         }
 
-        public void DropWeapon()
+        public WeaponInstance GetWeaponInSlot(int slot)
         {
-            if (CurrentWeapon == null || storedPickup == null)
-                return;
+            return slot switch
+            {
+                1 => weaponSlot1,
+                2 => weaponSlot2,
+                _ => null
+            };
+        }
 
-            CurrentWeapon.transform.SetParent(storedPickup.transform, false);
-            CurrentWeapon.gameObject.SetActive(false);
-            CurrentWeapon.OnModsChanged -= OnWeaponModsChanged;
-            CurrentWeapon = null;
+        public void DropWeapon(int slot)
+        {
+            var weapon = GetWeaponForSlot(slot);
+            var pickup = slot == 1 ? storedPickup1 : storedPickup2;
 
-            storedPickup.transform.position = transform.position + Vector3.right * Facing * 1.2f;
-            storedPickup.gameObject.SetActive(true);
-            storedPickup = null;
+            if (weapon == null || pickup == null) return;
+
+            weapon.transform.SetParent(pickup.transform, false);
+            weapon.gameObject.SetActive(false);
+
+            pickup.transform.position = playerTransform.position + Vector3.right * Facing * 1.2f;
+            pickup.gameObject.SetActive(true);
+
+            RemoveWeaponFromSlot(slot);
+        }
+
+        public void SwapWeaponSlots()
+        {
+            if (isAttacking) return;
+
+            var temp = weaponSlot1;
+            weaponSlot1 = weaponSlot2;
+            weaponSlot2 = temp;
+
+            var tempPickup = storedPickup1;
+            storedPickup1 = storedPickup2;
+            storedPickup2 = tempPickup;
+
+            // Reset combo on both since slot context changed
+            weaponSlot1?.Combat?.ResetCombo();
+            weaponSlot2?.Combat?.ResetCombo();
+            lastAttackedSlot = -1;
 
             OnWeaponChanged?.Invoke();
-        }
-
-        public void SetWeaponVisible(bool visible)
-        {
-            if (CurrentWeapon == null)
-                return;
-
-            var renderers = CurrentWeapon.GetComponentsInChildren<SpriteRenderer>(true);
-            foreach (var sr in renderers)
-            {
-                if (sr != null)
-                    sr.enabled = visible;
-            }
+            Log("Weapon slots swapped");
         }
 
         public Transform GetAttackTransform(AttackDirection dir)
@@ -286,51 +416,65 @@ namespace junklite
             };
         }
 
-        #endregion Public API
+        public void SetWeaponVisible(bool visible)
+        {
+            SetWeaponVisible(weaponSlot1, visible);
+            SetWeaponVisible(weaponSlot2, visible);
+        }
+
+        #endregion
 
         #region Direction Resolution
 
         private AttackDirection ResolveAttackDirection(Vector2 moveInput, bool isGrounded)
         {
-            // Up attack: pressing up
             if (moveInput.y > inputThreshold)
                 return AttackDirection.Up;
 
-            // Down attack: pressing down AND airborne
             if (moveInput.y < -inputThreshold && !isGrounded)
                 return AttackDirection.Down;
 
-            // Default: side attack
             return AttackDirection.Side;
         }
 
-        #endregion Direction Resolution
+        #endregion
 
         #region Attack Core
 
-        private void BufferAttack(Vector2 moveInput, bool isGrounded)
+        private void BufferAttack(int weaponSlot, Vector2 moveInput, bool isGrounded)
         {
             hasBufferedInput = true;
+            bufferedWeaponSlot = weaponSlot;
             bufferedInput = moveInput;
             bufferedGrounded = isGrounded;
             bufferTimer = BUFFER_DURATION;
-            Log($"Attack buffered");
+            Log("Attack buffered");
         }
 
-        private void StartAttack(AttackDirection dir)
+        private void StartAttack(int slot, AttackDirection dir)
         {
-            // Air attack: limit per air time (includes down attack to prevent spam)
+            var combat = GetCombatStateForSlot(slot);
+            var data = GetWeaponDataForSlot(slot);
+            if (combat == null || data == null) return;
+
+            // Air attack gating
             if (playerState != null && !playerState.IsGrounded && !playerState.CanAirAttack)
             {
-                Log($"Air attack blocked - already used air attack(s) this jump");
+                Log("Air attack blocked");
                 return;
             }
 
-            // Get combo step and animation from weapon
-            bool isGrounded = playerState == null || playerState.IsGrounded;
-            if (!CurrentWeapon.TryGetComboStep(dir, isGrounded, out var step, out int comboIndex, out string animName))
+            // Reset combo on previous weapon if switching
+            if (lastAttackedSlot >= 0 && lastAttackedSlot != slot)
             {
-                Log($"No combo step available for {dir}");
+                GetCombatStateForSlot(lastAttackedSlot)?.ResetCombo();
+                Log($"Weapon switch: reset combo on slot {lastAttackedSlot}");
+            }
+
+            bool isGrounded = playerState == null || playerState.IsGrounded;
+            if (!combat.TryGetComboStep(dir, isGrounded, out var step, out int comboIndex, out string animName))
+            {
+                Log($"No combo step for {dir}");
                 return;
             }
 
@@ -341,47 +485,41 @@ namespace junklite
                     playerState.MarkAirAttackUsed();
             }
 
-            // Set state
+            // Set attack state
             isAttacking = true;
+            activeWeaponSlot = slot;
+            activeWeapon = GetWeaponForSlot(slot);  // null for fists
+            activeCombatState = combat;
+            activeWeaponData = data;
+            lastAttackedSlot = slot;
             currentAttackDir = dir;
             currentStep = step;
             currentComboIndex = comboIndex;
             currentAttackAnchor = GetAttackTransform(dir);
             currentAttackGrounded = isGrounded;
 
-            Log($"Attack: {dir}, combo {comboIndex}, anim '{animName}'");
+            Log($"Attack: slot {slot}, {dir}, combo {comboIndex}, anim '{animName}'");
 
-            // Lock facing direction
             if (controller != null && facingLockDuration > 0f)
                 controller.LockFacing(facingLockDuration);
 
-            // Update player state
             if (playerState != null)
                 playerState.SetAttacking(true);
 
             ApplyAttackInputLock();
 
-            // Request animation via PlayerState (decoupled from SpineAnimationController)
             if (playerState != null && !string.IsNullOrEmpty(animName))
-            {
                 playerState.RequestAttackAnimation(animName);
-            }
             else
-            {
-                // No animation - complete immediately
-                Log("No animation - completing immediately");
                 OnAttackAnimationComplete();
-            }
 
-            // Execute attack (hit detection, damage, VFX)
             ExecuteAttack(dir, step);
         }
 
         private void ExecuteAttack(AttackDirection dir, WeaponData.ComboStep step)
         {
             Transform anchor = GetAttackTransform(dir);
-            if (anchor == null)
-                return;
+            if (anchor == null) return;
 
             StartCoroutine(CoAttackDelay(dir, step, anchor));
         }
@@ -421,7 +559,6 @@ namespace junklite
                     {
                         CombatEffectsManager.Instance.SpawnEnvHitParticle(impactPoint, attackDir);
                         CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
-
                         OnEnvironmentHit?.Invoke();
                     }
                     ApplyRecoil(dir);
@@ -431,10 +568,52 @@ namespace junklite
             }
         }
 
+        public void OnAttackAnimationComplete()
+        {
+            Log($"Attack complete - slot {activeWeaponSlot}, {currentAttackDir}, combo {currentComboIndex}");
+
+            activeCombatState?.OnAttackComplete(currentAttackDir, currentAttackGrounded);
+
+            isAttacking = false;
+            activeWeapon = null;
+            activeCombatState = null;
+            activeWeaponData = null;
+
+            if (playerState != null)
+            {
+                playerState.SetDownAttackRequested(false);
+                playerState.SetAttacking(false);
+            }
+
+            ClearAttackGravityOverride();
+            ReleaseAttackInputLock();
+        }
+
+        public void OnAttackInterrupted()
+        {
+            Log("Attack interrupted");
+
+            activeCombatState?.OnAttackInterrupted();
+
+            isAttacking = false;
+            activeWeapon = null;
+            activeCombatState = null;
+            activeWeaponData = null;
+            hasBufferedInput = false;
+
+            if (playerState != null)
+            {
+                playerState.SetDownAttackRequested(false);
+                playerState.SetAttacking(false);
+            }
+
+            ClearAttackGravityOverride();
+            ReleaseAttackInputLock();
+        }
+
         private void ApplyAttackPush(AttackDirection dir, WeaponData.ComboStep step)
         {
-            if (playerRb == null)
-                return;
+            if (playerRb == null) return;
 
             Vector3 impulse = Vector3.zero;
 
@@ -455,19 +634,17 @@ namespace junklite
 
         private void ApplyAttackGravityOverride(WeaponData.ComboStep step)
         {
-            if (controller == null)
-                return;
-
+            if (controller == null) return;
             if (playerState != null && !playerState.IsGrounded && step.airGravityMultiplier > 0f)
                 controller.SetGravityMultiplierOverride(step.airGravityMultiplier);
         }
 
         private void ClearAttackGravityOverride()
         {
-            if (controller != null)
-                controller.ClearGravityMultiplierOverride();
+            controller?.ClearGravityMultiplierOverride();
         }
-        #endregion Attack Core
+
+        #endregion
 
         #region Hit Detection
 
@@ -482,12 +659,7 @@ namespace junklite
         {
             var result = new HitDetectionResult { type = AttackHitResult.None };
 
-            Collider[] hits = Physics.OverlapSphere(
-                origin,
-                radius,
-                enemyLayer | environmentLayer,
-                QueryTriggerInteraction.Ignore
-            );
+            Collider[] hits = Physics.OverlapSphere(origin, radius, enemyLayer | environmentLayer, QueryTriggerInteraction.Ignore);
 
             Collider closestEnemy = null;
             float closestDist = float.MaxValue;
@@ -526,7 +698,7 @@ namespace junklite
             return result;
         }
 
-        #endregion Hit Detection
+        #endregion
 
         #region Damage
 
@@ -535,26 +707,28 @@ namespace junklite
             var damageable = target.GetComponent<IDamageable>()
                           ?? target.GetComponentInParent<IDamageable>();
 
-            if (damageable == null || !damageable.IsAlive)
-                return;
+            if (damageable == null || !damageable.IsAlive) return;
 
-            float damage = CurrentWeapon != null ? CurrentWeapon.baseDamage : 10f;
+            float damage = activeWeaponData != null ? activeWeaponData.baseDamage : 10f;
             if (step.damageMultiplier > 0f)
                 damage *= step.damageMultiplier;
 
-            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, CurrentWeapon.weaponData.knockbackForce);
+            var knockback = activeWeaponData != null
+                ? activeWeaponData.knockbackForce
+                : new Vector2(8f, 4f);
+
+            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
             bool damageDealt = damageable.TakeDamage(damageInfo);
 
             if (damageDealt)
             {
                 OnEnemyHit?.Invoke();
 
-                // Trigger weapon mods
-                if (CurrentWeapon != null)
+                // Consume weapon durability (fists don't break)
+                if (activeWeaponSlot != 0 && activeWeapon != null)
                 {
-                    var enemy = target.GetComponent<EnemyCharacter>()
-                             ?? target.GetComponentInParent<EnemyCharacter>();
-                    CurrentWeapon.TriggerModsOnHit(enemy, playerCharacter);
+                    if (activeWeapon.ConsumeDurability())
+                        HandleWeaponBroken(activeWeaponSlot);
                 }
 
                 // Enemy hit VFX
@@ -579,9 +753,10 @@ namespace junklite
                 FeedbackManager.Instance.DoHitFeedback(impulseSource, enemyHitHitstopDuration, enemyHitShakeForce);
         }
 
-        #endregion Damage
+        #endregion
 
         #region VFX
+
         private Vector3 ResolveImpactPoint(AttackDirection dir, Vector3 origin, float radius)
         {
             Vector3 rayDir = GetAttackDirection(dir);
@@ -620,89 +795,108 @@ namespace junklite
             };
         }
 
-        #endregion VFX
+        #endregion
 
         #region Pickups
 
-        private void PickupWeapon(WorldWeaponPickup pickup)
+        private void TryPickupWeapon(WorldWeaponPickup pickup)
         {
-            storedPickup = pickup;
+            int slot = GetFirstEmptyWeaponSlot();
+            if (slot < 0) return;
+
+            SetupWeaponInSlot(slot, pickup);
+        }
+
+        private int GetFirstEmptyWeaponSlot()
+        {
+            if (weaponSlot1 == null) return 1;
+            if (weaponSlot2 == null) return 2;
+            return -1;
+        }
+
+        private void SetupWeaponInSlot(int slot, WorldWeaponPickup pickup)
+        {
+            var weapon = pickup.weaponInstance;
             pickup.gameObject.SetActive(false);
 
-            CurrentWeapon = pickup.weaponInstance;
-            CurrentWeapon.gameObject.SetActive(true);
-            CurrentWeapon.transform.parent = weaponHolder;
-            CurrentWeapon.GetComponent<SpriteRenderer>().sortingOrder = 11;
-            CurrentWeapon.SetOwnerRigidbody(playerRb);
+            weapon.gameObject.SetActive(true);
+            weapon.transform.parent = weaponHolder;
+            weapon.GetComponent<SpriteRenderer>().sortingOrder = 11;
+            weapon.SetOwnerRigidbody(playerRb);
 
-            // Apply weapon offsets from WeaponData directly to the weapon's local transform
-            if (CurrentWeapon.weaponData != null)
+            if (weapon.weaponData != null)
             {
-                var socketOffset = CurrentWeapon.weaponData.socketOffset;
-                CurrentWeapon.transform.localPosition = socketOffset.localPositionOffset;
-                CurrentWeapon.transform.localRotation = Quaternion.Euler(0, 0, -30f) * Quaternion.Euler(socketOffset.localRotationOffsetEuler);
+                var socketOffset = weapon.weaponData.socketOffset;
+                weapon.transform.localPosition = socketOffset.localPositionOffset;
+                weapon.transform.localRotation = Quaternion.Euler(0, 0, -30f) * Quaternion.Euler(socketOffset.localRotationOffsetEuler);
                 Vector3 weaponScale = Vector3.one;
                 if (socketOffset.flipLocalScaleX) weaponScale.x = -1f;
                 if (socketOffset.flipLocalScaleY) weaponScale.y = -1f;
-                CurrentWeapon.transform.localScale = weaponScale;
+                weapon.transform.localScale = weaponScale;
             }
             else
             {
-                CurrentWeapon.transform.localPosition = Vector3.zero;
-                CurrentWeapon.transform.localRotation = Quaternion.Euler(0, 0, -30f);
-                CurrentWeapon.transform.localScale = Vector3.one;
+                weapon.transform.localPosition = Vector3.zero;
+                weapon.transform.localRotation = Quaternion.Euler(0, 0, -30f);
+                weapon.transform.localScale = Vector3.one;
             }
 
+            if (slot == 1) { weaponSlot1 = weapon; storedPickup1 = pickup; }
+            else { weaponSlot2 = weapon; storedPickup2 = pickup; }
 
-            var inventory = GetComponent<InventoryComponent>();
-            if (inventory != null)
-                inventory.EquipAllPossible();
-
-            CurrentWeapon.OnModsChanged += OnWeaponModsChanged;
-            UpdateMaxAirAttacks();
+            // Hide weapon unless in mod combat
+            SetWeaponVisible(weapon, isModCombat);
 
             OnWeaponChanged?.Invoke();
         }
 
-        private void OnWeaponModsChanged()
+        private void RemoveWeaponFromSlot(int slot)
         {
-            UpdateMaxAirAttacks();
+            if (slot == 1) { weaponSlot1 = null; storedPickup1 = null; }
+            else if (slot == 2) { weaponSlot2 = null; storedPickup2 = null; }
+
+            if (lastAttackedSlot == slot)
+                lastAttackedSlot = -1;
+
+            OnWeaponChanged?.Invoke();
         }
 
-        private void UpdateMaxAirAttacks()
+        private void HandleWeaponBroken(int slot)
         {
-            if (playerState == null)
-                return;
+            var weapon = GetWeaponForSlot(slot);
+            if (weapon != null)
+                weapon.gameObject.SetActive(false);
 
-            int bonus = CurrentWeapon != null ? CurrentWeapon.BonusAirAttacks : 0;
-            playerState.SetMaxAirAttacks(1 + bonus);
+            RemoveWeaponFromSlot(slot);
+            Log($"Weapon in slot {slot} broke");
+
+            // Force back to regular if both slots empty
+            if (isModCombat && weaponSlot1 == null && weaponSlot2 == null)
+                ExitModCombat();
         }
 
-        private void PickupMod(WorldModPickup pickup)
-        {
-            if (pickup.modData == null)
-                return;
-
-            if (CurrentWeapon != null && CurrentWeapon.HasFreeSlot)
-            {
-                if (CurrentWeapon.TryAddMod(pickup.modData))
-                {
-                    Destroy(pickup.gameObject);
-                    return;
-                }
-            }
-
-            var inventory = GetComponent<InventoryComponent>();
-            if (inventory != null)
-            {
-                inventory.PickupMod(pickup.modData);
-                Destroy(pickup.gameObject);
-            }
-        }
-
-        #endregion Pickups
+        #endregion
 
         #region Helpers
+
+        private void SetWeaponVisible(WeaponInstance weapon, bool visible)
+        {
+            if (weapon == null) return;
+            var renderers = weapon.GetComponentsInChildren<SpriteRenderer>(true);
+            foreach (var sr in renderers)
+                if (sr != null) sr.enabled = visible;
+        }
+
+        private void CreateFistCombatState()
+        {
+            if (fistWeaponData == null)
+            {
+                Debug.LogWarning("[WeaponManager] No fist WeaponData assigned!");
+                return;
+            }
+
+            fistCombat = new CombatState(fistWeaponData);
+        }
 
         private float GetFallbackRadius(AttackDirection dir)
         {
@@ -716,14 +910,28 @@ namespace junklite
 
         private void ApplyRecoil(AttackDirection dir)
         {
-            if (playerRb == null)
-                return;
+            if (playerRb == null || dir != AttackDirection.Side) return;
+            float recoilDir = -Facing;
+            playerRb.AddForce(Vector3.right * recoilDir * sideRecoil, ForceMode.Impulse);
+        }
 
-            if (dir == AttackDirection.Side)
+        private void ApplyAttackInputLock()
+        {
+            if (!lockMovementDuringAttack || playerState == null || attackInputLockApplied) return;
+
+            if (!playerState.IsInputLocked)
             {
-                float recoilDir = -Facing;
-                playerRb.AddForce(Vector3.right * recoilDir * sideRecoil, ForceMode.Impulse);
+                playerState.SetInputLocked(true);
+                controller?.StopAllVelocity();
+                attackInputLockApplied = true;
             }
+        }
+
+        private void ReleaseAttackInputLock()
+        {
+            if (!lockMovementDuringAttack || playerState == null || !attackInputLockApplied) return;
+            playerState.SetInputLocked(false);
+            attackInputLockApplied = false;
         }
 
         private void Log(string message)
@@ -732,37 +940,13 @@ namespace junklite
                 Debug.Log($"[WeaponManager] {message}", this);
         }
 
-        private void ApplyAttackInputLock()
-        {
-            if (!lockMovementDuringAttack || playerState == null || attackInputLockApplied)
-                return;
-
-            if (!playerState.IsInputLocked)
-            {
-                playerState.SetInputLocked(true);
-                if (controller != null)
-                    controller.StopAllVelocity();
-                attackInputLockApplied = true;
-            }
-        }
-
-        private void ReleaseAttackInputLock()
-        {
-            if (!lockMovementDuringAttack || playerState == null || !attackInputLockApplied)
-                return;
-
-            playerState.SetInputLocked(false);
-            attackInputLockApplied = false;
-        }
-
-        #endregion Helpers
+        #endregion
 
         #region Debug
 
         private void OnDrawGizmosSelected()
         {
-            if (sideAttack == null || upAttack == null || downAttack == null)
-                return;
+            if (sideAttack == null || upAttack == null || downAttack == null) return;
 
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(sideAttack.position, sideRadius);
@@ -774,7 +958,7 @@ namespace junklite
             Gizmos.DrawWireSphere(downAttack.position, downRadius);
         }
 
-        #endregion Debug
+        #endregion
     }
 
     public enum AttackDirection

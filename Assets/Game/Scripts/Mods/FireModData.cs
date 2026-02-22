@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace junklite
 {
+    /*
     [CreateAssetMenu(menuName = "Junklite/Mods/Fire")]
     public class FireModData : ModData
     {
@@ -37,5 +38,5 @@ namespace junklite
         {
             //Debug.Log($"[FireMod] Unequipped");
         }
-    }
+    }*/
 }

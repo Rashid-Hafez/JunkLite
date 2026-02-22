@@ -111,9 +111,72 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""initialStateCheck"": true
                 },
                 {
+                    ""name"": ""CombatMode"",
+                    ""type"": ""Button"",
+                    ""id"": ""eb480090-2738-47ce-b87e-cfe4a5f97717"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
                     ""name"": ""Attack"",
                     ""type"": ""Button"",
+                    ""id"": ""f7aec838-f980-4f59-a2b7-d45e5ee5980f"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Weapon1Attack"",
+                    ""type"": ""Button"",
                     ""id"": ""6c2ab1b8-8984-453a-af3d-a3c78ae1679a"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Weapon2Attack"",
+                    ""type"": ""Button"",
+                    ""id"": ""92c4f524-6c64-4066-86b6-8e64f35dd1ee"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""ModActivate1"",
+                    ""type"": ""Button"",
+                    ""id"": ""201819e5-2389-4f20-bbe2-7be96d7c68bd"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""ModActivate2"",
+                    ""type"": ""Button"",
+                    ""id"": ""2e7ddb06-f147-4490-a265-ab4930c6913c"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""ModActivate3"",
+                    ""type"": ""Button"",
+                    ""id"": ""a732ae9d-5c94-4404-a791-76f2ffc508d0"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""ModActivate4"",
+                    ""type"": ""Button"",
+                    ""id"": ""10394118-662c-433b-9adb-0ac19b486082"",
                     ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
@@ -123,7 +186,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""name"": ""Interact"",
                     ""type"": ""Button"",
                     ""id"": ""852140f2-7766-474d-8707-702459ba45f3"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": ""Hold"",
                     ""initialStateCheck"": false
@@ -387,18 +450,18 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                 },
                 {
                     ""name"": """",
-                    ""id"": ""143bb1cd-cc10-4eca-a2f0-a3664166fe91"",
-                    ""path"": ""<Gamepad>/buttonWest"",
+                    ""id"": ""05f6913d-c316-48b2-a6bb-e225f14c7960"",
+                    ""path"": ""<Mouse>/leftButton"",
                     ""interactions"": """",
                     ""processors"": """",
-                    ""groups"": "";Gamepad"",
-                    ""action"": ""Attack"",
+                    ""groups"": "";Keyboard&Mouse"",
+                    ""action"": ""Weapon1Attack"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
                 {
                     ""name"": """",
-                    ""id"": ""05f6913d-c316-48b2-a6bb-e225f14c7960"",
+                    ""id"": ""a1502303-96d7-45e2-a37a-5b239af79124"",
                     ""path"": ""<Mouse>/leftButton"",
                     ""interactions"": """",
                     ""processors"": """",
@@ -409,45 +472,56 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                 },
                 {
                     ""name"": """",
-                    ""id"": ""886e731e-7071-4ae4-95c0-e61739dad6fd"",
-                    ""path"": ""<Touchscreen>/primaryTouch/tap"",
+                    ""id"": ""ecdb826c-18ac-4d32-8ee6-c0a6f4759461"",
+                    ""path"": ""<Mouse>/rightButton"",
                     ""interactions"": """",
                     ""processors"": """",
-                    ""groups"": "";Touch"",
-                    ""action"": ""Attack"",
+                    ""groups"": "";Keyboard&Mouse"",
+                    ""action"": ""Weapon2Attack"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
                 {
                     ""name"": """",
-                    ""id"": ""ee3d0cd2-254e-47a7-a8cb-bc94d9658c54"",
-                    ""path"": ""<Joystick>/trigger"",
+                    ""id"": ""a1d531f0-1f52-4ab8-ab3c-9d1d9ef579a1"",
+                    ""path"": ""<Keyboard>/z"",
                     ""interactions"": """",
                     ""processors"": """",
-                    ""groups"": ""Joystick"",
-                    ""action"": ""Attack"",
+                    ""groups"": "";Keyboard&Mouse"",
+                    ""action"": ""ModActivate1"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
                 {
                     ""name"": """",
-                    ""id"": ""8255d333-5683-4943-a58a-ccb207ff1dce"",
-                    ""path"": ""<XRController>/{PrimaryAction}"",
+                    ""id"": ""ed9cdcef-11f1-4630-80af-f1f0165a6c56"",
+                    ""path"": ""<Keyboard>/x"",
                     ""interactions"": """",
                     ""processors"": """",
-                    ""groups"": ""XR"",
-                    ""action"": ""Attack"",
+                    ""groups"": "";Keyboard&Mouse"",
+                    ""action"": ""ModActivate2"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
                 {
                     ""name"": """",
-                    ""id"": ""b3c1c7f0-bd20-4ee7-a0f1-899b24bca6d7"",
-                    ""path"": ""<Keyboard>/enter"",
+                    ""id"": ""d3ebfc33-5c21-473e-9e70-cc2929af76df"",
+                    ""path"": ""<Keyboard>/c"",
                     ""interactions"": """",
                     ""processors"": """",
-                    ""groups"": ""Keyboard&Mouse"",
-                    ""action"": ""Attack"",
+                    ""groups"": "";Keyboard&Mouse"",
+                    ""action"": ""ModActivate3"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""b16951cb-9319-40b2-ae87-8ef438b5f48e"",
+                    ""path"": ""<Keyboard>/v"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": "";Keyboard&Mouse"",
+                    ""action"": ""ModActivate4"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
@@ -668,6 +742,17 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""groups"": "";Gamepad;Joystick;Touch"",
                     ""action"": ""Inventory"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""32001f6c-d3ea-4ef3-a2fc-5bc713b72186"",
+                    ""path"": ""<Keyboard>/q"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""CombatMode"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
@@ -1301,7 +1386,14 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_Player = asset.FindActionMap("Player", throwIfNotFound: true);
         m_Player_Move = m_Player.FindAction("Move", throwIfNotFound: true);
         m_Player_Look = m_Player.FindAction("Look", throwIfNotFound: true);
+        m_Player_CombatMode = m_Player.FindAction("CombatMode", throwIfNotFound: true);
         m_Player_Attack = m_Player.FindAction("Attack", throwIfNotFound: true);
+        m_Player_Weapon1Attack = m_Player.FindAction("Weapon1Attack", throwIfNotFound: true);
+        m_Player_Weapon2Attack = m_Player.FindAction("Weapon2Attack", throwIfNotFound: true);
+        m_Player_ModActivate1 = m_Player.FindAction("ModActivate1", throwIfNotFound: true);
+        m_Player_ModActivate2 = m_Player.FindAction("ModActivate2", throwIfNotFound: true);
+        m_Player_ModActivate3 = m_Player.FindAction("ModActivate3", throwIfNotFound: true);
+        m_Player_ModActivate4 = m_Player.FindAction("ModActivate4", throwIfNotFound: true);
         m_Player_Interact = m_Player.FindAction("Interact", throwIfNotFound: true);
         m_Player_Crouch = m_Player.FindAction("Crouch", throwIfNotFound: true);
         m_Player_Jump = m_Player.FindAction("Jump", throwIfNotFound: true);
@@ -1408,7 +1500,14 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     private List<IPlayerActions> m_PlayerActionsCallbackInterfaces = new List<IPlayerActions>();
     private readonly InputAction m_Player_Move;
     private readonly InputAction m_Player_Look;
+    private readonly InputAction m_Player_CombatMode;
     private readonly InputAction m_Player_Attack;
+    private readonly InputAction m_Player_Weapon1Attack;
+    private readonly InputAction m_Player_Weapon2Attack;
+    private readonly InputAction m_Player_ModActivate1;
+    private readonly InputAction m_Player_ModActivate2;
+    private readonly InputAction m_Player_ModActivate3;
+    private readonly InputAction m_Player_ModActivate4;
     private readonly InputAction m_Player_Interact;
     private readonly InputAction m_Player_Crouch;
     private readonly InputAction m_Player_Jump;
@@ -1440,9 +1539,37 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// </summary>
         public InputAction @Look => m_Wrapper.m_Player_Look;
         /// <summary>
+        /// Provides access to the underlying input action "Player/CombatMode".
+        /// </summary>
+        public InputAction @CombatMode => m_Wrapper.m_Player_CombatMode;
+        /// <summary>
         /// Provides access to the underlying input action "Player/Attack".
         /// </summary>
         public InputAction @Attack => m_Wrapper.m_Player_Attack;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/Weapon1Attack".
+        /// </summary>
+        public InputAction @Weapon1Attack => m_Wrapper.m_Player_Weapon1Attack;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/Weapon2Attack".
+        /// </summary>
+        public InputAction @Weapon2Attack => m_Wrapper.m_Player_Weapon2Attack;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/ModActivate1".
+        /// </summary>
+        public InputAction @ModActivate1 => m_Wrapper.m_Player_ModActivate1;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/ModActivate2".
+        /// </summary>
+        public InputAction @ModActivate2 => m_Wrapper.m_Player_ModActivate2;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/ModActivate3".
+        /// </summary>
+        public InputAction @ModActivate3 => m_Wrapper.m_Player_ModActivate3;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/ModActivate4".
+        /// </summary>
+        public InputAction @ModActivate4 => m_Wrapper.m_Player_ModActivate4;
         /// <summary>
         /// Provides access to the underlying input action "Player/Interact".
         /// </summary>
@@ -1519,9 +1646,30 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @Look.started += instance.OnLook;
             @Look.performed += instance.OnLook;
             @Look.canceled += instance.OnLook;
+            @CombatMode.started += instance.OnCombatMode;
+            @CombatMode.performed += instance.OnCombatMode;
+            @CombatMode.canceled += instance.OnCombatMode;
             @Attack.started += instance.OnAttack;
             @Attack.performed += instance.OnAttack;
             @Attack.canceled += instance.OnAttack;
+            @Weapon1Attack.started += instance.OnWeapon1Attack;
+            @Weapon1Attack.performed += instance.OnWeapon1Attack;
+            @Weapon1Attack.canceled += instance.OnWeapon1Attack;
+            @Weapon2Attack.started += instance.OnWeapon2Attack;
+            @Weapon2Attack.performed += instance.OnWeapon2Attack;
+            @Weapon2Attack.canceled += instance.OnWeapon2Attack;
+            @ModActivate1.started += instance.OnModActivate1;
+            @ModActivate1.performed += instance.OnModActivate1;
+            @ModActivate1.canceled += instance.OnModActivate1;
+            @ModActivate2.started += instance.OnModActivate2;
+            @ModActivate2.performed += instance.OnModActivate2;
+            @ModActivate2.canceled += instance.OnModActivate2;
+            @ModActivate3.started += instance.OnModActivate3;
+            @ModActivate3.performed += instance.OnModActivate3;
+            @ModActivate3.canceled += instance.OnModActivate3;
+            @ModActivate4.started += instance.OnModActivate4;
+            @ModActivate4.performed += instance.OnModActivate4;
+            @ModActivate4.canceled += instance.OnModActivate4;
             @Interact.started += instance.OnInteract;
             @Interact.performed += instance.OnInteract;
             @Interact.canceled += instance.OnInteract;
@@ -1572,9 +1720,30 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @Look.started -= instance.OnLook;
             @Look.performed -= instance.OnLook;
             @Look.canceled -= instance.OnLook;
+            @CombatMode.started -= instance.OnCombatMode;
+            @CombatMode.performed -= instance.OnCombatMode;
+            @CombatMode.canceled -= instance.OnCombatMode;
             @Attack.started -= instance.OnAttack;
             @Attack.performed -= instance.OnAttack;
             @Attack.canceled -= instance.OnAttack;
+            @Weapon1Attack.started -= instance.OnWeapon1Attack;
+            @Weapon1Attack.performed -= instance.OnWeapon1Attack;
+            @Weapon1Attack.canceled -= instance.OnWeapon1Attack;
+            @Weapon2Attack.started -= instance.OnWeapon2Attack;
+            @Weapon2Attack.performed -= instance.OnWeapon2Attack;
+            @Weapon2Attack.canceled -= instance.OnWeapon2Attack;
+            @ModActivate1.started -= instance.OnModActivate1;
+            @ModActivate1.performed -= instance.OnModActivate1;
+            @ModActivate1.canceled -= instance.OnModActivate1;
+            @ModActivate2.started -= instance.OnModActivate2;
+            @ModActivate2.performed -= instance.OnModActivate2;
+            @ModActivate2.canceled -= instance.OnModActivate2;
+            @ModActivate3.started -= instance.OnModActivate3;
+            @ModActivate3.performed -= instance.OnModActivate3;
+            @ModActivate3.canceled -= instance.OnModActivate3;
+            @ModActivate4.started -= instance.OnModActivate4;
+            @ModActivate4.performed -= instance.OnModActivate4;
+            @ModActivate4.canceled -= instance.OnModActivate4;
             @Interact.started -= instance.OnInteract;
             @Interact.performed -= instance.OnInteract;
             @Interact.canceled -= instance.OnInteract;
@@ -1923,12 +2092,61 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnLook(InputAction.CallbackContext context);
         /// <summary>
+        /// Method invoked when associated input action "CombatMode" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnCombatMode(InputAction.CallbackContext context);
+        /// <summary>
         /// Method invoked when associated input action "Attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
         /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnAttack(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Weapon1Attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnWeapon1Attack(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Weapon2Attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnWeapon2Attack(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "ModActivate1" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnModActivate1(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "ModActivate2" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnModActivate2(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "ModActivate3" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnModActivate3(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "ModActivate4" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnModActivate4(InputAction.CallbackContext context);
         /// <summary>
         /// Method invoked when associated input action "Interact" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>

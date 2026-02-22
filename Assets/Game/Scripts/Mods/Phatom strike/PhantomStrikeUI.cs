@@ -8,6 +8,8 @@ namespace junklite
 {
     public class PhantomStrikeUI : MonoBehaviour
     {
+        #region Fields
+
         [Header("Panel")]
         [SerializeField] private GameObject panel;
 
@@ -30,6 +32,10 @@ namespace junklite
         private Dictionary<Image, Coroutine> activeCoroutines = new();
         private int lastHitCount;
 
+        #endregion
+
+        #region Unity
+
         private void Start()
         {
             if (panel != null)
@@ -38,6 +44,12 @@ namespace junklite
             if (readyText != null)
                 readyText.gameObject.SetActive(false);
         }
+
+        private void OnDestroy() => Unbind();
+
+        #endregion
+
+        #region Bind / Unbind
 
         public void Bind(PlayerCharacter targetPlayer)
         {
@@ -69,7 +81,11 @@ namespace junklite
                 return;
             }
 
-            var newTracker = player.GetComponent<PhantomStrikeTracker>();
+            // Look for tracker under "Mod Trackers" child
+            var modTrackers = player.transform.Find("Mod Trackers");
+            var newTracker = modTrackers != null
+                ? modTrackers.GetComponentInChildren<PhantomStrikeTracker>()
+                : null;
 
             if (newTracker == null || !newTracker.IsActive)
             {
@@ -79,35 +95,41 @@ namespace junklite
                 return;
             }
 
-            if (newTracker == tracker)
-                return;
+            if (newTracker == tracker) return;
 
             UnsubscribeFromTracker();
             tracker = newTracker;
             SubscribeToTracker();
-
             Show();
         }
+
+        #endregion
+
+        #region Tracker Events
 
         private void SubscribeToTracker()
         {
             if (tracker == null) return;
 
-            tracker.OnHitsChanged += UpdateDisplay;
+            tracker.OnChargesChanged += UpdateDisplay;
             tracker.OnSpecialReady += ShowSpecialReady;
             tracker.OnSpecialUsed += OnSpecialUsed;
-            tracker.OnHitsReset += OnReset;
+            tracker.OnChargesReset += OnReset;
         }
 
         private void UnsubscribeFromTracker()
         {
             if (tracker == null) return;
 
-            tracker.OnHitsChanged -= UpdateDisplay;
+            tracker.OnChargesChanged -= UpdateDisplay;
             tracker.OnSpecialReady -= ShowSpecialReady;
             tracker.OnSpecialUsed -= OnSpecialUsed;
-            tracker.OnHitsReset -= OnReset;
+            tracker.OnChargesReset -= OnReset;
         }
+
+        #endregion
+
+        #region Display
 
         private void Show()
         {
@@ -134,8 +156,7 @@ namespace junklite
             if (hitCountText != null)
             {
                 hitCountText.gameObject.SetActive(!isReady);
-                if (!isReady)
-                    hitCountText.text = $"{current}";
+                if (!isReady) hitCountText.text = $"{current}";
             }
 
             if (strikeIcons != null && current > lastHitCount && current <= strikeIcons.Length)
@@ -192,6 +213,10 @@ namespace junklite
             lastHitCount = 0;
         }
 
+        #endregion
+
+        #region Icon Animation
+
         private void AnimateIcon(Image icon, float from, float to)
         {
             if (icon == null) return;
@@ -218,35 +243,25 @@ namespace junklite
         private void AnimateAllIconsToZero()
         {
             if (strikeIcons == null) return;
-
             foreach (var icon in strikeIcons)
-            {
                 if (icon != null && icon.fillAmount > 0f)
                     AnimateIcon(icon, icon.fillAmount, 0f);
-            }
         }
 
         private void SetAllIconFills(float value)
         {
             if (strikeIcons == null) return;
-
             foreach (var icon in strikeIcons)
-            {
-                if (icon != null)
-                    icon.fillAmount = value;
-            }
+                if (icon != null) icon.fillAmount = value;
         }
 
         private void ClearCoroutines()
         {
             foreach (var co in activeCoroutines.Values)
-            {
-                if (co != null)
-                    StopCoroutine(co);
-            }
+                if (co != null) StopCoroutine(co);
             activeCoroutines.Clear();
         }
 
-        private void OnDestroy() => Unbind();
+        #endregion
     }
 }

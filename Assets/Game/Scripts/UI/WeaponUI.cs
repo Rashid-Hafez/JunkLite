@@ -1,110 +1,128 @@
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
-using System.Collections.Generic;
 
 namespace junklite
 {
+    /// <summary>
+    /// Weapon slot 1 is always visible: fists in regular mode, weapon in mod combat.
+    /// Weapon slot 2 only appears in mod combat.
+    /// </summary>
     public class WeaponUI : MonoBehaviour
     {
-        [Header("References")]
-        [SerializeField] private Image weaponIcon;
-        [SerializeField] private GameObject weaponPanel;
-        [SerializeField] private TMP_Text weaponNameText;
-        [SerializeField] private Transform modSlotsParent;
-        [SerializeField] private ModSlotUI modSlotPrefab;
+        #region Fields
+
+        [Header("Weapon Slots (scene references, not prefabs)")]
+        [SerializeField] private WeaponSlotUI slot1;
+        [SerializeField] private WeaponSlotUI slot2;
 
         private WeaponManager _manager;
-        private InventoryComponent _inventory;
-        private WeaponInstance currentWeapon;
-        private List<ModSlotUI> slotUIs = new();
 
-        public void Bind(WeaponManager weaponManager)
+        #endregion
+
+        #region Bind / Unbind
+
+        public void Bind(WeaponManager manager)
         {
-            _manager = weaponManager;
-            _inventory = _manager?.GetComponent<InventoryComponent>();
-            _manager.OnWeaponChanged += RefreshWeapon;
-            RefreshWeapon();
+            Unbind();
+            _manager = manager;
+
+            if (_manager != null)
+            {
+                _manager.OnWeaponChanged += Refresh;
+                _manager.OnCombatModeChanged += Refresh;
+                _manager.OnEnemyHit += UpdateActiveIndicators;
+            }
+
+            Refresh();
         }
 
         public void Unbind()
         {
             if (_manager != null)
-                _manager.OnWeaponChanged -= RefreshWeapon;
+            {
+                _manager.OnWeaponChanged -= Refresh;
+                _manager.OnCombatModeChanged -= Refresh;
+                _manager.OnEnemyHit -= UpdateActiveIndicators;
+            }
 
-            ClearSlots();
             _manager = null;
-            _inventory = null;
-            currentWeapon = null;
-            weaponPanel.gameObject.SetActive(false);
+
+            // Reset to default state
+            if (slot1 != null) slot1.SetContentActive(false);
+            if (slot2 != null) slot2.gameObject.SetActive(false);
         }
 
-        public void RefreshWeapon()
+        #endregion
+
+        #region Refresh
+
+        public void Refresh()
         {
-            if (_manager == null || _manager.CurrentWeapon == null)
+            if (_manager == null) return;
+
+            if (_manager.IsModCombat)
+                RefreshModCombat();
+            else
+                RefreshRegular();
+
+            UpdateActiveIndicators();
+        }
+
+        private void RefreshRegular()
+        {
+            // Slot 1: fist icon, no durability
+            if (slot1 != null)
             {
-                weaponPanel.gameObject.SetActive(false);
-                return;
+                var fistData = _manager.FistWeaponData;
+                if (fistData != null)
+                    slot1.BindIcon(fistData.icon);
+                else
+                    slot1.SetContentActive(false);
             }
 
-            weaponPanel.gameObject.SetActive(true);
-            BindToWeapon(_manager.CurrentWeapon);
+            // Slot 2: hidden entirely
+            if (slot2 != null)
+                slot2.gameObject.SetActive(false);
         }
 
-        private void BindToWeapon(WeaponInstance weapon)
+        private void RefreshModCombat()
         {
-            // Remove old listeners
-            if (currentWeapon != null)
-                currentWeapon.OnModsChanged -= RefreshSlots;
-
-            currentWeapon = weapon;
-
-            // Weapon icon
-            if (weaponIcon != null)
-                weaponIcon.sprite = weapon.weaponData.icon;
-
-            // Name
-            if (weaponNameText != null)
-                weaponNameText.text = weapon.weaponData.displayName;
-
-            // Build slots
-            ClearSlots();
-            CreateSlots();
-
-            // Listen for mod updates
-            currentWeapon.OnModsChanged += RefreshSlots;
-        }
-
-        private void CreateSlots()
-        {
-            int slotCount = currentWeapon.weaponData.maxActiveModSlots;
-            var mods = currentWeapon.GetMods();
-
-            for (int i = 0; i < slotCount; i++)
+            // Slot 1: weapon 1 with durability, or empty content if no weapon
+            if (slot1 != null)
             {
-                var ui = Instantiate(modSlotPrefab, modSlotsParent);
-                ActiveMod mod = i < mods.Count ? mods[i] : null;
-                ui.Bind(mod, currentWeapon, _inventory, i);
-                slotUIs.Add(ui);
+                var weapon1 = _manager.WeaponSlot1;
+                if (weapon1 != null)
+                    slot1.Bind(weapon1, true);
+                else
+                    slot1.SetContentActive(false);
+            }
+
+            // Slot 2: root active, content depends on weapon equipped
+            if (slot2 != null)
+            {
+                slot2.gameObject.SetActive(true);
+
+                var weapon2 = _manager.WeaponSlot2;
+                if (weapon2 != null)
+                    slot2.Bind(weapon2, true);
+                else
+                    slot2.SetContentActive(false);
             }
         }
 
-        private void ClearSlots()
+        private void UpdateActiveIndicators()
         {
-            foreach (var ui in slotUIs)
-                Destroy(ui.gameObject);
-            slotUIs.Clear();
+            if (_manager == null) return;
+
+            bool inModCombat = _manager.IsModCombat;
+            var active = _manager.ActiveWeapon;
+
+            if (slot1 != null)
+                slot1.SetActive(inModCombat && active != null && active == _manager.WeaponSlot1);
+
+            if (slot2 != null)
+                slot2.SetActive(inModCombat && active != null && active == _manager.WeaponSlot2);
         }
 
-        private void RefreshSlots()
-        {
-            var mods = currentWeapon.GetMods();
-
-            for (int i = 0; i < slotUIs.Count; i++)
-            {
-                ActiveMod mod = i < mods.Count ? mods[i] : null;
-                slotUIs[i].Bind(mod, currentWeapon, _inventory, i);
-            }
-        }
+        #endregion
     }
 }

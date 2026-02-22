@@ -21,10 +21,11 @@ namespace junklite
 
         [Header("UI Extensions (Weapon + Inventory)")]
         [SerializeField] private WeaponUI weaponUI;
-        [SerializeField] private InventoryModsUI inventoryModsUI;
+
 
         [Header("Mod UIs")]
         [SerializeField] private PhantomStrikeUI phantomStrikeUI;
+        [SerializeField] private CombatModUI combatModUI;
 
         [Header("Inventory Panel")]
         [Tooltip("The root GameObject of the inventory panel to show/hide")]
@@ -36,8 +37,8 @@ namespace junklite
         private CharacterBase player;
         private AttributeManager attributes;
         private WeaponManager _weaponManager;
+        private ModManager _modManager;
         private InventoryComponent inventory;
-        private WeaponInstance subscribedWeapon;
         private bool isInventoryOpen = false;
 
         // -----------------------------------------------------------------------
@@ -91,61 +92,32 @@ namespace junklite
             // Handle death visibility
             attributes.OnDeath += HandlePlayerDeath;
 
-            // --------- Bind Weapon Holder ----------
+            // --------- Bind Weapon UI ----------
             _weaponManager = player.GetComponent<WeaponManager>();
             if (weaponUI != null && _weaponManager != null)
-            {
                 weaponUI.Bind(_weaponManager);
-                weaponUI.RefreshWeapon(); // initialize UI visibility & slots
-            }
 
-            // --------- Bind Inventory (if exists) ----------
+            // --------- Bind Inventory ----------
             inventory = player.GetComponent<InventoryComponent>();
-            if (inventoryModsUI != null && inventory != null)
-            {
-                inventoryModsUI.Bind(inventory);
-            }
+
+            // --------- Bind Mod Manager + Combat Mod UI ----------
+            _modManager = player.GetComponent<ModManager>();
+            if (combatModUI != null && _modManager != null && _weaponManager != null)
+                combatModUI.Bind(_modManager, _weaponManager);
 
             // --------- Bind Phantom Strike UI ----------
             if (phantomStrikeUI != null && player is PlayerCharacter pc)
-            {
                 phantomStrikeUI.Bind(pc);
-            }
 
-            // --------- Subscribe to weapon changes for mod UIs ----------
+            // --------- Subscribe to combat mode for mod UI refresh ----------
             if (_weaponManager != null)
-            {
-                _weaponManager.OnWeaponChanged += RefreshModUIs;
-                SubscribeToWeaponMods();
-            }
+                _weaponManager.OnCombatModeChanged += RefreshModUIs;
 
             SetVisible(true);
         }
 
-        private void SubscribeToWeaponMods()
-        {
-            UnsubscribeFromWeaponMods();
-
-            if (_weaponManager?.CurrentWeapon != null)
-            {
-                subscribedWeapon = _weaponManager.CurrentWeapon;
-                subscribedWeapon.OnModsChanged += RefreshModUIs;
-            }
-        }
-
-        private void UnsubscribeFromWeaponMods()
-        {
-            if (subscribedWeapon != null)
-            {
-                subscribedWeapon.OnModsChanged -= RefreshModUIs;
-                subscribedWeapon = null;
-            }
-        }
-
         private void RefreshModUIs()
         {
-            SubscribeToWeaponMods();
-
             if (phantomStrikeUI != null)
                 phantomStrikeUI.RefreshTracker();
         }
@@ -154,38 +126,22 @@ namespace junklite
 
         public void Unbind()
         {
-            // Unsubscribe from attribute events
             if (attributes != null)
                 attributes.OnDeath -= HandlePlayerDeath;
 
-            // Unsubscribe from weapon events
             if (_weaponManager != null)
-                _weaponManager.OnWeaponChanged -= RefreshModUIs;
+                _weaponManager.OnCombatModeChanged -= RefreshModUIs;
 
-            UnsubscribeFromWeaponMods();
-
-            // Unbind health + armor
-            if (healthBar != null)
-                healthBar.Unbind();
-
-            if (armorBar != null)
-                armorBar.Unbind();
-
-            // Unbind weapon UI
-            if (weaponUI != null)
-                weaponUI.Unbind();
-
-            // Unbind inventory UI
-            if (inventoryModsUI != null)
-                inventoryModsUI.Unbind();
-
-            // Unbind Phantom Strike UI
-            if (phantomStrikeUI != null)
-                phantomStrikeUI.Unbind();
+            if (healthBar != null) healthBar.Unbind();
+            if (armorBar != null) armorBar.Unbind();
+            if (weaponUI != null) weaponUI.Unbind();
+            if (combatModUI != null) combatModUI.Unbind();
+            if (phantomStrikeUI != null) phantomStrikeUI.Unbind();
 
             player = null;
             attributes = null;
             _weaponManager = null;
+            _modManager = null;
             inventory = null;
         }
 
@@ -286,7 +242,7 @@ namespace junklite
             if (GameInputManager.Instance != null)
                 GameInputManager.Instance.SetGameplayInputEnabled(false);
 
-           // Debug.Log("[PlayerUI] Inventory opened - gameplay input paused");
+            // Debug.Log("[PlayerUI] Inventory opened - gameplay input paused");
         }
 
         /// <summary>
@@ -315,7 +271,7 @@ namespace junklite
             if (GameInputManager.Instance != null)
                 GameInputManager.Instance.SetGameplayInputEnabled(true);
 
-           // Debug.Log("[PlayerUI] Inventory closed - gameplay input resumed");
+            // Debug.Log("[PlayerUI] Inventory closed - gameplay input resumed");
         }
 
         // -----------------------------------------------------------------------

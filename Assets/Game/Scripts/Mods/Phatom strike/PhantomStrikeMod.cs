@@ -1,149 +1,115 @@
+using Unity.VisualScripting;
 using UnityEngine;
 
 namespace junklite
 {
     /// <summary>
     /// Phantom Strike Mod - Accumulate hits to unlock a devastating aerial slam attack.
-    /// 3 successful strikes = special move ready. Taking damage resets the counter.
+    /// Hits build charges via the mod system. Taking damage resets charges.
+    /// Activated via dedicated mod activation input.
     /// </summary>
     [CreateAssetMenu(fileName = "PhantomStrikeMod", menuName = "Junklite/Mods/Phantom Strike")]
-    public class PhantomStrikeMod : ModData
+    public class PhantomStrikeMod : ActiveModData
     {
-        [Header("Hit Tracking")]
-        [Tooltip("Number of hits required to charge special attack")]
-        public int hitsRequired = 3;
-
-        public LayerMask groundLayerMask;
+        #region Config
 
         [Header("Slam Attack")]
-        [Tooltip("Spine animation name to play (passed to SpineAnimationController)")]
         public string groundPoundAnimationName = "GroundPound";
-
-        [Tooltip("Base damage of the slam attack")]
         public float slamDamage = 50f;
-
-        [Tooltip("Critical damage multiplier for the slam attack")]
         public float criticalMultiplier = 3f;
-
-        [Tooltip("Radius of the ground slam damage")]
         public float slamRadius = 4f;
-
-        [Tooltip("Layer mask for detecting enemies")]
         public LayerMask enemyLayerMask = 1;
+        public LayerMask groundLayerMask;
 
         [Header("Timing")]
-        [Tooltip("Time spent invisible before descending")]
         public float hangTime = 0.8f;
-
         public float descentSpeed = 10f;
-
-        [Tooltip("Duration of the descent (slam) animation")]
         public float descentDuration = 0.25f;
-
-        [Tooltip("Recovery time after impact before input is restored")]
         public float recoveryTime = 0.15f;
 
-        [Header("Movement (Height & Velocity)")]
-        [Tooltip("How high above the slam target the player teleports (spawn height)")]
+        [Header("Movement")]
         public float spawnHeight = 8f;
-
-        [Tooltip("Extra height gained while drifting up before the slam")]
         public float driftUpHeight = 1f;
-
-        [Tooltip("Duration of the upward drift before descending")]
         public float driftUpDuration = 0.15f;
-
-        [Tooltip("Downward speed (units per second) during the slam to ground")]
         public float slamDescentSpeed = 25f;
 
-        [Header("VFX (Optional)")]
-        [Tooltip("VFX spawned when player vanishes")]
+        [Header("VFX")]
         public GameObject vanishVFX;
-
-        [Tooltip("VFX spawned during descent")]
         public GameObject descentVFX;
-
-        [Tooltip("VFX spawned on impact")]
         public GameObject impactVFX;
 
         [Header("Camera")]
-        [Tooltip("Zoom out: Physical/Perspective = Field of View in degrees (e.g. 55 = wider, zoomed out). Orthographic = ortho size. 0 = use CameraManager default")]
         public float cameraZoomOutValue = 55f;
-
-        [Tooltip("Camera shake intensity on impact (0 = no shake)")]
         public float cameraShakeIntensity = 3f;
 
-        [Header("Durability")]
-        [Tooltip("Durability consumed when special attack is used")]
-        public float durabilityPerSpecial = 5f;
+        #endregion
 
-        // -----------------------------------------------------------------------
-        // BEHAVIOR
-        // -----------------------------------------------------------------------
+        #region ActiveModData Overrides
 
-        public override bool OnHit(WeaponInstance weapon, EnemyCharacter enemy, PlayerCharacter player)
+        public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy)
         {
-            if (player == null)
-                return false;
-
+            // Don't add charges if already ready or executing
             var tracker = GetTracker(player);
-            if (tracker == null || !tracker.IsActive)
-                return false;
+            if (tracker != null && tracker.IsExecutingSpecial) return;
+            if (instance.CurrentCharges >= chargesRequired) return;
 
-            // Don't add hits if special is already ready or executing
-            if (tracker.IsSpecialReady || tracker.IsExecutingSpecial)
-                return false;
-
-            tracker.AddHit();
-
-            return true; // Consumes durability on hit
+            base.OnHitRegistered(instance, player, enemy);
         }
 
-        public override void OnEquip(WeaponInstance weapon)
+        public override bool OnActivate(ModInstance instance, PlayerCharacter player)
         {
-            var player = weapon?.GetComponentInParent<PlayerCharacter>();
-            if (player == null)
-                return;
+            var tracker = GetTracker(player);
+            if (tracker == null || tracker.IsExecutingSpecial) return false;
 
+            tracker.ExecuteSlam(instance);
+            return true;
+        }
+
+        public override void OnEquip(PlayerCharacter player)
+        {
             var tracker = GetOrCreateTracker(player);
             tracker.Initialize(this);
             tracker.SetActive(true);
-
-            Debug.Log($"[PhantomStrike] Equipped - tracking hits (need {hitsRequired})");
         }
 
-        public override void OnUnequip(WeaponInstance weapon)
+        public override void OnUnequip(PlayerCharacter player)
         {
-            var player = weapon?.GetComponentInParent<PlayerCharacter>();
-            if (player == null)
-                return;
-
             var tracker = GetTracker(player);
-            if (tracker != null)
-            {
-                tracker.SetActive(false);
-                tracker.ResetHits();
-            }
+            if (tracker == null) return;
 
-            Debug.Log("[PhantomStrike] Unequipped");
+            tracker.SetActive(false);
         }
 
-        // -----------------------------------------------------------------------
-        // HELPERS
-        // -----------------------------------------------------------------------
+        #endregion
+
+        #region Helpers
 
         private PhantomStrikeTracker GetTracker(PlayerCharacter player)
         {
-            return player.GetComponent<PhantomStrikeTracker>();
+            var parent = GetOrCreateTrackerParent(player);
+            return parent.GetComponentInChildren<PhantomStrikeTracker>();
         }
 
         private PhantomStrikeTracker GetOrCreateTracker(PlayerCharacter player)
         {
-            var tracker = player.GetComponent<PhantomStrikeTracker>();
+            var parent = GetOrCreateTrackerParent(player);
+            var tracker = parent.GetComponentInChildren<PhantomStrikeTracker>();
             if (tracker == null)
-                tracker = player.gameObject.AddComponent<PhantomStrikeTracker>();
-
+                tracker = parent.AddComponent<PhantomStrikeTracker>();
             return tracker;
         }
+
+        private Transform GetOrCreateTrackerParent(PlayerCharacter player)
+        {
+            var existing = player.transform.Find("Mod Trackers");
+            if (existing != null) return existing;
+
+            var go = new GameObject("Mod Trackers");
+            go.transform.SetParent(player.transform);
+            go.transform.localPosition = Vector3.zero;
+            return go.transform;
+        }
+
+        #endregion
     }
 }

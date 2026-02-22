@@ -64,6 +64,8 @@ namespace junklite
         public float baseAttackSpeed = 1f;
         public Vector2 knockbackForce = new Vector2(8f, 4f);
         public int maxWeaponDurability = 100;
+        [Tooltip("Durability consumed per confirmed enemy hit")]
+        public float durabilityPerHit = 1f;
 
         // =====================================================================
         // ATTACK TIMING
@@ -108,16 +110,13 @@ namespace junklite
         // MOD SLOTS
         // =====================================================================
 
-        [Header("Mod Slots")]
-        public int maxActiveModSlots = 2;
-        public int maxReserveSlots = 4;
-
         // =====================================================================
         // SOCKET OFFSETS
         // =====================================================================
 
         [System.Serializable]
-        public struct WeaponSocketOffset {
+        public struct WeaponSocketOffset
+        {
             public Vector3 localPositionOffset;
             public Vector3 localRotationOffsetEuler;
             public bool flipLocalScaleX;

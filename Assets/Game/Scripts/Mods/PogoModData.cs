@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace junklite
 {
+    /*
     [CreateAssetMenu(menuName = "Junklite/Mods/Pogo")]
     public class PogoModData : ModData
     {
@@ -34,5 +35,5 @@ namespace junklite
 
             return true;
         }
-    }
+    }*/
 }

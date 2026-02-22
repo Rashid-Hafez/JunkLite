@@ -1,197 +1,143 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace junklite
 {
+    /// <summary>
+    /// Fixed-size inventory storage for unequipped mods.
+    /// Uses a fixed array with null = empty slot, same pattern as ModManager.
+    /// </summary>
     public class InventoryComponent : MonoBehaviour
     {
-        [Header("References")]
-        [SerializeField] private WeaponManager weaponManager;
+        [SerializeField] private int slotCount = 12;
 
-        // Store ActiveMod to preserve durability
-        private List<ActiveMod> storedMods = new();
+        private ModInstance[] slots;
 
         public event System.Action OnInventoryChanged;
 
-        public IReadOnlyList<ActiveMod> StoredMods => storedMods;
-        public int StoredModCount => storedMods.Count;
+        public int SlotCount => slotCount;
+
+        /// <summary>Read-only access to the backing array. Null entries = empty slots.</summary>
+        public ModInstance[] Slots => slots;
 
         private void Awake()
         {
-            if (weaponManager == null)
-                weaponManager = GetComponent<WeaponManager>();
+            slots = new ModInstance[slotCount];
         }
 
-        /// <summary>
-        /// Called when player picks up a mod (creates new ActiveMod with full durability).
-        /// </summary>
-        public void PickupMod(ModData mod)
+        #region Add / Remove
+
+        /// <summary>Add a mod to the first available empty slot.</summary>
+        public bool AddMod(ModInstance mod)
         {
-            if (mod == null) return;
+            if (mod == null) return false;
 
-            var weapon = weaponManager?.CurrentWeapon;
-
-            if (weapon != null && weapon.HasFreeSlot)
+            for (int i = 0; i < slots.Length; i++)
             {
-                if (weapon.TryAddMod(mod))
-                    return;
+                if (slots[i] == null)
+                {
+                    slots[i] = mod;
+                    OnInventoryChanged?.Invoke();
+                    return true;
+                }
             }
 
-            // Create new ActiveMod with full durability
-            storedMods.Add(new ActiveMod(mod));
-            OnInventoryChanged?.Invoke();
+            return false; // inventory full
         }
 
-        /// <summary>
-        /// Store an ActiveMod directly (preserves durability).
-        /// </summary>
-        public void StoreMod(ActiveMod mod)
+        /// <summary>Add a mod from data to the first available empty slot.</summary>
+        public bool AddMod(ModData data)
         {
-            if (mod == null) return;
-
-            storedMods.Add(mod);
-            OnInventoryChanged?.Invoke();
+            if (data == null) return false;
+            return AddMod(new ModInstance(data));
         }
 
-        /// <summary>
-        /// Equip a mod from inventory to weapon.
-        /// </summary>
-        public bool EquipMod(ActiveMod mod)
+        /// <summary>Place a mod at a specific slot index.</summary>
+        public bool InsertMod(ModInstance mod, int index)
         {
-            if (mod == null || !storedMods.Contains(mod))
-                return false;
+            if (mod == null) return false;
+            if (index < 0 || index >= slots.Length) return false;
+            if (slots[index] != null) return false; // slot occupied
 
-            var weapon = weaponManager?.CurrentWeapon;
-            if (weapon == null || !weapon.HasFreeSlot)
-                return false;
+            slots[index] = mod;
+            OnInventoryChanged?.Invoke();
+            return true;
+        }
 
-            if (weapon.TryAddActiveMod(mod))
+        /// <summary>Remove a specific mod instance (finds it by reference).</summary>
+        public bool RemoveMod(ModInstance mod)
+        {
+            if (mod == null) return false;
+
+            for (int i = 0; i < slots.Length; i++)
             {
-                storedMods.Remove(mod);
-                OnInventoryChanged?.Invoke();
-                return true;
+                if (slots[i] == mod)
+                {
+                    slots[i] = null;
+                    OnInventoryChanged?.Invoke();
+                    return true;
+                }
             }
 
             return false;
         }
 
-        /// <summary>
-        /// Unequip a mod from weapon back to inventory (preserves durability).
-        /// </summary>
-        public void UnequipMod(ActiveMod activeMod)
+        /// <summary>Remove and return the mod at a given index.</summary>
+        public ModInstance RemoveModAt(int index)
         {
-            if (activeMod == null) return;
+            if (index < 0 || index >= slots.Length) return null;
 
-            var weapon = weaponManager?.CurrentWeapon;
-            if (weapon == null) return;
+            var mod = slots[index];
+            if (mod == null) return null;
 
-            weapon.RemoveMod(activeMod);
-            storedMods.Add(activeMod);
-
-            OnInventoryChanged?.Invoke();
-        }
-
-        /// <summary>
-        /// Swap two mods in inventory by index.
-        /// </summary>
-        public void SwapMods(int indexA, int indexB)
-        {
-            if (indexA < 0 || indexB < 0)
-                return;
-
-            int maxIndex = Mathf.Max(indexA, indexB);
-            while (storedMods.Count <= maxIndex)
-                storedMods.Add(null);
-
-            var temp = storedMods[indexA];
-            storedMods[indexA] = storedMods[indexB];
-            storedMods[indexB] = temp;
-
-            CleanupNulls();
-            OnInventoryChanged?.Invoke();
-        }
-
-        /// <summary>
-        /// Insert a mod at a specific index.
-        /// </summary>
-        public void InsertModAt(int index, ActiveMod mod)
-        {
-            if (index < 0)
-            {
-                storedMods.Add(mod);
-            }
-            else
-            {
-                while (storedMods.Count <= index)
-                    storedMods.Add(null);
-
-                storedMods[index] = mod;
-            }
-
-            OnInventoryChanged?.Invoke();
-        }
-
-        /// <summary>
-        /// Remove mod at a specific index and return it.
-        /// </summary>
-        public ActiveMod RemoveModAt(int index)
-        {
-            if (index < 0 || index >= storedMods.Count)
-                return null;
-
-            var mod = storedMods[index];
-            storedMods[index] = null;
-            CleanupNulls();
+            slots[index] = null;
             OnInventoryChanged?.Invoke();
             return mod;
         }
 
-        /// <summary>
-        /// Get mod at index.
-        /// </summary>
-        public ActiveMod GetModAt(int index)
+        #endregion
+
+        #region Query
+
+        public ModInstance GetModAt(int index)
         {
-            if (index < 0 || index >= storedMods.Count)
-                return null;
-            return storedMods[index];
+            if (index < 0 || index >= slots.Length) return null;
+            return slots[index];
         }
 
-        private void CleanupNulls()
+        public bool HasMod(ModInstance mod)
         {
-            while (storedMods.Count > 0 && storedMods[storedMods.Count - 1] == null)
-                storedMods.RemoveAt(storedMods.Count - 1);
+            if (mod == null) return false;
+            for (int i = 0; i < slots.Length; i++)
+                if (slots[i] == mod) return true;
+            return false;
         }
 
-        public void EquipAllPossible()
+        /// <summary>Number of non-null mods currently stored.</summary>
+        public int StoredModCount
         {
-            var weapon = weaponManager?.CurrentWeapon;
-            if (weapon == null) return;
-
-            for (int i = storedMods.Count - 1; i >= 0; i--)
+            get
             {
-                if (!weapon.HasFreeSlot) break;
-
-                var mod = storedMods[i];
-                if (mod != null && weapon.TryAddActiveMod(mod))
-                    storedMods.RemoveAt(i);
+                int count = 0;
+                for (int i = 0; i < slots.Length; i++)
+                    if (slots[i] != null) count++;
+                return count;
             }
+        }
 
+        #endregion
+
+        #region Swap
+
+        public void SwapMods(int indexA, int indexB)
+        {
+            if (indexA < 0 || indexA >= slots.Length) return;
+            if (indexB < 0 || indexB >= slots.Length) return;
+            if (indexA == indexB) return;
+
+            (slots[indexA], slots[indexB]) = (slots[indexB], slots[indexA]);
             OnInventoryChanged?.Invoke();
         }
 
-        public bool HasMod(ActiveMod mod)
-        {
-            return storedMods.Contains(mod);
-        }
-
-        public bool RemoveMod(ActiveMod mod)
-        {
-            if (storedMods.Remove(mod))
-            {
-                OnInventoryChanged?.Invoke();
-                return true;
-            }
-            return false;
-        }
+        #endregion
     }
 }

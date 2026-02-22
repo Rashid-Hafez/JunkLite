@@ -5056,8 +5056,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.7092924, w: 0.7049144}
-  m_LocalPosition: {x: -0.4863864, y: 1.1404129, z: -0.0156}
+  m_LocalRotation: {x: 0, y: 0, z: -0.6756545, w: 0.73721844}
+  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: -0.0156}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -15180,7 +15180,7 @@ GameObject:
   - component: {fileID: 1363585882905400157}
   - component: {fileID: 6662307106127401667}
   - component: {fileID: 6282132647400396865}
-  - component: {fileID: 4757580962548572918}
+  - component: {fileID: -8791361905287476187}
   m_Layer: 16
   m_Name: Player_2.2
   m_TagString: Player
@@ -15290,7 +15290,7 @@ MonoBehaviour:
   ledgeCheckTransform: {fileID: 711466271944293612}
   ledgeCheckSize: {x: 0.5, y: 0.2}
   groundSnapMaxDistance: 0.4
-  groundSnapForwardOffset: 0.3
+  groundSnapForwardOffset: 0.5
   groundSnapVerticalOffset: -1
   snapToZPosition: 0
   fixedZPosition: 0
@@ -15392,6 +15392,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54798ea1f27bbb441b15ce2e4107c382, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponHolder
+  fistWeaponData: {fileID: 11400000, guid: 54da3bdf177ddb741826c7ae4d0f5858, type: 2}
   weaponHolder: {fileID: 4764703469501611834}
   sideAttack: {fileID: 128506076357536208}
   upAttack: {fileID: 7039884645192212358}
@@ -15428,7 +15429,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 742461cb8ea1b944d926782607ca985a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.InventoryComponent
-  weaponManager: {fileID: 4240971418246477782}
 --- !u!54 &458443418991649798
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -15759,7 +15759,7 @@ MonoBehaviour:
   footstepPitchOffset: 0.2
   logStateChanges: 0
   logAttacks: 0
---- !u!114 &4757580962548572918
+--- !u!114 &-8791361905287476187
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -15768,22 +15768,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 7038683931279381878}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b42dd13ff74a647ebaf8d467b8357db0, type: 3}
+  m_Script: {fileID: 11500000, guid: d6ea44cd110e2844a8046a48b6d7a5fd, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.ParryHandler
-  parryDuration: 0.25
-  parryCooldown: 0.2
-  parryLockDuration: 0.3
-  parryRadius: 3
-  enemyLayer:
-    serializedVersion: 2
-    m_Bits: 16384
-  parryVFXPrefab: {fileID: 0}
-  pushForce: 35
-  pushDuration: 0.18
-  stunDuration: 3
-  parryStunDuration: 3
-  hitstopDuration: 0.1
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.ModManager
+  maxActiveSlots: 4
+  maxPassiveSlots: 2
+  unlockedActiveSlots: 1
+  unlockedPassiveSlots: 2
 --- !u!1 &7274307847916610454
 GameObject:
   m_ObjectHideFlags: 0
