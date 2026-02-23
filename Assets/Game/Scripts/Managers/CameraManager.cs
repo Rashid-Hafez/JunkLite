@@ -48,6 +48,9 @@ namespace junklite
         // Cached tracking target
         private Transform cachedTrackingTarget;
 
+        // The camera that zoom/follow operations target (updated when CameraSwitchTrigger fires)
+        private CinemachineCamera activeCamera;
+
         // Captured on first RequestZoomOut - we restore to these when zooming back in
         private float defaultZoomValue;
         private bool defaultIsOrthographic;
@@ -62,6 +65,7 @@ namespace junklite
                 return;
             }
             Instance = this;
+            activeCamera = mainCamera;
 
             InitializeCameras();
 
@@ -127,20 +131,20 @@ namespace junklite
         /// </summary>
         private void HandleCameraFollowRequested(bool follow)
         {
-            if (mainCamera == null)
+            if (activeCamera == null)
                 return;
 
             if (follow)
             {
                 // Resume following player
-                mainCamera.Target.TrackingTarget = cachedTrackingTarget;
+                activeCamera.Target.TrackingTarget = cachedTrackingTarget;
                 Debug.Log("[CameraManager] Camera follow enabled");
             }
             else
             {
                 // Cache current target and set to null to freeze
-                cachedTrackingTarget = mainCamera.Target.TrackingTarget;
-                mainCamera.Target.TrackingTarget = null;
+                cachedTrackingTarget = activeCamera.Target.TrackingTarget;
+                activeCamera.Target.TrackingTarget = null;
                 Debug.Log("[CameraManager] Camera follow disabled (frozen)");
             }
         }
@@ -154,9 +158,9 @@ namespace junklite
         /// <summary>Zoom out to a custom value: Field of View in degrees when using Physical/Perspective (wider FOV = zoom out), or ortho size when Orthographic. Pass 0 to use default zoom-out value.</summary>
         public void RequestZoomOut(float customZoomOutValue)
         {
-            if (mainCamera == null)
+            if (activeCamera == null)
                 return;
-            var lens = mainCamera.Lens;
+            var lens = activeCamera.Lens;
             if (customZoomOutValue <= 0f)
                 customZoomOutValue = zoomOutValue;
             // Capture current zoom so we can restore it when zooming back in
@@ -170,11 +174,11 @@ namespace junklite
         /// <summary>Zoom back to default (captured at last RequestZoomOut) smoothly.</summary>
         public void RequestZoomBackIn()
         {
-            if (mainCamera == null)
+            if (activeCamera == null)
                 return;
             if (defaultZoomValue <= 0f)
             {
-                var lens = mainCamera.Lens;
+                var lens = activeCamera.Lens;
                 defaultZoomValue = lens.Orthographic ? lens.OrthographicSize : lens.FieldOfView;
                 defaultIsOrthographic = lens.Orthographic;
                 return;
@@ -201,11 +205,11 @@ namespace junklite
 
         private IEnumerator CoParryEffect()
         {
-            if (mainCamera == null)
+            if (activeCamera == null)
                 yield break;
 
             // capture current lens as default to restore later
-            var lens = mainCamera.Lens;
+            var lens = activeCamera.Lens;
             defaultIsOrthographic = lens.Orthographic;
             defaultZoomValue = defaultIsOrthographic ? lens.OrthographicSize : lens.FieldOfView;
 
@@ -243,13 +247,13 @@ namespace junklite
 
         private IEnumerator CoZoom(float targetValue, float duration)
         {
-            if (mainCamera == null || duration <= 0f)
+            if (activeCamera == null || duration <= 0f)
             {
                 zoomCoroutine = null;
                 yield break;
             }
 
-            var lens = mainCamera.Lens;
+            var lens = activeCamera.Lens;
             bool ortho = lens.Orthographic;
             float start = ortho ? lens.OrthographicSize : lens.FieldOfView;
             float elapsed = 0f;
@@ -264,7 +268,7 @@ namespace junklite
                     lens.OrthographicSize = value;
                 else
                     lens.FieldOfView = Mathf.Clamp(value, 0.01f, 179f);
-                mainCamera.Lens = lens;
+                activeCamera.Lens = lens;
                 yield return null;
             }
 
@@ -272,7 +276,7 @@ namespace junklite
                 lens.OrthographicSize = targetValue;
             else
                 lens.FieldOfView = Mathf.Clamp(targetValue, 0.01f, 179f);
-            mainCamera.Lens = lens;
+            activeCamera.Lens = lens;
             zoomCoroutine = null;
         }
 
@@ -314,6 +318,17 @@ namespace junklite
             }
         }
 
+
+        /// <summary>
+        /// Called by CameraSwitchTrigger (or anything else that changes the live Cinemachine camera)
+        /// so zoom, follow-freeze, and parry effects target the correct camera.
+        /// </summary>
+        public void SetActiveCamera(CinemachineCamera cam)
+        {
+            if (cam == null) return;
+            activeCamera = cam;
+            defaultZoomValue = 0f;
+        }
 
         public void SetPlayerTarget(CinemachineCamera camera, Transform player)
         {

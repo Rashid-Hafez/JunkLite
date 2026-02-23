@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Unity.Cinemachine;
 using System.Collections;
 using System;
@@ -118,19 +118,20 @@ namespace junklite
                     // Toggle cameras
                     if (cameraA != null && cameraB != null)
                     {
+                        CinemachineCamera nextCam;
                         if (usingFirstState)
                         {
                             cameraA.Prioritize();
-                            //cameraA.transform.Find("Particles").gameObject.SetActive(true);
-                            //cameraB.transform.Find("Particles").gameObject.SetActive(false);
+                            nextCam = cameraA;
                         }
                         else
                         {
                             cameraB.Prioritize();
-                            //cameraB.transform.Find("Particles").gameObject.SetActive(true);
-                            //cameraA.transform.Find("Particles").gameObject.SetActive(false);
+                            nextCam = cameraB;
                         }
                         cinemachineBrain.DefaultBlend.Time = cameraBlendDuration;
+
+                        CameraManager.Instance?.SetActiveCamera(nextCam);
                     }
 
 
