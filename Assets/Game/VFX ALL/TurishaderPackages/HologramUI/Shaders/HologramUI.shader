@@ -289,9 +289,9 @@ Shader "HologramUI"
         ENDCG
         }
     }
-    CustomEditor "AmplifyShaderEditor.MaterialInspector"
+   // CustomEditor "AmplifyShaderEditor.MaterialInspector"
 	
-	Fallback Off
+	//Fallback Off
 }
 /*ASEBEGIN
 Version=19801

@@ -60,7 +60,7 @@ Material:
     - _OuterRimIntensity: 1
     - _Pattern: 2
     - _PatternCoords: 0
-    - _PatternSize: 8
+    - _PatternSize: 46.4
     - _Stencil: 0
     - _StencilComp: 8
     - _StencilOp: 0
