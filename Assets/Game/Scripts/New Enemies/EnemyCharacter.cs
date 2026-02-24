@@ -87,14 +87,17 @@ namespace junklite
         protected StateMachine stateMachine;
         protected EnemyMovement movement;
         protected StatusEffectHandler statusEffects;
-            // optional forced stun duration set by external callers (e.g. parry)
-            private float forcedStunDuration = 0f;
+        // optional forced stun duration set by external callers (e.g. parry)
+        private float forcedStunDuration = 0f;
+        private bool isParryStunned;
 
-            public float ForcedStunDuration
-            {
-                get => forcedStunDuration;
-                set => forcedStunDuration = value;
-            }
+        public float ForcedStunDuration
+        {
+            get => forcedStunDuration;
+            set => forcedStunDuration = value;
+        }
+
+        public bool IsParryStunned => isParryStunned;
 
         // Target tracking
         protected Transform target;
@@ -227,17 +230,35 @@ namespace junklite
 
         /// <summary>
         /// Notifies the enemy that they were struck by a successful parry.  Duration is the
-        /// length of the stun effect the parry wants to enforce (the caller may also manage
-        /// the actual timing via its own coroutine).
+        /// length of the stun effect the parry wants to enforce.
         ///
-        /// Default behavior: apply a stun state so the FSM is interrupted.  Subclasses can
-        /// override to add VFX/animation but should call <c>base.OnParryStunned</c> so the
-        /// stun actually takes effect.
+        /// Default behavior: enter ParriedState which locks the enemy for the duration.
+        /// Subclasses can override to add VFX/animation but should call base.OnParryStunned
+        /// so the state transition actually happens.
         /// </summary>
         public virtual void OnParryStunned(float duration)
         {
             if (duration > 0f)
-                ApplyStun(duration);
+            {
+                isParryStunned = true;
+                ForcedStunDuration = duration;
+                stateMachine.ChangeState<ParriedState>();
+            }
+        }
+
+        /// <summary>
+        /// Called when the parry stun duration expires.
+        /// Default behavior: return to normal behavior via OnStunComplete.
+        /// Override in subclasses for custom post-parry behavior.
+        /// </summary>
+        public virtual void OnParryComplete()
+        {
+            OnStunComplete();
+        }
+
+        public void ClearParryStunFlag()
+        {
+            isParryStunned = false;
         }
 
         /// <summary>

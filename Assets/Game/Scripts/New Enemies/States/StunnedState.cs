@@ -61,6 +61,7 @@ namespace junklite
 
         public override void Exit()
         {
+            enemy.ClearParryStunFlag();
             Debug.Log($"{enemy.gameObject.name}: Exited StunnedState");
         }
 

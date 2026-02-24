@@ -21,6 +21,8 @@ namespace junklite
         public SoundEntryGroup attackVariants;
         public SoundEntry hit;
         public SoundEntry environmentHit;
+        public SoundEntry parryStart;
+        public SoundEntry parrySuccess;
         public SoundEntry hurt;
         public SoundEntry death;
     }

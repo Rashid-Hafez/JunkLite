@@ -175,6 +175,39 @@ namespace junklite
             ScheduleEffectReset(spatial, entry.clip);
         }
 
+        /// <summary>
+        /// Play gameplay sound at a world position without requiring a caller AudioSource.
+        /// Useful for one-shot events (e.g. parry).
+        /// </summary>
+        public void PlaySpatialAtPosition(
+            SoundEntry entry,
+            Vector3 position,
+            float spatialBlend = 0f,
+            float minDistance = 1f,
+            float maxDistance = 20f,
+            AudioRolloffMode rolloff = AudioRolloffMode.Linear)
+        {
+            if (entry == null || !entry.IsValid) return;
+
+            var spatial = GetNextSpatialSource();
+            if (spatial == null) return;
+
+            spatial.transform.position = position;
+            spatial.spatialBlend = spatialBlend;
+            spatial.minDistance = minDistance;
+            spatial.maxDistance = maxDistance;
+            spatial.rolloffMode = rolloff;
+            spatial.outputAudioMixerGroup = sfxGroup;
+            spatial.volume = 1f;
+            spatial.pitch = 1f;
+            spatial.dopplerLevel = 0f;
+            spatial.spread = 0f;
+
+            ApplyRandomEffect(entry, spatial);
+            spatial.PlayOneShot(entry.clip, entry.volume);
+            ScheduleEffectReset(spatial, entry.clip);
+        }
+
         #endregion
 
         #region Music

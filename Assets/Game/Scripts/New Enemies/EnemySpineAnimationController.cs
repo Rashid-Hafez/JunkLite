@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Spine;
 using Spine.Unity;
 
@@ -40,6 +40,7 @@ namespace junklite
         [SerializeField] private bool debugLog = false;
 
         private StateMachine stateMachine;
+        private EnemyCharacter enemyCharacter;
         private IMeleeAttacker meleeAttacker;
         private IDasher dasher;
 
@@ -58,6 +59,7 @@ namespace junklite
                 skeletonAnimation = GetComponentInChildren<SkeletonAnimation>(true);
 
             stateMachine = GetComponentInParent<StateMachine>();
+            enemyCharacter = GetComponentInParent<EnemyCharacter>();
             meleeAttacker = GetComponentInParent<IMeleeAttacker>();
             dasher = GetComponentInParent<IDasher>();
         }
@@ -184,7 +186,11 @@ namespace junklite
             else if (to is HurtState)
                 state.SetAnimation(0, hurt, false);
             else if (to is StunnedState)
-                state.SetAnimation(0, hurt, true); // loop 'hurt' while stunned
+            {
+                // Parry stun should read as a held neutral state instead of looping hurt.
+                string stunAnim = (enemyCharacter != null && enemyCharacter.IsParryStunned) ? idle : hurt;
+                state.SetAnimation(0, stunAnim, true);
+            }
         }
 
         private void PlayDeath()

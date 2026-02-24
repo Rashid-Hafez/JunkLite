@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace junklite
 {
@@ -167,6 +167,9 @@ namespace junklite
                 new DashState(this),
                 new GrabState(this),
                 new RecoverState(this),
+                new HurtState(this),
+                new StunnedState(this),
+                new ParriedState(this),
                 new DeadState(this)
             );
 

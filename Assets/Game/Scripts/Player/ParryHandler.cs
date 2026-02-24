@@ -14,6 +14,7 @@ namespace junklite
         [SerializeField] private float parryRadius = 3f;
         [SerializeField] private LayerMask enemyLayer;
         [SerializeField] private GameObject parryVFXPrefab;
+        [SerializeField] private GameObject VisualEffectParry;
         [SerializeField] private float pushForce = 20.5f;
         [SerializeField] private float pushDuration = 0.18f; // how long to apply push impulse over time
         [SerializeField] private float stunDuration = 0.3f;
@@ -32,6 +33,7 @@ namespace junklite
         private PlayerState playerState;
         private PlayerCharacter playerChar;
         private Character2D5Controller controller;
+        private AudioManager audioManager;
 
         private bool parryActive;
         private int parryStage; // 1 or 2
@@ -44,6 +46,7 @@ namespace junklite
             playerState = GetComponent<PlayerState>();
             playerChar = GetComponent<PlayerCharacter>();
             controller = GetComponent<Character2D5Controller>();
+            audioManager = AudioManager.Instance;
 
             if (GameInputManager.Instance != null)
                 GameInputManager.Instance.OnParry += BeginParry;
@@ -74,6 +77,7 @@ namespace junklite
             }
 
             Debug.Log("[Parry] Begin stage1");
+            PlayParryStartSound();
             parryRoutine = StartCoroutine(ParryCoroutine());
         }
 
@@ -135,6 +139,8 @@ namespace junklite
                 if (parryVFXPrefab != null)
                     Instantiate(parryVFXPrefab, transform.position, Quaternion.identity);
 
+                PlayParrySuccessSound();
+
                 // feedback effects
                // FeedbackManager.Instance?.DoHitstop(hitstopDuration);
                 FeedbackManager.Instance?.DoCameraShake(); // uses default impulse internally
@@ -142,6 +148,8 @@ namespace junklite
                 // delay slow‑motion/zoom slightly so animation plays first
                 StartCoroutine(DelayedCameraEffect());
 
+                VisualEffectParry.SetActive(true);
+                parryVFXPrefab.SetActive(true);
             }
 
             // always block damage while active
@@ -157,12 +165,32 @@ namespace junklite
             camManager?.DoParryCameraEffect();
         }
 
+        private void PlayParryStartSound()
+        {
+            if (audioManager == null) audioManager = AudioManager.Instance;
+            var profile = playerChar != null ? playerChar.SoundProfile : null;
+            if (audioManager == null || profile == null) return;
+
+            audioManager.PlaySpatialAtPosition(profile.parryStart, transform.position);
+        }
+
+        private void PlayParrySuccessSound()
+        {
+            if (audioManager == null) audioManager = AudioManager.Instance;
+            var profile = playerChar != null ? playerChar.SoundProfile : null;
+            if (audioManager == null || profile == null) return;
+
+            audioManager.PlaySpatialAtPosition(profile.parrySuccess, transform.position);
+        }
+
         //cooldown
         private IEnumerator ParryStage2Coroutine()
         {
             yield return new WaitForSeconds(parryDuration);
             parryActive = false;
             playerState?.SetParrying(false);
+            VisualEffectParry.SetActive(false);
+            parryVFXPrefab.SetActive(false);
 
             Debug.Log("[Parry] Stage2 complete, holding input lock until animation ends");
             if (playerState != null)
@@ -182,63 +210,44 @@ namespace junklite
                 if (c == null) continue;
 
                 bool isPrimary = (primaryAttacker != null && c.gameObject == primaryAttacker);
-
-                // try to apply stun/knockback on enemy
                 var state = c.GetComponent<CharacterState>() ?? c.GetComponentInParent<CharacterState>();
-                if (state != null)
-                    state.ApplyStun(isPrimary ? stunDuration : stunDuration * 0.5f);
 
+                // Primary attacker: full parryStunDuration lock via OnParryStunned
                 if (isPrimary)
                 {
-                    // custom logic for the attacker
-                    var enemy = c.GetComponent<EnemyCharacter>();
+                    var enemy = c.GetComponent<EnemyCharacter>() ?? c.GetComponentInParent<EnemyCharacter>();
                     if (enemy != null)
                     {
-                        // example: deal a little retaliatory damage
-                        enemy.TakeDamage(new DamageInfo(5f, gameObject));
-                        enemy.ApplyStun(parryStunDuration);
+                        // Retaliatory parry damage — use isTickDamage to skip hitstun
+                        // so the FSM doesn't bounce through HurtState and double-trigger
+                        // the Hurt animation while the enemy should be parry-stunned.
+                        enemy.TakeDamage(new DamageInfo(5f, gameObject, isTickDamage: true));
+                        enemy.OnParryStunned(parryStunDuration);
                     }
-                    // TODO: call any other special handling you want for this enemy
-
                 }
-
-                // schedule a timed stun so enemies stay locked down for the full parry duration
+                // Bystanders in radius: half duration stun
+                else
                 {
-                    float hold = isPrimary ? parryStunDuration : parryStunDuration * 0.5f;
                     if (state != null)
-                        StartCoroutine(KeepEnemyStunned(state, hold));
+                        state.ApplyStun(parryStunDuration * 0.5f);
 
-                    // inform the enemy so it can play a looping stun animation if desired
-                    var enemy = c.GetComponent<EnemyCharacter>();
+                    var enemy = c.GetComponent<EnemyCharacter>() ?? c.GetComponentInParent<EnemyCharacter>();
                     if (enemy != null)
-                        enemy.OnParryStunned(hold);
+                        enemy.OnParryStunned(parryStunDuration * 0.5f);
                 }
 
-                // apply parry push through the enemy's axis-aware movement system
+                // Apply parry push through the enemy's axis-aware movement system
+                var enemyChar = c.GetComponent<EnemyCharacter>() ?? c.GetComponentInParent<EnemyCharacter>();
+                if (enemyChar != null)
                 {
-                    var enemyChar = c.GetComponent<EnemyCharacter>() ?? c.GetComponentInParent<EnemyCharacter>();
-                    if (enemyChar != null)
-                    {
-                        Vector3 dir = (c.transform.position - transform.position).normalized;
-                        enemyChar.ApplyParryPush(dir, pushForce, 1f, pushDuration);
-                    }
+                    Vector3 dir = (c.transform.position - transform.position).normalized;
+                    enemyChar.ApplyParryPush(dir, pushForce, 1f, pushDuration);
                 }
             }
 
             // clear remembered attacker once we're done
             primaryAttacker = null;
         }
-
-    // coroutine used by PushEnemies to enforce a timed stun independent of the character's own logic
-    private IEnumerator KeepEnemyStunned(CharacterState state, float duration)
-    {
-        if (state == null) yield break;
-
-        state.SetStunned(true);
-        yield return new WaitForSeconds(duration);
-        if (state != null)
-            state.SetStunned(false);
-    }
 
     private void OnDrawGizmosSelected()
     {

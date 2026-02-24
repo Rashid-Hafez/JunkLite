@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace junklite
 {
@@ -196,12 +196,9 @@ namespace junklite
 
         public override void OnParryStunned(float duration)
         {
-            // first, let base class handle the stun state transition
+            // Base marks this as parry-stunned and enters StunnedState.
+            // Animation routing is handled centrally by EnemySpineAnimationController.
             base.OnParryStunned(duration);
-
-            // hyena-specific: play a looping stun animation for the requested duration
-            if (spineController != null)
-                spineController.PlayStunLoop(duration);
         }
 
         protected override void Update()
@@ -236,6 +233,7 @@ namespace junklite
                 new DashState(this),
                 new HurtState(this),
                 new StunnedState(this),
+                new ParriedState(this),
                 new DeadState(this)
             );
 
@@ -291,7 +289,9 @@ namespace junklite
                 return;
             }
 
-            if (stateMachine.CurrentState is DodgeState || stateMachine.CurrentState is HurtState)
+            if (stateMachine.CurrentState is DodgeState 
+                || stateMachine.CurrentState is HurtState 
+                || stateMachine.CurrentState is ParriedState)
             {
                 wasPlayerAttacking = IsPlayerAttacking();
                 return;
