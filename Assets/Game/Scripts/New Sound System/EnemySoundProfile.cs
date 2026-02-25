@@ -7,6 +7,7 @@ namespace junklite
     {
         [Header("Combat")]
         public SoundEntry attack;
+        public SoundEntry attackNotify;
         public SoundEntry hurt;
         public SoundEntry death;
         public SoundEntry charge;

@@ -16,7 +16,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &7832329793080329322
 Transform:
   m_ObjectHideFlags: 0
@@ -148,8 +148,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.08667768, w: 0.9962364}
-  m_LocalPosition: {x: 0.81203455, y: 1.2471966, z: -0.0156}
+  m_LocalRotation: {x: 0, y: 0, z: -0.08394941, w: 0.99647003}
+  m_LocalPosition: {x: 0.5218805, y: 1.3054963, z: -0.0156}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1064,7 +1064,8 @@ MonoBehaviour:
   attackMix: 0
   attackMixOut: 0
   attackMixOutDelay: 0
-  attackTimeScale: 1.2
+  fistAttackTimeScale: 2
+  weaponAttackTimeScale: 1
   downAttackTimeScale: 2
   forceOverrideGroundedHoldDuration: 0.4
   footstepEvent: {fileID: 11400000, guid: 2657d9f265aa59446b055dc0c1018419, type: 2}

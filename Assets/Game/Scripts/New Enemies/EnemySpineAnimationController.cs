@@ -17,6 +17,8 @@ namespace junklite
         [SerializeField] private string idle = "Idle";
         [SerializeField] private string walk = "Run";
         [SerializeField] private string run = "Run";
+        [Tooltip("Animation played during attack wind-up (before Attack_1). Leave blank to keep current pose.")]
+        [SerializeField] private string attackWindUp = "";
         [SerializeField] private string attack = "Attack_1";
         [SerializeField] private string charge = "Charge";
         [SerializeField] private string dash = "Dash";
@@ -26,6 +28,10 @@ namespace junklite
         [Header("Stun")]
         [Tooltip("Looping animation to play while stunned due to a parry; leave blank to use 'hurt'")]
         [SerializeField] private string stunLoop = "";
+
+        [Header("Attack Wind-up")]
+        [Tooltip("Delay before playing attack animation (how long until the attack happens). Warning can show during this time.")]
+        [SerializeField] private float attackWindUpDuration = 0.3f;
 
         [Header("Hitbox Timing (Timer Fallback)")]
         [SerializeField] private bool useTimerFallback = true;
@@ -52,6 +58,7 @@ namespace junklite
         private bool isInCooldown;
         private float cooldownTimer;
         private bool isDead;
+        private Coroutine attackWindUpCoroutine;
 
         private void Awake()
         {
@@ -176,7 +183,7 @@ namespace junklite
             else if (to is ChaseState)
                 state.SetAnimation(0, run, true);
             else if (to is MeleeAttackState)
-                StartAttackAnimation();
+                StartAttackWindUp();
             else if (to is ChargeState)
                 state.SetAnimation(0, charge, true);
             else if (to is DashState)
@@ -315,6 +322,11 @@ namespace junklite
 
         private void ResetAttackState()
         {
+            if (attackWindUpCoroutine != null)
+            {
+                StopCoroutine(attackWindUpCoroutine);
+                attackWindUpCoroutine = null;
+            }
             hitboxActive = false;
             meleeAttacker?.MeleeHitbox?.Deactivate();
             dasher?.DashHitbox?.Deactivate();
@@ -322,6 +334,28 @@ namespace junklite
             isInCooldown = false;
             hitStarted = false;
             currentAttackEntry = null;
+        }
+
+        private void StartAttackWindUp()
+        {
+            if (attackWindUpCoroutine != null)
+                StopCoroutine(attackWindUpCoroutine);
+            attackWindUpCoroutine = StartCoroutine(AttackWindUpThenAttack());
+        }
+
+        private System.Collections.IEnumerator AttackWindUpThenAttack()
+        {
+            if (skeletonAnimation != null && !string.IsNullOrEmpty(attackWindUp))
+            {
+                var state = skeletonAnimation.AnimationState;
+                skeletonAnimation.Skeleton.SetToSetupPose();
+                state.SetAnimation(0, attackWindUp, false);
+            }
+
+            yield return new WaitForSeconds(attackWindUpDuration);
+            attackWindUpCoroutine = null;
+            if (stateMachine != null && stateMachine.CurrentState is MeleeAttackState && !isDead)
+                StartAttackAnimation();
         }
     }
 }

@@ -49,18 +49,18 @@ Material:
     m_Floats:
     - _AlphaCutoff: 0.5
     - _ColorMask: 15
-    - _ColorMultiplier: 10
-    - _DistortionAmount: 0.02
-    - _GlitchAmount: 0.063
+    - _ColorMultiplier: 13.42
+    - _DistortionAmount: 0.04
+    - _GlitchAmount: 0.218
     - _GlitchMinOpacity: 1
-    - _GlitchTiling: 2
+    - _GlitchTiling: -1.98
     - _MipLevel: 4
     - _MipLevelIntensity: 1
     - _NoiseIntensity: 1
     - _OuterRimIntensity: 1
     - _Pattern: 0
     - _PatternCoords: 0
-    - _PatternSize: 60
+    - _PatternSize: 46.18
     - _Stencil: 0
     - _StencilComp: 8
     - _StencilOp: 0
@@ -72,7 +72,7 @@ Material:
     - _VertexGlithcAmount: 0
     - _VertexGlithcFrequency: 10
     m_Colors:
-    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _Color: {r: 0.4509804, g: 0.8352941, b: 0.96862745, a: 1}
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
     - _Vertexdistortiondirection: {r: 1, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []

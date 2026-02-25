@@ -71,6 +71,7 @@ namespace junklite
 
         // Public — called by FSM states
         public void PlayAttack() => Play(sounds?.attack);
+        public void PlayAttackNotify() => Play(sounds?.attackNotify);
         public void PlayCharge() => Play(sounds?.charge);
         public void PlayGrab() => Play(sounds?.grab);
         public void PlayDash() => Play(sounds?.dash);

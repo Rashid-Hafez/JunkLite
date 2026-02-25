@@ -65,6 +65,12 @@ namespace junklite
         [SerializeField] protected DamageFlashUniversal damageFlashUniversal;
         private bool warnedMissingDamageFlash;
 
+        [Header("Attack Warning")]
+        [Tooltip("Optional GameObject to activate when entering melee attack (warning signal). Deactivated when leaving attack state.")]
+        [SerializeField] protected GameObject attackWarningVfx;
+        [Tooltip("Delay in seconds after entering melee attack before showing the notification. 0 = show immediately.")]
+        [SerializeField] protected float attackNotifyDelay = 0f;
+
         [Header("Animation (Enemy)")]
         [SerializeField] private EnemyAnimationController enemyAnimation;
         public EnemyAnimationController Anim => enemyAnimation;
@@ -82,6 +88,7 @@ namespace junklite
 
         // Damage flash state
         private Coroutine damageFlashCoroutine;
+        private Coroutine attackNotifyCoroutine;
 
         // Components
         protected StateMachine stateMachine;
@@ -169,8 +176,59 @@ namespace junklite
             TryIgnorePlayerBodyCollision();
         }
 
-        protected virtual void OnEnable() { }
-        protected virtual void OnDisable() { }
+        protected virtual void OnEnable()
+        {
+            if (stateMachine != null)
+                stateMachine.OnStateChanged += HandleAttackWarningStateChanged;
+        }
+
+        protected virtual void OnDisable()
+        {
+            if (stateMachine != null)
+                stateMachine.OnStateChanged -= HandleAttackWarningStateChanged;
+        }
+
+        private void HandleAttackWarningStateChanged(IState from, IState to)
+        {
+            if (to is MeleeAttackState)
+            {
+                if (attackNotifyCoroutine != null)
+                {
+                    StopCoroutine(attackNotifyCoroutine);
+                    attackNotifyCoroutine = null;
+                }
+                if (attackNotifyDelay <= 0f)
+                    ShowAttackNotify();
+                else
+                    attackNotifyCoroutine = StartCoroutine(AttackNotifyAfterDelay());
+            }
+            else if (from is MeleeAttackState)
+            {
+                if (attackNotifyCoroutine != null)
+                {
+                    StopCoroutine(attackNotifyCoroutine);
+                    attackNotifyCoroutine = null;
+                }
+                if (attackWarningVfx != null)
+                    attackWarningVfx.SetActive(false);
+            }
+        }
+
+        private void ShowAttackNotify()
+        {
+            if (attackWarningVfx != null)
+                attackWarningVfx.SetActive(true);
+            GetComponentInChildren<EnemyAudioHandler>()?.PlayAttackNotify();
+        }
+
+        private System.Collections.IEnumerator AttackNotifyAfterDelay()
+        {
+            yield return new WaitForSeconds(attackNotifyDelay);
+            attackNotifyCoroutine = null;
+            if (stateMachine != null && stateMachine.CurrentState is MeleeAttackState)
+                ShowAttackNotify();
+        }
+
         protected virtual void Update() { }
 
         protected virtual void InitializeStateMachine() { }

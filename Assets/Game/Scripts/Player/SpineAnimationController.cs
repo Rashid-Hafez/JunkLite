@@ -66,7 +66,10 @@ namespace junklite
         [SerializeField] private float attackMix = 0.1f;
         [SerializeField] private float attackMixOut = 0.25f;
         [SerializeField] private float attackMixOutDelay = 0.05f;
-        [SerializeField, Range(0.1f, 3f)] private float attackTimeScale = 1f;
+        [Tooltip("State1 = fists. Used when not in mod combat (weapons not equipped).")]
+        [SerializeField, Range(0.1f, 3f)] private float fistAttackTimeScale = 1f;
+        [Tooltip("State2 = weapons. Used when in mod combat (Q / weapons equipped).")]
+        [SerializeField, Range(0.1f, 3f)] private float weaponAttackTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float downAttackTimeScale = 1.4f;
 
         [Header("Force Override (e.g. GroundPound)")]
@@ -86,6 +89,7 @@ namespace junklite
         private PlayerState playerState;
         private Character2D5Controller controller;
         private PlayerAudioHandler audioHandler;
+        private WeaponManager weaponManager;
 
         // State tracking
         private bool wasAirborne = false;
@@ -108,6 +112,7 @@ namespace junklite
             playerState = GetComponentInParent<PlayerState>();
             controller = GetComponentInParent<Character2D5Controller>();
             audioHandler = GetComponentInParent<PlayerAudioHandler>() ?? GetComponent<PlayerAudioHandler>();
+            weaponManager = GetComponentInParent<WeaponManager>();
 
             if (skeletonAnimation != null)
             {
@@ -255,7 +260,8 @@ namespace junklite
 
             LogAttack($"Playing attack: '{animationName}'");
 
-            float timeScale = attackTimeScale;
+            bool isWeaponState = weaponManager != null && weaponManager.IsModCombat;
+            float timeScale = isWeaponState ? weaponAttackTimeScale : fistAttackTimeScale;
             if (playerState != null && playerState.IsDownAttackRequested)
                 timeScale = downAttackTimeScale;
 
