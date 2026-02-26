@@ -14,6 +14,14 @@ namespace junklite
         [Header("Debug")]
         [SerializeField] private bool logCombo = false;
 
+        private bool piercingOverride;
+
+        public bool PiercingOverride
+        {
+            get => piercingOverride;
+            set => piercingOverride = value;
+        }
+
         #region State
 
         private CombatState combatState;

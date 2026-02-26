@@ -29,7 +29,7 @@ namespace junklite
             {
                 _manager.OnWeaponChanged += Refresh;
                 _manager.OnCombatModeChanged += Refresh;
-                _manager.OnEnemyHit += UpdateActiveIndicators;
+                _manager.OnEnemyHit += OnEnemyHitHandler;
             }
 
             Refresh();
@@ -41,7 +41,7 @@ namespace junklite
             {
                 _manager.OnWeaponChanged -= Refresh;
                 _manager.OnCombatModeChanged -= Refresh;
-                _manager.OnEnemyHit -= UpdateActiveIndicators;
+                _manager.OnEnemyHit -= OnEnemyHitHandler;
             }
 
             _manager = null;
@@ -108,6 +108,8 @@ namespace junklite
                     slot2.SetContentActive(false);
             }
         }
+
+        private void OnEnemyHitHandler(EnemyCharacter _) => UpdateActiveIndicators();
 
         private void UpdateActiveIndicators()
         {

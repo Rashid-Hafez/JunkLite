@@ -5,6 +5,7 @@ namespace junklite
     [CreateAssetMenu(fileName = "WeaponData", menuName = "Junklite/Weapon Data")]
     public class WeaponData : ScriptableObject
     {
+
         // =====================================================================
         // COMBO STEP STRUCT
         // =====================================================================
@@ -18,6 +19,9 @@ namespace junklite
             [Header("Combat")]
             public float damageMultiplier;
             public float hitRadius;
+            [Tooltip("Horizontal recoil applied to the player on a successful hit. Negative pushes back.")]
+            public float hitRecoil;
+            public bool piercing;
 
             [Header("VFX")]
             public GameObject slashPrefab;
@@ -29,6 +33,8 @@ namespace junklite
             public float verticalImpulse;
             [Tooltip("Override gravity multiplier during air attacks (1 = normal).")]
             public float airGravityMultiplier;
+            [Tooltip("How long the push velocity is held before stopping. Controls lunge snap.")]
+            public float forwardImpulseDuration;
         }
 
         // =====================================================================
@@ -62,6 +68,8 @@ namespace junklite
         [Header("Base Stats")]
         public float baseDamage = 10f;
         public float baseAttackSpeed = 1f;
+        [Tooltip("Distance from the player center where the hit sphere is placed. Fists short, sword long.")]
+        public float attackRange = 1f;
         public Vector2 knockbackForce = new Vector2(8f, 4f);
         public int maxWeaponDurability = 100;
         [Tooltip("Durability consumed per confirmed enemy hit")]

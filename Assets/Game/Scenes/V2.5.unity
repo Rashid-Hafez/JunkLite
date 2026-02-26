@@ -171,17 +171,9 @@ PrefabInstance:
       propertyPath: modData
       value: 
       objectReference: {fileID: 11400000, guid: 89a7dbde5b8cd1d4baa365cd81b3811c, type: 2}
-    - target: {fileID: 6021792282018443440, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
-      propertyPath: defaultVisual
-      value: 
-      objectReference: {fileID: 2042739979}
     - target: {fileID: 8161909773096738608, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
       propertyPath: m_Name
       value: Electric Mod
-      objectReference: {fileID: 0}
-    - target: {fileID: 8161909773096738608, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
-      propertyPath: m_IsActive
-      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1414,17 +1406,9 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 6021792282018443440, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
-      propertyPath: modData
-      value: 
-      objectReference: {fileID: 11400000, guid: b1036ee54b12d1548abae30ea8df5074, type: 2}
     - target: {fileID: 8161909773096738608, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
       propertyPath: m_Name
       value: Fire Mod
-      objectReference: {fileID: 0}
-    - target: {fileID: 8161909773096738608, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
-      propertyPath: m_IsActive
-      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2007,6 +1991,71 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 0
   m_SpriteSortPoint: 0
+--- !u!1001 &1285110909
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 329578290283652807, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 7038683931279381878, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_Name
+      value: Player_2.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 7038683931279381878, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7117484140060184854, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -43.21874
+      objectReference: {fileID: 0}
+    - target: {fileID: 7117484140060184854, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -1.1400001
+      objectReference: {fileID: 0}
+    - target: {fileID: 7117484140060184854, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.37798157
+      objectReference: {fileID: 0}
+    - target: {fileID: 7117484140060184854, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7117484140060184854, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7117484140060184854, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7117484140060184854, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7117484140060184854, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7117484140060184854, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7117484140060184854, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
 --- !u!1 &1305499144
 GameObject:
   m_ObjectHideFlags: 0
@@ -5037,7 +5086,7 @@ PrefabInstance:
     - target: {fileID: 6021792282018443440, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
       propertyPath: modData
       value: 
-      objectReference: {fileID: 11400000, guid: c2f312a56b37f1d44ab34aec1ce3d92f, type: 2}
+      objectReference: {fileID: 0}
     - target: {fileID: 8161909773096738608, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
       propertyPath: m_Name
       value: Pogo mod
@@ -5267,11 +5316,6 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 0
   m_SpriteSortPoint: 0
---- !u!1 &2042739979 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 1810501840101692228, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
-  m_PrefabInstance: {fileID: 106733816}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &2070084395
 GameObject:
   m_ObjectHideFlags: 0
@@ -59090,6 +59134,8 @@ MonoBehaviour:
   hitstunDuration: 0.3
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
+  attackWarningVfx: {fileID: 0}
+  attackNotifyDelay: 0
   enemyAnimation: {fileID: 0}
   deathParticlePrefab: {fileID: 0}
   deathParticleLifetime: 2
@@ -64132,3 +64178,4 @@ SceneRoots:
   - {fileID: 2070084397}
   - {fileID: 1965138345}
   - {fileID: 740272285}
+  - {fileID: 1285110909}

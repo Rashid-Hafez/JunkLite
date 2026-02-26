@@ -13,14 +13,8 @@ namespace junklite
     [RequireComponent(typeof(CinemachineImpulseSource))]
     public class PlayerCharacter : CharacterBase, IGrabbable
     {
-        [Header("Player Settings")]
-        [SerializeField] private float attackRange = 1.5f;
-        [SerializeField] private LayerMask enemyLayerMask = 1;
         [Header("Audio")]
         [SerializeField] private PlayerSoundProfile soundProfile;
-
-        [Header("Attack Settings")]
-        [SerializeField] private float attackFacingLockDuration = 0.25f;
 
         [Header("VFX")]
         [SerializeField] private ParticleSystem particleJumpUp;
@@ -68,9 +62,6 @@ namespace junklite
         // Player State
         protected PlayerState playerState;
         public PlayerState PlayerState => playerState;
-
-        // attack coroutine
-        Coroutine _attackCo;
 
         // Grab state
         private bool isGrabbed = false;
@@ -233,8 +224,6 @@ namespace junklite
                     playerState.SetRolling(false);
                     playerState.SetVulnerable(false);
                 }
-
-                if (_attackCo != null) { StopCoroutine(_attackCo); _attackCo = null; }
             }
         }
 

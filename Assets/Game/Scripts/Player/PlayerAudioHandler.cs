@@ -106,7 +106,7 @@ namespace junklite
         private void OnLand() => Play(sounds?.land);
         private void OnDash() => Play(sounds?.dash);
         private void OnDeath() => Play(sounds?.death);
-        private void OnEnemyHit() => Play(sounds?.hit);
+        private void OnEnemyHit(EnemyCharacter _) => Play(sounds?.hit);
         private void OnEnvironmentHit() => Play(sounds?.environmentHit);
         private void OnAttackingChanged(bool attacking) { if (attacking) PlayAttack(); }
         private void OnWallSlide(bool sliding) { if (sliding) Play(sounds?.wallSlide); }

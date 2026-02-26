@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using static UnityEngine.EventSystems.EventTrigger;
 
 namespace junklite
 {
@@ -44,12 +45,13 @@ namespace junklite
         private float attackOpenWindow = 0.3f;
         [SerializeField] private float BUFFER_DURATION = 0.3f;
 
-        [Header("Recoil")]
-        [SerializeField] private float sideRecoil = 6f;
-
         [Header("Attack Settings")]
         [SerializeField] private float facingLockDuration = 0.25f;
         [SerializeField] private float inputThreshold = 0.5f;
+
+        [Header("Attack Push")]
+        [Tooltip("Fallback push duration when ComboStep.forwardImpulseDuration is 0")]
+        [SerializeField] private float defaultPushDuration = 0.08f;
 
         [Header("Attack Input Lock")]
         [SerializeField] private bool lockMovementDuringAttack = true;
@@ -114,7 +116,7 @@ namespace junklite
         public event Action OnWeaponChanged;
         public event Action OnCombatModeChanged;
         public event Action OnCombatModeRejected;
-        public event Action OnEnemyHit;
+        public event Action<EnemyCharacter> OnEnemyHit;
         public event Action OnEnvironmentHit;
 
         #endregion
@@ -189,7 +191,7 @@ namespace junklite
                 return;
             }
 
-            // Route mod pickups to inventory for now � ModManager will handle this later
+            // Route mod pickups to inventory for now - ModManager will handle this later
             var modPickup = other.GetComponent<WorldModPickup>();
             if (modPickup != null && modPickup.gameObject.activeSelf)
             {
@@ -279,7 +281,6 @@ namespace junklite
 
         /// <summary>
         /// Backward-compatible attack for regular mode (fists).
-        /// PlayerCharacter can still call this until input is rewired in Step 5.
         /// </summary>
         public void Attack(Vector2 moveInput, bool isGrounded)
         {
@@ -528,8 +529,18 @@ namespace junklite
         {
             yield return new WaitForSeconds(delayBeforeAttack);
 
-            ApplyAttackPush(dir, step);
+            // Kick off the push as a separate coroutine so it doesn't block hit detection.
+            // The push moves the player, but the hitbox origin is snapshotted HERE — before
+            // any movement has happened — so sliding into an enemy after the swing never
+            // awards a hit.
+            StartCoroutine(CoApplyAttackPush(dir, step));
             ApplyAttackGravityOverride(step);
+
+            Vector3 hitOrigin = ResolveHitOrigin(dir);
+
+            // Resolve piercing: ComboStep default OR runtime override on the weapon instance.
+            // Mods/abilities can set WeaponInstance.PiercingOverride = true at any time.
+            bool isPiercing = step.piercing || (activeWeapon?.PiercingOverride ?? false);
 
             float radius = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
             bool hasHitEnemy = false;
@@ -538,14 +549,19 @@ namespace junklite
 
             while (Time.time < windowEnd)
             {
-                var hitResult = DetectHit(anchor.position, radius);
+                var hitResult = DetectHit(hitOrigin, radius, isPiercing);
 
-                if (hitResult.type == AttackHitResult.Enemy && hitResult.target != null && !hasHitEnemy)
+                if (hitResult.type == AttackHitResult.Enemy && !hasHitEnemy)
                 {
                     hasHitEnemy = true;
                     PlayHitFeedback();
-                    DealDamage(hitResult.target, step);
-                    ApplyRecoil(dir);
+
+                    if (isPiercing && hitResult.allTargets != null)
+                        DealDamageToAll(hitResult.allTargets, step);
+                    else if (hitResult.target != null)
+                        DealDamage(hitResult.target, step);
+
+                    ApplyRecoil(dir, step);
                     break;
                 }
 
@@ -553,7 +569,7 @@ namespace junklite
                 {
                     hasHitEnvironment = true;
                     float radiusForVfx = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
-                    Vector3 impactPoint = ResolveImpactPoint(dir, anchor.position, radiusForVfx);
+                    Vector3 impactPoint = ResolveImpactPoint(dir, hitOrigin, radiusForVfx);
                     Vector3 attackDir = GetAttackDirection(dir);
                     if (CombatEffectsManager.Instance != null)
                     {
@@ -561,7 +577,7 @@ namespace junklite
                         CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
                         OnEnvironmentHit?.Invoke();
                     }
-                    ApplyRecoil(dir);
+                    ApplyRecoil(dir, step);
                 }
 
                 yield return null;
@@ -578,6 +594,7 @@ namespace junklite
             activeWeapon = null;
             activeCombatState = null;
             activeWeaponData = null;
+            hasBufferedInput = false;
 
             if (playerState != null)
             {
@@ -611,25 +628,53 @@ namespace junklite
             ReleaseAttackInputLock();
         }
 
-        private void ApplyAttackPush(AttackDirection dir, WeaponData.ComboStep step)
+        /// <summary>
+        /// Applies a clean, snappy velocity lunge in the attack direction, then stops it.
+        /// Unlike AddForce/Impulse, this directly sets velocity for a fixed duration so the
+        /// feel is consistent regardless of prior player speed, and it stops sharply rather
+        /// than decaying over many frames. Duration is set per ComboStep so each hit in a
+        /// combo can have a distinct lunge character.
+        /// </summary>
+        private IEnumerator CoApplyAttackPush(AttackDirection dir, WeaponData.ComboStep step)
         {
-            if (playerRb == null) return;
+            if (playerRb == null) yield break;
 
-            Vector3 impulse = Vector3.zero;
+            // Build the push velocity for this direction
+            Vector3 pushVelocity = Vector3.zero;
 
-            if (dir == AttackDirection.Side)
+            if (dir == AttackDirection.Side && Mathf.Abs(step.forwardImpulse) > 0f)
             {
-                if (Mathf.Abs(step.forwardImpulse) > 0f)
-                    impulse += transform.right * Facing * step.forwardImpulse;
+                pushVelocity.x = step.forwardImpulse * Facing;
             }
-            else
+            else if (dir != AttackDirection.Side && Mathf.Abs(step.verticalImpulse) > 0f)
             {
-                if (Mathf.Abs(step.verticalImpulse) > 0f)
-                    impulse += Vector3.up * (dir == AttackDirection.Down ? -step.verticalImpulse : step.verticalImpulse);
+                pushVelocity.y = dir == AttackDirection.Down
+                    ? -step.verticalImpulse
+                    : step.verticalImpulse;
             }
 
-            if (impulse.sqrMagnitude > 0f)
-                playerRb.AddForce(impulse, ForceMode.Impulse);
+            if (pushVelocity.sqrMagnitude <= 0f) yield break;
+
+            // Per-step duration, fall back to the manager-level default
+            float duration = step.forwardImpulseDuration > 0f
+                ? step.forwardImpulseDuration
+                : defaultPushDuration;
+
+            // Zero the pushed axis first so the lunge is always the same speed
+            // regardless of what the player was doing — this is what makes it feel
+            // deliberate and game-like rather than floaty
+            var vel = playerRb.linearVelocity;
+            if (pushVelocity.x != 0f) vel.x = pushVelocity.x;
+            if (pushVelocity.y != 0f) vel.y = pushVelocity.y;
+            playerRb.linearVelocity = vel;
+
+            yield return new WaitForSeconds(duration);
+
+            // Hard-stop only the axis we pushed — vertical physics stays untouched
+            var endVel = playerRb.linearVelocity;
+            if (pushVelocity.x != 0f) endVel.x = 0f;
+            if (pushVelocity.y != 0f) endVel.y = 0f;
+            playerRb.linearVelocity = endVel;
         }
 
         private void ApplyAttackGravityOverride(WeaponData.ComboStep step)
@@ -651,11 +696,18 @@ namespace junklite
         private struct HitDetectionResult
         {
             public AttackHitResult type;
-            public Collider target;
+            public Collider target;           // used when isPiercing = false
+            public Collider[] allTargets;     // used when isPiercing = true
             public Vector3 point;
         }
 
-        private HitDetectionResult DetectHit(Vector3 origin, float radius)
+        /// <summary>
+        /// Performs an OverlapSphere at the given origin.
+        /// Single-target mode returns the closest enemy. Piercing mode returns all enemies.
+        /// Note: origin is always the snapshotted position from CoAttackDelay, never a live
+        /// anchor — this prevents the player lunging into an out-of-range enemy mid-swing.
+        /// </summary>
+        private HitDetectionResult DetectHit(Vector3 origin, float radius, bool piercing)
         {
             var result = new HitDetectionResult { type = AttackHitResult.None };
 
@@ -665,17 +717,26 @@ namespace junklite
             float closestDist = float.MaxValue;
             bool hitEnvironment = false;
 
+            List<Collider> enemyHits = piercing ? new List<Collider>() : null;
+
             for (int i = 0; i < hits.Length; i++)
             {
                 int mask = 1 << hits[i].gameObject.layer;
 
                 if ((mask & enemyLayer) != 0)
                 {
-                    float dist = Vector3.Distance(origin, hits[i].transform.position);
-                    if (dist < closestDist)
+                    if (piercing)
                     {
-                        closestDist = dist;
-                        closestEnemy = hits[i];
+                        enemyHits.Add(hits[i]);
+                    }
+                    else
+                    {
+                        float dist = Vector3.Distance(origin, hits[i].transform.position);
+                        if (dist < closestDist)
+                        {
+                            closestDist = dist;
+                            closestEnemy = hits[i];
+                        }
                     }
                 }
                 else if ((mask & environmentLayer) != 0)
@@ -684,7 +745,13 @@ namespace junklite
                 }
             }
 
-            if (closestEnemy != null)
+            if (piercing && enemyHits != null && enemyHits.Count > 0)
+            {
+                result.type = AttackHitResult.Enemy;
+                result.allTargets = enemyHits.ToArray();
+                result.point = enemyHits[0].ClosestPoint(origin);
+            }
+            else if (!piercing && closestEnemy != null)
             {
                 result.type = AttackHitResult.Enemy;
                 result.target = closestEnemy;
@@ -722,7 +789,8 @@ namespace junklite
 
             if (damageDealt)
             {
-                OnEnemyHit?.Invoke();
+                var enemy = target.GetComponent<EnemyCharacter>() ?? target.GetComponentInParent<EnemyCharacter>();
+                OnEnemyHit?.Invoke(enemy);
 
                 // Consume weapon durability (fists don't break)
                 if (activeWeaponSlot != 0 && activeWeapon != null)
@@ -744,6 +812,62 @@ namespace junklite
                     CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDir);
                     CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, hitDir);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Damages all enemies in the hit result (piercing path).
+        /// Durability is consumed once for the whole swing, not per enemy.
+        /// </summary>
+        private void DealDamageToAll(Collider[] targets, WeaponData.ComboStep step)
+        {
+            bool anyHit = false;
+
+            foreach (var target in targets)
+            {
+                var damageable = target.GetComponent<IDamageable>()
+                              ?? target.GetComponentInParent<IDamageable>();
+
+                if (damageable == null || !damageable.IsAlive) continue;
+
+                float damage = activeWeaponData != null ? activeWeaponData.baseDamage : 10f;
+                if (step.damageMultiplier > 0f)
+                    damage *= step.damageMultiplier;
+
+                var knockback = activeWeaponData != null
+                    ? activeWeaponData.knockbackForce
+                    : new Vector2(8f, 4f);
+
+                var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
+                bool damageDealt = damageable.TakeDamage(damageInfo);
+
+                if (damageDealt)
+                {
+                    anyHit = true;
+                    var enemy = target.GetComponent<EnemyCharacter>() ?? target.GetComponentInParent<EnemyCharacter>();
+                    OnEnemyHit?.Invoke(enemy);
+
+                    // VFX per enemy hit
+                    if (CombatEffectsManager.Instance != null)
+                    {
+                        Vector3 originPoint = currentAttackAnchor != null
+                            ? currentAttackAnchor.position
+                            : playerTransform.position + Vector3.up;
+
+                        Vector3 hitPoint = target.ClosestPoint(originPoint);
+                        Vector3 hitDir = GetAttackDirection(currentAttackDir);
+
+                        CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDir);
+                        CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, hitDir);
+                    }
+                }
+            }
+
+            // Single durability tick for the entire swing regardless of how many enemies were hit
+            if (anyHit && activeWeaponSlot != 0 && activeWeapon != null)
+            {
+                if (activeWeapon.ConsumeDurability())
+                    HandleWeaponBroken(activeWeaponSlot);
             }
         }
 
@@ -879,6 +1003,36 @@ namespace junklite
 
         #region Helpers
 
+        private Vector3 ResolveHitOrigin(AttackDirection dir)
+        {
+            switch (dir)
+            {
+                case AttackDirection.Side:
+                    return new Vector3(
+                        playerTransform.position.x + Facing * activeWeaponData.attackRange,
+                        sideAttack.position.y,
+                        playerTransform.position.z
+                    );
+
+                case AttackDirection.Up:
+                    return new Vector3(
+                        upAttack.position.x,
+                        playerTransform.position.y + activeWeaponData.attackRange,
+                        playerTransform.position.z
+                    );
+
+                case AttackDirection.Down:
+                    return new Vector3(
+                        downAttack.position.x,
+                        playerTransform.position.y - activeWeaponData.attackRange,
+                        playerTransform.position.z
+                    );
+
+                default:
+                    return playerTransform.position;
+            }
+        }
+
         private void SetWeaponVisible(WeaponInstance weapon, bool visible)
         {
             if (weapon == null) return;
@@ -908,11 +1062,11 @@ namespace junklite
             };
         }
 
-        private void ApplyRecoil(AttackDirection dir)
+        private void ApplyRecoil(AttackDirection dir, WeaponData.ComboStep step)
         {
             if (playerRb == null || dir != AttackDirection.Side) return;
-            float recoilDir = -Facing;
-            playerRb.AddForce(Vector3.right * recoilDir * sideRecoil, ForceMode.Impulse);
+            if (Mathf.Abs(step.hitRecoil) <= 0f) return;
+            playerRb.AddForce(Vector3.right * -Facing * step.hitRecoil, ForceMode.Impulse);
         }
 
         private void ApplyAttackInputLock()

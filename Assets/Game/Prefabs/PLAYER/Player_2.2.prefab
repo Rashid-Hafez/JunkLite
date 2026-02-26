@@ -148,8 +148,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.08394941, w: 0.99647003}
-  m_LocalPosition: {x: 0.5218805, y: 1.3054963, z: -0.0156}
+  m_LocalRotation: {x: 0, y: 0, z: 0.99692416, w: 0.07837209}
+  m_LocalPosition: {x: 0.4089083, y: 1.4680159, z: -0.0144}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -650,12 +650,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   baseStats: {fileID: 11400000, guid: adaa8433c252acc46a3253234b8ce0dd, type: 2}
   attributes: {fileID: 0}
-  attackRange: 2
-  enemyLayerMask:
-    serializedVersion: 2
-    m_Bits: 0
   soundProfile: {fileID: 11400000, guid: 02c65cf062cddfb4b81d2c3777e6c1bd, type: 2}
-  attackFacingLockDuration: 0.15
   particleJumpUp: {fileID: 9027087665219420547}
   particleJumpDown: {fileID: 9027087665219420547}
   skeletonGhost: {fileID: 8091591924954336917}
@@ -724,9 +719,10 @@ MonoBehaviour:
   delayBeforeAttack: 0.08
   attackOpenWindow: 0.28
   BUFFER_DURATION: 0.3
-  sideRecoil: 5
+  sideRecoil: 0
   facingLockDuration: 0.25
   inputThreshold: 0.5
+  defaultPushDuration: 0.08
   lockMovementDuringAttack: 1
   logAttacks: 0
 --- !u!114 &7181291251784971520
