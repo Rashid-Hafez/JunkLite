@@ -14,24 +14,27 @@ namespace junklite
         [Header("Debug")]
         [SerializeField] private bool logCombo = false;
 
-        private bool piercingOverride;
-
-        public bool PiercingOverride
-        {
-            get => piercingOverride;
-            set => piercingOverride = value;
-        }
-
         #region State
 
         private CombatState combatState;
 
-        // Weapon durability
         private float currentDurability;
         public float CurrentDurability => currentDurability;
         public float MaxDurability => weaponData != null ? weaponData.maxWeaponDurability : 0f;
         public bool IsBroken => currentDurability <= 0f;
         public event System.Action OnWeaponBroken;
+
+        /// <summary>
+        /// Set true at runtime by mods/abilities to override per-step piercing defaults.
+        /// Set back to false when the effect expires.
+        /// Only meaningful on melee weapons — ranged weapons ignore this.
+        /// </summary>
+        private bool piercingOverride;
+        public bool PiercingOverride
+        {
+            get => piercingOverride;
+            set => piercingOverride = value;
+        }
 
         #endregion
 
@@ -62,7 +65,8 @@ namespace junklite
 
             if (weaponData.comboWindow <= weaponData.attackCooldown)
             {
-                Debug.LogWarning($"[WeaponInstance] '{weaponData.displayName}': comboWindow ({weaponData.comboWindow}s) must be > attackCooldown ({weaponData.attackCooldown}s)!");
+                Debug.LogWarning($"[WeaponInstance] '{weaponData.displayName}': comboWindow " +
+                                 $"({weaponData.comboWindow}s) must be > attackCooldown ({weaponData.attackCooldown}s)!");
             }
         }
 
@@ -75,18 +79,21 @@ namespace junklite
 
         #region Combo Delegation
 
-        public bool TryGetComboStep(AttackDirection dir, bool isGrounded, out WeaponData.ComboStep step, out int comboIndex, out string animationName)
+        /// <summary>
+        /// Delegates to CombatState.TryBeginAttack. Returns the resolved combo index and
+        /// animation name. WeaponManager uses the index to separately fetch the typed step.
+        /// </summary>
+        public bool TryBeginAttack(AttackDirection dir, bool isGrounded, out int comboIndex, out string animationName)
         {
-            step = default;
             comboIndex = -1;
             animationName = null;
-            if (combatState == null) return false;
-            return combatState.TryGetComboStep(dir, isGrounded, out step, out comboIndex, out animationName);
+            if (combatState == null || weaponData == null) return false;
+            return combatState.TryBeginAttack(dir, isGrounded, weaponData, out comboIndex, out animationName);
         }
 
         public void OnAttackComplete(AttackDirection dir, bool wasGrounded)
         {
-            combatState?.OnAttackComplete(dir, wasGrounded);
+            combatState?.OnAttackComplete(dir, wasGrounded, weaponData);
         }
 
         public void OnAttackInterrupted()

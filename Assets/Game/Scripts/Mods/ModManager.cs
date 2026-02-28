@@ -134,7 +134,17 @@ namespace junklite
                 var mod = passiveSlots[i];
                 if (mod == null || mod.IsBroken) continue;
                 if (mod.Data is PassiveModData passive)
+                {
                     passive.OnHitRegistered(mod, playerCharacter, enemy);
+
+                    if (mod.IsBroken)
+                    {
+                        passive.OnUnequip(playerCharacter);
+                        passiveSlots[i] = null;
+                        Debug.Log($"[ModManager] Passive mod broke: {mod.Data.modName}");
+                        OnModSlotsChanged?.Invoke();
+                    }
+                }
             }
 
             for (int i = 0; i < unlockedActiveSlots; i++)

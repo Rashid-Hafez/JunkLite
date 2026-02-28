@@ -102,6 +102,8 @@ namespace junklite
         // when an attack animation finishes during a parry, we defer the end until parry state clears
         private bool waitingForParryEnd = false;
 
+        public TrackEntry CurrentAttackEntry => currentAttackEntry;
+
         #region Unity Lifecycle
 
         private void Awake()

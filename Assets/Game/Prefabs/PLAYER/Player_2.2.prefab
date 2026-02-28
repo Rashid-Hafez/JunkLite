@@ -373,6 +373,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1941436517345911957}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &5109868812011894317
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7630895652577832484}
+  m_Layer: 16
+  m_Name: Bullet Spawn (1)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7630895652577832484
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5109868812011894317}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: 0.4064177, w: 0.9136874}
+  m_LocalPosition: {x: 1.369, y: 1.886, z: -0.017600005}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2489384785993987126}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5111033864026869134
 GameObject:
   m_ObjectHideFlags: 0
@@ -404,6 +435,62 @@ Transform:
   m_Children: []
   m_Father: {fileID: 7117484140060184854}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &5313947137746381582
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2730142446252023279}
+  - component: {fileID: 4136374869600066814}
+  m_Layer: 16
+  m_Name: Muzzle Point
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2730142446252023279
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5313947137746381582}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0.4064177, w: 0.9136874}
+  m_LocalPosition: {x: 0.4303329, y: 1.7661115, z: -0.0176}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 280269240309670116}
+  m_Father: {fileID: 2489384785993987126}
+  m_LocalEulerAnglesHint: {x: 0.51, y: -0.992, z: -17.15}
+--- !u!114 &4136374869600066814
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5313947137746381582}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1fd8daaed7b64148a34acb96ba14ce1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: spine-unity::Spine.Unity.BoneFollower
+  skeletonRenderer: {fileID: 2205524235645085863}
+  boneName: Hand_1
+  followXYPosition: 1
+  followZPosition: 1
+  followAttachmentZSpacing: 1
+  followBoneRotation: 1
+  followSkeletonFlip: 1
+  followLocalScale: 0
+  followParentWorldScale: 0
+  maintainedAxisOrientation: 1
+  initializeOnAwake: 1
 --- !u!1 &5528457295246127328
 GameObject:
   m_ObjectHideFlags: 0
@@ -435,6 +522,37 @@ Transform:
   m_Children:
   - {fileID: 6307626169733131090}
   m_Father: {fileID: 3708428653336801813}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &5711332642442856095
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 280269240309670116}
+  m_Layer: 16
+  m_Name: Bullet Spawn
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &280269240309670116
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5711332642442856095}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.677, y: 0.06, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2730142446252023279}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6942188552916789910
 GameObject:
@@ -699,11 +817,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54798ea1f27bbb441b15ce2e4107c382, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponHolder
-  fistWeaponData: {fileID: 11400000, guid: 54da3bdf177ddb741826c7ae4d0f5858, type: 2}
+  fistWeaponData: {fileID: 11400000, guid: 897fca1268ced6e4f89322613fd312b7, type: 2}
   weaponHolder: {fileID: 4764703469501611834}
   sideAttack: {fileID: 128506076357536208}
   upAttack: {fileID: 7039884645192212358}
   downAttack: {fileID: 2881757924107890758}
+  muzzlePoint: {fileID: 7630895652577832484}
   sideRadius: 0.81
   upRadius: 0.32
   downRadius: 0.42
@@ -719,7 +838,6 @@ MonoBehaviour:
   delayBeforeAttack: 0.08
   attackOpenWindow: 0.28
   BUFFER_DURATION: 0.3
-  sideRecoil: 0
   facingLockDuration: 0.25
   inputThreshold: 0.5
   defaultPushDuration: 0.08
@@ -6431,11 +6549,13 @@ Transform:
   m_GameObject: {fileID: 9150781490048917309}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.247, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4764703469501611834}
+  - {fileID: 7630895652577832484}
+  - {fileID: 2730142446252023279}
   m_Father: {fileID: 7117484140060184854}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!23 &5004409500042836950
