@@ -44,6 +44,8 @@ namespace junklite
 
         [Header("Attack Hit Window")]
         [SerializeField] private float delayBeforeAttack = 0.1f;
+        [Tooltip("How long after impulse fires before the attack animation plays.")]
+        [SerializeField] private float animationLeadTime = 0.05f;
         [SerializeField]
         [Tooltip("Time that the collision stays open to deliver the attack")]
         private float attackOpenWindow = 0.3f;
@@ -82,16 +84,20 @@ namespace junklite
 
         // Attack state
         private bool isAttacking;
-        private int activeWeaponSlot;           // 0=fists, 1=slot1, 2=slot2
-        private WeaponInstance activeWeapon;     // null for fists
-        private CombatState activeCombatState;   // always set during attack
-        private WeaponData activeWeaponData;     // always set during attack
+        private int activeWeaponSlot;
+        private WeaponInstance activeWeapon;
+        private CombatState activeCombatState;
+        private WeaponData activeWeaponData;
         private int lastAttackedSlot = -1;
         private AttackDirection currentAttackDir;
         private int currentComboIndex;
         private Transform currentAttackAnchor;
         private bool attackInputLockApplied;
         private bool currentAttackGrounded;
+
+        // Ranged state
+        private bool isRangedHovering;
+        private Coroutine activeTimeScaleRestore;
 
         // Input buffer
         private bool hasBufferedInput;
@@ -290,17 +296,11 @@ namespace junklite
 
         #region Public API
 
-        /// <summary>
-        /// Backward-compatible attack for regular mode (fists).
-        /// </summary>
         public void Attack(Vector2 moveInput, bool isGrounded)
         {
             Attack(0, moveInput, isGrounded);
         }
 
-        /// <summary>
-        /// Main attack entry point. weaponSlot: 0=fists, 1=slot1, 2=slot2.
-        /// </summary>
         public void Attack(int weaponSlot, Vector2 moveInput, bool isGrounded)
         {
             var combat = GetCombatStateForSlot(weaponSlot);
@@ -474,8 +474,6 @@ namespace junklite
 
             bool isGrounded = playerState == null || playerState.IsGrounded;
 
-            // CombatState resolves the combo index and animation name through the abstract
-            // WeaponData interface — it never knows or cares about the concrete step type.
             if (!combat.TryBeginAttack(dir, isGrounded, data, out int comboIndex, out string animName))
             {
                 Log($"No combo step for {dir}");
@@ -510,27 +508,24 @@ namespace junklite
 
             ApplyAttackInputLock();
 
-            if (playerState != null && !string.IsNullOrEmpty(animName))
-                playerState.RequestAttackAnimation(animName);
-            else
-                OnAttackAnimationComplete();
+            // Ranged plays animation immediately. Melee delays it so the lunge leads.
+            if (activeWeaponData is not MeleeWeaponData)
+            {
+                if (playerState != null && !string.IsNullOrEmpty(animName))
+                    playerState.RequestAttackAnimation(animName);
+                else
+                    OnAttackAnimationComplete();
+            }
 
-            // Route to the correct coroutine based on weapon type.
-            // Adding a future weapon type means adding a new branch here only.
-            ExecuteAttack(dir, comboIndex, isGrounded);
+            ExecuteAttack(dir, comboIndex, isGrounded, animName);
         }
 
-        /// <summary>
-        /// Routes execution to the correct attack coroutine based on weapon type.
-        /// WeaponManager fetches the typed step data here — after CombatState has resolved
-        /// the index — so each coroutine only sees the fields relevant to its type.
-        /// </summary>
-        private void ExecuteAttack(AttackDirection dir, int comboIndex, bool isGrounded)
+        private void ExecuteAttack(AttackDirection dir, int comboIndex, bool isGrounded, string animName)
         {
             if (activeWeaponData is MeleeWeaponData meleeData)
             {
                 if (meleeData.TryGetMeleeStep(dir, comboIndex, isGrounded, out var step))
-                    StartCoroutine(CoMeleeAttack(dir, step));
+                    StartCoroutine(CoMeleeAttack(dir, step, animName));
                 else
                     Log($"No melee step for {dir} combo {comboIndex}");
             }
@@ -538,7 +533,6 @@ namespace junklite
             {
                 if (rangedData.TryGetRangedStep(dir, comboIndex, isGrounded, out var step))
                     StartCoroutine(CoRangedAttack(dir, step, rangedData, activeWeapon, activeWeaponSlot));
-
                 else
                     Log($"No ranged step for {dir} combo {comboIndex}");
             }
@@ -548,21 +542,31 @@ namespace junklite
             }
         }
 
-        private IEnumerator CoMeleeAttack(AttackDirection dir, MeleeWeaponData.MeleeComboStep step)
-        {
-            yield return new WaitForSeconds(delayBeforeAttack);
+        #endregion
 
-            // Push and hit detection run concurrently. The hit origin is snapshotted
-            // before any push movement so lunging forward never awards a hit on an enemy
-            // that was out of range when the swing started.
-            StartCoroutine(CoApplyAttackPush(dir, step.forwardImpulse, step.verticalImpulse, step.forwardImpulseDuration));
+        #region Melee Attack
+
+        private IEnumerator CoMeleeAttack(AttackDirection dir, MeleeWeaponData.MeleeComboStep step, string animName)
+        {
+            StartCoroutine(CoApplyAttackPush(dir, step.forwardImpulse, step.verticalImpulse, step.forwardImpulseDuration, step.lungeCurve));
             ApplyAttackGravityOverride(step.airGravityMultiplier);
 
-            Transform anchor = GetAttackTransform(dir);
-            Vector3 hitOrigin = ResolveHitOrigin(dir, anchor);
+            if (animationLeadTime > 0f)
+                yield return new WaitForSeconds(animationLeadTime);
 
+            if (playerState != null && !string.IsNullOrEmpty(animName))
+                playerState.RequestAttackAnimation(animName);
+            else
+                OnAttackAnimationComplete();
+
+            float hitDelay = step.hitDelay > 0f ? step.hitDelay : Mathf.Max(0f, delayBeforeAttack - animationLeadTime);
+            if (hitDelay > 0f)
+                yield return new WaitForSeconds(hitDelay);
+
+            Transform anchor = GetAttackTransform(dir);
             bool isPiercing = step.piercing || (activeWeapon?.PiercingOverride ?? false);
             float radius = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
+            Vector2 knockback = step.overrideKnockback ? step.knockback : activeWeaponData.knockbackForce;
 
             bool hasHitEnemy = false;
             bool hasHitEnvironment = false;
@@ -570,17 +574,19 @@ namespace junklite
 
             while (Time.time < windowEnd)
             {
+                Vector3 hitOrigin = ResolveHitOrigin(dir, anchor);
                 var hitResult = DetectHit(hitOrigin, radius, isPiercing);
 
                 if (hitResult.type == AttackHitResult.Enemy && !hasHitEnemy)
                 {
                     hasHitEnemy = true;
                     PlayHitFeedback();
+                    StartCoroutine(CoHitstop(enemyHitHitstopDuration));
 
                     if (isPiercing && hitResult.allTargets != null)
-                        DealDamageToAll(hitResult.allTargets, step.damageMultiplier);
+                        DealDamageToAll(hitResult.allTargets, step.damageMultiplier, knockback);
                     else if (hitResult.target != null)
-                        DealDamage(hitResult.target, step.damageMultiplier);
+                        DealDamage(hitResult.target, step.damageMultiplier, knockback);
 
                     ApplyRecoil(dir, step.hitRecoil);
                     break;
@@ -589,8 +595,9 @@ namespace junklite
                 if (hitResult.type == AttackHitResult.Environment && !hasHitEnvironment)
                 {
                     hasHitEnvironment = true;
+                    Vector3 hitOriginForVfx = ResolveHitOrigin(dir, anchor);
                     float radiusForVfx = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
-                    Vector3 impactPoint = ResolveImpactPoint(dir, hitOrigin, radiusForVfx);
+                    Vector3 impactPoint = ResolveImpactPoint(dir, hitOriginForVfx, radiusForVfx);
                     Vector3 attackDir = GetAttackDirection(dir);
                     if (CombatEffectsManager.Instance != null)
                     {
@@ -605,22 +612,17 @@ namespace junklite
             }
         }
 
-        // =====================================================================
-        // RANGED COROUTINE
-        // =====================================================================
+        private IEnumerator CoHitstop(float duration)
+        {
+            if (playerRb == null || duration <= 0f) yield break;
+            playerRb.linearVelocity = Vector3.zero;
+            yield return new WaitForSecondsRealtime(duration);
+        }
 
-        /// <summary>
-        /// Fires a burst of bullets synced to the animation's normalised time.
-        /// Delegates to CoWaitForFirePose which polls SpineAnimationController.CurrentAttackEntry
-        /// each frame until TrackTime / AnimationEnd >= step.fireAtNormalizedTime.
-        /// Set fireAtNormalizedTime on the RangedComboStep SO by watching the animation
-        /// and estimating what fraction of the clip has played at the shoot pose.
-        /// Falls back to delayBeforeAttack if no SpineAnimationController is found.
-        ///
-        /// weapon and weaponSlot are captured explicitly — the coroutine outlives the attack
-        /// state and OnAttackAnimationComplete may clear activeWeapon before the burst ends.
-        /// Durability is consumed per bullet fired; a broken gun stops the burst immediately.
-        /// </summary>
+        #endregion
+
+        #region Ranged Attack
+
         private IEnumerator CoRangedAttack(
             AttackDirection dir,
             RangedWeaponData.RangedComboStep step,
@@ -628,51 +630,191 @@ namespace junklite
             WeaponInstance capturedWeapon,
             int capturedWeaponSlot)
         {
-            // Wait until the animation reaches the shoot pose, then fire.
+            // HOVER — zero/low gravity + kill vertical velocity
+            bool useHover = step.hoverGravityMultiplier >= 0f;
+            if (useHover)
+            {
+                isRangedHovering = true;
+                controller?.SetGravityMultiplierOverride(step.hoverGravityMultiplier);
+                if (playerRb != null)
+                    playerRb.linearVelocity = new Vector3(playerRb.linearVelocity.x, 0f, playerRb.linearVelocity.z);
+            }
+
             yield return CoWaitForFirePose(step.fireAtNormalizedTime);
 
-            // Muzzle kick — negative forwardImpulse pushes the player back for recoil feel
-            StartCoroutine(CoApplyAttackPush(dir, step.forwardImpulse, 0f, step.forwardImpulseDuration));
+            if (Mathf.Abs(step.forwardImpulse) > 0f)
+                StartCoroutine(CoApplyAttackPush(dir, step.forwardImpulse, 0f, step.forwardImpulseDuration));
 
-            if (ProjectileManager.Instance == null)
+            // BULLET TIME — always restore to true 1.0
+            bool useBulletTime = step.bulletTimeScale > 0f && step.bulletTimeScale < 1f;
+            const float savedTimeScale = 1f;
+            const float savedFixedDelta = 0.02f;
+
+            if (useBulletTime)
             {
-                Debug.LogWarning("[WeaponManager] No ProjectileManager in scene.");
+                if (activeTimeScaleRestore != null)
+                    StopCoroutine(activeTimeScaleRestore);
+                Time.timeScale = step.bulletTimeScale;
+                Time.fixedDeltaTime = savedFixedDelta * step.bulletTimeScale;
+            }
+
+            bool isDirectional = (dir == AttackDirection.Down || dir == AttackDirection.Up);
+
+            if (isDirectional)
+            {
+                // No bullets — animation + instant sphere cast
+                yield return CoDirectionalBlast(dir, step, rangedData, capturedWeapon, capturedWeaponSlot);
+            }
+            else
+            {
+                // Side attacks — real bullets with collision
+                if (ProjectileManager.Instance == null)
+                {
+                    Debug.LogWarning("[WeaponManager] No ProjectileManager in scene.");
+                    CleanupRangedHover(useHover);
+                    RestoreTimeScaleImmediate(useBulletTime, savedTimeScale, savedFixedDelta);
+                    yield break;
+                }
+                if (rangedData.bulletPrefab == null)
+                {
+                    Debug.LogWarning($"[WeaponManager] No bullet prefab on '{rangedData.displayName}'.");
+                    CleanupRangedHover(useHover);
+                    RestoreTimeScaleImmediate(useBulletTime, savedTimeScale, savedFixedDelta);
+                    yield break;
+                }
+
+                Transform muzzle = (muzzlePoint != null) ? muzzlePoint : sideAttack;
+                float damage = rangedData.baseDamage * (step.damageMultiplier > 0f ? step.damageMultiplier : 1f);
+                Vector2 knockback = rangedData.knockbackForce;
+                int bulletCount = Mathf.Max(1, step.bulletCount);
+                Vector3[] fireDirections = ResolveFireDirections(dir, bulletCount, step.arcSpreadAngle);
+
+                yield return CoSideBurst(step, rangedData, fireDirections, muzzle,
+                    damage, knockback, capturedWeapon, capturedWeaponSlot, useBulletTime);
+            }
+
+            // HOLD BULLET TIME
+            if (useBulletTime && step.bulletTimeDuration > 0f)
+                yield return new WaitForSecondsRealtime(step.bulletTimeDuration);
+
+            // SMOOTH RECOIL
+            if (Mathf.Abs(step.hitRecoil) > 0f)
+                StartCoroutine(CoSmoothRangedRecoil(dir, step.hitRecoil, step.recoilDuration));
+
+            // RESTORE TIMESCALE
+            if (useBulletTime)
+            {
+                float restoreDur = step.bulletTimeRestoreDuration > 0f ? step.bulletTimeRestoreDuration : 0.1f;
+                activeTimeScaleRestore = StartCoroutine(CoRestoreTimeScale(savedTimeScale, savedFixedDelta, restoreDur));
+            }
+
+            CleanupRangedHover(useHover);
+        }
+
+        /// <summary>
+        /// Down/Up attack: no projectiles. Single OverlapSphere resolves all damage.
+        /// Spawns hit VFX on enemies and environment contact points.
+        /// </summary>
+        private IEnumerator CoDirectionalBlast(
+            AttackDirection dir,
+            RangedWeaponData.RangedComboStep step,
+            RangedWeaponData rangedData,
+            WeaponInstance capturedWeapon,
+            int capturedWeaponSlot)
+        {
+            if (capturedWeapon != null && capturedWeapon.ConsumeDurability())
+            {
+                HandleWeaponBroken(capturedWeaponSlot);
                 yield break;
             }
 
-            if (rangedData.bulletPrefab == null)
-            {
-                Debug.LogWarning($"[WeaponManager] RangedWeaponData '{rangedData.displayName}' has no bullet prefab.");
-                yield break;
-            }
-
-            // Muzzle position: dedicated point if assigned, falls back to sideAttack.
-            // Reassign muzzlePoint in the inspector for new gun models — no code change needed.
-            Transform muzzle = (muzzlePoint != null) ? muzzlePoint : sideAttack;
-
-            // Capture damage values now — attack state may clear before bullets hit
             float damage = rangedData.baseDamage * (step.damageMultiplier > 0f ? step.damageMultiplier : 1f);
             Vector2 knockback = rangedData.knockbackForce;
-            Vector3 fireDirection = new Vector3(Facing, 0f, 0f);
-            int bulletCount = Mathf.Max(1, step.bulletCount);
+            float blastRadius = step.blastDamageRadius > 0f ? step.blastDamageRadius : 1.5f;
+            Vector3 blastOrigin = ResolveBlastOrigin(dir, blastRadius);
+            Vector3 blastDir = dir == AttackDirection.Down ? Vector3.down : Vector3.up;
 
-            for (int i = 0; i < bulletCount; i++)
+            // ENEMY DAMAGE
+            Collider[] enemyHits = Physics.OverlapSphere(blastOrigin, blastRadius, enemyLayer, QueryTriggerInteraction.Ignore);
+            bool hitAnyEnemy = false;
+
+            if (enemyHits.Length > 0)
             {
-                // Consume durability per bullet fired before spawning.
-                // A broken gun stops the burst immediately rather than firing extra shots.
-                if (capturedWeapon != null)
+                PlayHitFeedback();
+                StartCoroutine(CoHitstop(enemyHitHitstopDuration));
+
+                foreach (var hit in enemyHits)
                 {
-                    if (capturedWeapon.ConsumeDurability())
+                    var damageable = hit.GetComponent<IDamageable>()
+                                  ?? hit.GetComponentInParent<IDamageable>();
+                    if (damageable == null || !damageable.IsAlive) continue;
+
+                    var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
+                    bool dealt = damageable.TakeDamage(damageInfo);
+
+                    if (dealt)
                     {
-                        HandleWeaponBroken(capturedWeaponSlot);
-                        yield break;
+                        hitAnyEnemy = true;
+                        var enemy = hit.GetComponent<EnemyCharacter>() ?? hit.GetComponentInParent<EnemyCharacter>();
+                        OnEnemyHit?.Invoke(enemy);
+
+                        if (CombatEffectsManager.Instance != null)
+                        {
+                            Vector3 hitPoint = hit.ClosestPoint(blastOrigin);
+                            Vector3 hitDir = (hitPoint - blastOrigin).normalized;
+                            CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDir);
+                            CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, hitDir);
+                        }
                     }
+                }
+            }
+
+            // ENVIRONMENT HIT — raycast to find ground/ceiling contact for VFX
+            if (CombatEffectsManager.Instance != null)
+            {
+                float rayLength = blastRadius * 2f;
+                Vector3 rayOrigin = playerTransform.position;
+
+                if (Physics.Raycast(rayOrigin, blastDir, out RaycastHit envHit, rayLength, environmentLayer, QueryTriggerInteraction.Ignore))
+                {
+                    CombatEffectsManager.Instance.SpawnEnvHitParticle(envHit.point, envHit.normal);
+                    CombatEffectsManager.Instance.SpawnHitCross(envHit.point);
+
+                    if (!hitAnyEnemy)
+                        OnEnvironmentHit?.Invoke();
+                }
+            }
+
+            Log($"Directional blast ({dir}): {enemyHits.Length} enemies in radius {blastRadius}");
+            yield break;
+        }
+
+        /// <summary>
+        /// Side attack: real bullets with per-bullet collision.
+        /// </summary>
+        private IEnumerator CoSideBurst(
+            RangedWeaponData.RangedComboStep step,
+            RangedWeaponData rangedData,
+            Vector3[] fireDirections,
+            Transform muzzle,
+            float damage,
+            Vector2 knockback,
+            WeaponInstance capturedWeapon,
+            int capturedWeaponSlot,
+            bool useBulletTime)
+        {
+            for (int i = 0; i < fireDirections.Length; i++)
+            {
+                if (capturedWeapon != null && capturedWeapon.ConsumeDurability())
+                {
+                    HandleWeaponBroken(capturedWeaponSlot);
+                    yield break;
                 }
 
                 var config = new BulletConfig
                 {
                     spawnPosition = muzzle.position,
-                    direction = fireDirection,
+                    direction = fireDirections[i],
                     speed = step.bulletSpeed,
                     radius = step.bulletRadius,
                     damage = damage,
@@ -681,34 +823,29 @@ namespace junklite
                 };
 
                 ProjectileManager.Instance.FireBullet(
-                    rangedData.bulletPrefab,
-                    config,
-                    enemyLayer,
-                    environmentLayer,
-                    hitCollider => OnBulletHitEnemy(hitCollider, damage, knockback)
-                );
+                    rangedData.bulletPrefab, config, enemyLayer, environmentLayer,
+                    hitCollider => OnBulletHitEnemy(hitCollider, damage, knockback));
 
-                Log($"Bullet {i + 1}/{bulletCount} fired");
+                Log($"Bullet {i + 1}/{fireDirections.Length} fired");
 
-                if (i < bulletCount - 1 && step.fireInterval > 0f)
-                    yield return new WaitForSeconds(step.fireInterval);
+                if (i < fireDirections.Length - 1 && step.fireInterval > 0f)
+                {
+                    if (useBulletTime)
+                        yield return new WaitForSecondsRealtime(step.fireInterval);
+                    else
+                        yield return new WaitForSeconds(step.fireInterval);
+                }
             }
-            ApplyRecoil(dir, step.hitRecoil);
         }
 
         /// <summary>
-        /// Yields until the current attack animation reaches the given normalised time (0–1).
-        /// Polls SpineAnimationController.CurrentAttackEntry each frame and returns as soon as
-        /// TrackTime / AnimationEnd >= normalizedTime.
-        /// Falls back to delayBeforeAttack if no SpineAnimationController or TrackEntry is found,
-        /// so nothing breaks before fireAtNormalizedTime is dialled in on the SO.
+        /// Yields until the current attack animation reaches the given normalised time.
+        /// Falls back to delayBeforeAttack if no SpineAnimationController is found.
         /// </summary>
         private IEnumerator CoWaitForFirePose(float normalizedTime)
         {
             if (spineController != null)
             {
-                // Wait one frame before polling — gives Spine time to start the animation
-                // when ExecuteAttack and PlayAttackAnimation run on the same frame.
                 yield return null;
 
                 float elapsed = 0f;
@@ -727,20 +864,14 @@ namespace junklite
                     yield return null;
                 }
 
-                Log($"CoWaitForFirePose timed out at normalizedTime={normalizedTime:F2} — fired on fallback.");
+                Log($"CoWaitForFirePose timed out at normalizedTime={normalizedTime:F2}");
             }
             else
             {
-                // No SpineAnimationController found — use the fixed inspector delay
                 yield return new WaitForSeconds(delayBeforeAttack);
             }
         }
 
-        /// <summary>
-        /// Called by each bullet via closure when it detects an enemy collider.
-        /// All state is captured at fire time — WeaponManager's attack state may have
-        /// cleared by the time a bullet connects.
-        /// </summary>
         private void OnBulletHitEnemy(Collider hitCollider, float damage, Vector2 knockback)
         {
             var damageable = hitCollider.GetComponent<IDamageable>()
@@ -760,11 +891,132 @@ namespace junklite
             }
         }
 
+        #endregion
+
+        #region Ranged Helpers
+
+        private Vector3[] ResolveFireDirections(AttackDirection dir, int bulletCount, float arcSpreadAngle)
+        {
+            Vector3 centerDir;
+            switch (dir)
+            {
+                case AttackDirection.Down: centerDir = Vector3.down; break;
+                case AttackDirection.Up: centerDir = Vector3.up; break;
+                default: centerDir = Vector3.right * Facing; break;
+            }
+
+            int count = Mathf.Max(1, bulletCount);
+            Vector3[] directions = new Vector3[count];
+
+            if (count == 1 || arcSpreadAngle <= 0f)
+            {
+                for (int i = 0; i < count; i++)
+                    directions[i] = centerDir;
+                return directions;
+            }
+
+            float halfArc = arcSpreadAngle * 0.5f;
+            for (int i = 0; i < count; i++)
+            {
+                float t = (float)i / (count - 1);
+                float angle = Mathf.Lerp(-halfArc, halfArc, t);
+                directions[i] = (Quaternion.AngleAxis(angle, Vector3.forward) * centerDir).normalized;
+            }
+
+            return directions;
+        }
+
+        private Vector3 ResolveBlastOrigin(AttackDirection dir, float radius)
+        {
+            Vector3 origin = playerTransform.position;
+            switch (dir)
+            {
+                case AttackDirection.Down: origin.y -= radius * 0.75f; break;
+                case AttackDirection.Up: origin.y += radius * 0.75f; break;
+            }
+            return origin;
+        }
+
+        /// <summary>
+        /// Smooth velocity-based recoil. Direction auto-resolves opposite to attack direction.
+        /// </summary>
+        private IEnumerator CoSmoothRangedRecoil(AttackDirection dir, float recoilMagnitude, float duration)
+        {
+            if (playerRb == null || Mathf.Abs(recoilMagnitude) <= 0f) yield break;
+
+            float dur = duration > 0f ? duration : 0.1f;
+
+            Vector3 recoilDir;
+            switch (dir)
+            {
+                case AttackDirection.Down: recoilDir = Vector3.up; break;
+                case AttackDirection.Up: recoilDir = Vector3.down; break;
+                default: recoilDir = Vector3.right * -Facing; break;
+            }
+
+            Vector3 peakVelocity = recoilDir * recoilMagnitude;
+            float elapsed = 0f;
+
+            while (elapsed < dur)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / dur);
+                float multiplier = 1f - (t * t);
+
+                Vector3 vel = playerRb.linearVelocity;
+                if (Mathf.Abs(recoilDir.x) > 0f) vel.x = peakVelocity.x * multiplier;
+                if (Mathf.Abs(recoilDir.y) > 0f) vel.y = peakVelocity.y * multiplier;
+                playerRb.linearVelocity = vel;
+
+                yield return null;
+            }
+        }
+
+        private IEnumerator CoRestoreTimeScale(float targetTimeScale, float targetFixedDelta, float realDuration)
+        {
+            float startScale = Time.timeScale;
+            float startFixed = Time.fixedDeltaTime;
+            float elapsed = 0f;
+
+            while (elapsed < realDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / realDuration);
+                Time.timeScale = Mathf.Lerp(startScale, targetTimeScale, t);
+                Time.fixedDeltaTime = Mathf.Lerp(startFixed, targetFixedDelta, t);
+                yield return null;
+            }
+
+            Time.timeScale = targetTimeScale;
+            Time.fixedDeltaTime = targetFixedDelta;
+            activeTimeScaleRestore = null;
+        }
+
+        private void CleanupRangedHover(bool wasHovering)
+        {
+            if (!wasHovering) return;
+            isRangedHovering = false;
+            controller?.ClearGravityMultiplierOverride();
+        }
+
+        private void RestoreTimeScaleImmediate(bool wasBulletTime, float savedScale, float savedFixed)
+        {
+            if (!wasBulletTime) return;
+            if (activeTimeScaleRestore != null)
+                StopCoroutine(activeTimeScaleRestore);
+            activeTimeScaleRestore = null;
+            Time.timeScale = savedScale;
+            Time.fixedDeltaTime = savedFixed;
+        }
+
+        #endregion
+
+        #region Attack State
+
         public void OnAttackAnimationComplete()
         {
             Log($"Attack complete - slot {activeWeaponSlot}, {currentAttackDir}, combo {currentComboIndex}");
 
-            // Pass activeWeaponData before clearing so CombatState can advance the combo index
             activeCombatState?.OnAttackComplete(currentAttackDir, currentAttackGrounded, activeWeaponData);
 
             isAttacking = false;
@@ -779,7 +1031,10 @@ namespace junklite
                 playerState.SetAttacking(false);
             }
 
-            ClearAttackGravityOverride();
+            // Don't clear gravity if the ranged coroutine is still managing hover
+            if (!isRangedHovering)
+                ClearAttackGravityOverride();
+
             ReleaseAttackInputLock();
         }
 
@@ -801,40 +1056,59 @@ namespace junklite
                 playerState.SetAttacking(false);
             }
 
+            // Hard stop — force clear everything
+            isRangedHovering = false;
             ClearAttackGravityOverride();
             ReleaseAttackInputLock();
+
+            // Force restore timeScale if interrupted mid-bullet-time
+            if (activeTimeScaleRestore != null)
+                StopCoroutine(activeTimeScaleRestore);
+            activeTimeScaleRestore = null;
+            Time.timeScale = 1f;
+            Time.fixedDeltaTime = 0.02f;
         }
 
-        /// <summary>
-        /// Applies a clean velocity lunge for a fixed duration then hard-stops it.
-        /// Directly sets velocity so the lunge is always the same speed regardless of
-        /// prior momentum. Duration is per ComboStep so each hit can have distinct character.
-        /// </summary>
-        private IEnumerator CoApplyAttackPush(AttackDirection dir, float forwardImpulse, float verticalImpulse, float impulseDuration)
+        #endregion
+
+        #region Attack Push
+
+        private IEnumerator CoApplyAttackPush(AttackDirection dir, float forwardImpulse, float verticalImpulse, float impulseDuration, AnimationCurve lungeCurve = null)
         {
             if (playerRb == null) yield break;
 
-            Vector3 pushVelocity = Vector3.zero;
+            Vector3 peakVelocity = Vector3.zero;
 
             if (dir == AttackDirection.Side && Mathf.Abs(forwardImpulse) > 0f)
-                pushVelocity.x = forwardImpulse * Facing;
+                peakVelocity.x = forwardImpulse * Facing;
             else if (dir != AttackDirection.Side && Mathf.Abs(verticalImpulse) > 0f)
-                pushVelocity.y = dir == AttackDirection.Down ? -verticalImpulse : verticalImpulse;
+                peakVelocity.y = dir == AttackDirection.Down ? -verticalImpulse : verticalImpulse;
 
-            if (pushVelocity.sqrMagnitude <= 0f) yield break;
+            if (peakVelocity.sqrMagnitude <= 0f) yield break;
 
             float duration = impulseDuration > 0f ? impulseDuration : defaultPushDuration;
+            float elapsed = 0f;
 
-            var vel = playerRb.linearVelocity;
-            if (pushVelocity.x != 0f) vel.x = pushVelocity.x;
-            if (pushVelocity.y != 0f) vel.y = pushVelocity.y;
-            playerRb.linearVelocity = vel;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
 
-            yield return new WaitForSeconds(duration);
+                float multiplier = (lungeCurve != null && lungeCurve.length > 0)
+                    ? lungeCurve.Evaluate(t)
+                    : (1f - t * t);
+
+                var vel = playerRb.linearVelocity;
+                if (peakVelocity.x != 0f) vel.x = peakVelocity.x * multiplier;
+                if (peakVelocity.y != 0f) vel.y = peakVelocity.y * multiplier;
+                playerRb.linearVelocity = vel;
+
+                yield return null;
+            }
 
             var endVel = playerRb.linearVelocity;
-            if (pushVelocity.x != 0f) endVel.x = 0f;
-            if (pushVelocity.y != 0f) endVel.y = 0f;
+            if (peakVelocity.x != 0f) endVel.x = 0f;
+            if (peakVelocity.y != 0f) endVel.y = 0f;
             playerRb.linearVelocity = endVel;
         }
 
@@ -857,15 +1131,11 @@ namespace junklite
         private struct HitDetectionResult
         {
             public AttackHitResult type;
-            public Collider target;           // single-target path
-            public Collider[] allTargets;     // piercing path
+            public Collider target;
+            public Collider[] allTargets;
             public Vector3 point;
         }
 
-        /// <summary>
-        /// Performs an OverlapSphere at the snapshotted origin.
-        /// Single-target: returns closest enemy. Piercing: returns all enemies.
-        /// </summary>
         private HitDetectionResult DetectHit(Vector3 origin, float radius, bool piercing)
         {
             var result = new HitDetectionResult { type = AttackHitResult.None };
@@ -928,7 +1198,7 @@ namespace junklite
 
         #region Damage
 
-        private void DealDamage(Collider target, float damageMultiplier)
+        private void DealDamage(Collider target, float damageMultiplier, Vector2 knockback)
         {
             var damageable = target.GetComponent<IDamageable>()
                           ?? target.GetComponentInParent<IDamageable>();
@@ -938,7 +1208,6 @@ namespace junklite
             float damage = activeWeaponData != null ? activeWeaponData.baseDamage : 10f;
             if (damageMultiplier > 0f) damage *= damageMultiplier;
 
-            var knockback = activeWeaponData != null ? activeWeaponData.knockbackForce : new Vector2(8f, 4f);
             var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
             bool damageDealt = damageable.TakeDamage(damageInfo);
 
@@ -955,11 +1224,7 @@ namespace junklite
             }
         }
 
-        /// <summary>
-        /// Damages all enemies in the hit result (piercing path).
-        /// Durability is consumed once for the whole swing, not per enemy.
-        /// </summary>
-        private void DealDamageToAll(Collider[] targets, float damageMultiplier)
+        private void DealDamageToAll(Collider[] targets, float damageMultiplier, Vector2 knockback)
         {
             bool anyHit = false;
 
@@ -973,7 +1238,6 @@ namespace junklite
                 float damage = activeWeaponData != null ? activeWeaponData.baseDamage : 10f;
                 if (damageMultiplier > 0f) damage *= damageMultiplier;
 
-                var knockback = activeWeaponData != null ? activeWeaponData.knockbackForce : new Vector2(8f, 4f);
                 var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
                 bool damageDealt = damageable.TakeDamage(damageInfo);
 
@@ -986,7 +1250,6 @@ namespace junklite
                 }
             }
 
-            // Single durability tick for the whole swing regardless of enemy count
             if (anyHit && activeWeaponSlot != 0 && activeWeapon != null)
                 if (activeWeapon.ConsumeDurability())
                     HandleWeaponBroken(activeWeaponSlot);
@@ -1135,11 +1398,6 @@ namespace junklite
 
         #region Helpers
 
-        /// <summary>
-        /// Resolves the hit sphere world position.
-        /// The anchor contributes only the axis it owns (height for side, horizontal for up/down).
-        /// attackRange on WeaponData is the sole driver of reach from the player center.
-        /// </summary>
         private Vector3 ResolveHitOrigin(AttackDirection dir, Transform anchor)
         {
             float range = (activeWeaponData as MeleeWeaponData)?.attackRange ?? 1f;
@@ -1150,22 +1408,19 @@ namespace junklite
                     return new Vector3(
                         playerTransform.position.x + Facing * range,
                         anchor.position.y,
-                        playerTransform.position.z
-                    );
+                        playerTransform.position.z);
 
                 case AttackDirection.Up:
                     return new Vector3(
                         anchor.position.x,
                         playerTransform.position.y + range,
-                        playerTransform.position.z
-                    );
+                        playerTransform.position.z);
 
                 case AttackDirection.Down:
                     return new Vector3(
                         anchor.position.x,
                         playerTransform.position.y - range,
-                        playerTransform.position.z
-                    );
+                        playerTransform.position.z);
 
                 default:
                     return playerTransform.position;

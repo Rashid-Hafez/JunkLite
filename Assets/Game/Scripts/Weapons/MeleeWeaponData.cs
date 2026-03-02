@@ -29,18 +29,25 @@ namespace junklite
             public GameObject slashPrefab;
 
             [Header("Attack Push")]
-            [Tooltip("Forward velocity applied at swing start.")]
+            [Tooltip("Peak velocity at lunge start.")]
             public float forwardImpulse;
             [Tooltip("Vertical velocity applied at swing start.")]
             public float verticalImpulse;
-            [Tooltip("How long the push velocity is held before stopping.")]
+            [Tooltip("How long the lunge lasts.")]
             public float forwardImpulseDuration;
+            [Tooltip("Velocity curve over the lunge duration. Left = start, Right = end. Default ease-out if left empty.")]
+            public AnimationCurve lungeCurve;
             [Tooltip("Override gravity multiplier during air attacks. 1 = normal.")]
             public float airGravityMultiplier;
 
             [Header("On Hit")]
+            [Tooltip("Delay after lunge starts before the hitbox opens. Tune this to match when the sword visually connects.")]
+            public float hitDelay;
             [Tooltip("Horizontal recoil applied to the player on a successful hit.")]
             public float hitRecoil;
+            [Tooltip("Override the weapon's base knockback for this step. Useful for combo finishers.")]
+            public bool overrideKnockback;
+            public Vector2 knockback;
         }
 
         [Tooltip("Distance from the player center where the hit sphere or projectile origin is placed.")]

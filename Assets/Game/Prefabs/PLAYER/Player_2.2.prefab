@@ -240,6 +240,51 @@ Transform:
   m_Children: []
   m_Father: {fileID: 3708428653336801813}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2404671356951827169
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8029955945895151708}
+  - component: {fileID: 4379054542343710468}
+  m_Layer: 16
+  m_Name: Phantom Strike
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8029955945895151708
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2404671356951827169}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3157734557489371329}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4379054542343710468
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2404671356951827169}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25f40a574f1ccb44cae2fe07be97269b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PhantomStrikeTracker
+  impactVFXSpawnPoint: {fileID: 3457783996988696095}
 --- !u!1 &3139515997621657487
 GameObject:
   m_ObjectHideFlags: 0
@@ -523,6 +568,38 @@ Transform:
   - {fileID: 6307626169733131090}
   m_Father: {fileID: 3708428653336801813}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &5561327684514304009
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3157734557489371329}
+  m_Layer: 16
+  m_Name: Mod Trackers
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3157734557489371329
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5561327684514304009}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 8029955945895151708}
+  m_Father: {fileID: 7117484140060184854}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5711332642442856095
 GameObject:
   m_ObjectHideFlags: 0
@@ -606,7 +683,6 @@ GameObject:
   - component: {fileID: 2954043624837988220}
   - component: {fileID: 6169259516452883272}
   - component: {fileID: 6805497694060457123}
-  - component: {fileID: 5715999918141997349}
   - component: {fileID: 1363585882905400157}
   - component: {fileID: 6662307106127401667}
   - component: {fileID: 6282132647400396865}
@@ -644,6 +720,7 @@ Transform:
   - {fileID: 7039884645192212358}
   - {fileID: 2881757924107890758}
   - {fileID: 1941436517345911957}
+  - {fileID: 3157734557489371329}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1482493438042684396
@@ -833,9 +910,10 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4096
   impulseSource: {fileID: 0}
-  enemyHitHitstopDuration: 0.06
+  enemyHitHitstopDuration: 0.09
   enemyHitShakeForce: 0.5
   delayBeforeAttack: 0.08
+  animationLeadTime: 0.05
   attackOpenWindow: 0.28
   BUFFER_DURATION: 0.3
   facingLockDuration: 0.25
@@ -1000,19 +1078,6 @@ MonoBehaviour:
     DissipationDistance: 100
     PropagationSpeed: 343
   DefaultVelocity: {x: 0.1, y: 0.2, z: 0.1}
---- !u!114 &5715999918141997349
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7038683931279381878}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 25f40a574f1ccb44cae2fe07be97269b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.PhantomStrikeTracker
-  impactVFXSpawnPoint: {fileID: 3457783996988696095}
 --- !u!82 &1363585882905400157
 AudioSource:
   m_ObjectHideFlags: 0
