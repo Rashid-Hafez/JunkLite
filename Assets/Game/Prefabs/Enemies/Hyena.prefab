@@ -206,7 +206,7 @@ MonoBehaviour:
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
   attackWarningVfx: {fileID: 7542237875352858683}
-  attackNotifyDelay: 0
+  attackNotifyDelay: 0.06
   enemyAnimation: {fileID: 0}
   deathParticlePrefab: {fileID: 0}
   deathParticleLifetime: 2
@@ -238,21 +238,31 @@ MonoBehaviour:
     dodgeHeight: 0.5
     hasIFrames: 1
     dodgeVFXPrefab: {fileID: 0}
-  dodgeChance: 1
+    wallLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    wallCheckBuffer: 0.3
+    forwardDodgeChance: 0.5
+  dodgeChance: 0.5
   dodgeCheckRange: 4
-  dodgeCooldown: 0.2
+  dodgeCooldown: 0.5
   charge:
-    chargeTime: 0.2
-    chargeVFXPrefab: {fileID: 0}
+    chargeTime: 1
+    chargeVFXPrefab: {fileID: 4364062416287365583, guid: fe2205740225ab04bb07d3c6308b7c8b, type: 3}
   dash:
-    dashSpeed: 30
+    dashSpeed: 15
     dashDamage: 15
     dashStopDistance: 1
     dashKnockback: {x: 15, y: 5}
     dashHitbox: {fileID: 8054053361408564859}
     dashVFXPrefab: {fileID: 0}
+    canBeInterrupted: 0
+    attackStartNormalized: 0.8
+    attackActiveDuration: 0.12
+    whiffResolveDelay: 0.05
   dashChance: 1
-  vulnerableStunWindow: 1.5
+  dashStopPadding: 0.75
+  whiffStunDuration: 1.5
 --- !u!114 &424022102533304986
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -289,7 +299,7 @@ MonoBehaviour:
   attackWindUp: 
   attack: Attack_1_2
   charge: Charge
-  dash: Dash_1
+  dash: Dash_2
   dodge: JumpBack
   hurt: Hurt
   death: Death

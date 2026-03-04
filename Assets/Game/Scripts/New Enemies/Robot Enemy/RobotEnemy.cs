@@ -88,6 +88,10 @@ namespace junklite
         public Vector2 DashKnockback => dash.DashKnockback;
         public Hitbox DashHitbox => dash.DashHitbox;
         public GameObject DashVFXPrefab => dash.DashVFXPrefab;
+        public bool DashCanBeInterrupted => dash.DashCanBeInterrupted;
+        public float DashAttackStartNormalized => dash.DashAttackStartNormalized;
+        public float DashAttackActiveDuration => dash.DashAttackActiveDuration;
+        public float DashWhiffResolveDelay => dash.DashWhiffResolveDelay;
 
         public void OnDashComplete()
         {

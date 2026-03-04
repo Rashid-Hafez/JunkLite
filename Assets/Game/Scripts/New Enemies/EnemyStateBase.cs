@@ -32,6 +32,13 @@ namespace junklite
         /// </summary>
         public virtual bool CanTakeDamage => true;
 
+        /// <summary>
+        /// Whether the enemy can be interrupted (hitstun/knockback) while in this state.
+        /// When false, damage is still dealt but hitstun and knockback are skipped.
+        /// Default is true.
+        /// </summary>
+        public virtual bool CanBeInterrupted => true;
+
         public virtual void Enter() { }
         public virtual void Update() { }
         public virtual void FixedUpdate() { }

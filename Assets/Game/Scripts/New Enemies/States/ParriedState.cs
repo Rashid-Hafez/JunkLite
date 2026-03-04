@@ -20,12 +20,13 @@ namespace junklite
         public ParriedState(EnemyCharacter enemy) : base(enemy) { }
 
         public override bool CanTakeDamage => true;
+        public override bool CanBeInterrupted => false;
 
         public override void Enter()
         {
             timer = enemy.ForcedStunDuration;
             enemy.Movement?.Stop();
-            Debug.Log($"{enemy.gameObject.name}: Entered ParriedState (duration={timer})");
+            enemy.Movement?.CancelKnockback();
         }
 
         public override void Update()
@@ -41,7 +42,6 @@ namespace junklite
         public override void Exit()
         {
             enemy.ClearParryStunFlag();
-            Debug.Log($"{enemy.gameObject.name}: Exited ParriedState");
         }
     }
 }

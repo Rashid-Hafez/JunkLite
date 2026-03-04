@@ -127,6 +127,14 @@ namespace junklite
         [SerializeField] private Vector2 dashKnockback = new Vector2(15f, 5f);
         [SerializeField] private Hitbox dashHitbox;
         [SerializeField] private GameObject dashVFXPrefab;
+        [Tooltip("If false, the enemy cannot be interrupted (no hitstun/knockback) during this dash")]
+        [SerializeField] private bool canBeInterrupted = true;
+        [Tooltip("When during dash movement the hitbox should turn on (0 = start, 1 = end)")]
+        [SerializeField][Range(0f, 1f)] private float attackStartNormalized = 0.8f;
+        [Tooltip("How long the dash hitbox stays active once triggered")]
+        [SerializeField] private float attackActiveDuration = 0.12f;
+        [Tooltip("Extra delay after attack window ends before dash resolves whiff/success")]
+        [SerializeField] private float whiffResolveDelay = 0.05f;
 
         public float DashSpeed => dashSpeed;
         public float DashDamage => dashDamage;
@@ -134,6 +142,10 @@ namespace junklite
         public Vector2 DashKnockback => dashKnockback;
         public Hitbox DashHitbox => dashHitbox;
         public GameObject DashVFXPrefab => dashVFXPrefab;
+        public bool DashCanBeInterrupted => canBeInterrupted;
+        public float DashAttackStartNormalized => attackStartNormalized;
+        public float DashAttackActiveDuration => attackActiveDuration;
+        public float DashWhiffResolveDelay => whiffResolveDelay;
     }
 
     /// <summary>
@@ -206,12 +218,24 @@ namespace junklite
         [SerializeField] private bool hasIFrames = true;
         [SerializeField] private GameObject dodgeVFXPrefab;
 
+        [Header("Wall Detection")]
+        [SerializeField] private LayerMask wallLayer;
+        [Tooltip("Buffer distance to keep from walls when clamping dodge")]
+        [SerializeField] private float wallCheckBuffer = 0.3f;
+
+        [Header("Forward Dodge")]
+        [Tooltip("Chance to dodge forward (past/behind the player) instead of backward")]
+        [SerializeField][Range(0f, 1f)] private float forwardDodgeChance = 0f;
+
         public float DodgeDistance => dodgeDistance;
         public float DodgeSpeed => dodgeSpeed;
         public float DodgeDuration => dodgeSpeed > 0f ? dodgeDistance / dodgeSpeed : 0.3f;
         public float DodgeHeight => dodgeHeight;
         public bool DodgeHasIFrames => hasIFrames;
         public GameObject DodgeVFXPrefab => dodgeVFXPrefab;
+        public LayerMask DodgeWallLayer => wallLayer;
+        public float DodgeWallCheckBuffer => wallCheckBuffer;
+        public float DodgeForwardChance => forwardDodgeChance;
     }
 
     /// <summary>

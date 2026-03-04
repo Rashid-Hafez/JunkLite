@@ -19,10 +19,17 @@ namespace junklite
         private Hitbox hitbox;
 
         private Vector3 dashTarget;
+        private Vector3 dashStartPosition;
         private float stopDistance;
+        private float totalDashDistance;
         private bool hasStarted;
         private bool dashComplete;
+        private bool attackTriggered;
+        private bool attackWindowActive;
+        private bool movementFinished;
         private float dashStartTime;
+        private float attackWindowTimer;
+        private float resolveTimer;
         private GameObject activeVFX;
 
         private const float MAX_DASH_DURATION = 2f;
@@ -33,7 +40,12 @@ namespace junklite
         {
             hasStarted = false;
             dashComplete = false;
+            attackTriggered = false;
+            attackWindowActive = false;
+            movementFinished = false;
             dashStartTime = Time.time;
+            attackWindowTimer = 0f;
+            resolveTimer = 0f;
 
             dasher = GetCapability<IDasher>();
             if (dasher == null)
@@ -84,9 +96,12 @@ namespace junklite
         private void StartDash()
         {
             hasStarted = true;
+            dashStartPosition = Transform.position;
+            totalDashDistance = movement != null
+                ? movement.GetAbsAxisDistance(dashStartPosition, dashTarget)
+                : 0f;
 
             movement?.FaceTarget(dashTarget);
-            hitbox?.Activate();
             movement?.DashTo(dashTarget, dasher.DashSpeed);
         }
 
@@ -94,35 +109,88 @@ namespace junklite
         {
             if (dasher == null || !hasStarted || dashComplete) return;
 
-            // Safety timeout
-            if (Time.time - dashStartTime > MAX_DASH_DURATION)
+            if (!attackTriggered && ShouldTriggerAttack())
             {
-                CompleteDash();
-                return;
+                TriggerAttackWindow();
             }
 
-            // Check if movement says we've arrived
-            if (movement != null && movement.HasReachedDestination)
+            if (attackWindowActive)
             {
-                CompleteDash();
-                return;
-            }
-
-            // Check distance to player (horizontal only, along movement axis)
-            if (HasTarget)
-            {
-                float distanceToPlayer = movement.GetAbsAxisDistance(Transform.position, Target.position);
-                if (distanceToPlayer <= stopDistance)
+                attackWindowTimer -= Time.deltaTime;
+                if (attackWindowTimer <= 0f)
                 {
-                    CompleteDash();
-                    return;
+                    attackWindowActive = false;
+                    hitbox?.Deactivate();
                 }
             }
 
+            if (!movementFinished && HasMovementFinished())
+            {
+                movementFinished = true;
+                movement?.Stop();
+
+                // Ensure impact window can still happen when we reach dash end quickly.
+                if (!attackTriggered)
+                    TriggerAttackWindow();
+
+                resolveTimer = Mathf.Max(0f, dasher.DashWhiffResolveDelay);
+            }
+
+            if (movementFinished)
+            {
+                if (resolveTimer > 0f)
+                    resolveTimer -= Time.deltaTime;
+
+                if (!attackWindowActive && resolveTimer <= 0f)
+                    CompleteDash();
+            }
+        }
+
+        private bool ShouldTriggerAttack()
+        {
+            if (movement == null) return true;
+            if (totalDashDistance <= 0.01f) return true;
+
+            float traveled = movement.GetAbsAxisDistance(dashStartPosition, Transform.position);
+            float progress = Mathf.Clamp01(traveled / totalDashDistance);
+            return progress >= Mathf.Clamp01(dasher.DashAttackStartNormalized);
+        }
+
+        private void TriggerAttackWindow()
+        {
+            attackTriggered = true;
+            attackWindowActive = true;
+            attackWindowTimer = Mathf.Max(0.01f, dasher.DashAttackActiveDuration);
+            hitbox?.Activate();
+        }
+
+        private bool HasMovementFinished()
+        {
+            // Safety timeout
+            if (Time.time - dashStartTime > MAX_DASH_DURATION)
+                return true;
+
+            // Check if movement says we've arrived
+            if (movement != null && movement.HasReachedDestination)
+                return true;
+
+            // Check distance to player (horizontal only, along movement axis)
+            if (HasTarget && movement != null)
+            {
+                float distanceToPlayer = movement.GetAbsAxisDistance(Transform.position, Target.position);
+                if (distanceToPlayer <= stopDistance)
+                    return true;
+            }
+
             // Check distance to dash target (horizontal only, along movement axis)
-            float distanceToDashTarget = movement.GetAbsAxisDistance(Transform.position, dashTarget);
-            if (distanceToDashTarget <= 0.3f)
-                CompleteDash();
+            if (movement != null)
+            {
+                float distanceToDashTarget = movement.GetAbsAxisDistance(Transform.position, dashTarget);
+                if (distanceToDashTarget <= 0.3f)
+                    return true;
+            }
+
+            return false;
         }
 
         private void CompleteDash()
@@ -135,6 +203,8 @@ namespace junklite
 
             dasher.OnDashComplete();
         }
+
+        public override bool CanBeInterrupted => dasher?.DashCanBeInterrupted ?? true;
 
         public override void Exit()
         {

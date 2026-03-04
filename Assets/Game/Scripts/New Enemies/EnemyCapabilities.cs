@@ -49,6 +49,10 @@ namespace junklite
         Hitbox DashHitbox { get; }
         float DashStopDistance { get; }
         GameObject DashVFXPrefab { get; }
+        bool DashCanBeInterrupted { get; }
+        float DashAttackStartNormalized { get; }
+        float DashAttackActiveDuration { get; }
+        float DashWhiffResolveDelay { get; }
 
         // Callback when dash completes - enemy decides what to do next
         void OnDashComplete();
@@ -112,6 +116,9 @@ namespace junklite
         float DodgeHeight { get; }
         bool DodgeHasIFrames { get; }
         GameObject DodgeVFXPrefab { get; }
+        LayerMask DodgeWallLayer { get; }
+        float DodgeWallCheckBuffer { get; }
+        float DodgeForwardChance { get; }
 
         // Callback when dodge completes
         void OnDodgeComplete();

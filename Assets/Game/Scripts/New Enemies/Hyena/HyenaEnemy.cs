@@ -28,8 +28,8 @@ namespace junklite
         [SerializeField] private ChargeBehavior charge = new ChargeBehavior();
         [SerializeField] private DashBehavior dash = new DashBehavior();
         [SerializeField][Range(0f, 1f)] private float dashChance = 0.4f;
-        [Tooltip("After a missed dash, if hit within this window, enemy enters StunnedState.")]
-        [SerializeField] private float vulnerableStunWindow = 1.5f;
+        [Tooltip("Stun duration after a missed (whiffed) dash")]
+        [SerializeField] private float whiffStunDuration = 1.5f;
 
         // Dodge state
         private float lastDodgeTime = -999f;
@@ -37,7 +37,6 @@ namespace junklite
 
         // Dash state
         private bool dashHitConnected;
-        private float vulnerableToStunUntil = -999f;
 
         public bool HasPatrol => patrol.HasPatrol;
 
@@ -109,6 +108,9 @@ namespace junklite
         public float DodgeHeight => dodge.DodgeHeight;
         public bool DodgeHasIFrames => dodge.DodgeHasIFrames;
         public GameObject DodgeVFXPrefab => dodge.DodgeVFXPrefab;
+        public LayerMask DodgeWallLayer => dodge.DodgeWallLayer;
+        public float DodgeWallCheckBuffer => dodge.DodgeWallCheckBuffer;
+        public float DodgeForwardChance => dodge.DodgeForwardChance;
 
         public void OnDodgeComplete()
         {
@@ -146,14 +148,21 @@ namespace junklite
         public Hitbox DashHitbox => dash.DashHitbox;
         public GameObject DashVFXPrefab => dash.DashVFXPrefab;
         public float DashStopDistance => dash.DashStopDistance;
+        public bool DashCanBeInterrupted => dash.DashCanBeInterrupted;
+        public float DashAttackStartNormalized => dash.DashAttackStartNormalized;
+        public float DashAttackActiveDuration => dash.DashAttackActiveDuration;
+        public float DashWhiffResolveDelay => dash.DashWhiffResolveDelay;
 
         public void OnDashComplete()
         {
             if (!IsAlive) return;
 
-            // Missed dash? Open vulnerability window
             if (HasTarget && !dashHitConnected)
-                vulnerableToStunUntil = Time.time + vulnerableStunWindow;
+            {
+                ForcedStunDuration = whiffStunDuration;
+                stateMachine.ChangeState<StunnedState>();
+                return;
+            }
 
             if (!HasTarget || !IsTargetAlive())
             {
@@ -161,7 +170,8 @@ namespace junklite
                 return;
             }
 
-            DecideNextAction();
+            // After a successful dash, avoid immediate chained melee by forcing a reposition action.
+            stateMachine.ChangeState<DodgeState>();
         }
 
         // ============================================================
@@ -248,6 +258,10 @@ namespace junklite
         // ============================================================
         private void UpdateCombatTracking()
         {
+            if (stateMachine.CurrentState is ParriedState
+                || stateMachine.CurrentState is StunnedState)
+                return;
+
             if (!HasTarget || !IsTargetAlive())
             {
                 ReturnToPassive();
@@ -291,7 +305,10 @@ namespace junklite
 
             if (stateMachine.CurrentState is DodgeState 
                 || stateMachine.CurrentState is HurtState 
-                || stateMachine.CurrentState is ParriedState)
+                || stateMachine.CurrentState is ParriedState
+                || stateMachine.CurrentState is StunnedState
+                || stateMachine.CurrentState is ChargeState
+                || stateMachine.CurrentState is DashState)
             {
                 wasPlayerAttacking = IsPlayerAttacking();
                 return;
@@ -338,21 +355,6 @@ namespace junklite
             return Vector3.Dot(playerFacing, playerToEnemy) > 0f;
         }
 
-        // ============================================================
-        // DAMAGE — vulnerability window after missed dash
-        // ============================================================
-        public override bool TakeDamage(DamageInfo info)
-        {
-            bool dealt = base.TakeDamage(info);
-
-            if (dealt && Time.time <= vulnerableToStunUntil)
-            {
-                vulnerableToStunUntil = -999f;
-                stateMachine.ChangeState<StunnedState>();
-            }
-
-            return dealt;
-        }
 
         // ============================================================
         // Detection Events
@@ -471,11 +473,12 @@ namespace junklite
 
         private void OnDashHitboxHit(Collider other, Hitbox hitbox)
         {
-            dashHitConnected = true;
             hitbox?.Deactivate();
             var dmg = other.GetComponent<IDamageable>() ?? other.GetComponentInParent<IDamageable>();
             if (dmg == null || !dmg.IsAlive) return;
-            dmg.TakeDamage(new DamageInfo(dash.DashDamage, gameObject, DamageType.Physical, dash.DashKnockback));
+            bool dealt = dmg.TakeDamage(new DamageInfo(dash.DashDamage, gameObject, DamageType.Physical, dash.DashKnockback));
+            if (dealt)
+                dashHitConnected = true;
         }
 
         // ============================================================

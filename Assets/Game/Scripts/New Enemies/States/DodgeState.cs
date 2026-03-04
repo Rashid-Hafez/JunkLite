@@ -72,15 +72,17 @@ namespace junklite
 
                 if (dodgeDirection.sqrMagnitude < 0.01f)
                 {
-                    // Fallback: use movement axis instead of hardcoded world axes
                     dodgeDirection = movement != null && movement.FacingDirection > 0
                         ? -movement.MovementAxis
                         : movement.MovementAxis;
                 }
+
+                // Roll for forward dodge (past/behind the player)
+                if (Random.value < dodger.DodgeForwardChance)
+                    dodgeDirection = -dodgeDirection;
             }
             else
             {
-                // No target fallback: use movement axis
                 dodgeDirection = movement != null && movement.FacingDirection > 0
                     ? -movement.MovementAxis
                     : movement.MovementAxis;
@@ -89,7 +91,22 @@ namespace junklite
             dodgeDirection = dodgeDirection.normalized;
 
             startPosition = Transform.position;
-            targetPosition = startPosition + dodgeDirection * dodger.DodgeDistance;
+            float dodgeDistance = dodger.DodgeDistance;
+
+            // Wall check: raycast in dodge direction and clamp if a wall is in the way
+            LayerMask wallMask = dodger.DodgeWallLayer;
+            if (wallMask.value != 0)
+            {
+                Vector3 rayOrigin = startPosition + Vector3.up * 0.5f;
+                if (Physics.Raycast(rayOrigin, dodgeDirection, out RaycastHit hit, dodgeDistance, wallMask))
+                {
+                    float maxDistance = hit.distance - dodger.DodgeWallCheckBuffer;
+                    if (maxDistance < 0f) maxDistance = 0f;
+                    dodgeDistance = Mathf.Min(dodgeDistance, maxDistance);
+                }
+            }
+
+            targetPosition = startPosition + dodgeDirection * dodgeDistance;
 
             if (HasTarget && movement != null)
                 movement.FaceTarget(Target.position);

@@ -204,13 +204,7 @@ namespace junklite
             }
             else if (from is MeleeAttackState)
             {
-                if (attackNotifyCoroutine != null)
-                {
-                    StopCoroutine(attackNotifyCoroutine);
-                    attackNotifyCoroutine = null;
-                }
-                if (attackWarningVfx != null)
-                    attackWarningVfx.SetActive(false);
+                HideAttackWarning();
             }
         }
 
@@ -219,6 +213,27 @@ namespace junklite
             if (attackWarningVfx != null)
                 attackWarningVfx.SetActive(true);
             GetComponentInChildren<EnemyAudioHandler>()?.PlayAttackNotify();
+        }
+
+        public void ShowAttackWarningImmediate()
+        {
+            if (attackNotifyCoroutine != null)
+            {
+                StopCoroutine(attackNotifyCoroutine);
+                attackNotifyCoroutine = null;
+            }
+            ShowAttackNotify();
+        }
+
+        public void HideAttackWarning()
+        {
+            if (attackNotifyCoroutine != null)
+            {
+                StopCoroutine(attackNotifyCoroutine);
+                attackNotifyCoroutine = null;
+            }
+            if (attackWarningVfx != null)
+                attackWarningVfx.SetActive(false);
         }
 
         private System.Collections.IEnumerator AttackNotifyAfterDelay()
@@ -326,6 +341,7 @@ namespace junklite
         public virtual void ApplyParryPush(Vector3 direction, float force, float upwardForce, float duration)
         {
             if (!canBeKnockedBack) return;
+            if (stateMachine != null && stateMachine.CurrentState is ParriedState) return;
             if (movement != null)
                 movement.ApplyPushOverTime(direction, force, upwardForce, duration);
         }
@@ -413,12 +429,15 @@ namespace junklite
 
             if (damageDealt)
             {
-                // 1. Hitstun FIRST — stops movement, enters HurtState
-                if (!info.IsTickDamage)
-                    ApplyHitstun();
+                if (state == null || state.CanBeInterrupted)
+                {
+                    // 1. Hitstun FIRST — stops movement, enters HurtState
+                    if (!info.IsTickDamage)
+                        ApplyHitstun();
 
-                // 2. Knockback SECOND — applied on top of stopped movement
-                ApplyKnockback(info);
+                    // 2. Knockback SECOND — applied on top of stopped movement
+                    ApplyKnockback(info);
+                }
             }
 
             return damageDealt;

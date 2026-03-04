@@ -36,6 +36,7 @@ namespace junklite
             if (HasTarget)
                 movement?.FaceTarget(Target.position);
 
+            enemy.ShowAttackWarningImmediate();
             activeVFX = VFXPool.Get(charger.ChargeVFXPrefab, enemy.transform);
 
            // Debug.Log($"{enemy.gameObject.name}: Charging! ({timer}s)");
@@ -56,6 +57,7 @@ namespace junklite
 
         public override void Exit()
         {
+            enemy.HideAttackWarning();
             VFXPool.Release(ref activeVFX);
         }
     }
