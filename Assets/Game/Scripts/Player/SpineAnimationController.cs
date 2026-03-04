@@ -499,6 +499,10 @@ namespace junklite
             if (forceOverrideActive)
                 return;
 
+            // Don't override locomotion (landing/run/idle) while any attack is playing
+            if (attackActive)
+                return;
+
             if (grounded)
             {
                 ClearDoubleJumpFlag();
@@ -810,7 +814,7 @@ namespace junklite
             if (playerState.IsDashing)
                 return;
 
-            if (attackOverwriteActive || forceOverrideActive)
+            if (attackActive || forceOverrideActive)
                 return;
 
             string current = GetCurrentLocomotionName();
@@ -844,7 +848,7 @@ namespace junklite
 
         private void UpdateLocomotionFromSpeed()
         {
-            if (!playerState.IsGrounded || IsPlayingTransientAnim() || attackOverwriteActive || forceOverrideActive)
+            if (!playerState.IsGrounded || IsPlayingTransientAnim() || attackActive || forceOverrideActive)
                 return;
 
             float speed = GetSpeed();

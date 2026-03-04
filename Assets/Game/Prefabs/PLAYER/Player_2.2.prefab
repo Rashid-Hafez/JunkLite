@@ -149,7 +149,7 @@ Transform:
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0.99692416, w: 0.07837209}
-  m_LocalPosition: {x: 0.4089083, y: 1.4680159, z: -0.0144}
+  m_LocalPosition: {x: 0.3983467, y: 1.4675097, z: -0.0144}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -506,7 +506,7 @@ Transform:
   m_GameObject: {fileID: 5313947137746381582}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0.4064177, w: 0.9136874}
-  m_LocalPosition: {x: 0.4303329, y: 1.7661115, z: -0.0176}
+  m_LocalPosition: {x: 0.41807655, y: 1.7599363, z: -0.0176}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1251,7 +1251,7 @@ MonoBehaviour:
   footstepSource: {fileID: 0}
   footstepPitchOffset: 0.2
   logStateChanges: 0
-  logAttacks: 0
+  logAttacks: 1
 --- !u!114 &-8791361905287476187
 MonoBehaviour:
   m_ObjectHideFlags: 0

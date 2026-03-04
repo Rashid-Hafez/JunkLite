@@ -96,7 +96,21 @@ namespace junklite
                 int comboLength = weaponData.GetComboLength(dir, isGrounded);
                 if (comboLength == 0) return false;
 
-                if (isGrounded)
+                // Option B: allow the first air side attack after a grounded side hit
+                // to continue the ground combo index instead of restarting the air chain.
+                bool continuingFromGround =
+                    !isGrounded &&
+                    comboActive &&          // combo window is still open
+                    sideComboIndex > 0;     // we have progressed at least one step on ground
+
+                if (continuingFromGround)
+                {
+                    if (sideComboIndex >= comboLength) sideComboIndex = 0;
+                    comboIndex = sideComboIndex;
+                    airComboIndex = sideComboIndex; // sync air track to continuation point
+                    Log($"Air side attack - continuing ground combo {comboIndex + 1}/{comboLength}");
+                }
+                else if (isGrounded)
                 {
                     if (sideComboIndex >= comboLength) sideComboIndex = 0;
                     comboIndex = sideComboIndex;

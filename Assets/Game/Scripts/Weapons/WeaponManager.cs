@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -176,12 +176,18 @@ namespace junklite
 
             if (!hasBufferedInput) return;
 
-            bufferTimer -= Time.deltaTime;
-            if (bufferTimer <= 0f)
+            // Only count down the buffer after the current attack ends.
+            // While attacking, the buffer is "held" indefinitely so it can't
+            // expire before the animation finishes.
+            if (!isAttacking)
             {
-                hasBufferedInput = false;
-                Log("Buffer expired");
-                return;
+                bufferTimer -= Time.deltaTime;
+                if (bufferTimer <= 0f)
+                {
+                    hasBufferedInput = false;
+                    Log("Buffer expired");
+                    return;
+                }
             }
 
             var combat = GetCombatStateForSlot(bufferedWeaponSlot);
@@ -1023,7 +1029,8 @@ namespace junklite
             activeWeapon = null;
             activeCombatState = null;
             activeWeaponData = null;
-            hasBufferedInput = false;
+            // Don't clear hasBufferedInput here — let Update() consume it
+            // so buffered attacks fire immediately after this attack ends.
 
             if (playerState != null)
             {
@@ -1077,12 +1084,31 @@ namespace junklite
         {
             if (playerRb == null) yield break;
 
+            // Resolve local axes so attack pushes respect the current 2.5D lane orientation.
+            // Default to world axes if we don't have a controller reference.
+            Vector3 right = controller != null ? controller.transform.right : Vector3.right;
+            Vector3 up = controller != null ? controller.transform.up : Vector3.up;
+
             Vector3 peakVelocity = Vector3.zero;
 
-            if (dir == AttackDirection.Side && Mathf.Abs(forwardImpulse) > 0f)
-                peakVelocity.x = forwardImpulse * Facing;
-            else if (dir != AttackDirection.Side && Mathf.Abs(verticalImpulse) > 0f)
-                peakVelocity.y = dir == AttackDirection.Down ? -verticalImpulse : verticalImpulse;
+            if (dir == AttackDirection.Side)
+            {
+                // Side attacks: allow both forward (along lane) and optional vertical impulse.
+                if (Mathf.Abs(forwardImpulse) > 0f)
+                    peakVelocity += right * (forwardImpulse * Facing);
+
+                if (Mathf.Abs(verticalImpulse) > 0f)
+                    peakVelocity += up * verticalImpulse;
+            }
+            else
+            {
+                // Non-side (Up/Down) attacks: keep existing vertical-only behaviour.
+                if (Mathf.Abs(verticalImpulse) > 0f)
+                {
+                    float signedVertical = (dir == AttackDirection.Down ? -verticalImpulse : verticalImpulse);
+                    peakVelocity += up * signedVertical;
+                }
+            }
 
             if (peakVelocity.sqrMagnitude <= 0f) yield break;
 
@@ -1098,18 +1124,51 @@ namespace junklite
                     ? lungeCurve.Evaluate(t)
                     : (1f - t * t);
 
-                var vel = playerRb.linearVelocity;
-                if (peakVelocity.x != 0f) vel.x = peakVelocity.x * multiplier;
-                if (peakVelocity.y != 0f) vel.y = peakVelocity.y * multiplier;
+                Vector3 vel = playerRb.linearVelocity;
+
+                // Project current velocity onto local axes and apply the scaled peakVelocity along those axes
+                // so we don't accidentally write into the wrong world component when the lane is rotated.
+                float currentRight = Vector3.Dot(vel, right);
+                float currentUp = Vector3.Dot(vel, up);
+
+                float targetRight = currentRight;
+                float targetUp = currentUp;
+
+                // Only override components that this attack actually uses.
+                float peakRight = Vector3.Dot(peakVelocity, right);
+                float peakUp = Vector3.Dot(peakVelocity, up);
+
+                if (!Mathf.Approximately(peakRight, 0f))
+                    targetRight = peakRight * multiplier;
+
+                if (!Mathf.Approximately(peakUp, 0f))
+                    targetUp = peakUp * multiplier;
+
+                // Rebuild velocity from modified local components plus any remaining component along the forward axis.
+                Vector3 forward = controller != null ? controller.transform.forward : Vector3.forward;
+                Vector3 forwardComponent = Vector3.Project(vel, forward);
+
+                vel = right * targetRight + up * targetUp + forwardComponent;
                 playerRb.linearVelocity = vel;
 
                 yield return null;
             }
 
-            var endVel = playerRb.linearVelocity;
-            if (peakVelocity.x != 0f) endVel.x = 0f;
-            if (peakVelocity.y != 0f) endVel.y = 0f;
-            playerRb.linearVelocity = endVel;
+            // After the lunge, clear only the components this attack was controlling, leave others intact.
+            {
+                Vector3 vel = playerRb.linearVelocity;
+
+                float peakRight = Vector3.Dot(peakVelocity, right);
+                float peakUp = Vector3.Dot(peakVelocity, up);
+
+                if (!Mathf.Approximately(peakRight, 0f))
+                    vel -= right * Vector3.Dot(vel, right);
+
+                if (!Mathf.Approximately(peakUp, 0f))
+                    vel -= up * Vector3.Dot(vel, up);
+
+                playerRb.linearVelocity = vel;
+            }
         }
 
         private void ApplyAttackGravityOverride(float airGravityMultiplier)
