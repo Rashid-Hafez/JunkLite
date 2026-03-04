@@ -216,15 +216,15 @@ namespace junklite
 
         private void SetupParticle(GameObject go, Vector3 position, Vector3 attackDirection, Vector3 localOffset = default)
         {
-            //const float directionalOffset = 0.12f;
-            Vector3 spawnPos = position + attackDirection; //* directionalOffset;
-
-          //  float angle = Mathf.Atan2(attackDirection.y, attackDirection.x) * Mathf.Rad2Deg;
-
             go.transform.SetParent(null);
-            go.transform.right = position;
-           // go.transform.rotation = Quaternion.Euler(0f, 0f, angle);
-            go.transform.position = spawnPos + go.transform.TransformVector(localOffset);
+
+            if (attackDirection != Vector3.zero)
+            {
+                float angle = Mathf.Atan2(attackDirection.y, attackDirection.x) * Mathf.Rad2Deg;
+                go.transform.rotation = Quaternion.Euler(0f, 0f, angle);
+            }
+
+            go.transform.position = position + go.transform.TransformVector(localOffset);
             go.SetActive(true);
 
             var ps = go.GetComponent<ParticleSystem>();

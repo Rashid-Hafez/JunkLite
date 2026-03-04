@@ -125,7 +125,7 @@ namespace junklite
 
         #region Hit Notification
 
-        private void OnEnemyHit()
+        private void OnEnemyHit(EnemyCharacter enemy)
         {
             if (!isActive) return;
 
@@ -133,20 +133,28 @@ namespace junklite
             {
                 var mod = passiveSlots[i];
                 if (mod == null || mod.IsBroken) continue;
-
                 if (mod.Data is PassiveModData passive)
-                    passive.OnHitRegistered(mod, playerCharacter, null);
+                {
+                    passive.OnHitRegistered(mod, playerCharacter, enemy);
+
+                    if (mod.IsBroken)
+                    {
+                        passive.OnUnequip(playerCharacter);
+                        passiveSlots[i] = null;
+                        Debug.Log($"[ModManager] Passive mod broke: {mod.Data.modName}");
+                        OnModSlotsChanged?.Invoke();
+                    }
+                }
             }
 
             for (int i = 0; i < unlockedActiveSlots; i++)
             {
                 var mod = activeSlots[i];
                 if (mod == null || mod.IsBroken) continue;
-
                 if (mod.Data is ActiveModData active)
                 {
                     bool wasReady = active.CanActivate(mod, playerCharacter);
-                    active.OnHitRegistered(mod, playerCharacter, null);
+                    active.OnHitRegistered(mod, playerCharacter, enemy);
                     bool nowReady = active.CanActivate(mod, playerCharacter);
 
                     if (!wasReady && nowReady)

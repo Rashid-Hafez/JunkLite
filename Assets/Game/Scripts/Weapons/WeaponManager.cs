@@ -23,6 +23,11 @@ namespace junklite
         [SerializeField] private Transform upAttack;
         [SerializeField] private Transform downAttack;
 
+        [Header("Ranged")]
+        [SerializeField]
+        [Tooltip("Spawn point for bullets. If unassigned, falls back to sideAttack.")]
+        private Transform muzzlePoint;
+
         [Header("Fallback Hit Radii")]
         [SerializeField] private float sideRadius = 1f;
         [SerializeField] private float upRadius = 1f;
@@ -39,17 +44,20 @@ namespace junklite
 
         [Header("Attack Hit Window")]
         [SerializeField] private float delayBeforeAttack = 0.1f;
+        [Tooltip("How long after impulse fires before the attack animation plays.")]
+        [SerializeField] private float animationLeadTime = 0.05f;
         [SerializeField]
         [Tooltip("Time that the collision stays open to deliver the attack")]
         private float attackOpenWindow = 0.3f;
         [SerializeField] private float BUFFER_DURATION = 0.3f;
 
-        [Header("Recoil")]
-        [SerializeField] private float sideRecoil = 6f;
-
         [Header("Attack Settings")]
         [SerializeField] private float facingLockDuration = 0.25f;
         [SerializeField] private float inputThreshold = 0.5f;
+
+        [Header("Attack Push")]
+        [Tooltip("Fallback push duration when ComboStep.forwardImpulseDuration is 0")]
+        [SerializeField] private float defaultPushDuration = 0.08f;
 
         [Header("Attack Input Lock")]
         [SerializeField] private bool lockMovementDuringAttack = true;
@@ -63,6 +71,7 @@ namespace junklite
         private PlayerState playerState;
         private PlayerCharacter playerCharacter;
         private Character2D5Controller controller;
+        private SpineAnimationController spineController;
 
         // Weapon slots
         private WeaponInstance weaponSlot1;
@@ -75,17 +84,20 @@ namespace junklite
 
         // Attack state
         private bool isAttacking;
-        private int activeWeaponSlot;            // 0=fists, 1=slot1, 2=slot2
-        private WeaponInstance activeWeapon;      // null for fists
-        private CombatState activeCombatState;    // always set during attack
-        private WeaponData activeWeaponData;      // always set during attack
+        private int activeWeaponSlot;
+        private WeaponInstance activeWeapon;
+        private CombatState activeCombatState;
+        private WeaponData activeWeaponData;
         private int lastAttackedSlot = -1;
         private AttackDirection currentAttackDir;
-        private WeaponData.ComboStep currentStep;
         private int currentComboIndex;
         private Transform currentAttackAnchor;
         private bool attackInputLockApplied;
         private bool currentAttackGrounded;
+
+        // Ranged state
+        private bool isRangedHovering;
+        private Coroutine activeTimeScaleRestore;
 
         // Input buffer
         private bool hasBufferedInput;
@@ -114,7 +126,7 @@ namespace junklite
         public event Action OnWeaponChanged;
         public event Action OnCombatModeChanged;
         public event Action OnCombatModeRejected;
-        public event Action OnEnemyHit;
+        public event Action<EnemyCharacter> OnEnemyHit;
         public event Action OnEnvironmentHit;
 
         #endregion
@@ -128,6 +140,8 @@ namespace junklite
             playerState = GetComponentInParent<PlayerState>();
             playerCharacter = GetComponentInParent<PlayerCharacter>();
             controller = GetComponentInParent<Character2D5Controller>();
+            spineController = GetComponentInParent<SpineAnimationController>()
+                           ?? GetComponentInChildren<SpineAnimationController>();
 
             if (impulseSource == null)
             {
@@ -189,16 +203,13 @@ namespace junklite
                 return;
             }
 
-            // Route mod pickups to inventory for now � ModManager will handle this later
             var modPickup = other.GetComponent<WorldModPickup>();
             if (modPickup != null && modPickup.gameObject.activeSelf)
             {
-                // Disable immediately to prevent double-pickup from overlapping colliders
                 modPickup.gameObject.SetActive(false);
 
                 var modInstance = new ModInstance(modPickup.modData);
 
-                // Try auto-equip to ModManager first
                 var modManager = GetComponent<ModManager>();
                 if (modManager != null && modManager.TryEquipMod(modInstance))
                 {
@@ -206,7 +217,6 @@ namespace junklite
                     return;
                 }
 
-                // No free mod slot - store in inventory
                 var inventory = GetComponent<InventoryComponent>();
                 if (inventory != null)
                 {
@@ -215,7 +225,6 @@ namespace junklite
                     return;
                 }
 
-                // Neither worked - re-enable the pickup
                 modPickup.gameObject.SetActive(true);
             }
         }
@@ -254,6 +263,9 @@ namespace junklite
             SetWeaponVisible(weaponSlot1, true);
             SetWeaponVisible(weaponSlot2, true);
 
+            TryPrewarmRangedPool(weaponSlot1);
+            TryPrewarmRangedPool(weaponSlot2);
+
             Log("Entered Mod Combat");
             OnCombatModeChanged?.Invoke();
         }
@@ -273,35 +285,33 @@ namespace junklite
             OnCombatModeChanged?.Invoke();
         }
 
+        private void TryPrewarmRangedPool(WeaponInstance weapon)
+        {
+            if (weapon == null || weapon.weaponData is not RangedWeaponData ranged) return;
+            if (ranged.bulletPrefab == null) return;
+            ProjectileManager.Instance?.PrewarmPool(ranged.bulletPrefab, 10);
+        }
+
         #endregion
 
         #region Public API
 
-        /// <summary>
-        /// Backward-compatible attack for regular mode (fists).
-        /// PlayerCharacter can still call this until input is rewired in Step 5.
-        /// </summary>
         public void Attack(Vector2 moveInput, bool isGrounded)
         {
             Attack(0, moveInput, isGrounded);
         }
 
-        /// <summary>
-        /// Main attack entry point. weaponSlot: 0=fists, 1=slot1, 2=slot2.
-        /// </summary>
         public void Attack(int weaponSlot, Vector2 moveInput, bool isGrounded)
         {
             var combat = GetCombatStateForSlot(weaponSlot);
             if (combat == null) return;
 
-            // Weapons can break, fists can't
             if (weaponSlot != 0)
             {
                 var weapon = GetWeaponForSlot(weaponSlot);
                 if (weapon == null || weapon.IsBroken) return;
             }
 
-            // Validate combat mode
             if (!isModCombat && weaponSlot != 0) return;
             if (isModCombat && weaponSlot == 0) return;
 
@@ -331,9 +341,6 @@ namespace junklite
             };
         }
 
-        /// <summary>
-        /// Returns the CombatState for a slot. Fists (0) use fistCombat, weapons use their internal state.
-        /// </summary>
         private CombatState GetCombatStateForSlot(int slot)
         {
             return slot switch
@@ -345,9 +352,6 @@ namespace junklite
             };
         }
 
-        /// <summary>
-        /// Returns the WeaponData for a slot. Fists (0) use fistWeaponData, weapons use their own data.
-        /// </summary>
         private WeaponData GetWeaponDataForSlot(int slot)
         {
             return slot switch
@@ -397,7 +401,6 @@ namespace junklite
             storedPickup1 = storedPickup2;
             storedPickup2 = tempPickup;
 
-            // Reset combo on both since slot context changed
             weaponSlot1?.Combat?.ResetCombo();
             weaponSlot2?.Combat?.ResetCombo();
             lastAttackedSlot = -1;
@@ -457,14 +460,12 @@ namespace junklite
             var data = GetWeaponDataForSlot(slot);
             if (combat == null || data == null) return;
 
-            // Air attack gating
             if (playerState != null && !playerState.IsGrounded && !playerState.CanAirAttack)
             {
                 Log("Air attack blocked");
                 return;
             }
 
-            // Reset combo on previous weapon if switching
             if (lastAttackedSlot >= 0 && lastAttackedSlot != slot)
             {
                 GetCombatStateForSlot(lastAttackedSlot)?.ResetCombo();
@@ -472,7 +473,8 @@ namespace junklite
             }
 
             bool isGrounded = playerState == null || playerState.IsGrounded;
-            if (!combat.TryGetComboStep(dir, isGrounded, out var step, out int comboIndex, out string animName))
+
+            if (!combat.TryBeginAttack(dir, isGrounded, data, out int comboIndex, out string animName))
             {
                 Log($"No combo step for {dir}");
                 return;
@@ -485,15 +487,13 @@ namespace junklite
                     playerState.MarkAirAttackUsed();
             }
 
-            // Set attack state
             isAttacking = true;
             activeWeaponSlot = slot;
-            activeWeapon = GetWeaponForSlot(slot);  // null for fists
+            activeWeapon = GetWeaponForSlot(slot);
             activeCombatState = combat;
             activeWeaponData = data;
             lastAttackedSlot = slot;
             currentAttackDir = dir;
-            currentStep = step;
             currentComboIndex = comboIndex;
             currentAttackAnchor = GetAttackTransform(dir);
             currentAttackGrounded = isGrounded;
@@ -508,52 +508,96 @@ namespace junklite
 
             ApplyAttackInputLock();
 
+            // Ranged plays animation immediately. Melee delays it so the lunge leads.
+            if (activeWeaponData is not MeleeWeaponData)
+            {
+                if (playerState != null && !string.IsNullOrEmpty(animName))
+                    playerState.RequestAttackAnimation(animName);
+                else
+                    OnAttackAnimationComplete();
+            }
+
+            ExecuteAttack(dir, comboIndex, isGrounded, animName);
+        }
+
+        private void ExecuteAttack(AttackDirection dir, int comboIndex, bool isGrounded, string animName)
+        {
+            if (activeWeaponData is MeleeWeaponData meleeData)
+            {
+                if (meleeData.TryGetMeleeStep(dir, comboIndex, isGrounded, out var step))
+                    StartCoroutine(CoMeleeAttack(dir, step, animName));
+                else
+                    Log($"No melee step for {dir} combo {comboIndex}");
+            }
+            else if (activeWeaponData is RangedWeaponData rangedData)
+            {
+                if (rangedData.TryGetRangedStep(dir, comboIndex, isGrounded, out var step))
+                    StartCoroutine(CoRangedAttack(dir, step, rangedData, activeWeapon, activeWeaponSlot));
+                else
+                    Log($"No ranged step for {dir} combo {comboIndex}");
+            }
+            else
+            {
+                Log($"Unknown weapon data type: {activeWeaponData?.GetType().Name}");
+            }
+        }
+
+        #endregion
+
+        #region Melee Attack
+
+        private IEnumerator CoMeleeAttack(AttackDirection dir, MeleeWeaponData.MeleeComboStep step, string animName)
+        {
+            StartCoroutine(CoApplyAttackPush(dir, step.forwardImpulse, step.verticalImpulse, step.forwardImpulseDuration, step.lungeCurve));
+            ApplyAttackGravityOverride(step.airGravityMultiplier);
+
+            if (animationLeadTime > 0f)
+                yield return new WaitForSeconds(animationLeadTime);
+
             if (playerState != null && !string.IsNullOrEmpty(animName))
                 playerState.RequestAttackAnimation(animName);
             else
                 OnAttackAnimationComplete();
 
-            ExecuteAttack(dir, step);
-        }
+            float hitDelay = step.hitDelay > 0f ? step.hitDelay : Mathf.Max(0f, delayBeforeAttack - animationLeadTime);
+            if (hitDelay > 0f)
+                yield return new WaitForSeconds(hitDelay);
 
-        private void ExecuteAttack(AttackDirection dir, WeaponData.ComboStep step)
-        {
             Transform anchor = GetAttackTransform(dir);
-            if (anchor == null) return;
-
-            StartCoroutine(CoAttackDelay(dir, step, anchor));
-        }
-
-        private IEnumerator CoAttackDelay(AttackDirection dir, WeaponData.ComboStep step, Transform anchor)
-        {
-            yield return new WaitForSeconds(delayBeforeAttack);
-
-            ApplyAttackPush(dir, step);
-            ApplyAttackGravityOverride(step);
-
+            bool isPiercing = step.piercing || (activeWeapon?.PiercingOverride ?? false);
             float radius = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
+            Vector2 knockback = step.overrideKnockback ? step.knockback : activeWeaponData.knockbackForce;
+
             bool hasHitEnemy = false;
             bool hasHitEnvironment = false;
             float windowEnd = Time.time + attackOpenWindow;
 
             while (Time.time < windowEnd)
             {
-                var hitResult = DetectHit(anchor.position, radius);
+                Vector3 hitOrigin = ResolveHitOrigin(dir, anchor);
+                var hitResult = DetectHit(hitOrigin, radius, isPiercing);
 
-                if (hitResult.type == AttackHitResult.Enemy && hitResult.target != null && !hasHitEnemy)
+                if (hitResult.type == AttackHitResult.Enemy && !hasHitEnemy)
                 {
                     hasHitEnemy = true;
                     PlayHitFeedback();
-                    DealDamage(hitResult.target, step);
-                    ApplyRecoil(dir);
+                    StartCoroutine(CoHitstop(enemyHitHitstopDuration));
+
+                    if (isPiercing && hitResult.allTargets != null)
+                        DealDamageToAll(hitResult.allTargets, step.damageMultiplier, knockback);
+                    else if (hitResult.target != null)
+                        DealDamage(hitResult.target, step.damageMultiplier, knockback);
+
+                    ApplyRecoil(dir, step.hitRecoil);
                     break;
                 }
 
                 if (hitResult.type == AttackHitResult.Environment && !hasHitEnvironment)
                 {
                     hasHitEnvironment = true;
+                    Vector3 hitOriginForVfx = ResolveHitOrigin(dir, anchor);
                     float radiusForVfx = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
-                    Vector3 impactPoint = ResolveImpactPoint(dir, anchor.position, radiusForVfx);
+                    Vector3 impactPoint = ResolveImpactPoint(dir, hitOriginForVfx, radiusForVfx);
                     Vector3 attackDir = GetAttackDirection(dir);
                     if (CombatEffectsManager.Instance != null)
                     {
@@ -561,23 +605,425 @@ namespace junklite
                         CombatEffectsManager.Instance.SpawnHitCross(impactPoint);
                         OnEnvironmentHit?.Invoke();
                     }
-                    ApplyRecoil(dir);
+                    ApplyRecoil(dir, step.hitRecoil);
                 }
 
                 yield return null;
             }
         }
 
+        private IEnumerator CoHitstop(float duration)
+        {
+            if (playerRb == null || duration <= 0f) yield break;
+            playerRb.linearVelocity = Vector3.zero;
+            yield return new WaitForSecondsRealtime(duration);
+        }
+
+        #endregion
+
+        #region Ranged Attack
+
+        private IEnumerator CoRangedAttack(
+            AttackDirection dir,
+            RangedWeaponData.RangedComboStep step,
+            RangedWeaponData rangedData,
+            WeaponInstance capturedWeapon,
+            int capturedWeaponSlot)
+        {
+            // HOVER — zero/low gravity + kill vertical velocity
+            bool useHover = step.hoverGravityMultiplier >= 0f;
+            if (useHover)
+            {
+                isRangedHovering = true;
+                controller?.SetGravityMultiplierOverride(step.hoverGravityMultiplier);
+                if (playerRb != null)
+                    playerRb.linearVelocity = new Vector3(playerRb.linearVelocity.x, 0f, playerRb.linearVelocity.z);
+            }
+
+            yield return CoWaitForFirePose(step.fireAtNormalizedTime);
+
+            if (Mathf.Abs(step.forwardImpulse) > 0f)
+                StartCoroutine(CoApplyAttackPush(dir, step.forwardImpulse, 0f, step.forwardImpulseDuration));
+
+            // BULLET TIME — always restore to true 1.0
+            bool useBulletTime = step.bulletTimeScale > 0f && step.bulletTimeScale < 1f;
+            const float savedTimeScale = 1f;
+            const float savedFixedDelta = 0.02f;
+
+            if (useBulletTime)
+            {
+                if (activeTimeScaleRestore != null)
+                    StopCoroutine(activeTimeScaleRestore);
+                Time.timeScale = step.bulletTimeScale;
+                Time.fixedDeltaTime = savedFixedDelta * step.bulletTimeScale;
+            }
+
+            bool isDirectional = (dir == AttackDirection.Down || dir == AttackDirection.Up);
+
+            if (isDirectional)
+            {
+                // No bullets — animation + instant sphere cast
+                yield return CoDirectionalBlast(dir, step, rangedData, capturedWeapon, capturedWeaponSlot);
+            }
+            else
+            {
+                // Side attacks — real bullets with collision
+                if (ProjectileManager.Instance == null)
+                {
+                    Debug.LogWarning("[WeaponManager] No ProjectileManager in scene.");
+                    CleanupRangedHover(useHover);
+                    RestoreTimeScaleImmediate(useBulletTime, savedTimeScale, savedFixedDelta);
+                    yield break;
+                }
+                if (rangedData.bulletPrefab == null)
+                {
+                    Debug.LogWarning($"[WeaponManager] No bullet prefab on '{rangedData.displayName}'.");
+                    CleanupRangedHover(useHover);
+                    RestoreTimeScaleImmediate(useBulletTime, savedTimeScale, savedFixedDelta);
+                    yield break;
+                }
+
+                Transform muzzle = (muzzlePoint != null) ? muzzlePoint : sideAttack;
+                float damage = rangedData.baseDamage * (step.damageMultiplier > 0f ? step.damageMultiplier : 1f);
+                Vector2 knockback = rangedData.knockbackForce;
+                int bulletCount = Mathf.Max(1, step.bulletCount);
+                Vector3[] fireDirections = ResolveFireDirections(dir, bulletCount, step.arcSpreadAngle);
+
+                yield return CoSideBurst(step, rangedData, fireDirections, muzzle,
+                    damage, knockback, capturedWeapon, capturedWeaponSlot, useBulletTime);
+            }
+
+            // HOLD BULLET TIME
+            if (useBulletTime && step.bulletTimeDuration > 0f)
+                yield return new WaitForSecondsRealtime(step.bulletTimeDuration);
+
+            // SMOOTH RECOIL
+            if (Mathf.Abs(step.hitRecoil) > 0f)
+                StartCoroutine(CoSmoothRangedRecoil(dir, step.hitRecoil, step.recoilDuration));
+
+            // RESTORE TIMESCALE
+            if (useBulletTime)
+            {
+                float restoreDur = step.bulletTimeRestoreDuration > 0f ? step.bulletTimeRestoreDuration : 0.1f;
+                activeTimeScaleRestore = StartCoroutine(CoRestoreTimeScale(savedTimeScale, savedFixedDelta, restoreDur));
+            }
+
+            CleanupRangedHover(useHover);
+        }
+
+        /// <summary>
+        /// Down/Up attack: no projectiles. Single OverlapSphere resolves all damage.
+        /// Spawns hit VFX on enemies and environment contact points.
+        /// </summary>
+        private IEnumerator CoDirectionalBlast(
+            AttackDirection dir,
+            RangedWeaponData.RangedComboStep step,
+            RangedWeaponData rangedData,
+            WeaponInstance capturedWeapon,
+            int capturedWeaponSlot)
+        {
+            if (capturedWeapon != null && capturedWeapon.ConsumeDurability())
+            {
+                HandleWeaponBroken(capturedWeaponSlot);
+                yield break;
+            }
+
+            float damage = rangedData.baseDamage * (step.damageMultiplier > 0f ? step.damageMultiplier : 1f);
+            Vector2 knockback = rangedData.knockbackForce;
+            float blastRadius = step.blastDamageRadius > 0f ? step.blastDamageRadius : 1.5f;
+            Vector3 blastOrigin = ResolveBlastOrigin(dir, blastRadius);
+            Vector3 blastDir = dir == AttackDirection.Down ? Vector3.down : Vector3.up;
+
+            // ENEMY DAMAGE
+            Collider[] enemyHits = Physics.OverlapSphere(blastOrigin, blastRadius, enemyLayer, QueryTriggerInteraction.Ignore);
+            bool hitAnyEnemy = false;
+
+            if (enemyHits.Length > 0)
+            {
+                PlayHitFeedback();
+                StartCoroutine(CoHitstop(enemyHitHitstopDuration));
+
+                foreach (var hit in enemyHits)
+                {
+                    var damageable = hit.GetComponent<IDamageable>()
+                                  ?? hit.GetComponentInParent<IDamageable>();
+                    if (damageable == null || !damageable.IsAlive) continue;
+
+                    var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
+                    bool dealt = damageable.TakeDamage(damageInfo);
+
+                    if (dealt)
+                    {
+                        hitAnyEnemy = true;
+                        var enemy = hit.GetComponent<EnemyCharacter>() ?? hit.GetComponentInParent<EnemyCharacter>();
+                        OnEnemyHit?.Invoke(enemy);
+
+                        if (CombatEffectsManager.Instance != null)
+                        {
+                            Vector3 hitPoint = hit.ClosestPoint(blastOrigin);
+                            Vector3 hitDir = (hitPoint - blastOrigin).normalized;
+                            CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDir);
+                            CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, hitDir);
+                        }
+                    }
+                }
+            }
+
+            // ENVIRONMENT HIT — raycast to find ground/ceiling contact for VFX
+            if (CombatEffectsManager.Instance != null)
+            {
+                float rayLength = blastRadius * 2f;
+                Vector3 rayOrigin = playerTransform.position;
+
+                if (Physics.Raycast(rayOrigin, blastDir, out RaycastHit envHit, rayLength, environmentLayer, QueryTriggerInteraction.Ignore))
+                {
+                    CombatEffectsManager.Instance.SpawnEnvHitParticle(envHit.point, envHit.normal);
+                    CombatEffectsManager.Instance.SpawnHitCross(envHit.point);
+
+                    if (!hitAnyEnemy)
+                        OnEnvironmentHit?.Invoke();
+                }
+            }
+
+            Log($"Directional blast ({dir}): {enemyHits.Length} enemies in radius {blastRadius}");
+            yield break;
+        }
+
+        /// <summary>
+        /// Side attack: real bullets with per-bullet collision.
+        /// </summary>
+        private IEnumerator CoSideBurst(
+            RangedWeaponData.RangedComboStep step,
+            RangedWeaponData rangedData,
+            Vector3[] fireDirections,
+            Transform muzzle,
+            float damage,
+            Vector2 knockback,
+            WeaponInstance capturedWeapon,
+            int capturedWeaponSlot,
+            bool useBulletTime)
+        {
+            for (int i = 0; i < fireDirections.Length; i++)
+            {
+                if (capturedWeapon != null && capturedWeapon.ConsumeDurability())
+                {
+                    HandleWeaponBroken(capturedWeaponSlot);
+                    yield break;
+                }
+
+                var config = new BulletConfig
+                {
+                    spawnPosition = muzzle.position,
+                    direction = fireDirections[i],
+                    speed = step.bulletSpeed,
+                    radius = step.bulletRadius,
+                    damage = damage,
+                    knockback = knockback,
+                    owner = playerTransform.gameObject
+                };
+
+                ProjectileManager.Instance.FireBullet(
+                    rangedData.bulletPrefab, config, enemyLayer, environmentLayer,
+                    hitCollider => OnBulletHitEnemy(hitCollider, damage, knockback));
+
+                Log($"Bullet {i + 1}/{fireDirections.Length} fired");
+
+                if (i < fireDirections.Length - 1 && step.fireInterval > 0f)
+                {
+                    if (useBulletTime)
+                        yield return new WaitForSecondsRealtime(step.fireInterval);
+                    else
+                        yield return new WaitForSeconds(step.fireInterval);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Yields until the current attack animation reaches the given normalised time.
+        /// Falls back to delayBeforeAttack if no SpineAnimationController is found.
+        /// </summary>
+        private IEnumerator CoWaitForFirePose(float normalizedTime)
+        {
+            if (spineController != null)
+            {
+                yield return null;
+
+                float elapsed = 0f;
+                float timeout = Mathf.Max(delayBeforeAttack * 4f, 0.5f);
+
+                while (elapsed < timeout)
+                {
+                    var entry = spineController.CurrentAttackEntry;
+                    if (entry != null && entry.AnimationEnd > 0f)
+                    {
+                        float t = entry.TrackTime / entry.AnimationEnd;
+                        if (t >= normalizedTime)
+                            yield break;
+                    }
+                    elapsed += Time.deltaTime;
+                    yield return null;
+                }
+
+                Log($"CoWaitForFirePose timed out at normalizedTime={normalizedTime:F2}");
+            }
+            else
+            {
+                yield return new WaitForSeconds(delayBeforeAttack);
+            }
+        }
+
+        private void OnBulletHitEnemy(Collider hitCollider, float damage, Vector2 knockback)
+        {
+            var damageable = hitCollider.GetComponent<IDamageable>()
+                          ?? hitCollider.GetComponentInParent<IDamageable>();
+
+            if (damageable == null || !damageable.IsAlive) return;
+
+            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
+            bool damageDealt = damageable.TakeDamage(damageInfo);
+
+            if (damageDealt)
+            {
+                PlayHitFeedback();
+                var enemy = hitCollider.GetComponent<EnemyCharacter>()
+                         ?? hitCollider.GetComponentInParent<EnemyCharacter>();
+                OnEnemyHit?.Invoke(enemy);
+            }
+        }
+
+        #endregion
+
+        #region Ranged Helpers
+
+        private Vector3[] ResolveFireDirections(AttackDirection dir, int bulletCount, float arcSpreadAngle)
+        {
+            Vector3 centerDir;
+            switch (dir)
+            {
+                case AttackDirection.Down: centerDir = Vector3.down; break;
+                case AttackDirection.Up: centerDir = Vector3.up; break;
+                default: centerDir = Vector3.right * Facing; break;
+            }
+
+            int count = Mathf.Max(1, bulletCount);
+            Vector3[] directions = new Vector3[count];
+
+            if (count == 1 || arcSpreadAngle <= 0f)
+            {
+                for (int i = 0; i < count; i++)
+                    directions[i] = centerDir;
+                return directions;
+            }
+
+            float halfArc = arcSpreadAngle * 0.5f;
+            for (int i = 0; i < count; i++)
+            {
+                float t = (float)i / (count - 1);
+                float angle = Mathf.Lerp(-halfArc, halfArc, t);
+                directions[i] = (Quaternion.AngleAxis(angle, Vector3.forward) * centerDir).normalized;
+            }
+
+            return directions;
+        }
+
+        private Vector3 ResolveBlastOrigin(AttackDirection dir, float radius)
+        {
+            Vector3 origin = playerTransform.position;
+            switch (dir)
+            {
+                case AttackDirection.Down: origin.y -= radius * 0.75f; break;
+                case AttackDirection.Up: origin.y += radius * 0.75f; break;
+            }
+            return origin;
+        }
+
+        /// <summary>
+        /// Smooth velocity-based recoil. Direction auto-resolves opposite to attack direction.
+        /// </summary>
+        private IEnumerator CoSmoothRangedRecoil(AttackDirection dir, float recoilMagnitude, float duration)
+        {
+            if (playerRb == null || Mathf.Abs(recoilMagnitude) <= 0f) yield break;
+
+            float dur = duration > 0f ? duration : 0.1f;
+
+            Vector3 recoilDir;
+            switch (dir)
+            {
+                case AttackDirection.Down: recoilDir = Vector3.up; break;
+                case AttackDirection.Up: recoilDir = Vector3.down; break;
+                default: recoilDir = Vector3.right * -Facing; break;
+            }
+
+            Vector3 peakVelocity = recoilDir * recoilMagnitude;
+            float elapsed = 0f;
+
+            while (elapsed < dur)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / dur);
+                float multiplier = 1f - (t * t);
+
+                Vector3 vel = playerRb.linearVelocity;
+                if (Mathf.Abs(recoilDir.x) > 0f) vel.x = peakVelocity.x * multiplier;
+                if (Mathf.Abs(recoilDir.y) > 0f) vel.y = peakVelocity.y * multiplier;
+                playerRb.linearVelocity = vel;
+
+                yield return null;
+            }
+        }
+
+        private IEnumerator CoRestoreTimeScale(float targetTimeScale, float targetFixedDelta, float realDuration)
+        {
+            float startScale = Time.timeScale;
+            float startFixed = Time.fixedDeltaTime;
+            float elapsed = 0f;
+
+            while (elapsed < realDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / realDuration);
+                Time.timeScale = Mathf.Lerp(startScale, targetTimeScale, t);
+                Time.fixedDeltaTime = Mathf.Lerp(startFixed, targetFixedDelta, t);
+                yield return null;
+            }
+
+            Time.timeScale = targetTimeScale;
+            Time.fixedDeltaTime = targetFixedDelta;
+            activeTimeScaleRestore = null;
+        }
+
+        private void CleanupRangedHover(bool wasHovering)
+        {
+            if (!wasHovering) return;
+            isRangedHovering = false;
+            controller?.ClearGravityMultiplierOverride();
+        }
+
+        private void RestoreTimeScaleImmediate(bool wasBulletTime, float savedScale, float savedFixed)
+        {
+            if (!wasBulletTime) return;
+            if (activeTimeScaleRestore != null)
+                StopCoroutine(activeTimeScaleRestore);
+            activeTimeScaleRestore = null;
+            Time.timeScale = savedScale;
+            Time.fixedDeltaTime = savedFixed;
+        }
+
+        #endregion
+
+        #region Attack State
+
         public void OnAttackAnimationComplete()
         {
             Log($"Attack complete - slot {activeWeaponSlot}, {currentAttackDir}, combo {currentComboIndex}");
 
-            activeCombatState?.OnAttackComplete(currentAttackDir, currentAttackGrounded);
+            activeCombatState?.OnAttackComplete(currentAttackDir, currentAttackGrounded, activeWeaponData);
 
             isAttacking = false;
             activeWeapon = null;
             activeCombatState = null;
             activeWeaponData = null;
+            hasBufferedInput = false;
 
             if (playerState != null)
             {
@@ -585,7 +1031,10 @@ namespace junklite
                 playerState.SetAttacking(false);
             }
 
-            ClearAttackGravityOverride();
+            // Don't clear gravity if the ranged coroutine is still managing hover
+            if (!isRangedHovering)
+                ClearAttackGravityOverride();
+
             ReleaseAttackInputLock();
         }
 
@@ -607,36 +1056,67 @@ namespace junklite
                 playerState.SetAttacking(false);
             }
 
+            // Hard stop — force clear everything
+            isRangedHovering = false;
             ClearAttackGravityOverride();
             ReleaseAttackInputLock();
+
+            // Force restore timeScale if interrupted mid-bullet-time
+            if (activeTimeScaleRestore != null)
+                StopCoroutine(activeTimeScaleRestore);
+            activeTimeScaleRestore = null;
+            Time.timeScale = 1f;
+            Time.fixedDeltaTime = 0.02f;
         }
 
-        private void ApplyAttackPush(AttackDirection dir, WeaponData.ComboStep step)
+        #endregion
+
+        #region Attack Push
+
+        private IEnumerator CoApplyAttackPush(AttackDirection dir, float forwardImpulse, float verticalImpulse, float impulseDuration, AnimationCurve lungeCurve = null)
         {
-            if (playerRb == null) return;
+            if (playerRb == null) yield break;
 
-            Vector3 impulse = Vector3.zero;
+            Vector3 peakVelocity = Vector3.zero;
 
-            if (dir == AttackDirection.Side)
+            if (dir == AttackDirection.Side && Mathf.Abs(forwardImpulse) > 0f)
+                peakVelocity.x = forwardImpulse * Facing;
+            else if (dir != AttackDirection.Side && Mathf.Abs(verticalImpulse) > 0f)
+                peakVelocity.y = dir == AttackDirection.Down ? -verticalImpulse : verticalImpulse;
+
+            if (peakVelocity.sqrMagnitude <= 0f) yield break;
+
+            float duration = impulseDuration > 0f ? impulseDuration : defaultPushDuration;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
             {
-                if (Mathf.Abs(step.forwardImpulse) > 0f)
-                    impulse += transform.right * Facing * step.forwardImpulse;
-            }
-            else
-            {
-                if (Mathf.Abs(step.verticalImpulse) > 0f)
-                    impulse += Vector3.up * (dir == AttackDirection.Down ? -step.verticalImpulse : step.verticalImpulse);
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+
+                float multiplier = (lungeCurve != null && lungeCurve.length > 0)
+                    ? lungeCurve.Evaluate(t)
+                    : (1f - t * t);
+
+                var vel = playerRb.linearVelocity;
+                if (peakVelocity.x != 0f) vel.x = peakVelocity.x * multiplier;
+                if (peakVelocity.y != 0f) vel.y = peakVelocity.y * multiplier;
+                playerRb.linearVelocity = vel;
+
+                yield return null;
             }
 
-            if (impulse.sqrMagnitude > 0f)
-                playerRb.AddForce(impulse, ForceMode.Impulse);
+            var endVel = playerRb.linearVelocity;
+            if (peakVelocity.x != 0f) endVel.x = 0f;
+            if (peakVelocity.y != 0f) endVel.y = 0f;
+            playerRb.linearVelocity = endVel;
         }
 
-        private void ApplyAttackGravityOverride(WeaponData.ComboStep step)
+        private void ApplyAttackGravityOverride(float airGravityMultiplier)
         {
             if (controller == null) return;
-            if (playerState != null && !playerState.IsGrounded && step.airGravityMultiplier > 0f)
-                controller.SetGravityMultiplierOverride(step.airGravityMultiplier);
+            if (playerState != null && !playerState.IsGrounded && airGravityMultiplier > 0f)
+                controller.SetGravityMultiplierOverride(airGravityMultiplier);
         }
 
         private void ClearAttackGravityOverride()
@@ -652,10 +1132,11 @@ namespace junklite
         {
             public AttackHitResult type;
             public Collider target;
+            public Collider[] allTargets;
             public Vector3 point;
         }
 
-        private HitDetectionResult DetectHit(Vector3 origin, float radius)
+        private HitDetectionResult DetectHit(Vector3 origin, float radius, bool piercing)
         {
             var result = new HitDetectionResult { type = AttackHitResult.None };
 
@@ -665,17 +1146,26 @@ namespace junklite
             float closestDist = float.MaxValue;
             bool hitEnvironment = false;
 
+            List<Collider> enemyHits = piercing ? new List<Collider>() : null;
+
             for (int i = 0; i < hits.Length; i++)
             {
                 int mask = 1 << hits[i].gameObject.layer;
 
                 if ((mask & enemyLayer) != 0)
                 {
-                    float dist = Vector3.Distance(origin, hits[i].transform.position);
-                    if (dist < closestDist)
+                    if (piercing)
                     {
-                        closestDist = dist;
-                        closestEnemy = hits[i];
+                        enemyHits.Add(hits[i]);
+                    }
+                    else
+                    {
+                        float dist = Vector3.Distance(origin, hits[i].transform.position);
+                        if (dist < closestDist)
+                        {
+                            closestDist = dist;
+                            closestEnemy = hits[i];
+                        }
                     }
                 }
                 else if ((mask & environmentLayer) != 0)
@@ -684,7 +1174,13 @@ namespace junklite
                 }
             }
 
-            if (closestEnemy != null)
+            if (piercing && enemyHits != null && enemyHits.Count > 0)
+            {
+                result.type = AttackHitResult.Enemy;
+                result.allTargets = enemyHits.ToArray();
+                result.point = enemyHits[0].ClosestPoint(origin);
+            }
+            else if (!piercing && closestEnemy != null)
             {
                 result.type = AttackHitResult.Enemy;
                 result.target = closestEnemy;
@@ -702,7 +1198,7 @@ namespace junklite
 
         #region Damage
 
-        private void DealDamage(Collider target, WeaponData.ComboStep step)
+        private void DealDamage(Collider target, float damageMultiplier, Vector2 knockback)
         {
             var damageable = target.GetComponent<IDamageable>()
                           ?? target.GetComponentInParent<IDamageable>();
@@ -710,47 +1206,74 @@ namespace junklite
             if (damageable == null || !damageable.IsAlive) return;
 
             float damage = activeWeaponData != null ? activeWeaponData.baseDamage : 10f;
-            if (step.damageMultiplier > 0f)
-                damage *= step.damageMultiplier;
-
-            var knockback = activeWeaponData != null
-                ? activeWeaponData.knockbackForce
-                : new Vector2(8f, 4f);
+            if (damageMultiplier > 0f) damage *= damageMultiplier;
 
             var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
             bool damageDealt = damageable.TakeDamage(damageInfo);
 
             if (damageDealt)
             {
-                OnEnemyHit?.Invoke();
+                var enemy = target.GetComponent<EnemyCharacter>() ?? target.GetComponentInParent<EnemyCharacter>();
+                OnEnemyHit?.Invoke(enemy);
 
-                // Consume weapon durability (fists don't break)
                 if (activeWeaponSlot != 0 && activeWeapon != null)
-                {
                     if (activeWeapon.ConsumeDurability())
                         HandleWeaponBroken(activeWeaponSlot);
-                }
 
-                // Enemy hit VFX
-                if (CombatEffectsManager.Instance != null)
+                SpawnEnemyHitVFX(target);
+            }
+        }
+
+        private void DealDamageToAll(Collider[] targets, float damageMultiplier, Vector2 knockback)
+        {
+            bool anyHit = false;
+
+            foreach (var target in targets)
+            {
+                var damageable = target.GetComponent<IDamageable>()
+                              ?? target.GetComponentInParent<IDamageable>();
+
+                if (damageable == null || !damageable.IsAlive) continue;
+
+                float damage = activeWeaponData != null ? activeWeaponData.baseDamage : 10f;
+                if (damageMultiplier > 0f) damage *= damageMultiplier;
+
+                var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
+                bool damageDealt = damageable.TakeDamage(damageInfo);
+
+                if (damageDealt)
                 {
-                    Vector3 originPoint = currentAttackAnchor != null
-                        ? currentAttackAnchor.position
-                        : playerTransform.position + Vector3.up;
-
-                    Vector3 hitPoint = target.ClosestPoint(originPoint);
-                    Vector3 hitDir = GetAttackDirection(currentAttackDir);
-
-                    CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDir);
-                    CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, hitDir);
+                    anyHit = true;
+                    var enemy = target.GetComponent<EnemyCharacter>() ?? target.GetComponentInParent<EnemyCharacter>();
+                    OnEnemyHit?.Invoke(enemy);
+                    SpawnEnemyHitVFX(target);
                 }
             }
+
+            if (anyHit && activeWeaponSlot != 0 && activeWeapon != null)
+                if (activeWeapon.ConsumeDurability())
+                    HandleWeaponBroken(activeWeaponSlot);
         }
 
         private void PlayHitFeedback()
         {
             if (FeedbackManager.Instance != null)
                 FeedbackManager.Instance.DoHitFeedback(impulseSource, enemyHitHitstopDuration, enemyHitShakeForce);
+        }
+
+        private void SpawnEnemyHitVFX(Collider target)
+        {
+            if (CombatEffectsManager.Instance == null) return;
+
+            Vector3 originPoint = currentAttackAnchor != null
+                ? currentAttackAnchor.position
+                : playerTransform.position + Vector3.up;
+
+            Vector3 hitPoint = target.ClosestPoint(originPoint);
+            Vector3 hitDir = (hitPoint - originPoint).normalized;
+
+            CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDir);
+            CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, hitDir);
         }
 
         #endregion
@@ -803,7 +1326,6 @@ namespace junklite
         {
             int slot = GetFirstEmptyWeaponSlot();
             if (slot < 0) return;
-
             SetupWeaponInSlot(slot, pickup);
         }
 
@@ -844,9 +1366,7 @@ namespace junklite
             if (slot == 1) { weaponSlot1 = weapon; storedPickup1 = pickup; }
             else { weaponSlot2 = weapon; storedPickup2 = pickup; }
 
-            // Hide weapon unless in mod combat
             SetWeaponVisible(weapon, isModCombat);
-
             OnWeaponChanged?.Invoke();
         }
 
@@ -870,7 +1390,6 @@ namespace junklite
             RemoveWeaponFromSlot(slot);
             Log($"Weapon in slot {slot} broke");
 
-            // Force back to regular if both slots empty
             if (isModCombat && weaponSlot1 == null && weaponSlot2 == null)
                 ExitModCombat();
         }
@@ -878,6 +1397,35 @@ namespace junklite
         #endregion
 
         #region Helpers
+
+        private Vector3 ResolveHitOrigin(AttackDirection dir, Transform anchor)
+        {
+            float range = (activeWeaponData as MeleeWeaponData)?.attackRange ?? 1f;
+
+            switch (dir)
+            {
+                case AttackDirection.Side:
+                    return new Vector3(
+                        playerTransform.position.x + Facing * range,
+                        anchor.position.y,
+                        playerTransform.position.z);
+
+                case AttackDirection.Up:
+                    return new Vector3(
+                        anchor.position.x,
+                        playerTransform.position.y + range,
+                        playerTransform.position.z);
+
+                case AttackDirection.Down:
+                    return new Vector3(
+                        anchor.position.x,
+                        playerTransform.position.y - range,
+                        playerTransform.position.z);
+
+                default:
+                    return playerTransform.position;
+            }
+        }
 
         private void SetWeaponVisible(WeaponInstance weapon, bool visible)
         {
@@ -894,7 +1442,6 @@ namespace junklite
                 Debug.LogWarning("[WeaponManager] No fist WeaponData assigned!");
                 return;
             }
-
             fistCombat = new CombatState(fistWeaponData);
         }
 
@@ -908,11 +1455,11 @@ namespace junklite
             };
         }
 
-        private void ApplyRecoil(AttackDirection dir)
+        private void ApplyRecoil(AttackDirection dir, float hitRecoil)
         {
             if (playerRb == null || dir != AttackDirection.Side) return;
-            float recoilDir = -Facing;
-            playerRb.AddForce(Vector3.right * recoilDir * sideRecoil, ForceMode.Impulse);
+            if (Mathf.Abs(hitRecoil) <= 0f) return;
+            playerRb.AddForce(Vector3.right * -Facing * hitRecoil, ForceMode.Impulse);
         }
 
         private void ApplyAttackInputLock()
@@ -956,6 +1503,12 @@ namespace junklite
 
             Gizmos.color = Color.cyan;
             Gizmos.DrawWireSphere(downAttack.position, downRadius);
+
+            if (muzzlePoint != null)
+            {
+                Gizmos.color = Color.yellow;
+                Gizmos.DrawWireSphere(muzzlePoint.position, 0.08f);
+            }
         }
 
         #endregion

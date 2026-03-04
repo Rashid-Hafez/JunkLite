@@ -6,6 +6,11 @@ namespace junklite
     /// Tracks combo progression and attack cooldowns for a WeaponData.
     /// Plain C# class — no MonoBehaviour. Call Tick() each frame.
     /// Used by WeaponInstance for world weapons and directly by WeaponManager for fists.
+    ///
+    /// CombatState is deliberately type-agnostic. It only needs combo length and animation
+    /// names from the weapon data, accessed through the abstract WeaponData interface.
+    /// The actual step data (MeleeComboStep, RangedComboStep etc) is fetched separately
+    /// by WeaponManager after it has the resolved combo index.
     /// </summary>
     public class CombatState
     {
@@ -71,65 +76,70 @@ namespace junklite
 
         #region Combo
 
-        public bool TryGetComboStep(AttackDirection dir, bool isGrounded, out WeaponData.ComboStep step, out int comboIndex, out string animationName)
+        /// <summary>
+        /// Resolves the current combo index and animation name for the given attack direction.
+        /// Does NOT advance the index — call OnAttackComplete to advance.
+        /// WeaponManager uses the returned comboIndex to separately fetch the typed step data
+        /// from the weapon's concrete subclass (TryGetMeleeStep, TryGetRangedStep, etc).
+        /// </summary>
+        public bool TryBeginAttack(AttackDirection dir, bool isGrounded, WeaponData weaponData,
+            out int comboIndex, out string animationName)
         {
-            step = default;
             comboIndex = -1;
             animationName = null;
-
-            if (data == null) return false;
+            if (weaponData == null) return false;
 
             comboActive = false;
 
             if (dir == AttackDirection.Side)
             {
-                var combo = isGrounded ? data.sideCombo : data.airSideCombo;
-                if (combo == null || combo.Length == 0) return false;
+                int comboLength = weaponData.GetComboLength(dir, isGrounded);
+                if (comboLength == 0) return false;
 
                 if (isGrounded)
                 {
-                    if (sideComboIndex >= combo.Length) sideComboIndex = 0;
+                    if (sideComboIndex >= comboLength) sideComboIndex = 0;
                     comboIndex = sideComboIndex;
-                    step = combo[sideComboIndex];
-                    animationName = step.animationName;
-                    Log($"Side attack - combo {sideComboIndex + 1}/{combo.Length}");
+                    Log($"Side attack - combo {sideComboIndex + 1}/{comboLength}");
                 }
                 else
                 {
-                    if (airComboIndex >= combo.Length) airComboIndex = 0;
+                    if (airComboIndex >= comboLength) airComboIndex = 0;
                     comboIndex = airComboIndex;
-                    step = combo[airComboIndex];
-                    animationName = step.animationName;
-                    Log($"Air side attack - combo {airComboIndex + 1}/{combo.Length}");
+                    Log($"Air side attack - combo {airComboIndex + 1}/{comboLength}");
                 }
             }
             else
             {
+                // Directional attacks (Up/Down) break any active side combo
                 if (sideComboIndex > 0 || airComboIndex > 0)
                 {
                     Log($"{dir} attack - breaking combo from {sideComboIndex}");
                     ResetCombo();
                 }
-
-                step = dir == AttackDirection.Up ? data.upAttack : data.downAttack;
-                animationName = step.animationName;
+                comboIndex = 0;
                 Log($"{dir} attack");
             }
 
-            return !string.IsNullOrEmpty(animationName);
+            return weaponData.TryGetAnimationName(dir, comboIndex, isGrounded, out animationName);
         }
 
-        public void OnAttackComplete(AttackDirection dir, bool wasGrounded)
+        /// <summary>
+        /// Called when an attack animation completes. Advances the combo index and starts
+        /// the cooldown + combo window timers.
+        /// </summary>
+        public void OnAttackComplete(AttackDirection dir, bool wasGrounded, WeaponData weaponData)
         {
             if (dir == AttackDirection.Side)
-                AdvanceCombo(wasGrounded);
+                AdvanceCombo(wasGrounded, weaponData);
 
             cooldownTimer = 0f;
             onCooldown = true;
             comboTimer = 0f;
             comboActive = true;
 
-            Log($"Attack complete - cooldown: {AttackCooldown}s, combo window: {ComboWindow}s, next: {sideComboIndex}");
+            int nextIndex = wasGrounded ? sideComboIndex : airComboIndex;
+            Log($"Attack complete - cooldown: {AttackCooldown}s, combo window: {ComboWindow}s, next index: {nextIndex}");
         }
 
         public void OnAttackInterrupted()
@@ -147,21 +157,21 @@ namespace junklite
             comboActive = false;
         }
 
-        private void AdvanceCombo(bool wasGrounded)
+        private void AdvanceCombo(bool wasGrounded, WeaponData weaponData)
         {
-            var combo = wasGrounded ? data?.sideCombo : data?.airSideCombo;
-            if (combo == null || combo.Length == 0) return;
+            int comboLength = weaponData?.GetComboLength(AttackDirection.Side, wasGrounded) ?? 0;
+            if (comboLength == 0) return;
 
             if (wasGrounded)
             {
                 sideComboIndex++;
-                if (sideComboIndex >= combo.Length)
+                if (sideComboIndex >= comboLength)
                     sideComboIndex = 0;
             }
             else
             {
                 airComboIndex++;
-                if (airComboIndex >= combo.Length)
+                if (airComboIndex >= comboLength)
                     airComboIndex = 0;
             }
         }

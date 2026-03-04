@@ -2,19 +2,20 @@ using UnityEngine;
 
 namespace junklite
 {
-    /*
-    [CreateAssetMenu(menuName = "Junklite/Mods/Fire")]
-    public class FireModData : ModData
+    [CreateAssetMenu(fileName = "FireMod", menuName = "Junklite/Mods/Fire")]
+    public class FireModData : PassiveModData
     {
         [Header("Burn Effect")]
         public float burnDamage = 5f;
         public float tickInterval = 0.5f;
         public float burnDuration = 3f;
 
-        public override bool OnHit(WeaponInstance weapon, EnemyCharacter enemy, PlayerCharacter player)
+        #region Hooks
+
+        public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy)
         {
-            if (enemy == null || enemy.StatusEffects == null)
-                return false;
+            if (instance.IsBroken) return;
+            if (enemy == null || !enemy.IsAlive || enemy.StatusEffects == null) return;
 
             var burn = new StatusEffectInstance(
                 type: StatusEffectType.Burn,
@@ -22,21 +23,17 @@ namespace junklite
                 tickInterval: tickInterval,
                 duration: burnDuration,
                 damageType: DamageType.Fire,
-                source: weapon != null ? weapon.gameObject : null
+                source: null
             );
 
             enemy.StatusEffects.Apply(burn);
-            return true;
+            instance.ConsumeDurability();
         }
 
-        public override void OnEquip(WeaponInstance weapon)
-        {
-            //Debug.Log($"[FireMod] Equipped - weapon now deals fire damage!");
-        }
+        public override void OnEquip(PlayerCharacter player) { }
 
-        public override void OnUnequip(WeaponInstance weapon)
-        {
-            //Debug.Log($"[FireMod] Unequipped");
-        }
-    }*/
+        public override void OnUnequip(PlayerCharacter player) { }
+
+        #endregion
+    }
 }
