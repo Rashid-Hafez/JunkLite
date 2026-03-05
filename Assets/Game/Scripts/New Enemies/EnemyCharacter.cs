@@ -341,7 +341,6 @@ namespace junklite
         public virtual void ApplyParryPush(Vector3 direction, float force, float upwardForce, float duration)
         {
             if (!canBeKnockedBack) return;
-            if (stateMachine != null && stateMachine.CurrentState is ParriedState) return;
             if (movement != null)
                 movement.ApplyPushOverTime(direction, force, upwardForce, duration);
         }

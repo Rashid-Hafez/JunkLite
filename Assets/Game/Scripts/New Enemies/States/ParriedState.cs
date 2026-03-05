@@ -26,7 +26,6 @@ namespace junklite
         {
             timer = enemy.ForcedStunDuration;
             enemy.Movement?.Stop();
-            enemy.Movement?.CancelKnockback();
         }
 
         public override void Update()

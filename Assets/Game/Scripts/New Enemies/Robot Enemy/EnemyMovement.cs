@@ -177,7 +177,6 @@ namespace junklite
             // if we're stunned but not currently being knocked back, freeze movement
             if (stateMachine != null && stateMachine.CurrentState is StunnedState && !isInKnockback)
             {
-                // zero horizontal velocity and bail
                 float vertical = rb.useGravity ? rb.linearVelocity.y : 0f;
                 rb.linearVelocity = BuildVelocity(0f, vertical);
                 return;
@@ -293,9 +292,12 @@ namespace junklite
         {
             if (!isMoving)
             {
-                // When not moving, zero out horizontal velocity (preserve Y for gravity)
-                float verticalVel = rb.useGravity ? rb.linearVelocity.y : 0f;
-                rb.linearVelocity = BuildVelocity(0f, verticalVel);
+                bool inParried = stateMachine != null && stateMachine.CurrentState is ParriedState;
+                if (!inParried)
+                {
+                    float verticalVel = rb.useGravity ? rb.linearVelocity.y : 0f;
+                    rb.linearVelocity = BuildVelocity(0f, verticalVel);
+                }
                 return;
             }
 
