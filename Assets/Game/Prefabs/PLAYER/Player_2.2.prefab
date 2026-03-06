@@ -908,7 +908,7 @@ MonoBehaviour:
     m_Bits: 24576
   environmentLayer:
     serializedVersion: 2
-    m_Bits: 4096
+    m_Bits: 6144
   impulseSource: {fileID: 0}
   enemyHitHitstopDuration: 0.09
   enemyHitShakeForce: 0.5

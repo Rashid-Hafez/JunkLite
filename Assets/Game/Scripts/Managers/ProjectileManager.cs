@@ -9,15 +9,18 @@ namespace junklite
         public static ProjectileManager Instance { get; private set; }
 
         [Header("Pool Settings")]
-        [Tooltip("How many bullets to pre-warm per prefab on startup. Set to 0 to disable.")]
+        [Tooltip("How many objects to pre-warm per prefab. Set to 0 to disable.")]
         [SerializeField] private int prewarmCount = 10;
 
-        [Tooltip("Parent transform for pooled bullets. Keeps the hierarchy clean.")]
+        [Tooltip("Parent transform for pooled objects. Keeps the hierarchy clean.")]
         [SerializeField] private Transform poolParent;
 
-        // One queue per prefab. Key is the prefab GameObject (not an instance).
-        private readonly Dictionary<GameObject, Queue<Bullet>> pools = new();
+        // Generic per-prefab pool. Stores inactive GameObjects keyed by their prefab.
+        private readonly Dictionary<GameObject, Queue<GameObject>> pools = new();
 
+        // =====================================================================
+        // LIFECYCLE
+        // =====================================================================
 
         private void Awake()
         {
@@ -31,7 +34,7 @@ namespace junklite
 
             if (poolParent == null)
             {
-                var poolGo = new GameObject("BulletPool");
+                var poolGo = new GameObject("ProjectilePool");
                 poolGo.transform.SetParent(transform);
                 poolParent = poolGo.transform;
             }
@@ -42,6 +45,29 @@ namespace junklite
             if (Instance == this)
                 Instance = null;
         }
+
+        // =====================================================================
+        // PREWARM
+        // =====================================================================
+
+        public void PrewarmPool(GameObject prefab, int count)
+        {
+            if (prefab == null) return;
+
+            if (!pools.ContainsKey(prefab))
+                pools[prefab] = new Queue<GameObject>();
+
+            for (int i = 0; i < count; i++)
+            {
+                var go = Instantiate(prefab, poolParent);
+                go.SetActive(false);
+                pools[prefab].Enqueue(go);
+            }
+        }
+
+        // =====================================================================
+        // BULLET (legacy — kept for future projectile weapons)
+        // =====================================================================
 
         public Bullet FireBullet(
             GameObject prefab,
@@ -56,81 +82,87 @@ namespace junklite
                 return null;
             }
 
-            var bullet = GetFromPool(prefab);
+            var go = GetFromPool(prefab);
+            var bullet = go.GetComponent<Bullet>();
 
-            bullet.gameObject.SetActive(true);
+            if (bullet == null)
+            {
+                Debug.LogError($"[ProjectileManager] Prefab '{prefab.name}' missing Bullet component!");
+                bullet = go.AddComponent<Bullet>();
+            }
+
+            go.SetActive(true);
             bullet.Initialize(
                 config,
                 enemyLayer,
                 environmentLayer,
                 onEnemyHit,
-                () => ReturnToPool(prefab, bullet)   // bullet calls this when done
-            );
+                () => ReturnToPool(prefab, go));
 
             return bullet;
         }
 
-        public void PrewarmPool(GameObject prefab, int count)
+        // =====================================================================
+        // HITSCAN TRACER
+        // =====================================================================
+
+        public HitscanTracer FireTracer(
+            GameObject prefab,
+            Vector3 from,
+            Vector3 to,
+            float fadeDuration)
         {
-            if (prefab == null) return;
+            if (prefab == null) return null;
 
-            if (!pools.ContainsKey(prefab))
-                pools[prefab] = new Queue<Bullet>();
+            var go = GetFromPool(prefab);
+            var tracer = go.GetComponent<HitscanTracer>();
 
-            for (int i = 0; i < count; i++)
+            if (tracer == null)
             {
-                var bullet = InstantiateBullet(prefab);
-                bullet.gameObject.SetActive(false);
-                pools[prefab].Enqueue(bullet);
+                Debug.LogError($"[ProjectileManager] Prefab '{prefab.name}' missing HitscanTracer component!");
+                tracer = go.AddComponent<HitscanTracer>();
             }
+
+            go.SetActive(true);
+            tracer.Initialize(from, to, fadeDuration, () => ReturnToPool(prefab, go));
+
+            return tracer;
         }
 
+        // =====================================================================
+        // GENERIC POOL
+        // =====================================================================
 
-        private Bullet GetFromPool(GameObject prefab)
+        private GameObject GetFromPool(GameObject prefab)
         {
             if (!pools.ContainsKey(prefab))
-                pools[prefab] = new Queue<Bullet>();
+                pools[prefab] = new Queue<GameObject>();
 
             var pool = pools[prefab];
 
-            // Find an inactive bullet in the queue
             while (pool.Count > 0)
             {
                 var candidate = pool.Dequeue();
-                if (candidate != null && !candidate.gameObject.activeSelf)
+                if (candidate != null && !candidate.activeSelf)
                     return candidate;
-                // candidate was destroyed or already active (shouldn't happen) — skip it
             }
 
-            // Pool exhausted — instantiate a new one
-            return InstantiateBullet(prefab);
+            // Pool exhausted — instantiate new
+            var go = Instantiate(prefab, poolParent);
+            go.SetActive(false);
+            return go;
         }
 
-        private void ReturnToPool(GameObject prefab, Bullet bullet)
+        private void ReturnToPool(GameObject prefab, GameObject instance)
         {
-            if (bullet == null) return;
+            if (instance == null) return;
 
-            bullet.gameObject.SetActive(false);
+            instance.SetActive(false);
 
             if (!pools.ContainsKey(prefab))
-                pools[prefab] = new Queue<Bullet>();
+                pools[prefab] = new Queue<GameObject>();
 
-            pools[prefab].Enqueue(bullet);
-        }
-
-        private Bullet InstantiateBullet(GameObject prefab)
-        {
-            var go = Instantiate(prefab, poolParent);
-            var bullet = go.GetComponent<Bullet>();
-
-            if (bullet == null)
-            {
-                Debug.LogError($"[ProjectileManager] Prefab '{prefab.name}' is missing a Bullet component!");
-                bullet = go.AddComponent<Bullet>();
-            }
-
-            go.SetActive(false);
-            return bullet;
+            pools[prefab].Enqueue(instance);
         }
     }
 }

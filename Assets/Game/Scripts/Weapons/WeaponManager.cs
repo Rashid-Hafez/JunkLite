@@ -25,7 +25,7 @@ namespace junklite
 
         [Header("Ranged")]
         [SerializeField]
-        [Tooltip("Spawn point for bullets. If unassigned, falls back to sideAttack.")]
+        [Tooltip("Spawn point for hitscan rays and tracer origin. If unassigned, falls back to sideAttack.")]
         private Transform muzzlePoint;
 
         [Header("Fallback Hit Radii")]
@@ -196,9 +196,6 @@ namespace junklite
 
         private void OnTriggerEnter(Collider other)
         {
-            // Weapon pickups now use the interact system (WeaponPickupInteractable).
-            // No auto-pickup on collision.
-
             var modPickup = other.GetComponent<WorldModPickup>();
             if (modPickup != null && modPickup.gameObject.activeSelf)
             {
@@ -284,8 +281,8 @@ namespace junklite
         private void TryPrewarmRangedPool(WeaponInstance weapon)
         {
             if (weapon == null || weapon.weaponData is not RangedWeaponData ranged) return;
-            if (ranged.bulletPrefab == null) return;
-            ProjectileManager.Instance?.PrewarmPool(ranged.bulletPrefab, 10);
+            if (ranged.tracerPrefab == null) return;
+            ProjectileManager.Instance?.PrewarmPool(ranged.tracerPrefab, 10);
         }
 
         #endregion
@@ -504,7 +501,6 @@ namespace junklite
 
             ApplyAttackInputLock();
 
-            // Ranged plays animation immediately. Melee delays it so the lunge leads.
             if (activeWeaponData is not MeleeWeaponData)
             {
                 if (playerState != null && !string.IsNullOrEmpty(animName))
@@ -626,7 +622,7 @@ namespace junklite
             WeaponInstance capturedWeapon,
             int capturedWeaponSlot)
         {
-            // HOVER — zero/low gravity + kill vertical velocity
+            // HOVER
             bool useHover = step.hoverGravityMultiplier >= 0f;
             if (useHover)
             {
@@ -641,7 +637,7 @@ namespace junklite
             if (Mathf.Abs(step.forwardImpulse) > 0f)
                 StartCoroutine(CoApplyAttackPush(dir, step.forwardImpulse, 0f, step.forwardImpulseDuration));
 
-            // BULLET TIME — always restore to true 1.0
+            // BULLET TIME
             bool useBulletTime = step.bulletTimeScale > 0f && step.bulletTimeScale < 1f;
             const float savedTimeScale = 1f;
             const float savedFixedDelta = 0.02f;
@@ -658,35 +654,11 @@ namespace junklite
 
             if (isDirectional)
             {
-                // No bullets — animation + instant sphere cast
                 yield return CoDirectionalBlast(dir, step, rangedData, capturedWeapon, capturedWeaponSlot);
             }
             else
             {
-                // Side attacks — real bullets with collision
-                if (ProjectileManager.Instance == null)
-                {
-                    Debug.LogWarning("[WeaponManager] No ProjectileManager in scene.");
-                    CleanupRangedHover(useHover);
-                    RestoreTimeScaleImmediate(useBulletTime, savedTimeScale, savedFixedDelta);
-                    yield break;
-                }
-                if (rangedData.bulletPrefab == null)
-                {
-                    Debug.LogWarning($"[WeaponManager] No bullet prefab on '{rangedData.displayName}'.");
-                    CleanupRangedHover(useHover);
-                    RestoreTimeScaleImmediate(useBulletTime, savedTimeScale, savedFixedDelta);
-                    yield break;
-                }
-
-                Transform muzzle = (muzzlePoint != null) ? muzzlePoint : sideAttack;
-                float damage = rangedData.baseDamage * (step.damageMultiplier > 0f ? step.damageMultiplier : 1f);
-                Vector2 knockback = rangedData.knockbackForce;
-                int bulletCount = Mathf.Max(1, step.bulletCount);
-                Vector3[] fireDirections = ResolveFireDirections(dir, bulletCount, step.arcSpreadAngle);
-
-                yield return CoSideBurst(step, rangedData, fireDirections, muzzle,
-                    damage, knockback, capturedWeapon, capturedWeaponSlot, useBulletTime);
+                yield return CoSideHitscan(step, rangedData, capturedWeapon, capturedWeaponSlot);
             }
 
             // HOLD BULLET TIME
@@ -708,8 +680,10 @@ namespace junklite
         }
 
         /// <summary>
-        /// Down/Up attack: no projectiles. Single OverlapSphere resolves all damage.
-        /// Spawns hit VFX on enemies and environment contact points.
+        /// Directional blast (down/up). The blast sphere is placed FORWARD in the
+        /// facing direction (offset by blastForwardOffset) so it covers the area
+        /// in front of the player. Damages ALL enemies in the sphere, consumes
+        /// scaled durability, and casts multiple environment rays for ground + wall VFX.
         /// </summary>
         private IEnumerator CoDirectionalBlast(
             AttackDirection dir,
@@ -718,19 +692,26 @@ namespace junklite
             WeaponInstance capturedWeapon,
             int capturedWeaponSlot)
         {
-            if (capturedWeapon != null && capturedWeapon.ConsumeDurability())
+            // DURABILITY — scaled by durabilityMultiplier
+            int durabilityCost = Mathf.Max(1, Mathf.RoundToInt(step.durabilityMultiplier > 0f ? step.durabilityMultiplier : 1f));
+            if (capturedWeapon != null)
             {
-                HandleWeaponBroken(capturedWeaponSlot);
-                yield break;
+                for (int d = 0; d < durabilityCost; d++)
+                {
+                    if (capturedWeapon.ConsumeDurability())
+                    {
+                        HandleWeaponBroken(capturedWeaponSlot);
+                        yield break;
+                    }
+                }
             }
 
             float damage = rangedData.baseDamage * (step.damageMultiplier > 0f ? step.damageMultiplier : 1f);
             Vector2 knockback = rangedData.knockbackForce;
             float blastRadius = step.blastDamageRadius > 0f ? step.blastDamageRadius : 1.5f;
-            Vector3 blastOrigin = ResolveBlastOrigin(dir, blastRadius);
-            Vector3 blastDir = dir == AttackDirection.Down ? Vector3.down : Vector3.up;
+            Vector3 blastOrigin = ResolveBlastOrigin(dir, blastRadius, step.blastForwardOffset);
 
-            // ENEMY DAMAGE
+            // ENEMY DAMAGE — OverlapSphere hits ALL enemies in the blast zone
             Collider[] enemyHits = Physics.OverlapSphere(blastOrigin, blastRadius, enemyLayer, QueryTriggerInteraction.Ignore);
             bool hitAnyEnemy = false;
 
@@ -765,73 +746,215 @@ namespace junklite
                 }
             }
 
-            // ENVIRONMENT HIT — raycast to find ground/ceiling contact for VFX
+            // ENVIRONMENT HIT — multi-ray for ground + wall VFX
             if (CombatEffectsManager.Instance != null)
             {
-                float rayLength = blastRadius * 2f;
-                Vector3 rayOrigin = playerTransform.position;
+                float envRayLength = blastRadius * 2f;
+                bool hitAnyEnv = false;
 
-                if (Physics.Raycast(rayOrigin, blastDir, out RaycastHit envHit, rayLength, environmentLayer, QueryTriggerInteraction.Ignore))
+                // Ground
+                if (Physics.Raycast(blastOrigin, Vector3.down, out RaycastHit groundHit, envRayLength, environmentLayer, QueryTriggerInteraction.Ignore))
                 {
-                    CombatEffectsManager.Instance.SpawnEnvHitParticle(envHit.point, envHit.normal);
-                    CombatEffectsManager.Instance.SpawnHitCross(envHit.point);
-
-                    if (!hitAnyEnemy)
-                        OnEnvironmentHit?.Invoke();
+                    CombatEffectsManager.Instance.SpawnEnvHitParticle(groundHit.point, groundHit.normal);
+                    CombatEffectsManager.Instance.SpawnHitCross(groundHit.point);
+                    hitAnyEnv = true;
                 }
+
+                // Wall (facing direction)
+                Vector3 forwardDir = Vector3.right * Facing;
+                if (Physics.Raycast(blastOrigin, forwardDir, out RaycastHit wallHit, envRayLength, environmentLayer, QueryTriggerInteraction.Ignore))
+                {
+                    CombatEffectsManager.Instance.SpawnEnvHitParticle(wallHit.point, wallHit.normal);
+                    CombatEffectsManager.Instance.SpawnHitCross(wallHit.point);
+                    hitAnyEnv = true;
+                }
+
+                // Attack vector (up/down ceiling/floor)
+                Vector3 attackVector = dir == AttackDirection.Down ? Vector3.down : Vector3.up;
+                if (attackVector != Vector3.down || !hitAnyEnv)
+                {
+                    if (Physics.Raycast(playerTransform.position, attackVector, out RaycastHit dirHit, envRayLength, environmentLayer, QueryTriggerInteraction.Ignore))
+                    {
+                        CombatEffectsManager.Instance.SpawnEnvHitParticle(dirHit.point, dirHit.normal);
+                        CombatEffectsManager.Instance.SpawnHitCross(dirHit.point);
+                        hitAnyEnv = true;
+                    }
+                }
+
+                if (hitAnyEnv && !hitAnyEnemy)
+                    OnEnvironmentHit?.Invoke();
             }
 
-            Log($"Directional blast ({dir}): {enemyHits.Length} enemies in radius {blastRadius}");
+            Log($"Directional blast ({dir}): {enemyHits.Length} enemies, radius={blastRadius}, " +
+                $"offset={step.blastForwardOffset}, durability={durabilityCost}");
             yield break;
         }
 
         /// <summary>
-        /// Side attack: real bullets with per-bullet collision.
+        /// Side attack: single hitscan ray from muzzle in facing direction.
+        /// Supports piercing (collateral damage) via SphereCastAll.
         /// </summary>
-        private IEnumerator CoSideBurst(
+        private IEnumerator CoSideHitscan(
             RangedWeaponData.RangedComboStep step,
             RangedWeaponData rangedData,
-            Vector3[] fireDirections,
-            Transform muzzle,
-            float damage,
-            Vector2 knockback,
             WeaponInstance capturedWeapon,
-            int capturedWeaponSlot,
-            bool useBulletTime)
+            int capturedWeaponSlot)
         {
-            for (int i = 0; i < fireDirections.Length; i++)
+            // Durability
+            int durabilityCost = Mathf.Max(1, Mathf.RoundToInt(step.durabilityMultiplier > 0f ? step.durabilityMultiplier : 1f));
+            if (capturedWeapon != null)
             {
-                if (capturedWeapon != null && capturedWeapon.ConsumeDurability())
+                for (int d = 0; d < durabilityCost; d++)
                 {
-                    HandleWeaponBroken(capturedWeaponSlot);
-                    yield break;
-                }
-
-                var config = new BulletConfig
-                {
-                    spawnPosition = muzzle.position,
-                    direction = fireDirections[i],
-                    speed = step.bulletSpeed,
-                    radius = step.bulletRadius,
-                    damage = damage,
-                    knockback = knockback,
-                    owner = playerTransform.gameObject
-                };
-
-                ProjectileManager.Instance.FireBullet(
-                    rangedData.bulletPrefab, config, enemyLayer, environmentLayer,
-                    hitCollider => OnBulletHitEnemy(hitCollider, damage, knockback));
-
-                Log($"Bullet {i + 1}/{fireDirections.Length} fired");
-
-                if (i < fireDirections.Length - 1 && step.fireInterval > 0f)
-                {
-                    if (useBulletTime)
-                        yield return new WaitForSecondsRealtime(step.fireInterval);
-                    else
-                        yield return new WaitForSeconds(step.fireInterval);
+                    if (capturedWeapon.ConsumeDurability())
+                    {
+                        HandleWeaponBroken(capturedWeaponSlot);
+                        yield break;
+                    }
                 }
             }
+
+            Transform muzzle = (muzzlePoint != null) ? muzzlePoint : sideAttack;
+            Vector3 origin = muzzle.position;
+            Vector3 dir = Vector3.right * Facing;
+            float maxRange = step.maxRange > 0f ? step.maxRange : 50f;
+            float castRadius = step.bulletRadius;
+            float tracerDuration = step.tracerDuration > 0f ? step.tracerDuration : 0.06f;
+            float damage = rangedData.baseDamage * (step.damageMultiplier > 0f ? step.damageMultiplier : 1f);
+            Vector2 knockback = rangedData.knockbackForce;
+            bool piercing = rangedData.piercing;
+
+            Vector3 tracerEnd = origin + dir * maxRange;
+            bool hitAnyEnemy = false;
+
+            if (piercing)
+            {
+                // PIERCING: cast through everything, damage all enemies, stop at first wall
+                RaycastHit[] allHits = (castRadius > 0f)
+                    ? Physics.SphereCastAll(origin, castRadius, dir, maxRange, enemyLayer | environmentLayer, QueryTriggerInteraction.Ignore)
+                    : Physics.RaycastAll(origin, dir, maxRange, enemyLayer | environmentLayer, QueryTriggerInteraction.Ignore);
+
+                System.Array.Sort(allHits, (a, b) => a.distance.CompareTo(b.distance));
+
+                bool hitEnv = false;
+
+                foreach (var hit in allHits)
+                {
+                    int hitMask = 1 << hit.collider.gameObject.layer;
+
+                    if ((hitMask & enemyLayer) != 0)
+                    {
+                        var damageable = hit.collider.GetComponent<IDamageable>()
+                                      ?? hit.collider.GetComponentInParent<IDamageable>();
+
+                        if (damageable != null && damageable.IsAlive)
+                        {
+                            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
+                            bool dealt = damageable.TakeDamage(damageInfo);
+
+                            if (dealt)
+                            {
+                                hitAnyEnemy = true;
+
+                                var enemy = hit.collider.GetComponent<EnemyCharacter>()
+                                         ?? hit.collider.GetComponentInParent<EnemyCharacter>();
+                                OnEnemyHit?.Invoke(enemy);
+
+                                if (CombatEffectsManager.Instance != null)
+                                {
+                                    CombatEffectsManager.Instance.SpawnEnemyHitVFX(hit.point, -dir);
+                                    CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hit.point, -dir);
+                                }
+                            }
+                        }
+                    }
+                    else if ((hitMask & environmentLayer) != 0 && !hitEnv)
+                    {
+                        hitEnv = true;
+                        tracerEnd = hit.point;
+
+                        if (CombatEffectsManager.Instance != null)
+                        {
+                            CombatEffectsManager.Instance.SpawnEnvHitParticle(hit.point, hit.normal);
+                            CombatEffectsManager.Instance.SpawnHitCross(hit.point);
+                        }
+
+                        if (!hitAnyEnemy)
+                            OnEnvironmentHit?.Invoke();
+                    }
+                }
+
+                if (hitAnyEnemy)
+                {
+                    PlayHitFeedback();
+                    StartCoroutine(CoHitstop(enemyHitHitstopDuration));
+                }
+            }
+            else
+            {
+                // NON-PIERCING: first hit stops the ray
+                bool hitSomething;
+                RaycastHit hit;
+
+                if (castRadius > 0f)
+                    hitSomething = Physics.SphereCast(origin, castRadius, dir, out hit, maxRange, enemyLayer | environmentLayer, QueryTriggerInteraction.Ignore);
+                else
+                    hitSomething = Physics.Raycast(origin, dir, out hit, maxRange, enemyLayer | environmentLayer, QueryTriggerInteraction.Ignore);
+
+                if (hitSomething)
+                {
+                    tracerEnd = hit.point;
+                    int hitMask = 1 << hit.collider.gameObject.layer;
+
+                    if ((hitMask & enemyLayer) != 0)
+                    {
+                        var damageable = hit.collider.GetComponent<IDamageable>()
+                                      ?? hit.collider.GetComponentInParent<IDamageable>();
+
+                        if (damageable != null && damageable.IsAlive)
+                        {
+                            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
+                            bool dealt = damageable.TakeDamage(damageInfo);
+
+                            if (dealt)
+                            {
+                                hitAnyEnemy = true;
+                                PlayHitFeedback();
+                                StartCoroutine(CoHitstop(enemyHitHitstopDuration));
+
+                                var enemy = hit.collider.GetComponent<EnemyCharacter>()
+                                         ?? hit.collider.GetComponentInParent<EnemyCharacter>();
+                                OnEnemyHit?.Invoke(enemy);
+
+                                if (CombatEffectsManager.Instance != null)
+                                {
+                                    CombatEffectsManager.Instance.SpawnEnemyHitVFX(hit.point, -dir);
+                                    CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hit.point, -dir);
+                                }
+                            }
+                        }
+                    }
+                    else if ((hitMask & environmentLayer) != 0)
+                    {
+                        if (CombatEffectsManager.Instance != null)
+                        {
+                            CombatEffectsManager.Instance.SpawnEnvHitParticle(hit.point, hit.normal);
+                            CombatEffectsManager.Instance.SpawnHitCross(hit.point);
+                        }
+                        OnEnvironmentHit?.Invoke();
+                    }
+                }
+            }
+
+            // TRACER
+            if (rangedData.tracerPrefab != null && ProjectileManager.Instance != null)
+            {
+                ProjectileManager.Instance.FireTracer(
+                    rangedData.tracerPrefab, origin, tracerEnd, tracerDuration);
+            }
+
+            Log($"Hitscan | hit={hitAnyEnemy} | piercing={piercing}");
+            yield break;
         }
 
         /// <summary>
@@ -868,74 +991,30 @@ namespace junklite
             }
         }
 
-        private void OnBulletHitEnemy(Collider hitCollider, float damage, Vector2 knockback)
-        {
-            var damageable = hitCollider.GetComponent<IDamageable>()
-                          ?? hitCollider.GetComponentInParent<IDamageable>();
-
-            if (damageable == null || !damageable.IsAlive) return;
-
-            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
-            bool damageDealt = damageable.TakeDamage(damageInfo);
-
-            if (damageDealt)
-            {
-                PlayHitFeedback();
-                var enemy = hitCollider.GetComponent<EnemyCharacter>()
-                         ?? hitCollider.GetComponentInParent<EnemyCharacter>();
-                OnEnemyHit?.Invoke(enemy);
-            }
-        }
-
         #endregion
 
         #region Ranged Helpers
 
-        private Vector3[] ResolveFireDirections(AttackDirection dir, int bulletCount, float arcSpreadAngle)
-        {
-            Vector3 centerDir;
-            switch (dir)
-            {
-                case AttackDirection.Down: centerDir = Vector3.down; break;
-                case AttackDirection.Up: centerDir = Vector3.up; break;
-                default: centerDir = Vector3.right * Facing; break;
-            }
-
-            int count = Mathf.Max(1, bulletCount);
-            Vector3[] directions = new Vector3[count];
-
-            if (count == 1 || arcSpreadAngle <= 0f)
-            {
-                for (int i = 0; i < count; i++)
-                    directions[i] = centerDir;
-                return directions;
-            }
-
-            float halfArc = arcSpreadAngle * 0.5f;
-            for (int i = 0; i < count; i++)
-            {
-                float t = (float)i / (count - 1);
-                float angle = Mathf.Lerp(-halfArc, halfArc, t);
-                directions[i] = (Quaternion.AngleAxis(angle, Vector3.forward) * centerDir).normalized;
-            }
-
-            return directions;
-        }
-
-        private Vector3 ResolveBlastOrigin(AttackDirection dir, float radius)
+        /// <summary>
+        /// Resolves where the blast sphere center should be.
+        /// Uses blastForwardOffset to push the center forward in the facing direction.
+        /// </summary>
+        private Vector3 ResolveBlastOrigin(AttackDirection dir, float radius, float forwardOffset)
         {
             Vector3 origin = playerTransform.position;
+
+            if (forwardOffset > 0f)
+                origin += Vector3.right * Facing * forwardOffset;
+
             switch (dir)
             {
-                case AttackDirection.Down: origin.y -= radius * 0.75f; break;
-                case AttackDirection.Up: origin.y += radius * 0.75f; break;
+                case AttackDirection.Down: origin.y -= radius * 0.5f; break;
+                case AttackDirection.Up: origin.y += radius * 0.5f; break;
             }
+
             return origin;
         }
 
-        /// <summary>
-        /// Smooth velocity-based recoil. Direction auto-resolves opposite to attack direction.
-        /// </summary>
         private IEnumerator CoSmoothRangedRecoil(AttackDirection dir, float recoilMagnitude, float duration)
         {
             if (playerRb == null || Mathf.Abs(recoilMagnitude) <= 0f) yield break;
@@ -1027,7 +1106,6 @@ namespace junklite
                 playerState.SetAttacking(false);
             }
 
-            // Don't clear gravity if the ranged coroutine is still managing hover
             if (!isRangedHovering)
                 ClearAttackGravityOverride();
 
@@ -1052,12 +1130,10 @@ namespace junklite
                 playerState.SetAttacking(false);
             }
 
-            // Hard stop — force clear everything
             isRangedHovering = false;
             ClearAttackGravityOverride();
             ReleaseAttackInputLock();
 
-            // Force restore timeScale if interrupted mid-bullet-time
             if (activeTimeScaleRestore != null)
                 StopCoroutine(activeTimeScaleRestore);
             activeTimeScaleRestore = null;
@@ -1318,16 +1394,10 @@ namespace junklite
 
         #region Pickups
 
-        /// <summary>
-        /// Pick up a weapon and place it in the specified slot.
-        /// If the slot already has a weapon, that weapon is dropped first.
-        /// Called by WeaponPickupUI after the player confirms a slot.
-        /// </summary>
         public void PickupWeaponToSlot(int slot, WorldWeaponPickup pickup)
         {
             if (pickup == null || (slot != 1 && slot != 2)) return;
 
-            // Drop existing weapon in that slot first
             var existing = GetWeaponForSlot(slot);
             if (existing != null)
                 DropWeapon(slot);
@@ -1335,16 +1405,7 @@ namespace junklite
             SetupWeaponInSlot(slot, pickup);
         }
 
-        private int GetFirstEmptyWeaponSlot()
-        {
-            if (weaponSlot1 == null) return 1;
-            if (weaponSlot2 == null) return 2;
-            return -1;
-        }
 
-        /// <summary>
-        /// Returns true if at least one weapon slot is empty.
-        /// </summary>
         public bool HasEmptyWeaponSlot()
         {
             return weaponSlot1 == null || weaponSlot2 == null;

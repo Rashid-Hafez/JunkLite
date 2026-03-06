@@ -10,24 +10,32 @@ namespace junklite
         {
             [Header("Animation")]
             public string animationName;
-            [Tooltip("0-1 normalized time in the animation when the bullet spawns.")]
+            [Tooltip("0-1 normalized time in the animation when the shot fires.")]
             [Range(0f, 1f)]
             public float fireAtNormalizedTime;
 
-            [Header("Projectile")]
-            public int bulletCount;
+            [Header("Hitscan")]
+            [Tooltip("SphereCast radius for aim forgiveness. 0 = perfect thin ray.")]
             public float bulletRadius;
             public float damageMultiplier;
-            [Tooltip("Delay between bullets in a burst. 0 = instant.")]
-            public float fireInterval;
-            public float bulletSpeed;
+            [Tooltip("Maximum distance the hitscan ray travels.")]
+            public float maxRange;
 
-            [Header("Arc Spread")]
-            [Tooltip("Total cone angle in degrees for bullet fan. 0 = straight line.")]
-            public float arcSpreadAngle;
-            [Tooltip("Radius of the OverlapSphere for instant damage on directional attacks (down/up). " +
-                     "Bullets are cosmetic for directional — this sphere does the actual hit. 0 = fallback 1.5.")]
+            [Header("Directional Blast")]
+            [Tooltip("Radius of the OverlapSphere for directional attacks (down/up). 0 = fallback 1.5.")]
             public float blastDamageRadius;
+            [Tooltip("How far forward (in facing direction) the blast center is placed from the player. " +
+                     "0 = centered on player. 2-3 = in front of player.")]
+            public float blastForwardOffset;
+
+            [Header("Durability")]
+            [Tooltip("Durability consumed per use of this combo step. 1 = normal. " +
+                     "2+ = heavier attacks like directional blasts. 0 = fallback to 1.")]
+            public float durabilityMultiplier;
+
+            [Header("Tracer")]
+            [Tooltip("How long the tracer line stays visible before fading. 0.05-0.1 = snappy.")]
+            public float tracerDuration;
 
             [Header("Attack Push")]
             public float forwardImpulse;
@@ -53,8 +61,14 @@ namespace junklite
             public float recoilDuration;
         }
 
-        [Header("Projectile")]
-        public GameObject bulletPrefab;
+        [Header("Tracer")]
+        [Tooltip("Prefab with a HitscanTracer + LineRenderer. Pooled by ProjectileManager.")]
+        public GameObject tracerPrefab;
+
+        [Header("Piercing")]
+        [Tooltip("When true, shots pass through enemies and damage all targets along the ray. " +
+                 "Toggle this at runtime via perks/buffs.")]
+        public bool piercing;
 
         [Header("Side Combo (1 -> 2 -> 3...)")]
         public RangedComboStep[] sideCombo;
