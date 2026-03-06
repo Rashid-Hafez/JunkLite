@@ -19,6 +19,7 @@ namespace junklite
         public event Action OnRoll = delegate { };
         public event Action OnSpecialAttack = delegate { };
         public event Action OnParry = delegate { };
+        public event Action OnInteract = delegate { };
 
         // Combat mode events (gated by IsGameplayInputEnabled)
         public event Action OnCombatModeToggle = delegate { };
@@ -29,8 +30,11 @@ namespace junklite
         public event Action OnModActivate3 = delegate { };
         public event Action OnModActivate4 = delegate { };
 
-        // UI events (always active)
+        // UI events (always active when UI action map is enabled)
         public event Action OnInventoryToggle = delegate { };
+        public event Action<Vector2> OnUINavigate = delegate { };
+        public event Action OnUISubmit = delegate { };
+        public event Action OnUICancel = delegate { };
 
         public Vector2 MoveDirection { get; private set; }
         public bool IsAttackHeld { get; private set; }
@@ -61,6 +65,35 @@ namespace junklite
             }
         }
 
+        // -----------------------------------------------------------------------
+        // ACTION MAP SWITCHING
+        // -----------------------------------------------------------------------
+
+        /// <summary>
+        /// Switch to the UI action map. Disables Player actions.
+        /// Use when opening weapon pickup UI or other modal UIs.
+        /// </summary>
+        public void SwitchToUIActionMap()
+        {
+            controls.Player.Disable();
+            controls.UI.Enable();
+
+            // Clear held states
+            MoveDirection = Vector2.zero;
+            IsAttackHeld = false;
+            IsJumpHeld = false;
+        }
+
+        /// <summary>
+        /// Switch back to the Player action map. Disables UI actions.
+        /// </summary>
+        public void SwitchToPlayerActionMap()
+        {
+            controls.UI.Disable();
+            controls.Player.Enable();
+        }
+
+        // -----------------------------------------------------------------------
 
         void Awake()
         {
@@ -73,6 +106,10 @@ namespace junklite
             DontDestroyOnLoad(gameObject);
 
             controls = new InputSystem_Actions();
+
+            // ===================================================================
+            // PLAYER ACTION MAP
+            // ===================================================================
 
             // === MOVE ===
             controls.Player.Move.performed += ctx =>
@@ -138,7 +175,6 @@ namespace junklite
             };
 
             // === PARRY (Press Only) ===
-            // This input may not exist yet in the generated asset.  Look up on the root
             var parryAction = controls.FindAction("Parry", throwIfNotFound: false);
             if (parryAction != null)
             {
@@ -154,6 +190,16 @@ namespace junklite
             {
                 Debug.LogWarning("[Input] Parry action not found on controls. Make sure the input asset defines it.");
             }
+
+            // === INTERACT ===
+            // You must add an "Interact" action to the Player action map in your Input Actions asset.
+            // Bind it to the F key (or your preferred key).
+            controls.Player.Interact.performed += _ =>
+            {
+                Debug.Log("[Input] on interact was performed");
+                if (!IsGameplayInputEnabled) return;
+                OnInteract();
+            };
 
             // === INVENTORY TOGGLE (Always active - UI input) ===
             controls.Player.Inventory.performed += _ => OnInventoryToggle();
@@ -203,12 +249,35 @@ namespace junklite
                 if (!IsGameplayInputEnabled) return;
                 OnModActivate4();
             };
+
+            // ===================================================================
+            // UI ACTION MAP
+            // ===================================================================
+
+            controls.UI.Navigate.performed += ctx =>
+            {
+                OnUINavigate(ctx.ReadValue<Vector2>());
+            };
+
+            controls.UI.Submit.performed += _ =>
+            {
+                OnUISubmit();
+            };
+
+            controls.UI.Cancel.performed += _ =>
+            {
+                OnUICancel();
+            };
         }
 
         void OnEnable()
         {
             if (controls != null)
-                controls.Enable();
+            {
+                // Start with Player map active, UI map disabled
+                controls.Player.Enable();
+                controls.UI.Disable();
+            }
         }
 
         void OnDisable()

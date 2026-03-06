@@ -196,12 +196,8 @@ namespace junklite
 
         private void OnTriggerEnter(Collider other)
         {
-            var weaponPickup = other.GetComponent<WorldWeaponPickup>();
-            if (weaponPickup != null)
-            {
-                TryPickupWeapon(weaponPickup);
-                return;
-            }
+            // Weapon pickups now use the interact system (WeaponPickupInteractable).
+            // No auto-pickup on collision.
 
             var modPickup = other.GetComponent<WorldModPickup>();
             if (modPickup != null && modPickup.gameObject.activeSelf)
@@ -1322,10 +1318,20 @@ namespace junklite
 
         #region Pickups
 
-        private void TryPickupWeapon(WorldWeaponPickup pickup)
+        /// <summary>
+        /// Pick up a weapon and place it in the specified slot.
+        /// If the slot already has a weapon, that weapon is dropped first.
+        /// Called by WeaponPickupUI after the player confirms a slot.
+        /// </summary>
+        public void PickupWeaponToSlot(int slot, WorldWeaponPickup pickup)
         {
-            int slot = GetFirstEmptyWeaponSlot();
-            if (slot < 0) return;
+            if (pickup == null || (slot != 1 && slot != 2)) return;
+
+            // Drop existing weapon in that slot first
+            var existing = GetWeaponForSlot(slot);
+            if (existing != null)
+                DropWeapon(slot);
+
             SetupWeaponInSlot(slot, pickup);
         }
 
@@ -1334,6 +1340,14 @@ namespace junklite
             if (weaponSlot1 == null) return 1;
             if (weaponSlot2 == null) return 2;
             return -1;
+        }
+
+        /// <summary>
+        /// Returns true if at least one weapon slot is empty.
+        /// </summary>
+        public bool HasEmptyWeaponSlot()
+        {
+            return weaponSlot1 == null || weaponSlot2 == null;
         }
 
         private void SetupWeaponInSlot(int slot, WorldWeaponPickup pickup)
