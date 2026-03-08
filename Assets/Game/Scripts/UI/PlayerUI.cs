@@ -3,10 +3,6 @@ using TMPro;
 
 namespace junklite
 {
-    /// <summary>
-    /// Root HUD script for the player's gameplay UI.
-    /// Binds health, armor, name, weapon UI, and inventory UI to the player.
-    /// </summary>
     [DisallowMultipleComponent]
     public class PlayerUI : MonoBehaviour
     {
@@ -22,16 +18,17 @@ namespace junklite
         [Header("UI Extensions (Weapon + Inventory)")]
         [SerializeField] private WeaponUI weaponUI;
 
-
         [Header("Mod UIs")]
         [SerializeField] private PhantomStrikeUI phantomStrikeUI;
         [SerializeField] private CombatModUI combatModUI;
 
         [Header("Inventory Panel")]
-        [Tooltip("The root GameObject of the inventory panel to show/hide")]
         [SerializeField] private GameObject inventoryPanel;
-        [Tooltip("The InventoryUI component (usually on the inventory panel or its parent)")]
         [SerializeField] private InventoryUI inventoryUI;
+
+        [Header("Weapon Pickup Panel")]
+        [SerializeField] private GameObject weaponPickupPanel;
+        [SerializeField] private WeaponPickupUI weaponPickupUI;
 
         // Runtime
         private CharacterBase player;
@@ -39,7 +36,9 @@ namespace junklite
         private WeaponManager _weaponManager;
         private ModManager _modManager;
         private InventoryComponent inventory;
-        private bool isInventoryOpen = false;
+        private bool isInventoryOpen;
+        private bool isWeaponPickupOpen;
+        private WeaponPickupInteractable activeInteractable;
 
         // -----------------------------------------------------------------------
 
@@ -49,7 +48,7 @@ namespace junklite
 
         public void BindToPlayer(CharacterBase target)
         {
-            Unbind(); // clean before binding new target
+            Unbind();
 
             player = target;
             if (player == null)
@@ -58,7 +57,6 @@ namespace junklite
                 return;
             }
 
-            // --------- Bind Attributes ----------
             attributes = player.GetComponent<AttributeManager>();
             if (attributes == null)
             {
@@ -67,7 +65,6 @@ namespace junklite
                 return;
             }
 
-            // Player name
             if (playerNameText != null && player.Stats != null)
             {
                 playerNameText.text = string.IsNullOrEmpty(player.Stats.characterName)
@@ -75,11 +72,9 @@ namespace junklite
                     : player.Stats.characterName;
             }
 
-            // Health bar
             if (healthBar != null)
                 healthBar.Bind(attributes.Health);
 
-            // Armor bar (if exists)
             if (armorBar != null)
             {
                 var armorAttr = attributes.Get(AttributeType.Armor);
@@ -89,27 +84,21 @@ namespace junklite
                     armorBar.gameObject.SetActive(false);
             }
 
-            // Handle death visibility
             attributes.OnDeath += HandlePlayerDeath;
 
-            // --------- Bind Weapon UI ----------
             _weaponManager = player.GetComponent<WeaponManager>();
             if (weaponUI != null && _weaponManager != null)
                 weaponUI.Bind(_weaponManager);
 
-            // --------- Bind Inventory ----------
             inventory = player.GetComponent<InventoryComponent>();
 
-            // --------- Bind Mod Manager + Combat Mod UI ----------
             _modManager = player.GetComponent<ModManager>();
             if (combatModUI != null && _modManager != null && _weaponManager != null)
                 combatModUI.Bind(_modManager, _weaponManager);
 
-            // --------- Bind Phantom Strike UI ----------
             if (phantomStrikeUI != null && player is PlayerCharacter pc)
                 phantomStrikeUI.Bind(pc);
 
-            // --------- Subscribe to combat mode for mod UI refresh ----------
             if (_weaponManager != null)
                 _weaponManager.OnCombatModeChanged += RefreshModUIs;
 
@@ -137,6 +126,11 @@ namespace junklite
             if (weaponUI != null) weaponUI.Unbind();
             if (combatModUI != null) combatModUI.Unbind();
             if (phantomStrikeUI != null) phantomStrikeUI.Unbind();
+            if (weaponPickupUI != null)
+            {
+                weaponPickupUI.OnClosed -= HandleWeaponPickupClosed;
+                weaponPickupUI.Unbind();
+            }
 
             player = null;
             attributes = null;
@@ -157,12 +151,15 @@ namespace junklite
                 GameManager.Instance.OnPlayerSpawned += HandlePlayerSpawned;
             }
 
-            // Subscribe to inventory toggle
-            if (GameInputManager.Instance != null)
-                GameInputManager.Instance.OnInventoryToggle += HandleInventoryToggle;
+            var input = GameInputManager.Instance;
+            if (input != null)
+            {
+                input.OnInventoryToggle += HandleInventoryToggle;
+                input.OnInteract += HandleInteract;
+            }
 
-            // Ensure inventory starts closed
             CloseInventory();
+            CloseWeaponPickup(false);
         }
 
         private void OnDisable()
@@ -170,108 +167,158 @@ namespace junklite
             if (autoBindToGameManager && GameManager.Instance != null)
                 GameManager.Instance.OnPlayerSpawned -= HandlePlayerSpawned;
 
-            // Unsubscribe from inventory toggle
-            if (GameInputManager.Instance != null)
-                GameInputManager.Instance.OnInventoryToggle -= HandleInventoryToggle;
+            var input = GameInputManager.Instance;
+            if (input != null)
+            {
+                input.OnInventoryToggle -= HandleInventoryToggle;
+                input.OnInteract -= HandleInteract;
+            }
 
-            // Re-enable gameplay input if we're disabled while inventory is open
             if (isInventoryOpen && GameInputManager.Instance != null)
                 GameInputManager.Instance.SetGameplayInputEnabled(true);
+
+            if (isWeaponPickupOpen && GameInputManager.Instance != null)
+                GameInputManager.Instance.SwitchToPlayerActionMap();
 
             Unbind();
         }
 
         private void OnDestroy()
         {
-            // Re-enable gameplay input if destroyed while inventory is open
             if (isInventoryOpen && GameInputManager.Instance != null)
                 GameInputManager.Instance.SetGameplayInputEnabled(true);
+
+            if (isWeaponPickupOpen && GameInputManager.Instance != null)
+                GameInputManager.Instance.SwitchToPlayerActionMap();
 
             Unbind();
         }
 
         // -----------------------------------------------------------------------
 
-        private void HandlePlayerSpawned(PlayerCharacter newPlayer)
-        {
-            BindToPlayer(newPlayer);
-        }
+        private void HandlePlayerSpawned(PlayerCharacter newPlayer) => BindToPlayer(newPlayer);
 
         private void HandlePlayerDeath()
         {
-            // Close inventory on death
-            if (isInventoryOpen)
-                CloseInventory();
-
-            if (hideOnDeath)
-                SetVisible(false);
+            if (isInventoryOpen) CloseInventory();
+            if (isWeaponPickupOpen) CloseWeaponPickup(false);
+            if (hideOnDeath) SetVisible(false);
         }
 
         // -----------------------------------------------------------------------
-        // INVENTORY TOGGLE
+        // INTERACT (single subscription, checks static Current)
+        // -----------------------------------------------------------------------
+
+        private void HandleInteract()
+        {
+            if (isWeaponPickupOpen || isInventoryOpen) return;
+            if (player == null || _weaponManager == null) return;
+
+            var interactable = WeaponPickupInteractable.Current;
+            if (interactable == null || interactable.WeaponPickup == null) return;
+
+            activeInteractable = interactable;
+            OpenWeaponPickup(interactable.WeaponPickup);
+        }
+
+        // -----------------------------------------------------------------------
+        // INVENTORY
         // -----------------------------------------------------------------------
 
         private void HandleInventoryToggle()
         {
-            if (isInventoryOpen)
-                CloseInventory();
-            else
-                OpenInventory();
+            if (isWeaponPickupOpen) return;
+
+            if (isInventoryOpen) CloseInventory();
+            else OpenInventory();
         }
 
-        /// <summary>
-        /// Opens the inventory panel and pauses gameplay input.
-        /// </summary>
         public void OpenInventory()
         {
             if (isInventoryOpen) return;
 
             isInventoryOpen = true;
 
-            // Show inventory panel
             if (inventoryPanel != null)
                 inventoryPanel.SetActive(true);
 
-            // Bind InventoryUI to player's inventory and weapon manager
             if (inventoryUI != null && player != null)
-            {
                 inventoryUI.Bind(inventory, _weaponManager);
-            }
 
-            // Pause gameplay input
             if (GameInputManager.Instance != null)
                 GameInputManager.Instance.SetGameplayInputEnabled(false);
-
-            // Debug.Log("[PlayerUI] Inventory opened - gameplay input paused");
         }
 
-        /// <summary>
-        /// Closes the inventory panel and resumes gameplay input.
-        /// </summary>
         public void CloseInventory()
         {
             if (!isInventoryOpen && inventoryPanel != null && !inventoryPanel.activeSelf)
             {
-                // Just ensure it's hidden on initial setup
                 inventoryPanel.SetActive(false);
                 return;
             }
 
             isInventoryOpen = false;
 
-            // Unbind InventoryUI
-            if (inventoryUI != null)
-                inventoryUI.Unbind();
+            if (inventoryUI != null) inventoryUI.Unbind();
+            if (inventoryPanel != null) inventoryPanel.SetActive(false);
 
-            // Hide inventory panel
-            if (inventoryPanel != null)
-                inventoryPanel.SetActive(false);
-
-            // Resume gameplay input
             if (GameInputManager.Instance != null)
                 GameInputManager.Instance.SetGameplayInputEnabled(true);
+        }
 
-            // Debug.Log("[PlayerUI] Inventory closed - gameplay input resumed");
+        // -----------------------------------------------------------------------
+        // WEAPON PICKUP
+        // -----------------------------------------------------------------------
+
+        private void OpenWeaponPickup(WorldWeaponPickup pickup)
+        {
+            if (isWeaponPickupOpen) return;
+            isWeaponPickupOpen = true;
+
+            if (weaponPickupPanel != null)
+                weaponPickupPanel.SetActive(true);
+
+            if (weaponPickupUI != null)
+            {
+                weaponPickupUI.Bind(_weaponManager, pickup);
+                weaponPickupUI.OnClosed += HandleWeaponPickupClosed;
+            }
+
+            if (GameInputManager.Instance != null)
+                GameInputManager.Instance.SwitchToUIActionMap();
+        }
+
+        private void HandleWeaponPickupClosed(bool pickedUp)
+        {
+            CloseWeaponPickup(!pickedUp);
+        }
+
+        private void CloseWeaponPickup(bool reEnablePrompt)
+        {
+            if (!isWeaponPickupOpen && weaponPickupPanel != null && !weaponPickupPanel.activeSelf)
+            {
+                weaponPickupPanel.SetActive(false);
+                return;
+            }
+
+            isWeaponPickupOpen = false;
+
+            if (weaponPickupUI != null)
+            {
+                weaponPickupUI.OnClosed -= HandleWeaponPickupClosed;
+                weaponPickupUI.Unbind();
+            }
+
+            if (weaponPickupPanel != null)
+                weaponPickupPanel.SetActive(false);
+
+            if (GameInputManager.Instance != null)
+                GameInputManager.Instance.SwitchToPlayerActionMap();
+
+            if (reEnablePrompt && activeInteractable != null)
+                activeInteractable.ReEnablePrompt();
+
+            activeInteractable = null;
         }
 
         // -----------------------------------------------------------------------

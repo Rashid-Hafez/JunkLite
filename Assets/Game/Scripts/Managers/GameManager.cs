@@ -426,14 +426,7 @@ namespace junklite
 
         private void HandleInput()
         {
-            if (Input.GetKeyDown(KeyCode.Escape))
-            {
-                if (currentState == GameState.Playing) SetGameState(GameState.Paused);
-                else if (currentState == GameState.Paused) SetGameState(GameState.Playing);
-            }
-
-            if (Input.GetKeyDown(KeyCode.R))
-                RestartLevel();
+           
         }
 
         public void PauseGame() => SetGameState(GameState.Paused);

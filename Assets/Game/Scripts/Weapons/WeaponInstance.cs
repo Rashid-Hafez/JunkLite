@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 
 namespace junklite
 {
@@ -18,16 +18,25 @@ namespace junklite
 
         private CombatState combatState;
 
-        private float currentDurability;
-        public float CurrentDurability => currentDurability;
+        private float currentDurability = -1f;
+
+        public float CurrentDurability
+        {
+            get
+            {
+                if (currentDurability < 0f && weaponData != null)
+                    currentDurability = weaponData.maxWeaponDurability;
+                return Mathf.Max(0f, currentDurability);
+            }
+        }
         public float MaxDurability => weaponData != null ? weaponData.maxWeaponDurability : 0f;
-        public bool IsBroken => currentDurability <= 0f;
+        public bool IsBroken => CurrentDurability <= 0f;
         public event System.Action OnWeaponBroken;
 
         /// <summary>
         /// Set true at runtime by mods/abilities to override per-step piercing defaults.
         /// Set back to false when the effect expires.
-        /// Only meaningful on melee weapons — ranged weapons ignore this.
+        /// Only meaningful on melee weapons ï¿½ ranged weapons ignore this.
         /// </summary>
         private bool piercingOverride;
         public bool PiercingOverride
