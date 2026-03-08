@@ -71,6 +71,9 @@ namespace junklite
         private bool isInKnockback;
         private float knockbackTimer;
 
+        // Push-over-time state (parry pushback etc.)
+        private bool isPushActive;
+
         // Ground state
         private bool isGrounded;
 
@@ -292,12 +295,12 @@ namespace junklite
         {
             if (!isMoving)
             {
-                bool inParried = stateMachine != null && stateMachine.CurrentState is ParriedState;
-                if (!inParried)
-                {
-                    float verticalVel = rb.useGravity ? rb.linearVelocity.y : 0f;
-                    rb.linearVelocity = BuildVelocity(0f, verticalVel);
-                }
+                // Let push-over-time coroutine control velocity while active
+                if (isPushActive) return;
+
+                // When not moving, zero out horizontal velocity (preserve Y for gravity)
+                float verticalVel = rb.useGravity ? rb.linearVelocity.y : 0f;
+                rb.linearVelocity = BuildVelocity(0f, verticalVel);
                 return;
             }
 
@@ -524,6 +527,8 @@ namespace junklite
         {
             if (rb == null || duration <= 0f) yield break;
 
+            isPushActive = true;
+
             float hDot = Vector3.Dot(worldDir, horizontalAxis);
             float hSign = hDot >= 0f ? 1f : -1f;
             Vector3 horizAccel = horizontalAxis * hSign * (totalHorizontalImpulse / Mathf.Max(0.0001f, duration));
@@ -536,6 +541,15 @@ namespace junklite
                 rb.AddForce(upAccel, ForceMode.Acceleration);
                 yield return new WaitForFixedUpdate();
                 elapsed += Time.fixedDeltaTime;
+            }
+
+            isPushActive = false;
+
+            // Stop sliding after push ends
+            if (rb != null)
+            {
+                float verticalVel = rb.useGravity ? rb.linearVelocity.y : 0f;
+                rb.linearVelocity = BuildVelocity(0f, verticalVel);
             }
         }
 

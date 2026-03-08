@@ -24,8 +24,11 @@ namespace junklite
         [SerializeField] private float fallGravityMultiplier = 2.5f;  // stronger gravity when falling (snappy descent)
         [SerializeField] private float jumpCutMultiplier = 0.4f;      // one-time velocity cut when jump released early
         [SerializeField] private float apexThreshold = 2f;            // velocity below this = "at apex", applies fall gravity early
+        [SerializeField] private float maxJumpHoldTime = 0.18f;      // hard cap on how long holding jump reduces gravity
+        [SerializeField] private float heldJumpGravityRamp = 1.8f;   // gravity ramps from 1x to this while jump is held
 
         private float minJumpHoldEndTime = 0f;
+        private float jumpStartTime = 0f;
         public bool JumpHeldExternally = false;
         private float becameAirborneTime = 0f;
         private bool hasJumpBeenCut = false;  // ensures velocity cut happens only once per jump
@@ -489,6 +492,7 @@ namespace junklite
 
         private void StartMinJumpHoldWindow()
         {
+            jumpStartTime = Time.time;
             minJumpHoldEndTime = Time.time + minJumpHoldTime;
         }
 
@@ -536,7 +540,7 @@ namespace junklite
                 return;
             }
 
-            // Ground jump - use buffer system
+            // Ground jump - queue into fixed-step buffer
             if (coyoteTimer > 0f)
             {
                 jumpBufferTimer = jumpBufferTime;
@@ -556,7 +560,11 @@ namespace junklite
                 airJumpCount++;
                 JumpHeldExternally = true;
                 hasJumpBeenCut = false;  // fresh jump, allow one cut
+                return;
             }
+
+            // No coyote jump and no air jump available: keep a short landing buffer.
+            jumpBufferTimer = jumpBufferTime;
         }
 
         public void Dash()
@@ -828,10 +836,6 @@ namespace junklite
                     coyoteTimer = 0f;
                     OnJumpStarted?.Invoke();
                 }
-                else
-                {
-                    jumpBufferTimer = 0f;
-                }
             }
 
             if (!canMove) return;
@@ -944,11 +948,11 @@ namespace junklite
                 : gravityMultiplier;
             bool minHoldActive = Time.time < minJumpHoldEndTime;
 
-            // External bounces ignore jump hold entirely - always act as if jump was released
-            bool canCutJump = isExternalBounce || (!JumpHeldExternally && !minHoldActive);
+            // Hold window expired → treat as released even if button is still down
+            bool holdExpired = Time.time >= jumpStartTime + minJumpHoldTime + maxJumpHoldTime;
+            bool canCutJump = isExternalBounce || holdExpired || (!JumpHeldExternally && !minHoldActive);
 
             // --- ONE-TIME HARD JUMP CUT (Hollow Knight / Celeste style) ---
-            // Skip the hard cut for external bounces - we just want consistent gravity
             if (yVel > 0.1f && canCutJump && !hasJumpBeenCut && !isExternalBounce)
             {
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, yVel * jumpCutMultiplier, rb.linearVelocity.z);
@@ -964,24 +968,22 @@ namespace junklite
                 return;
             }
 
-            // --- GRAVITY (always applied, like Rigidbody.useGravity) ---
-            // Key fix: Apply fall gravity when AT or NEAR apex, not just when yVel < 0
-            // This prevents the "float" at the peak of the jump
-
+            // --- GRAVITY ---
             if (yVel < apexThreshold)
             {
-                // At apex or falling - snap down immediately with fall gravity
                 rb.AddForce(Physics.gravity * currentGravityMultiplier * fallGravityMultiplier, ForceMode.Acceleration);
             }
-            else if (canCutJump || isExternalBounce)
+            else if (canCutJump)
             {
-                // Rising fast but jump released OR external bounce - strong gravity to shorten arc
                 rb.AddForce(Physics.gravity * currentGravityMultiplier * lowJumpMultiplier, ForceMode.Acceleration);
             }
             else
             {
-                // Rising fast with jump held - normal gravity
-                rb.AddForce(Physics.gravity * currentGravityMultiplier, ForceMode.Acceleration);
+                // Rising with jump held -- ramp gravity from 1x → heldJumpGravityRamp over the hold window
+                float holdElapsed = Time.time - jumpStartTime - minJumpHoldTime;
+                float holdT = Mathf.Clamp01(holdElapsed / maxJumpHoldTime);
+                float rampedGravity = Mathf.Lerp(1f, heldJumpGravityRamp, holdT);
+                rb.AddForce(Physics.gravity * currentGravityMultiplier * rampedGravity, ForceMode.Acceleration);
             }
         }
 

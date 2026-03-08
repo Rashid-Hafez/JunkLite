@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace junklite
@@ -16,7 +17,7 @@ namespace junklite
         [SerializeField] private GameObject parryVFXPrefab;
         [SerializeField] private GameObject VisualEffectParry;
         [SerializeField] private float pushForce = 20.5f;
-        [SerializeField] private float pushDuration = 0.18f; // how long to apply push impulse over time
+        [SerializeField] private float pushDuration = 0.25f; // short push window; independent from parry stun duration
         [SerializeField] private float stunDuration = 0.3f;
 
         [SerializeField] private float parryStunDuration = 0.5f; // how long enemies are stunned when hit by a parry (primary attacker gets full duration, others get half)
@@ -205,25 +206,33 @@ namespace junklite
         private void PushEnemies()
         {
             Collider[] hits = Physics.OverlapSphere(transform.position, parryRadius, enemyLayer);
+            var processedEnemies = new HashSet<EnemyCharacter>();
+
             foreach (var c in hits)
             {
                 if (c == null) continue;
 
-                bool isPrimary = (primaryAttacker != null && c.gameObject == primaryAttacker);
-                var state = c.GetComponent<CharacterState>() ?? c.GetComponentInParent<CharacterState>();
+                var enemyChar = c.GetComponent<EnemyCharacter>() ?? c.GetComponentInParent<EnemyCharacter>();
+                if (enemyChar == null) continue;
+                if (!processedEnemies.Add(enemyChar)) continue; // avoid duplicate pushes/stuns from multiple colliders
+
+                var state = enemyChar.GetComponent<CharacterState>() ?? enemyChar.GetComponentInParent<CharacterState>();
+                bool isPrimary = false;
+                if (primaryAttacker != null)
+                {
+                    isPrimary = enemyChar.gameObject == primaryAttacker
+                             || enemyChar.transform.IsChildOf(primaryAttacker.transform)
+                             || primaryAttacker.transform.IsChildOf(enemyChar.transform);
+                }
 
                 // Primary attacker: full parryStunDuration lock via OnParryStunned
                 if (isPrimary)
                 {
-                    var enemy = c.GetComponent<EnemyCharacter>() ?? c.GetComponentInParent<EnemyCharacter>();
-                    if (enemy != null)
-                    {
-                        // Retaliatory parry damage — use isTickDamage to skip hitstun
-                        // so the FSM doesn't bounce through HurtState and double-trigger
-                        // the Hurt animation while the enemy should be parry-stunned.
-                        enemy.TakeDamage(new DamageInfo(5f, gameObject, isTickDamage: true));
-                        enemy.OnParryStunned(parryStunDuration);
-                    }
+                    // Retaliatory parry damage — use isTickDamage to skip hitstun
+                    // so the FSM doesn't bounce through HurtState and double-trigger
+                    // the Hurt animation while the enemy should be parry-stunned.
+                    enemyChar.TakeDamage(new DamageInfo(5f, gameObject, isTickDamage: true));
+                    enemyChar.OnParryStunned(parryStunDuration);
                 }
                 // Bystanders in radius: half duration stun
                 else
@@ -231,18 +240,12 @@ namespace junklite
                     if (state != null)
                         state.ApplyStun(parryStunDuration * 0.5f);
 
-                    var enemy = c.GetComponent<EnemyCharacter>() ?? c.GetComponentInParent<EnemyCharacter>();
-                    if (enemy != null)
-                        enemy.OnParryStunned(parryStunDuration * 0.5f);
+                    enemyChar.OnParryStunned(parryStunDuration * 0.5f);
                 }
 
                 // Apply parry push through the enemy's axis-aware movement system
-                var enemyChar = c.GetComponent<EnemyCharacter>() ?? c.GetComponentInParent<EnemyCharacter>();
-                if (enemyChar != null)
-                {
-                    Vector3 dir = (c.transform.position - transform.position).normalized;
-                    enemyChar.ApplyParryPush(dir, pushForce, 1f, pushDuration);
-                }
+                Vector3 dir = (enemyChar.transform.position - transform.position).normalized;
+                enemyChar.ApplyParryPush(dir, pushForce, 1f, pushDuration);
             }
 
             // clear remembered attacker once we're done
