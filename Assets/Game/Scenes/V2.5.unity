@@ -495,6 +495,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a1a328020addef4d9bbb51652f23b6d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  spawnPointName: 
+  priority: 0
+  gizmoColor: {r: 0, g: 1, b: 0, a: 1}
+  gizmoRadius: 0.5
 --- !u!1001 &340046158
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6235,6 +6239,10 @@ PrefabInstance:
       propertyPath: m_Mesh
       value: 
       objectReference: {fileID: 0}
+    - target: {fileID: 8620707696424177089, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: charge.chargeTime
+      value: 0.5
+      objectReference: {fileID: 0}
     - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_LocalPosition.x
       value: 23.45
@@ -6731,6 +6739,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a1a328020addef4d9bbb51652f23b6d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpawnPoint
+  spawnPointName: 
+  priority: 0
+  gizmoColor: {r: 0, g: 1, b: 0, a: 1}
+  gizmoRadius: 0.5
 --- !u!1001 &1013249172
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -13317,6 +13329,91 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4035261727593518, guid: dd20fb3a908e04a41998312839d97ae5, type: 3}
   m_PrefabInstance: {fileID: 882667218}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1569675968
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 84268223678430046, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_Name
+      value: Hyena (2)
+      objectReference: {fileID: 0}
+    - target: {fileID: 84268223678430046, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5597149479163235202, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 8620707696424177089, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: charge.chargeTime
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8620707696424177089, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: dodge.dodgeDistance
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 8620707696424177089, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: melee.windUpDuration
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8620707696424177089, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: melee.hitEndNormalized
+      value: 0.55
+      objectReference: {fileID: 0}
+    - target: {fileID: 8620707696424177089, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: melee.hitStartNormalized
+      value: 0.45
+      objectReference: {fileID: 0}
+    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -30.14
+      objectReference: {fileID: 0}
+    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.221
+      objectReference: {fileID: 0}
+    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.262
+      objectReference: {fileID: 0}
+    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
 --- !u!1 &1578799141
 GameObject:
   m_ObjectHideFlags: 0
@@ -13424,7 +13521,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7209808592452888717, guid: da62f858ec9da58439236c128ce7eabb, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -19769,6 +19866,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a97abed1acf552647bf7042a1c0173f1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.TestManager
+  showTestPanel: 1
+  toggleKey: 282
+  panelBackgroundColor: {r: 0.1, g: 0.1, b: 0.1, a: 0.9}
+  buttonColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
+  buttonTextColor: {r: 1, g: 1, b: 1, a: 1}
+  labelColor: {r: 0, g: 1, b: 1, a: 1}
+  fontSize: 14
+  buttonHeight: 35
+  panelWidth: 280
+  panelHeight: 560
+  referenceResolution: {x: 1920, y: 1080}
+  autoScale: 1
+  manualScaleMultiplier: 1
+  robotPrefab: {fileID: 0}
+  hyenaPrefab: {fileID: 0}
+  enemySpawnPoints: []
+  spawnRadius: 5
+  itemPrefabs: []
 --- !u!1 &1737470713
 GameObject:
   m_ObjectHideFlags: 0
@@ -89080,15 +89195,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GruntEnemy
   baseStats: {fileID: 11400000, guid: 58a1d53d4072c4343b8ef49d184f1c47, type: 2}
   attributes: {fileID: 0}
-  config: {fileID: 11400000, guid: 47e792f378ad18c47bb03f3a3772c1da, type: 2}
+  config: {fileID: 11400000, guid: 7306fe64eecbb124db49dca8d5795fad, type: 2}
   soundProfile: {fileID: 11400000, guid: 8ea661e92a2b9cc48aa6bfa6c75a470e, type: 2}
   detectionZone: {fileID: 520290206}
-  attackRange: 2
+  attackRange: 1
   targetLayer:
     serializedVersion: 2
     m_Bits: 65536
   canBeKnockedBack: 1
-  hitstunDuration: 0.3
+  hitstunDuration: 2
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
   attackWarningVfx: {fileID: 0}
@@ -89099,16 +89214,21 @@ MonoBehaviour:
   enemyVisual: {fileID: 0}
   customDropTable: {fileID: 0}
   dropChance: 1
+  spineController: {fileID: 0}
   chase:
     chaseSpeed: 2
     chaseStopDistance: 1
   pursuitRadius: 12
   melee:
+    windUpDuration: 0.3
+    attackDuration: 0.5
     attackSpeed: 0.5
     damage: 20
     knockback: {x: 5, y: 2}
     hitbox: {fileID: 1425401945}
     vfxPrefab: {fileID: 0}
+    hitStartNormalized: 0.3
+    hitEndNormalized: 0.6
 --- !u!198 &7491416250885090896
 ParticleSystem:
   m_ObjectHideFlags: 0
@@ -119241,3 +119361,4 @@ SceneRoots:
   - {fileID: 1965138345}
   - {fileID: 740272285}
   - {fileID: 1285110909}
+  - {fileID: 1569675968}

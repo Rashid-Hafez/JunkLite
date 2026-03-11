@@ -9,6 +9,9 @@ namespace junklite
     /// </summary>
     public class GruntEnemy : EnemyCharacter, IChaser, IMeleeAttacker
     {
+        [Header("Animation")]
+        [SerializeField] private EnemySpineAnimationController spineController;
+
         [Header("Grunt - Chase")]
         [SerializeField] private ChaseBehavior chase = new ChaseBehavior();
         [SerializeField] private float pursuitRadius = 12f;
@@ -42,13 +45,27 @@ namespace junklite
 
         #region IMeleeAttacker
 
+        public float MeleeWindUpDuration => melee.MeleeWindUpDuration;
+        public float MeleeAttackDuration => melee.MeleeAttackDuration;
         public float MeleeAttackSpeed => melee.MeleeAttackSpeed;
         public float MeleeDamage => melee.MeleeDamage;
         public Vector2 MeleeKnockback => melee.MeleeKnockback;
         public Hitbox MeleeHitbox => melee.MeleeHitbox;
         public GameObject MeleeVFXPrefab => melee.MeleeVFXPrefab;
+        public float MeleeHitStartNormalized => melee.MeleeHitStartNormalized;
+        public float MeleeHitEndNormalized => melee.MeleeHitEndNormalized;
 
-        public void OnMeleeAttack() { }
+        public void OnMeleeWindUp()
+        {
+            if (spineController != null)
+                spineController.PlayWindUpAnimation();
+        }
+
+        public void OnMeleeAttack()
+        {
+            if (spineController != null)
+                spineController.PlayAttackAnimation();
+        }
 
         public void OnMeleeComplete()
         {
@@ -135,6 +152,13 @@ namespace junklite
             }
 
             UpdateLastKnownPosition(Target.position);
+
+            // Attack range check — catch transitions ChaseState might miss
+            if (stateMachine.CurrentState is ChaseState && IsTargetInAttackRange)
+            {
+                stateMachine.ChangeState<MeleeAttackState>();
+                return;
+            }
 
             float dist = Movement.GetAbsAxisDistance(transform.position, Target.position);
             if (dist > pursuitRadius)

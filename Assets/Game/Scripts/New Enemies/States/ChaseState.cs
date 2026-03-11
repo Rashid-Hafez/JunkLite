@@ -43,7 +43,7 @@ namespace junklite
 
                 if (chaser != null && chaser.ChaseStopDistance > 0f)
                 {
-                    float distanceToTarget = Vector3.Distance(Transform.position, Target.position);
+                    float distanceToTarget = movement.GetAbsAxisDistance(Transform.position, Target.position);
                     if (distanceToTarget <= chaser.ChaseStopDistance)
                     {
                         movement?.Stop();

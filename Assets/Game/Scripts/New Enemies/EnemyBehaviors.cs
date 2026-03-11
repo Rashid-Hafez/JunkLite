@@ -192,18 +192,31 @@ namespace junklite
     [System.Serializable]
     public class MeleeAttackBehavior
     {
+        [Tooltip("Delay before the attack swing. Telegraph/anticipation time.")]
+        [SerializeField] private float windUpDuration = 0.3f;
+        [Tooltip("Total duration of one attack swing")]
+        [SerializeField] private float attackDuration = 0.5f;
         [Tooltip("Cooldown between attacks")]
         [SerializeField] private float attackSpeed = 0.5f;
         [SerializeField] private float damage = 10f;
         [SerializeField] private Vector2 knockback = new Vector2(5f, 2f);
         [SerializeField] private Hitbox hitbox;
         [SerializeField] private GameObject vfxPrefab;
+        [Header("Hitbox Timing")]
+        [Tooltip("When during the attack the hitbox activates (0 = start, 1 = end)")]
+        [SerializeField][Range(0f, 1f)] private float hitStartNormalized = 0.3f;
+        [Tooltip("When during the attack the hitbox deactivates")]
+        [SerializeField][Range(0f, 1f)] private float hitEndNormalized = 0.6f;
 
+        public float MeleeWindUpDuration => windUpDuration;
+        public float MeleeAttackDuration => attackDuration;
         public float MeleeAttackSpeed => attackSpeed;
         public float MeleeDamage => damage;
         public Vector2 MeleeKnockback => knockback;
         public Hitbox MeleeHitbox => hitbox;
         public GameObject MeleeVFXPrefab => vfxPrefab;
+        public float MeleeHitStartNormalized => hitStartNormalized;
+        public float MeleeHitEndNormalized => hitEndNormalized;
     }
 
     /// <summary>
