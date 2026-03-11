@@ -28,6 +28,7 @@ namespace junklite
 
     public enum EnemyType
     {
+        Grunt,
         Dummy,
         Robot,
         Hyena,
