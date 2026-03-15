@@ -106,24 +106,23 @@ namespace junklite
                 state.SetAnimation(0, dash, false);
             else if (to is DodgeState)
                 state.SetAnimation(0, dodge, false);
-            else if (to is HurtState)
-                state.SetAnimation(0, hurt, false);
             else if (to is StunnedState)
             {
-                string stunAnim = (enemyCharacter != null && enemyCharacter.IsParryStunned) ? idle : hurt;
-                state.SetAnimation(0, stunAnim, true);
+                // Parry stun = held neutral pose, normal stagger = hurt animation
+                if (enemyCharacter != null && enemyCharacter.IsParryStunned)
+                {
+                    string stunAnim = string.IsNullOrEmpty(stunLoop) ? idle : stunLoop;
+                    state.SetAnimation(0, stunAnim, true);
+                }
+                else
+                {
+                    state.SetAnimation(0, hurt, false);
+                }
             }
         }
 
-        // =============================================================
-        // PUBLIC API — called by the enemy script at the right moments
-        // =============================================================
+        #region Public API
 
-        /// <summary>
-        /// Called by the enemy when MeleeAttackState begins its wind-up phase.
-        /// Plays the telegraph/anticipation animation if one is assigned.
-        /// If no wind-up animation is set, plays idle as a hold pose.
-        /// </summary>
         public void PlayWindUpAnimation()
         {
             if (isDead || skeletonAnimation == null) return;
@@ -138,10 +137,6 @@ namespace junklite
                 state.SetAnimation(0, idle, true);
         }
 
-        /// <summary>
-        /// Called by the enemy when MeleeAttackState transitions from wind-up
-        /// to the actual attack phase. Plays the attack animation once.
-        /// </summary>
         public void PlayAttackAnimation()
         {
             if (isDead || skeletonAnimation == null) return;
@@ -150,10 +145,6 @@ namespace junklite
             var entry = state.SetAnimation(0, attack, false);
             if (entry != null) entry.MixDuration = 0f;
         }
-
-        // =============================================================
-        // STUN
-        // =============================================================
 
         public void PlayStunLoop(float duration)
         {
@@ -164,16 +155,14 @@ namespace junklite
             StartCoroutine(ClearStunAfter(duration));
         }
 
+        #endregion
+
         private System.Collections.IEnumerator ClearStunAfter(float duration)
         {
             yield return new WaitForSeconds(duration);
             if (stateMachine != null && stateMachine.CurrentState != null)
                 HandleStateChanged(null, stateMachine.CurrentState);
         }
-
-        // =============================================================
-        // DEATH
-        // =============================================================
 
         private void PlayDeath()
         {

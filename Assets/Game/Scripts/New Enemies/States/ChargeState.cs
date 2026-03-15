@@ -2,20 +2,12 @@ using UnityEngine;
 
 namespace junklite
 {
-    /// <summary>
-    /// Charge state - enemy charges up before attacking.
-    /// 
-    /// REQUIRES: Enemy must implement ICharger
-    /// 
-    /// Pure ACTION state: plays animation, faces target, waits for timer.
-    /// Calls ICharger.OnChargeComplete() when done - enemy decides what to do next.
-    /// </summary>
     public class ChargeState : EnemyStateBase
     {
         private ICharger charger;
         private EnemyMovement movement;
         private float timer;
-        private GameObject activeVFX;
+        private GameObject vfx;
 
         public ChargeState(EnemyCharacter enemy) : base(enemy) { }
 
@@ -30,6 +22,7 @@ namespace junklite
 
             movement = enemy.Movement;
             timer = charger.ChargeTime;
+            vfx = charger.ChargeVFXPrefab;
 
             movement?.Stop();
 
@@ -37,9 +30,7 @@ namespace junklite
                 movement?.FaceTarget(Target.position);
 
             enemy.ShowAttackWarningImmediate();
-            activeVFX = VFXPool.Get(charger.ChargeVFXPrefab, enemy.transform);
-
-           // Debug.Log($"{enemy.gameObject.name}: Charging! ({timer}s)");
+            if (vfx != null) vfx.SetActive(true);
         }
 
         public override void Update()
@@ -58,7 +49,7 @@ namespace junklite
         public override void Exit()
         {
             enemy.HideAttackWarning();
-            VFXPool.Release(ref activeVFX);
+            if (vfx != null) vfx.SetActive(false);
         }
     }
 }

@@ -1,13 +1,9 @@
 using UnityEngine;
+using static UnityEngine.Rendering.SplashScreen;
 
 namespace junklite
 {
-    /// <summary>
-    /// Grunt enemy — simple melee fodder designed to be combo-friendly.
-    /// No dodge, no dash, no counter-attacks. High hitstun for juggling.
-    /// Threatening in groups, punching bag solo.
-    /// </summary>
-    public class GruntEnemy : EnemyCharacter, IChaser, IMeleeAttacker
+    public class GruntEnemy : EnemyCharacter, IChaser, IMeleeAttacker, IStunnable
     {
         [Header("Animation")]
         [SerializeField] private EnemySpineAnimationController spineController;
@@ -18,6 +14,9 @@ namespace junklite
 
         [Header("Grunt - Melee Attack")]
         [SerializeField] private MeleeAttackBehavior melee = new MeleeAttackBehavior();
+
+        [Header("Grunt - Stun")]
+        [SerializeField] private StunBehavior stun = new StunBehavior();
 
         #region IChaser
 
@@ -75,6 +74,20 @@ namespace junklite
 
         #endregion
 
+        #region IStunnable
+
+        public float StaggerDuration => stun.StaggerDuration;
+        public float ForcedStunDuration { get => stun.ForcedStunDuration; set => stun.ForcedStunDuration = value; }
+        public GameObject StunVFXObject => stun.StunVFXObject;
+
+        public override void OnStunComplete()
+        {
+            if (!IsAlive) return;
+            DecideNextAction();
+        }
+
+        #endregion
+
         #region Target Management
 
         public override void ClearTarget()
@@ -110,7 +123,6 @@ namespace junklite
                 new IdleState(this),
                 new ChaseState(this),
                 new MeleeAttackState(this),
-                new HurtState(this),
                 new StunnedState(this),
                 new ParriedState(this),
                 new DeadState(this)
@@ -141,8 +153,7 @@ namespace junklite
         private void UpdateCombatTracking()
         {
             if (stateMachine.CurrentState is ParriedState
-                || stateMachine.CurrentState is StunnedState
-                || stateMachine.CurrentState is HurtState)
+                || stateMachine.CurrentState is StunnedState)
                 return;
 
             if (!HasTarget || !IsTargetAlive())
@@ -153,7 +164,6 @@ namespace junklite
 
             UpdateLastKnownPosition(Target.position);
 
-            // Attack range check — catch transitions ChaseState might miss
             if (stateMachine.CurrentState is ChaseState && IsTargetInAttackRange)
             {
                 stateMachine.ChangeState<MeleeAttackState>();
@@ -215,22 +225,6 @@ namespace junklite
 
         #endregion
 
-        #region Recovery
-
-        public override void OnHurtComplete()
-        {
-            if (!IsAlive) return;
-            DecideNextAction();
-        }
-
-        public override void OnStunComplete()
-        {
-            if (!IsAlive) return;
-            DecideNextAction();
-        }
-
-        #endregion
-
         #region Decision Logic
 
         private void DecideNextAction()
@@ -264,7 +258,6 @@ namespace junklite
         {
             var current = stateMachine.CurrentState;
             return current is MeleeAttackState
-                || current is HurtState
                 || current is StunnedState
                 || current is ParriedState;
         }

@@ -20,19 +20,18 @@ namespace junklite
     /// - Combat state management
     /// - Death handling, VFX basics
     /// - State machine reference
-    /// - Hitstun on direct damage (HurtState)
     /// 
     /// CAPABILITY-SPECIFIC (lives in interfaces):
-    /// - Patrol, Dash, Grab, Melee, Dodge, Chase, Ranged, etc.
+    /// - Patrol, Dash, Grab, Melee, Dodge, Chase, Ranged, Stun, etc.
     /// </summary>
 
     public enum EnemyType
     {
-        Grunt,
         Dummy,
         Robot,
         Hyena,
-        FlyingDummy
+        FlyingDummy,
+        Grunt
     }
 
     [RequireComponent(typeof(StateMachine))]
@@ -45,7 +44,6 @@ namespace junklite
         [Header("Audio")]
         [SerializeField] private EnemySoundProfile soundProfile;
 
-
         [Header("Detection")]
         [SerializeField] protected DetectionZone detectionZone;
         [SerializeField] protected float attackRange = 2f;
@@ -54,10 +52,6 @@ namespace junklite
         [Header("Knockback")]
         [Tooltip("If false, this enemy cannot be knocked back")]
         [SerializeField] protected bool canBeKnockedBack = true;
-
-        [Header("Hitstun")]
-        [Tooltip("Duration of hitstun on direct hits. Set to 0 to disable hitstun.")]
-        [SerializeField] protected float hitstunDuration = 0.3f;
 
         [Header("Debug")]
         [SerializeField] protected bool showGizmos = true;
@@ -95,15 +89,7 @@ namespace junklite
         protected StateMachine stateMachine;
         protected EnemyMovement movement;
         protected StatusEffectHandler statusEffects;
-        // optional forced stun duration set by external callers (e.g. parry)
-        private float forcedStunDuration = 0f;
         private bool isParryStunned;
-
-        public float ForcedStunDuration
-        {
-            get => forcedStunDuration;
-            set => forcedStunDuration = value;
-        }
 
         public bool IsParryStunned => isParryStunned;
 
@@ -131,7 +117,6 @@ namespace junklite
         public PlayerCharacter TargetCharacter => targetCharacter;
         public float AttackRange => attackRange;
         public bool CanBeKnockedBack => canBeKnockedBack;
-        public float HitstunDuration => hitstunDuration;
 
         // Computed properties - Target
         public bool HasTarget => target != null && targetCharacter != null && targetCharacter.IsAlive;
@@ -288,12 +273,6 @@ namespace junklite
             Debug.Log($"{gameObject.name}: Stun complete but no behavior defined!");
         }
 
-        public virtual void OnHurtComplete()
-        {
-            if (!IsAlive) return;
-            stateMachine.ChangeState<IdleState>();
-        }
-
         public virtual void OnAttackFinished()
         {
             if (HasTarget)
@@ -303,7 +282,7 @@ namespace junklite
         }
 
         /// <summary>
-        /// Notifies the enemy that they were struck by a successful parry.  Duration is the
+        /// Notifies the enemy that they were struck by a successful parry. Duration is the
         /// length of the stun effect the parry wants to enforce.
         ///
         /// Default behavior: enter ParriedState which locks the enemy for the duration.
@@ -315,7 +294,11 @@ namespace junklite
             if (duration > 0f)
             {
                 isParryStunned = true;
-                ForcedStunDuration = duration;
+
+                var stunnable = this as IStunnable;
+                if (stunnable != null)
+                    stunnable.ForcedStunDuration = duration;
+
                 stateMachine.ChangeState<ParriedState>();
             }
         }
@@ -415,10 +398,11 @@ namespace junklite
         #region Combat & Death
 
         /// <summary>
-        /// IMPORTANT: Hitstun is applied BEFORE knockback.
-        /// This ensures the state change (→ HurtState) stops chase movement first,
-        /// then knockback force is applied on top of the stopped enemy.
-        /// If knockback came first, the subsequent state change would call Stop() and kill it.
+        /// Knockback and stagger are applied together so the enemy is visually
+        /// pushed back at the same moment it enters hitstun.
+        /// Knockback is applied FIRST so the velocity is already active when
+        /// StunnedState.Enter() runs — StunnedState skips Stop() while knockback
+        /// is in flight, preserving the push.
         /// </summary>
         public override bool TakeDamage(DamageInfo info)
         {
@@ -431,12 +415,12 @@ namespace junklite
             {
                 if (state == null || state.CanBeInterrupted)
                 {
-                    // 1. Hitstun FIRST — stops movement, enters HurtState
+                    // 1. Knockback FIRST — starts the push immediately
+                    ApplyKnockback(info);
+
+                    // 2. Stagger SECOND — enters StunnedState (which preserves active knockback)
                     if (!info.IsTickDamage)
                         ApplyHitstun();
-
-                    // 2. Knockback SECOND — applied on top of stopped movement
-                    ApplyKnockback(info);
                 }
             }
 
@@ -447,34 +431,37 @@ namespace junklite
         {
             if (stateMachine == null) return;
 
-            // If a duration is provided, store it so the StunnedState can honor it.
-            ForcedStunDuration = duration;
+            var stunnable = this as IStunnable;
+            if (stunnable != null)
+                stunnable.ForcedStunDuration = duration;
+
             stateMachine.ChangeState<StunnedState>();
-            
         }
 
         protected virtual void ApplyHitstun()
         {
             if (!IsAlive) return;
-            if (hitstunDuration <= 0f) return;
 
-            // Already in HurtState? Just reset the timer for combo extension
-            if (stateMachine.CurrentState is HurtState hurt)
+            var stunnable = this as IStunnable;
+            if (stunnable == null || stunnable.StaggerDuration <= 0f) return;
+
+            // Already stunned? Reset timer for combo extension
+            if (stateMachine.CurrentState is StunnedState stunned)
             {
-                hurt.ResetTimer();
+                stunned.ResetTimer();
                 return;
             }
 
-            stateMachine.ChangeState<HurtState>();
+            stateMachine.ChangeState<StunnedState>();
         }
 
         /// <summary>
-        /// Knockback end callback. Skips while in HurtState — HurtState
+        /// Knockback end callback. Skips while in StunnedState — StunnedState
         /// manages its own exit (waits for both timer AND knockback to finish).
         /// </summary>
         private void HandleKnockbackEnd()
         {
-            if (stateMachine.CurrentState is HurtState) return;
+            if (stateMachine.CurrentState is StunnedState) return;
             OnStunComplete();
         }
 
@@ -494,8 +481,6 @@ namespace junklite
                     knockbackDir = Vector3.right;
             }
 
-            // Build full world-space knockback; EnemyMovement.ApplyKnockback
-            // projects it onto the correct movement plane automatically.
             Vector3 knockback = knockbackDir * info.KnockbackForce.x
                               + Vector3.up * info.KnockbackForce.y;
 

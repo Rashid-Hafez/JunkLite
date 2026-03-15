@@ -5,23 +5,9 @@ namespace junklite
     /// <summary>
     /// Robot enemy - dashes at player when spotted.
     /// Has a chance to grab and throw the player on hit.
-    /// 
-    /// CAPABILITIES: IPatroller, ICharger, IDasher, IGrabber, IRecoverer
-    /// 
-    /// BEHAVIOR:
-    /// - Player spotted → Enter combat, start charging
-    /// - Charge complete → Dash to player position
-    /// - Dash hit (grab) → Hold player in GrabState → Throw → Recover
-    /// - Dash hit (no grab) → Recover
-    /// - Dash complete (miss) → Recover
-    /// - Recovery complete → If player still visible, charge again; else exit combat and patrol
     /// </summary>
     public class RobotEnemy : EnemyCharacter, IPatroller, ICharger, IDasher, IGrabber, IRecoverer
     {
-        // ============================================================
-        // BEHAVIORS - Shared, reusable implementations
-        // ============================================================
-
         [Header("Robot - Patrol")]
         [SerializeField] private PatrolBehavior patrol = new PatrolBehavior();
 
@@ -37,21 +23,9 @@ namespace junklite
         [Header("Robot - Recovery")]
         [SerializeField] private RecoveryBehavior recovery = new RecoveryBehavior();
 
-        [Header("Robot - VFX Settings")]
-        [SerializeField] private float vfxScale = 2f;
-
-        // Active VFX instances
-        private GameObject activeChargeVFX;
-        private GameObject activeDashVFX;
-        private GameObject activeGrabVFX;
-        private GameObject activeRecoveryVFX;
-
-        // Helper
         public bool HasPatrol => patrol.HasPatrol;
 
-        // ============================================================
-        // IPatroller - Delegates to PatrolBehavior
-        // ============================================================
+        #region IPatroller
 
         public float PatrolDistance => patrol.PatrolDistance;
         public float PatrolSpeed => patrol.PatrolSpeed;
@@ -65,9 +39,9 @@ namespace junklite
         public bool IsAtPatrolBoundary() => patrol.IsAtPatrolBoundary();
         public void ReverseDirection() => patrol.ReverseDirection();
 
-        // ============================================================
-        // ICharger - Delegates to ChargeBehavior
-        // ============================================================
+        #endregion
+
+        #region ICharger
 
         public float ChargeTime => charge.ChargeTime;
         public GameObject ChargeVFXPrefab => charge.ChargeVFXPrefab;
@@ -78,9 +52,9 @@ namespace junklite
             stateMachine.ChangeState<DashState>();
         }
 
-        // ============================================================
-        // IDasher - Delegates to DashBehavior
-        // ============================================================
+        #endregion
+
+        #region IDasher
 
         public float DashSpeed => dash.DashSpeed;
         public float DashDamage => dash.DashDamage;
@@ -99,9 +73,9 @@ namespace junklite
             stateMachine.ChangeState<RecoverState>();
         }
 
-        // ============================================================
-        // IGrabber - Delegates to GrabBehavior
-        // ============================================================
+        #endregion
+
+        #region IGrabber
 
         public bool CanGrab => grab.CanGrab;
         public float GrabChance => grab.GrabChance;
@@ -117,9 +91,9 @@ namespace junklite
             stateMachine.ChangeState<RecoverState>();
         }
 
-        // ============================================================
-        // IRecoverer - Delegates to RecoveryBehavior
-        // ============================================================
+        #endregion
+
+        #region IRecoverer
 
         public float RecoveryTime => recovery.RecoveryTime;
         public GameObject RecoveryVFXPrefab => recovery.RecoveryVFXPrefab;
@@ -142,19 +116,16 @@ namespace junklite
             }
         }
 
-        // ============================================================
-        // Lifecycle
-        // ============================================================
+        #endregion
+
+        #region Lifecycle
 
         protected override void Awake()
         {
             base.Awake();
             enemyType = EnemyType.Robot;
-
-            // Initialize behaviors
             patrol.Initialize(transform);
 
-            // Setup dash hitbox events
             if (dash.DashHitbox != null)
             {
                 dash.DashHitbox.OnHit += OnDashHitboxHit;
@@ -171,7 +142,6 @@ namespace junklite
                 new DashState(this),
                 new GrabState(this),
                 new RecoverState(this),
-                new HurtState(this),
                 new StunnedState(this),
                 new ParriedState(this),
                 new DeadState(this)
@@ -189,16 +159,11 @@ namespace junklite
 
             if (dash.DashHitbox != null)
                 dash.DashHitbox.OnHit -= OnDashHitboxHit;
-
-            VFXPool.Release(ref activeChargeVFX);
-            VFXPool.Release(ref activeDashVFX);
-            VFXPool.Release(ref activeGrabVFX);
-            VFXPool.Release(ref activeRecoveryVFX);
         }
 
-        // ============================================================
-        // Robot Brain - Core Decisions
-        // ============================================================
+        #endregion
+
+        #region Detection Events
 
         public override void OnPlayerSpotted()
         {
@@ -232,29 +197,46 @@ namespace junklite
             Debug.Log($"{gameObject.name}: Target lost.");
         }
 
-        // ============================================================
-        // Dash Hit Behavior (Robot-specific)
-        // ============================================================
+        #endregion
+
+        #region Recovery
+
+        public override void OnStunComplete()
+        {
+            if (!IsAlive) return;
+
+            if (HasTarget)
+                stateMachine.ChangeState<ChargeState>();
+            else
+            {
+                ExitCombat();
+                if (HasPatrol)
+                    stateMachine.ChangeState<PatrolState>();
+                else
+                    stateMachine.ChangeState<IdleState>();
+            }
+        }
+
+        #endregion
+
+        #region Hitbox Handlers
 
         private void OnDashHitboxHit(Collider other, Hitbox hitbox)
         {
             hitbox?.Deactivate();
 
-            var damageable = other.GetComponent<IDamageable>();
-            if (damageable == null)
-                damageable = other.GetComponentInParent<IDamageable>();
+            var damageable = other.GetComponent<IDamageable>()
+                          ?? other.GetComponentInParent<IDamageable>();
 
             if (damageable == null || !damageable.IsAlive)
                 return;
 
             int throwDir = Movement != null ? Movement.FacingDirection : 1;
 
-            // Use GrabBehavior's helper
             if (grab.RollForGrab())
             {
-                var grabbable = other.GetComponent<IGrabbable>();
-                if (grabbable == null)
-                    grabbable = other.GetComponentInParent<IGrabbable>();
+                var grabbable = other.GetComponent<IGrabbable>()
+                             ?? other.GetComponentInParent<IGrabbable>();
 
                 if (grabbable != null && grabbable.CanBeGrabbed)
                 {
@@ -272,62 +254,26 @@ namespace junklite
                     grabbable.GetGrabbed(grabInfo);
 
                     stateMachine.ChangeState<GrabState>();
-
-                    Debug.Log($"{gameObject.name} GRABBED {other.name}!");
                     return;
                 }
             }
 
-            // Normal hit
             var info = new DamageInfo(dash.DashDamage, gameObject, DamageType.Physical, dash.DashKnockback);
             damageable.TakeDamage(info);
-            Debug.Log($"{gameObject.name} hit {other.name} for {dash.DashDamage} damage");
         }
 
-        // ============================================================
-        // VFX Methods
-        // ============================================================
+        #endregion
 
-        public void SpawnChargeVFX()
-        {
-            ReleaseChargeVFX();
-            activeChargeVFX = VFXPool.Get(charge.ChargeVFXPrefab, transform, vfxScale);
-        }
+        #region Debug
 
-        public void ReleaseChargeVFX() => VFXPool.Release(ref activeChargeVFX);
-
-        public void SpawnDashVFX()
-        {
-            ReleaseDashVFX();
-            activeDashVFX = VFXPool.Get(dash.DashVFXPrefab, transform, vfxScale);
-        }
-
-        public void ReleaseDashVFX() => VFXPool.Release(ref activeDashVFX);
-
-        public void SpawnGrabVFX()
-        {
-            ReleaseGrabVFX();
-            activeGrabVFX = VFXPool.Get(grab.GrabVFXPrefab, transform, vfxScale);
-        }
-
-        public void ReleaseGrabVFX() => VFXPool.Release(ref activeGrabVFX);
-
-        public void SpawnRecoveryVFX()
-        {
-            ReleaseRecoveryVFX();
-            activeRecoveryVFX = VFXPool.Get(recovery.RecoveryVFXPrefab, transform, vfxScale);
-        }
-
-        public void ReleaseRecoveryVFX() => VFXPool.Release(ref activeRecoveryVFX);
-
-        // ============================================================
-        // Debug Gizmos
-        // ============================================================
-
+#if UNITY_EDITOR
         protected override void OnDrawGizmosSelected()
         {
             base.OnDrawGizmosSelected();
             patrol.DrawGizmos(transform);
         }
+#endif
+
+        #endregion
     }
 }

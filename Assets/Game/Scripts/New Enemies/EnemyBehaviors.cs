@@ -307,4 +307,33 @@ namespace junklite
         public void RecordAttack() => lastAttackTime = Time.time;
         public void SetSpawnPoint(Transform point) => spawnPoint = point;
     }
+
+    /// <summary>
+    /// Reusable stun/stagger implementation.
+    /// </summary>
+    [System.Serializable]
+    public class StunBehavior
+    {
+        [SerializeField] private float staggerDuration = 0.5f;
+        [SerializeField] private GameObject stunVFXObject;
+
+        private float forcedStunDuration;
+
+        public float StaggerDuration => staggerDuration;
+        public GameObject StunVFXObject => stunVFXObject;
+
+        /// <summary>
+        /// When > 0, overrides StaggerDuration (e.g. parry stun, whiff punishment).
+        /// Reset to 0 after the stun completes.
+        /// </summary>
+        public float ForcedStunDuration { get => forcedStunDuration; set => forcedStunDuration = value; }
+
+        /// <summary>
+        /// Returns ForcedStunDuration if set, otherwise StaggerDuration.
+        /// </summary>
+        public float EffectiveDuration =>
+            forcedStunDuration > 0f ? forcedStunDuration : staggerDuration;
+
+        public void ClearForcedDuration() => forcedStunDuration = 0f;
+    }
 }

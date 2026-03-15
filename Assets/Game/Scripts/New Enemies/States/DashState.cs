@@ -2,16 +2,6 @@ using UnityEngine;
 
 namespace junklite
 {
-    /// <summary>
-    /// Dash state - enemy dashes toward a target, stopping at a safe distance.
-    /// 
-    /// REQUIRES: Enemy must implement IDasher
-    /// 
-    /// Pure ACTION state: moves enemy, enables hitbox, ends when close enough to target.
-    /// Calls IDasher.OnDashComplete() when done - enemy decides what to do next.
-    /// 
-    /// Axis-agnostic: uses EnemyMovement.MovementAxis and helpers for all distance checks.
-    /// </summary>
     public class DashState : EnemyStateBase
     {
         private IDasher dasher;
@@ -30,7 +20,7 @@ namespace junklite
         private float dashStartTime;
         private float attackWindowTimer;
         private float resolveTimer;
-        private GameObject activeVFX;
+        private GameObject vfx;
 
         private const float MAX_DASH_DURATION = 2f;
 
@@ -57,29 +47,25 @@ namespace junklite
             movement = enemy.Movement;
             hitbox = dasher.DashHitbox;
             stopDistance = dasher.DashStopDistance;
+            vfx = dasher.DashVFXPrefab;
 
             if (HasTarget)
             {
-                // Horizontal distance along the movement axis
                 float distanceToTarget = movement.GetAbsAxisDistance(Transform.position, Target.position);
 
                 if (distanceToTarget > stopDistance)
                 {
-                    // Direction along movement axis toward target
                     float sign = Mathf.Sign(movement.GetSignedAxisDistance(Transform.position, Target.position));
                     Vector3 horizontalDir = movement.MovementAxis * sign;
 
-                    // Stop short of the target by stopDistance
                     dashTarget = Target.position - horizontalDir * stopDistance;
-
-                    // Keep our Y and lock depth to our current position
                     dashTarget.y = Transform.position.y;
-                    // Strip any depth-axis offset (keep enemy on its movement plane)
+
                     Vector3 depthAxis = Vector3.Cross(Vector3.up, movement.MovementAxis).normalized;
                     float depthOffset = Vector3.Dot(dashTarget - Transform.position, depthAxis);
                     dashTarget -= depthAxis * depthOffset;
 
-                    activeVFX = VFXPool.Get(dasher.DashVFXPrefab, enemy.transform);
+                    if (vfx != null) vfx.SetActive(true);
                     StartDash();
                 }
                 else
@@ -129,7 +115,6 @@ namespace junklite
                 movementFinished = true;
                 movement?.Stop();
 
-                // Ensure impact window can still happen when we reach dash end quickly.
                 if (!attackTriggered)
                     TriggerAttackWindow();
 
@@ -166,15 +151,12 @@ namespace junklite
 
         private bool HasMovementFinished()
         {
-            // Safety timeout
             if (Time.time - dashStartTime > MAX_DASH_DURATION)
                 return true;
 
-            // Check if movement says we've arrived
             if (movement != null && movement.HasReachedDestination)
                 return true;
 
-            // Check distance to player (horizontal only, along movement axis)
             if (HasTarget && movement != null)
             {
                 float distanceToPlayer = movement.GetAbsAxisDistance(Transform.position, Target.position);
@@ -182,7 +164,6 @@ namespace junklite
                     return true;
             }
 
-            // Check distance to dash target (horizontal only, along movement axis)
             if (movement != null)
             {
                 float distanceToDashTarget = movement.GetAbsAxisDistance(Transform.position, dashTarget);
@@ -200,6 +181,7 @@ namespace junklite
 
             hitbox?.Deactivate();
             movement?.Stop();
+            if (vfx != null) vfx.SetActive(false);
 
             dasher.OnDashComplete();
         }
@@ -210,7 +192,7 @@ namespace junklite
         {
             dashComplete = true;
             hitbox?.Deactivate();
-            VFXPool.Release(ref activeVFX);
+            if (vfx != null) vfx.SetActive(false);
             movement?.Stop();
         }
     }

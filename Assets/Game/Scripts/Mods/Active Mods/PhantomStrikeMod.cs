@@ -54,6 +54,8 @@ namespace junklite
             if (instance.CurrentCharges >= chargesRequired) return;
 
             base.OnHitRegistered(instance, player, enemy);
+
+            tracker?.NotifyChargesChanged(instance.CurrentCharges, chargesRequired);
         }
 
         public override bool OnActivate(ModInstance instance, PlayerCharacter player)

@@ -168,4 +168,14 @@ namespace junklite
         // Callback when ranged attack completes
         void OnRangedAttackComplete();
     }
+
+    public interface IStunnable
+    {
+        float StaggerDuration { get; }
+        float ForcedStunDuration { get; set; }
+        GameObject StunVFXObject { get; }
+
+        // Callback when stun completes - enemy decides what to do next
+        void OnStunComplete();
+    }
 }

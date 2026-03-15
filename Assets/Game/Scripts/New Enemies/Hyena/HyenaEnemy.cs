@@ -3,7 +3,7 @@
 namespace junklite
 {
 
-    public class HyenaEnemy : EnemyCharacter, IPatroller, IChaser, IMeleeAttacker, IDodger, ICharger, IDasher
+    public class HyenaEnemy : EnemyCharacter, IPatroller, IChaser, IMeleeAttacker, IDodger, ICharger, IDasher, IStunnable
     {
         [Header("Animation")]
         [SerializeField] private EnemySpineAnimationController spineController;
@@ -36,6 +36,9 @@ namespace junklite
         [SerializeField] private float whiffStunDuration = 1.5f;
         [Tooltip("Max distance to target for counter-dash to be allowed after a reactive dodge")]
         [SerializeField] private float maxCounterDashRange = 8f;
+
+        [Header("Hyena - Stun")]
+        [SerializeField] private StunBehavior stun = new StunBehavior();
 
         // Dodge state
         private float lastDodgeTime = -999f;
@@ -106,16 +109,7 @@ namespace junklite
         public void OnMeleeComplete()
         {
             if (!IsAlive) return;
-
-            if (HasTarget && IsTargetAlive() && IsTargetInAttackRange) return;
-
-            if (!HasTarget || !IsTargetAlive())
-            {
-                ReturnToPassive();
-                return;
-            }
-
-            stateMachine.ChangeState<ChaseState>();
+            DecideNextAction();
         }
 
         #endregion
@@ -199,6 +193,20 @@ namespace junklite
 
         #endregion
 
+        #region IStunnable
+
+        public float StaggerDuration => stun.StaggerDuration;
+        public float ForcedStunDuration { get => stun.ForcedStunDuration; set => stun.ForcedStunDuration = value; }
+        public GameObject StunVFXObject => stun.StunVFXObject;
+
+        public override void OnStunComplete()
+        {
+            if (!IsAlive) return;
+            DecideNextAction();
+        }
+
+        #endregion
+
         #region Target Management
 
         public override void ClearTarget()
@@ -269,7 +277,6 @@ namespace junklite
                 new DodgeState(this),
                 new ChargeState(this),
                 new DashState(this),
-                new HurtState(this),
                 new StunnedState(this),
                 new ParriedState(this),
                 new DeadState(this)
@@ -329,7 +336,6 @@ namespace junklite
             }
 
             if (stateMachine.CurrentState is DodgeState
-                || stateMachine.CurrentState is HurtState
                 || stateMachine.CurrentState is ParriedState
                 || stateMachine.CurrentState is StunnedState
                 || stateMachine.CurrentState is ChargeState
@@ -416,22 +422,6 @@ namespace junklite
 
         #endregion
 
-        #region Recovery
-
-        public override void OnHurtComplete()
-        {
-            if (!IsAlive) return;
-            DecideNextAction();
-        }
-
-        public override void OnStunComplete()
-        {
-            if (!IsAlive) return;
-            DecideNextAction();
-        }
-
-        #endregion
-
         #region Decision Logic
 
         private void DecideNextAction()
@@ -462,7 +452,6 @@ namespace junklite
                 || current is DodgeState
                 || current is ChargeState
                 || current is DashState
-                || current is HurtState
                 || current is StunnedState;
         }
 

@@ -2,22 +2,14 @@ using UnityEngine;
 
 namespace junklite
 {
-    /// <summary>
-    /// Stunned state - enemy is being knocked back and cannot act.
-    /// 
-    /// Universal state - works with any enemy.
-    /// 
-    /// Pure REACTION state: waits for knockback to complete, then notifies enemy.
-    /// Calls enemy.OnStunComplete() when done - enemy decides what to do next.
-    /// 
-    /// This state is entered when EnemyMovement fires OnKnockbackStart.
-    /// It exits when EnemyMovement fires OnKnockbackEnd (grounded + velocity decayed).
-    /// </summary>
     public class StunnedState : EnemyStateBase
     {
         private EnemyMovement movement;
-        private bool knockbackEnded;
-        private float stunTimer = 0f;
+        private IStunnable stunnable;
+        private float timer;
+        private float duration;
+        private bool complete;
+        private GameObject stunVFX;
 
         public StunnedState(EnemyCharacter enemy) : base(enemy) { }
 
@@ -26,51 +18,71 @@ namespace junklite
         public override void Enter()
         {
             movement = enemy.Movement;
-            knockbackEnded = false;
-            // read any externally-forced stun duration (e.g. from parry)
-            stunTimer = enemy.ForcedStunDuration;
+            stunnable = enemy as IStunnable;
+            complete = false;
 
-            // stop movement immediately
-            movement?.Stop();
+            if (stunnable == null)
+            {
+                Debug.LogWarning($"{enemy.name} entered StunnedState but does not implement IStunnable.");
+                enemy.OnStunComplete();
+                return;
+            }
 
-            Debug.Log($"{enemy.gameObject.name}: Entered StunnedState (timer={stunTimer})");
+            stunVFX = stunnable.StunVFXObject;
+
+            // ForcedStunDuration > 0 means parry/explicit stun — use that.
+            // Otherwise use the enemy's stagger duration (normal hit).
+            duration = stunnable.ForcedStunDuration > 0f
+                ? stunnable.ForcedStunDuration
+                : stunnable.StaggerDuration;
+
+            timer = duration;
+
+            // Only stop voluntary movement (chase/patrol). If knockback is
+            // already in flight (applied in TakeDamage before entering this
+            // state), preserve it — the Update loop waits for it to finish.
+            if (movement != null && !movement.IsInKnockback)
+                movement.Stop();
+
+            if (stunVFX != null)
+                stunVFX.SetActive(true);
         }
 
         public override void Update()
         {
-            // If a forced timer is present, wait for it to expire
-            if (stunTimer > 0f)
-            {
-                stunTimer -= Time.deltaTime;
-                if (stunTimer <= 0f)
-                {
-                    // clear forced stun so future entries don't reuse it
-                    enemy.ForcedStunDuration = 0f;
-                    enemy.OnStunComplete();
-                }
-                return;
-            }
+            if (complete) return;
 
-            // Otherwise, wait for knockback to finish as before
-            if (!knockbackEnded && movement != null && !movement.IsInKnockback)
+            timer -= Time.deltaTime;
+
+            // Wait for both: timer expired AND knockback finished
+            if (timer <= 0f && (movement == null || !movement.IsInKnockback))
             {
-                knockbackEnded = true;
-                enemy.OnStunComplete();
+                Complete();
             }
+        }
+
+        public void ResetTimer()
+        {
+            timer = duration;
+        }
+
+        private void Complete()
+        {
+            if (complete) return;
+            complete = true;
+
+            if (stunnable != null)
+                stunnable.ForcedStunDuration = 0f;
+
+            stunnable?.OnStunComplete();
         }
 
         public override void Exit()
         {
-            enemy.ClearParryStunFlag();
-            Debug.Log($"{enemy.gameObject.name}: Exited StunnedState");
-        }
+            if (stunVFX != null)
+                stunVFX.SetActive(false);
 
-        /// <summary>
-        /// Called by the enemy when knockback ends (from OnKnockbackEnd event).
-        /// </summary>
-        public void NotifyKnockbackEnded()
-        {
-            knockbackEnded = true;
+            enemy.ClearParryStunFlag();
         }
     }
 }

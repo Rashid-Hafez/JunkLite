@@ -19,7 +19,6 @@ namespace junklite
         [SerializeField] private WeaponUI weaponUI;
 
         [Header("Mod UIs")]
-        [SerializeField] private PhantomStrikeUI phantomStrikeUI;
         [SerializeField] private CombatModUI combatModUI;
 
         [Header("Inventory Panel")]
@@ -96,19 +95,7 @@ namespace junklite
             if (combatModUI != null && _modManager != null && _weaponManager != null)
                 combatModUI.Bind(_modManager, _weaponManager);
 
-            if (phantomStrikeUI != null && player is PlayerCharacter pc)
-                phantomStrikeUI.Bind(pc);
-
-            if (_weaponManager != null)
-                _weaponManager.OnCombatModeChanged += RefreshModUIs;
-
             SetVisible(true);
-        }
-
-        private void RefreshModUIs()
-        {
-            if (phantomStrikeUI != null)
-                phantomStrikeUI.RefreshTracker();
         }
 
         // -----------------------------------------------------------------------
@@ -118,14 +105,10 @@ namespace junklite
             if (attributes != null)
                 attributes.OnDeath -= HandlePlayerDeath;
 
-            if (_weaponManager != null)
-                _weaponManager.OnCombatModeChanged -= RefreshModUIs;
-
             if (healthBar != null) healthBar.Unbind();
             if (armorBar != null) armorBar.Unbind();
             if (weaponUI != null) weaponUI.Unbind();
             if (combatModUI != null) combatModUI.Unbind();
-            if (phantomStrikeUI != null) phantomStrikeUI.Unbind();
             if (weaponPickupUI != null)
             {
                 weaponPickupUI.OnClosed -= HandleWeaponPickupClosed;

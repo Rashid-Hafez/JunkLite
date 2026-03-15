@@ -4,6 +4,16 @@ using TMPro;
 
 namespace junklite
 {
+    /// <summary>
+    /// Interface for mod-specific UIs that live inside a CombatModSlotUI.
+    /// Implement this on any prefab root that a mod wants to spawn in its slot.
+    /// </summary>
+    public interface IModSlotUI
+    {
+        void Bind(ModInstance mod, PlayerCharacter player);
+        void Unbind();
+    }
+
     public class CombatModSlotUI : MonoBehaviour
     {
         #region Fields
@@ -14,25 +24,36 @@ namespace junklite
         [SerializeField] private GameObject readyIndicator;
         [SerializeField] private TMP_Text inputHintText;
 
+        [Header("Mod Custom UI")]
+        [SerializeField] private Transform modUIContainer;
+
         private ModInstance boundMod;
+        private PlayerCharacter boundPlayer;
+        private GameObject spawnedModUI;
 
         #endregion
 
         #region Bind
 
-        public void Bind(ModInstance mod, string inputHint = null)
+        public void Bind(ModInstance mod, PlayerCharacter player, string inputHint = null)
         {
+            Clear();
+
             boundMod = mod;
+            boundPlayer = player;
 
             if (inputHintText != null)
                 inputHintText.text = inputHint ?? "";
 
+            SpawnModUI();
             Refresh();
         }
 
         public void Clear()
         {
+            DestroyModUI();
             boundMod = null;
+            boundPlayer = null;
             Refresh();
         }
 
@@ -52,6 +73,33 @@ namespace junklite
 
             if (readyIndicator != null)
                 readyIndicator.SetActive(false);
+        }
+
+        #endregion
+
+        #region Mod UI Spawning
+
+        private void SpawnModUI()
+        {
+            if (boundMod == null || modUIContainer == null) return;
+            if (boundMod.Data is not ActiveModData activeMod) return;
+            if (activeMod.modSlotUIPrefab == null) return;
+
+            spawnedModUI = Instantiate(activeMod.modSlotUIPrefab, modUIContainer);
+
+            var slotUI = spawnedModUI.GetComponent<IModSlotUI>();
+            slotUI?.Bind(boundMod, boundPlayer);
+        }
+
+        private void DestroyModUI()
+        {
+            if (spawnedModUI == null) return;
+
+            var slotUI = spawnedModUI.GetComponent<IModSlotUI>();
+            slotUI?.Unbind();
+
+            Destroy(spawnedModUI);
+            spawnedModUI = null;
         }
 
         #endregion

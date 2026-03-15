@@ -27,6 +27,7 @@ namespace junklite
 
         private ModManager _modManager;
         private WeaponManager _weaponManager;
+        private PlayerCharacter _player;
         private readonly List<CombatModSlotUI> activeSlotUIs = new();
         private readonly List<CombatModSlotUI> passiveSlotUIs = new();
 
@@ -43,6 +44,7 @@ namespace junklite
 
             _modManager = modManager;
             _weaponManager = weaponManager;
+            _player = _modManager != null ? _modManager.GetComponent<PlayerCharacter>() : null;
 
             if (_modManager != null)
                 _modManager.OnModSlotsChanged += Refresh;
@@ -63,6 +65,7 @@ namespace junklite
 
             _modManager = null;
             _weaponManager = null;
+            _player = null;
 
             ClearSlots();
             SetVisible(false);
@@ -144,13 +147,13 @@ namespace junklite
             {
                 var mod = _modManager.GetActiveMod(i);
                 string hint = i < activeSlotHints.Length ? activeSlotHints[i] : "";
-                activeSlotUIs[i].Bind(mod, hint);
+                activeSlotUIs[i].Bind(mod, _player, hint);
             }
 
             for (int i = 0; i < passiveSlotUIs.Count; i++)
             {
                 var mod = _modManager.GetPassiveMod(i);
-                passiveSlotUIs[i].Bind(mod);
+                passiveSlotUIs[i].Bind(mod, _player);
             }
         }
 

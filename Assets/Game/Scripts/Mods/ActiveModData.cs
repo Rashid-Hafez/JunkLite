@@ -14,6 +14,9 @@ namespace junklite
         [Tooltip("Number of hits required before mod can be activated")]
         public int chargesRequired = 3;
 
+        [Header("Slot UI")]
+        public GameObject modSlotUIPrefab;
+
         /// <summary>Called when player lands a hit. Update charges on the instance.</summary>
         public virtual void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy)
         {
