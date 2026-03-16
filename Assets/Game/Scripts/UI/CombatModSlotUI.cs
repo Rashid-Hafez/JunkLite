@@ -24,6 +24,9 @@ namespace junklite
         [SerializeField] private GameObject readyIndicator;
         [SerializeField] private TMP_Text inputHintText;
 
+        [Header("Cooldown")]
+        [SerializeField] private Image cooldownFill;
+
         [Header("Mod Custom UI")]
         [SerializeField] private Transform modUIContainer;
 
@@ -73,6 +76,12 @@ namespace junklite
 
             if (readyIndicator != null)
                 readyIndicator.SetActive(false);
+
+            if (cooldownFill != null)
+            {
+                cooldownFill.fillAmount = 0f;
+                cooldownFill.enabled = false;
+            }
         }
 
         #endregion
@@ -118,6 +127,15 @@ namespace junklite
 
             if (readyIndicator != null && boundMod.Data is ActiveModData active)
                 readyIndicator.SetActive(active.CanActivate(boundMod, null));
+
+            // Cooldown overlay
+            if (cooldownFill != null)
+            {
+                float normalized = boundMod.CooldownNormalized;
+                bool onCooldown = normalized > 0f;
+                cooldownFill.enabled = onCooldown;
+                cooldownFill.fillAmount = normalized;
+            }
         }
 
         #endregion

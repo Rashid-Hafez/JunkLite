@@ -41,9 +41,6 @@ namespace junklite
         [Tooltip("Time after strike before controls are returned")]
         public float recoveryTime = 0.15f;
 
-        [Tooltip("Cooldown after sequence completes before mod can be used again")]
-        public float cooldownAfterUse = 0.5f;
-
         [Tooltip("Brief invulnerability after the sequence completes")]
         public float recoveryInvulnerability = 0.2f;
 
@@ -59,18 +56,12 @@ namespace junklite
         #endregion
 
         private bool isExecuting;
-        private float cooldownEndTime;
 
         #region Overrides
-        public override void OnEquip(PlayerCharacter player)
-        {
-            isExecuting = false;
-            cooldownEndTime = 0f;
-        }
 
         public override bool CanActivate(ModInstance instance, PlayerCharacter player)
         {
-            return !instance.IsBroken && !isExecuting && Time.time >= cooldownEndTime;
+            return base.CanActivate(instance, player) && !isExecuting;
         }
 
         public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy)
@@ -78,9 +69,9 @@ namespace junklite
             // No charges - do nothing
         }
 
-        public override bool OnActivate(ModInstance instance, PlayerCharacter player)
+        protected override bool ExecuteAbility(ModInstance instance, PlayerCharacter player)
         {
-            if (isExecuting || Time.time < cooldownEndTime) return false;
+            if (isExecuting) return false;
 
             var enemy = FindNearestEnemyInFacingDirection(player);
             if (enemy == null)
@@ -92,6 +83,11 @@ namespace junklite
             isExecuting = true;
             player.StartCoroutine(CoExecuteBlink(player, enemy));
             return true;
+        }
+
+        public override void OnEquip(PlayerCharacter player)
+        {
+            isExecuting = false;
         }
 
         #endregion
@@ -221,7 +217,6 @@ namespace junklite
             var enemyCollider = enemy.GetComponent<Collider>();
             if (enemyCollider == null) return;
 
-            // Use the enemy's collider center as the hit point, not closest-to-feet
             Vector3 hitPoint = enemyCollider.bounds.center;
             Vector3 hitDir = (hitPoint - attackOrigin).normalized;
 
@@ -253,7 +248,6 @@ namespace junklite
             }
 
             isExecuting = false;
-            cooldownEndTime = Time.time + cooldownAfterUse;
         }
 
         #endregion

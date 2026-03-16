@@ -66,7 +66,7 @@ namespace junklite
 
         public override bool CanActivate(ModInstance instance, PlayerCharacter player)
         {
-            return !instance.IsBroken && !isFiring;
+            return base.CanActivate(instance, player) && !isFiring;
         }
 
         public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy)
@@ -74,7 +74,7 @@ namespace junklite
             // No charges - do nothing
         }
 
-        public override bool OnActivate(ModInstance instance, PlayerCharacter player)
+        protected override bool ExecuteAbility(ModInstance instance, PlayerCharacter player)
         {
             if (isFiring) return false;
 
@@ -226,7 +226,6 @@ namespace junklite
             if (firingCoroutine != null && cachedPlayer != null)
                 cachedPlayer.StopCoroutine(firingCoroutine);
 
-            // Restore if we were mid-sequence
             if (isFiring && player != null)
             {
                 var playerState = player.PlayerState;

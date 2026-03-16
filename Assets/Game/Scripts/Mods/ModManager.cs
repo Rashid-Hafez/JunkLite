@@ -174,30 +174,23 @@ namespace junklite
         {
             if (!isActive) return false;
             if (activeSlotIndex < 0 || activeSlotIndex >= unlockedActiveSlots) return false;
-
             var mod = activeSlots[activeSlotIndex];
             if (mod == null || mod.IsBroken) return false;
-
             if (mod.Data is not ActiveModData active) return false;
-            if (!active.CanActivate(mod, playerCharacter)) return false;
 
-            bool used = active.OnActivate(mod, playerCharacter);
-
+            bool used = active.TryActivate(mod, playerCharacter);
             if (used)
             {
                 mod.ConsumeDurability();
                 OnActiveModActivated?.Invoke(activeSlotIndex);
-
                 if (mod.IsBroken)
                 {
                     active.OnUnequip(playerCharacter);
                     activeSlots[activeSlotIndex] = null;
                     Debug.Log($"[ModManager] Active mod broke: {mod.Data.modName}");
                 }
-
                 OnModSlotsChanged?.Invoke();
             }
-
             return used;
         }
 
