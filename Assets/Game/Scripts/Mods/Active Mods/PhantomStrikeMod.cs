@@ -46,14 +46,14 @@ namespace junklite
 
         #region ActiveModData Overrides
 
-        public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy)
+        public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt)
         {
             // Don't add charges if already ready or executing
             var tracker = GetTracker(player);
             if (tracker != null && tracker.IsExecutingSpecial) return;
             if (instance.CurrentCharges >= chargesRequired) return;
 
-            base.OnHitRegistered(instance, player, enemy);
+            base.OnHitRegistered(instance, player, enemy, damageDealt);
         }
 
         protected override bool ExecuteAbility(ModInstance instance, PlayerCharacter player)

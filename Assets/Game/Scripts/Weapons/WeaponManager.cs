@@ -126,7 +126,7 @@ namespace junklite
         public event Action OnWeaponChanged;
         public event Action OnCombatModeChanged;
         public event Action OnCombatModeRejected;
-        public event Action<EnemyCharacter> OnEnemyHit;
+        public event Action<EnemyCharacter, float> OnEnemyHit;
         public event Action OnEnvironmentHit;
 
         #endregion
@@ -739,7 +739,7 @@ namespace junklite
                     {
                         hitAnyEnemy = true;
                         var enemy = hit.GetComponent<EnemyCharacter>() ?? hit.GetComponentInParent<EnemyCharacter>();
-                        OnEnemyHit?.Invoke(enemy);
+                        OnEnemyHit?.Invoke(enemy, damage);
 
                         if (CombatEffectsManager.Instance != null)
                         {
@@ -864,7 +864,7 @@ namespace junklite
 
                                 var enemy = hit.collider.GetComponent<EnemyCharacter>()
                                          ?? hit.collider.GetComponentInParent<EnemyCharacter>();
-                                OnEnemyHit?.Invoke(enemy);
+                                OnEnemyHit?.Invoke(enemy, damage);
 
                                 if (CombatEffectsManager.Instance != null)
                                 {
@@ -930,7 +930,7 @@ namespace junklite
 
                                 var enemy = hit.collider.GetComponent<EnemyCharacter>()
                                          ?? hit.collider.GetComponentInParent<EnemyCharacter>();
-                                OnEnemyHit?.Invoke(enemy);
+                                OnEnemyHit?.Invoke(enemy, damage);
 
                                 if (CombatEffectsManager.Instance != null)
                                 {
@@ -1345,7 +1345,7 @@ namespace junklite
             if (damageDealt)
             {
                 var enemy = target.GetComponent<EnemyCharacter>() ?? target.GetComponentInParent<EnemyCharacter>();
-                OnEnemyHit?.Invoke(enemy);
+                OnEnemyHit?.Invoke(enemy, damage);
 
                 if (activeWeaponSlot != 0 && activeWeapon != null)
                     if (activeWeapon.ConsumeDurability())
@@ -1376,7 +1376,7 @@ namespace junklite
                 {
                     anyHit = true;
                     var enemy = target.GetComponent<EnemyCharacter>() ?? target.GetComponentInParent<EnemyCharacter>();
-                    OnEnemyHit?.Invoke(enemy);
+                    OnEnemyHit?.Invoke(enemy, damage);
                     SpawnEnemyHitVFX(target);
                 }
             }

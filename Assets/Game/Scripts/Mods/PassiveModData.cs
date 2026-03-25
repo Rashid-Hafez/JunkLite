@@ -14,7 +14,7 @@ namespace junklite
         /// <summary>Called when leaving Mod Combat or mod breaks (remove buffs, disable VFX).</summary>
         public virtual void OnUnequip(PlayerCharacter player) { }
 
-        /// <summary>Called when player lands a hit on an enemy. Use for hit-reactive passives (e.g. lifesteal).</summary>
-        public virtual void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy) { }
+        /// <summary>Called when player lands a hit on an enemy. damageDealt is the actual damage applied.</summary>
+        public virtual void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt) { }
     }
 }

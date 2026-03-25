@@ -1,5 +1,4 @@
 using UnityEngine;
-
 namespace junklite
 {
     /// <summary>
@@ -9,32 +8,24 @@ namespace junklite
     public class WeaponUI : MonoBehaviour
     {
         #region Fields
-
         [Header("Weapon Slots (scene references, not prefabs)")]
         [SerializeField] private WeaponSlotUI slot1;
         [SerializeField] private WeaponSlotUI slot2;
-
         private WeaponManager _manager;
-
         #endregion
-
         #region Bind / Unbind
-
         public void Bind(WeaponManager manager)
         {
             Unbind();
             _manager = manager;
-
             if (_manager != null)
             {
                 _manager.OnWeaponChanged += Refresh;
                 _manager.OnCombatModeChanged += Refresh;
                 _manager.OnEnemyHit += OnEnemyHitHandler;
             }
-
             Refresh();
         }
-
         public void Unbind()
         {
             if (_manager != null)
@@ -43,30 +34,22 @@ namespace junklite
                 _manager.OnCombatModeChanged -= Refresh;
                 _manager.OnEnemyHit -= OnEnemyHitHandler;
             }
-
             _manager = null;
-
             // Reset to default state
             if (slot1 != null) slot1.SetContentActive(false);
             if (slot2 != null) slot2.gameObject.SetActive(false);
         }
-
         #endregion
-
         #region Refresh
-
         public void Refresh()
         {
             if (_manager == null) return;
-
             if (_manager.IsModCombat)
                 RefreshModCombat();
             else
                 RefreshRegular();
-
             UpdateActiveIndicators();
         }
-
         private void RefreshRegular()
         {
             // Slot 1: fist icon, no durability
@@ -78,12 +61,10 @@ namespace junklite
                 else
                     slot1.SetContentActive(false);
             }
-
             // Slot 2: hidden entirely
             if (slot2 != null)
                 slot2.gameObject.SetActive(false);
         }
-
         private void RefreshModCombat()
         {
             // Slot 1: weapon 1 with durability, or empty content if no weapon
@@ -95,12 +76,10 @@ namespace junklite
                 else
                     slot1.SetContentActive(false);
             }
-
             // Slot 2: root active, content depends on weapon equipped
             if (slot2 != null)
             {
                 slot2.gameObject.SetActive(true);
-
                 var weapon2 = _manager.WeaponSlot2;
                 if (weapon2 != null)
                     slot2.Bind(weapon2, true);
@@ -108,23 +87,17 @@ namespace junklite
                     slot2.SetContentActive(false);
             }
         }
-
-        private void OnEnemyHitHandler(EnemyCharacter _) => UpdateActiveIndicators();
-
+        private void OnEnemyHitHandler(EnemyCharacter _, float __) => UpdateActiveIndicators();
         private void UpdateActiveIndicators()
         {
             if (_manager == null) return;
-
             bool inModCombat = _manager.IsModCombat;
             var active = _manager.ActiveWeapon;
-
             if (slot1 != null)
                 slot1.SetActive(inModCombat && active != null && active == _manager.WeaponSlot1);
-
             if (slot2 != null)
                 slot2.SetActive(inModCombat && active != null && active == _manager.WeaponSlot2);
         }
-
         #endregion
     }
 }

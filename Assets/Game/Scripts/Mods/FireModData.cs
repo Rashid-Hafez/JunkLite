@@ -12,7 +12,7 @@ namespace junklite
 
         #region Hooks
 
-        public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy)
+        public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt)
         {
             if (instance.IsBroken) return;
             if (enemy == null || !enemy.IsAlive || enemy.StatusEffects == null) return;

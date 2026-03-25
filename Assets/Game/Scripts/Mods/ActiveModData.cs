@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 
 namespace junklite
 {
@@ -6,7 +6,7 @@ namespace junklite
     /// Base class for active mods. Requires manual activation via dedicated input combo.
     /// Builds charges on enemy hits, activates when ready.
     /// 
-    /// Subclasses override ExecuteAbility() — cooldown is handled automatically by TryActivate().
+    /// Subclasses override ExecuteAbility() ï¿½ cooldown is handled automatically by TryActivate().
     /// </summary>
     public abstract class ActiveModData : ModData
     {
@@ -22,7 +22,7 @@ namespace junklite
         public GameObject modSlotUIPrefab;
 
         /// <summary>Called when player lands a hit. Update charges on the instance.</summary>
-        public virtual void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy)
+        public virtual void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt)
         {
             instance.AddCharge(1);
         }
@@ -37,7 +37,7 @@ namespace junklite
 
         /// <summary>
         /// Public entry point called by the mod system. Handles cooldown automatically.
-        /// Do NOT override this — override ExecuteAbility instead.
+        /// Do NOT override this ï¿½ override ExecuteAbility instead.
         /// </summary>
         public bool TryActivate(ModInstance instance, PlayerCharacter player)
         {
@@ -53,7 +53,7 @@ namespace junklite
 
         /// <summary>
         /// Execute the mod effect. Return true if effect was used (consumes durability).
-        /// Cooldown is handled automatically by TryActivate — do NOT call StartCooldown here.
+        /// Cooldown is handled automatically by TryActivate ï¿½ do NOT call StartCooldown here.
         /// </summary>
         protected abstract bool ExecuteAbility(ModInstance instance, PlayerCharacter player);
 

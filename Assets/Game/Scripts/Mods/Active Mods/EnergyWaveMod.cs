@@ -4,50 +4,50 @@ using System.Collections;
 namespace junklite
 {
     /// <summary>
-    /// Energy Wave Mod - On activation, fires a series of energy wave pulses from Cas.
-    /// Each wave travels in a straight line and damages all enemies in its path (once per enemy per wave).
-    /// Durability is consumed once on activation, not per wave.
-    /// Player is locked in place for the full duration of the sequence.
+    /// Energy Wave Mod - On activation, fires a single slow-moving energy pulse.
+    /// The pulse damages and drags all enemies caught in its path.
+    /// Player is briefly locked during the cast animation, then free to move
+    /// while the pulse travels independently.
+    /// 
+    /// No mutable state on the ScriptableObject — all runtime state lives on
+    /// ModInstance (cooldown) and the spawned pulse GameObject.
     /// </summary>
     [CreateAssetMenu(fileName = "EnergyWaveMod", menuName = "Junklite/Mods/Energy Wave")]
     public class EnergyWaveMod : ActiveModData
     {
         #region Config
 
-        [Header("Wave Count")]
-        [Tooltip("Total number of waves fired per activation")]
-        public int waveCount = 5;
-
-        [Tooltip("Time between each wave pulse")]
-        public float timeBetweenWaves = 0.35f;
-
-        [Header("Wave Prefab")]
+        [Header("Pulse Prefab")]
         [Tooltip("Prefab with EnergyWavePulse component")]
         public GameObject wavePrefab;
 
-        [Header("Wave Stats")]
-        public float waveDamage = 20f;
-        public float waveSpeed = 15f;
-        public float waveMaxDistance = 20f;
-        public float waveRadius = 1f;
+        [Header("Pulse Stats")]
+        public float tickDamage = 10f;
+        public float tickInterval = 0.3f;
+        public float pulseSpeed = 4f;
+        public float pulseLifetime = 5f;
+        public float pulseRadius = 1.5f;
         public LayerMask enemyLayerMask = 1;
 
-        [Header("Spawn")]
-        [Tooltip("Height offset from player position to spawn waves")]
-        public float spawnHeightOffset = 0.5f;
+        [Header("Drag")]
+        [Tooltip("What fraction of pulseLifetime is spent dragging (0-1)")]
+        [Range(0f, 1f)]
+        public float dragDurationRatio = 0.7f;
 
-        [Tooltip("Forward offset from player position to spawn waves")]
+        [Header("Spawn")]
+        [Tooltip("Height offset from player position")]
+        public float spawnHeightOffset = 0.5f;
+        [Tooltip("Forward offset from player position")]
         public float spawnForwardOffset = 0.5f;
 
-        [Header("Timing")]
-        [Tooltip("Recovery time after last wave before controls are returned")]
-        public float recoveryTime = 0.2f;
-
-        [Tooltip("Brief invulnerability after the sequence completes")]
-        public float recoveryInvulnerability = 0.2f;
+        [Header("Cast Timing")]
+        [Tooltip("How long the player is locked during the cast wind-up")]
+        public float castLockDuration = 0.3f;
+        [Tooltip("Brief invulnerability after cast lock ends")]
+        public float castInvulnerability = 0.2f;
 
         [Header("Animation")]
-        [Tooltip("Animation to play during wave firing (leave empty for none)")]
+        [Tooltip("Animation to play during cast (leave empty for none)")]
         public string firingAnimationName = "";
 
         [Header("VFX")]
@@ -58,56 +58,37 @@ namespace junklite
 
         #endregion
 
-        private bool isFiring;
-        private Coroutine firingCoroutine;
-        private PlayerCharacter cachedPlayer;
-
         #region Overrides
 
-        public override bool CanActivate(ModInstance instance, PlayerCharacter player)
+        public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt)
         {
-            return base.CanActivate(instance, player) && !isFiring;
-        }
-
-        public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy)
-        {
-            // No charges - do nothing
+            // No charges needed — cooldown only
         }
 
         protected override bool ExecuteAbility(ModInstance instance, PlayerCharacter player)
         {
-            if (isFiring) return false;
+            // Start cooldown immediately to prevent double-activation.
+            // This overrides the auto-cooldown in TryActivate (which also fires,
+            // but calling it twice with the same duration is harmless — second call
+            // just resets the same end time).
+            instance.StartCooldown(cooldown);
 
-            isFiring = true;
-            cachedPlayer = player;
-            firingCoroutine = player.StartCoroutine(CoFireWaves(player));
+            player.StartCoroutine(CoCastAndFire(player));
             return true;
-        }
-
-        public override void OnEquip(PlayerCharacter player)
-        {
-            isFiring = false;
-            firingCoroutine = null;
-            cachedPlayer = null;
-        }
-
-        public override void OnUnequip(PlayerCharacter player)
-        {
-            StopFiring(player);
         }
 
         #endregion
 
-        #region Wave Sequence
+        #region Cast Sequence
 
-        private IEnumerator CoFireWaves(PlayerCharacter player)
+        private IEnumerator CoCastAndFire(PlayerCharacter player)
         {
             var playerState = player.PlayerState;
             var controller = player.Controller;
             var rb = player.GetComponent<Rigidbody>();
             var spineAnim = player.GetComponent<SpineAnimationController>();
 
-            // --- LOCK EVERYTHING ---
+            // --- LOCK for cast wind-up ---
             if (playerState != null)
             {
                 playerState.SetInputLocked(true);
@@ -118,7 +99,6 @@ namespace junklite
             {
                 controller.StopAllVelocity();
                 controller.CanMove = false;
-                controller.SetPhysicsOverride(true);
             }
 
             bool wasKinematic = false;
@@ -129,33 +109,37 @@ namespace junklite
                 rb.linearVelocity = Vector3.zero;
             }
 
-            // Activation VFX
+            // VFX + animation
             if (activationVFX != null)
-                Instantiate(activationVFX, player.transform.position, Quaternion.identity);
+                Object.Instantiate(activationVFX, player.transform.position, Quaternion.identity);
 
-            // Firing animation
             if (spineAnim != null && !string.IsNullOrEmpty(firingAnimationName))
                 spineAnim.ForcePlayOverride(firingAnimationName, true, () => { });
 
-            // --- FIRE WAVES ---
-            for (int i = 0; i < waveCount; i++)
+            // Spawn the pulse
+            SpawnPulse(player);
+
+            // Hold the lock for cast duration
+            yield return new WaitForSeconds(castLockDuration);
+
+            // --- UNLOCK ---
+            if (rb != null)
+                rb.isKinematic = wasKinematic;
+
+            if (controller != null)
             {
-                if (player == null || !player.IsAlive) break;
-
-                SpawnWave(player);
-
-                if (i < waveCount - 1)
-                    yield return new WaitForSeconds(timeBetweenWaves);
+                controller.CanMove = true;
             }
 
-            // --- RECOVERY ---
-            yield return new WaitForSeconds(recoveryTime);
-
-            // --- RESTORE EVERYTHING ---
-            RestorePhysics(player, playerState, controller, rb, wasKinematic);
+            if (playerState != null)
+            {
+                playerState.SetInputLocked(false);
+                playerState.SetVulnerable(true);
+                playerState.ApplyInvulnerability(castInvulnerability);
+            }
         }
 
-        private void SpawnWave(PlayerCharacter player)
+        private void SpawnPulse(PlayerCharacter player)
         {
             if (wavePrefab == null)
             {
@@ -170,73 +154,29 @@ namespace junklite
 
             Vector3 direction = Vector3.right * facing;
 
-            var go = Instantiate(wavePrefab, spawnPos, Quaternion.identity);
+            var go = Object.Instantiate(wavePrefab, spawnPos, Quaternion.identity);
             var pulse = go.GetComponent<EnergyWavePulse>();
 
             if (pulse != null)
             {
                 pulse.Initialize(
                     direction,
-                    waveSpeed,
-                    waveMaxDistance,
-                    waveDamage,
-                    waveRadius,
+                    pulseSpeed,
+                    pulseLifetime,
+                    tickDamage,
+                    tickInterval,
+                    pulseRadius,
                     enemyLayerMask,
                     player.gameObject,
-                    hitShakeIntensity
+                    hitShakeIntensity,
+                    dragDurationRatio
                 );
             }
             else
             {
                 Debug.LogWarning("[EnergyWave] Wave prefab missing EnergyWavePulse component.");
-                Destroy(go);
+                Object.Destroy(go);
             }
-        }
-
-        private void RestorePhysics(
-            PlayerCharacter player,
-            PlayerState playerState,
-            Character2D5Controller controller,
-            Rigidbody rb,
-            bool wasKinematic)
-        {
-            if (rb != null)
-                rb.isKinematic = wasKinematic;
-
-            if (controller != null)
-            {
-                controller.SetPhysicsOverride(false);
-                controller.CanMove = true;
-            }
-
-            if (playerState != null)
-            {
-                playerState.SetInputLocked(false);
-                playerState.SetVulnerable(true);
-                playerState.ApplyInvulnerability(recoveryInvulnerability);
-            }
-
-            isFiring = false;
-            firingCoroutine = null;
-            cachedPlayer = null;
-        }
-
-        private void StopFiring(PlayerCharacter player)
-        {
-            if (firingCoroutine != null && cachedPlayer != null)
-                cachedPlayer.StopCoroutine(firingCoroutine);
-
-            if (isFiring && player != null)
-            {
-                var playerState = player.PlayerState;
-                var controller = player.Controller;
-                var rb = player.GetComponent<Rigidbody>();
-                RestorePhysics(player, playerState, controller, rb, false);
-            }
-
-            isFiring = false;
-            firingCoroutine = null;
-            cachedPlayer = null;
         }
 
         #endregion

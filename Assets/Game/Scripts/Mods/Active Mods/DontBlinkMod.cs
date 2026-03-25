@@ -64,7 +64,7 @@ namespace junklite
             return base.CanActivate(instance, player) && !isExecuting;
         }
 
-        public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy)
+        public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt)
         {
             // No charges - do nothing
         }
