@@ -33325,7 +33325,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &4365015538529519696
 RectTransform:
   m_ObjectHideFlags: 0
@@ -53557,6 +53557,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: Weapon Slot 2
       objectReference: {fileID: 0}
+    - target: {fileID: 1353347124621032607, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4134009664346342025, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4407934273220718630, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -53648,6 +53656,18 @@ PrefabInstance:
     - target: {fileID: 4407934273220718630, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4487017535952624363, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7136119098114402993, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8594533289010789778, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -54000,6 +54020,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: Weapon Slot 1
       objectReference: {fileID: 0}
+    - target: {fileID: 1353347124621032607, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4134009664346342025, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4407934273220718630, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -54079,6 +54107,18 @@ PrefabInstance:
     - target: {fileID: 4407934273220718630, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4487017535952624363, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7136119098114402993, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8594533289010789778, guid: e0f650382f3607a4bbf83492889d56c9, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -11,8 +11,8 @@ namespace junklite
         [SerializeField] private bool hideOnDeath = false;
 
         [Header("References")]
-        [SerializeField] private StatBarUI healthBar;
-        [SerializeField] private StatBarUI armorBar;
+        [SerializeField] private StatBarUI healthBar; // change this to work with the new UI
+        [SerializeField] private StatBarUI armorBar; // change this to work with the new UI
         [SerializeField] private TMP_Text playerNameText;
 
         [Header("UI Extensions (Weapon + Inventory)")]
