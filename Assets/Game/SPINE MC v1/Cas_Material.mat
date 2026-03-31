@@ -8,11 +8,14 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Cas_Material
-  m_Shader: {fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}
+  m_Shader: {fileID: 4800000, guid: ee7e4c9a5f6364b688a332c67fc32cca, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _ALPHATEST_ON
+  - _NORMALMAP
+  - _RECEIVE_SHADOWS_OFF
+  - _SPECULARHIGHLIGHTS_OFF
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
@@ -31,7 +34,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BumpMap:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: 4bc946c0f07874daf9bf43a1779e7db1, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _ClearCoatMap:
@@ -113,7 +116,7 @@ Material:
     - _GlossinessSource: 0
     - _GlossyReflections: 0
     - _LightAffectsAdditive: 0
-    - _Metallic: 0.352
+    - _Metallic: 0.13
     - _OcclusionStrength: 1
     - _OutlineMipLevel: 0
     - _OutlineOpaqueAlpha: 1
@@ -127,7 +130,7 @@ Material:
     - _ShadowAlphaCutoff: 0.1
     - _Shininess: 0
     - _Smoothness: 1
-    - _SmoothnessSource: 0
+    - _SmoothnessSource: 1
     - _SmoothnessTextureChannel: 0
     - _SpecSource: 0
     - _SpecularHighlights: 0
@@ -149,7 +152,7 @@ Material:
     - _EmissionColor: {r: 0.4245283, g: 0.4245283, b: 0.4245283, a: 1}
     - _FillColor: {r: 1, g: 1, b: 1, a: 1}
     - _OutlineColor: {r: 1, g: 1, b: 0, a: 1}
-    - _SpecColor: {r: 0.2, g: 0.2, b: 0.2, a: 0.761}
+    - _SpecColor: {r: 0.2, g: 0.2, b: 0.2, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!114 &6768674105564323318

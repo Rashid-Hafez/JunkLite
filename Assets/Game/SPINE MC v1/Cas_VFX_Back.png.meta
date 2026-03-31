@@ -134,12 +134,2168 @@ TextureImporter:
     forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
-    sprites: []
+    sprites:
+    - serializedVersion: 2
+      name: Cas_VFX_Back_0
+      rect:
+        serializedVersion: 2
+        x: 5
+        y: 827
+        width: 18
+        height: 14
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3b218e433fdc141c79cfbe97e89a451c
+      internalID: 1897003433
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_1
+      rect:
+        serializedVersion: 2
+        x: 28
+        y: 798
+        width: 27
+        height: 52
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 94a5611edc43c471b91c9c8357c11082
+      internalID: 922327762
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_2
+      rect:
+        serializedVersion: 2
+        x: 51
+        y: 821
+        width: 27
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a45bb345695f14c209873a0e725625df
+      internalID: -1532828189
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_3
+      rect:
+        serializedVersion: 2
+        x: 17
+        y: 814
+        width: 8
+        height: 6
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 98628aa5078ca4d7b856593dc71812a7
+      internalID: 300609470
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_4
+      rect:
+        serializedVersion: 2
+        x: 12
+        y: 800
+        width: 11
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ed0e14d4ca2184755899bb675a46b599
+      internalID: 982242334
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_5
+      rect:
+        serializedVersion: 2
+        x: 59
+        y: 804
+        width: 28
+        height: 8
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fa7fa35f6582e423bb339f838cc11efe
+      internalID: -680368694
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_6
+      rect:
+        serializedVersion: 2
+        x: 21
+        y: 783
+        width: 8
+        height: 11
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f8e80016e4528460da1a05fc131a9ad1
+      internalID: 169921029
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_7
+      rect:
+        serializedVersion: 2
+        x: 49
+        y: 783
+        width: 7
+        height: 19
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 435d8cbfd4a1440c3a4b7c25689fba52
+      internalID: -638627592
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_8
+      rect:
+        serializedVersion: 2
+        x: 10
+        y: 702
+        width: 193
+        height: 61
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a41cc1acd422d4db3a8db7b26de77ed7
+      internalID: 307409974
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_9
+      rect:
+        serializedVersion: 2
+        x: 36
+        y: 675
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 49fe3942760c74a7dae4f55ceed20cbd
+      internalID: 1053734988
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_10
+      rect:
+        serializedVersion: 2
+        x: 245
+        y: 634
+        width: 17
+        height: 17
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 060d56fdb2fbc4b2c9afbc1a61523ee5
+      internalID: 189211297
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_11
+      rect:
+        serializedVersion: 2
+        x: 93
+        y: 573
+        width: 16
+        height: 29
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: afe9f6ef6e5e0461fa034799be478197
+      internalID: 52467332
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_12
+      rect:
+        serializedVersion: 2
+        x: 205
+        y: 557
+        width: 32
+        height: 42
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fd0d5aa4e3d1c4776bcfef779e475b6b
+      internalID: 1834430554
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_13
+      rect:
+        serializedVersion: 2
+        x: 297
+        y: 580
+        width: 17
+        height: 24
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bd71db3291ad144898e96276f0a1255c
+      internalID: 1540037908
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_14
+      rect:
+        serializedVersion: 2
+        x: 306
+        y: 544
+        width: 76
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 67a587687e4234c879996113e91dc09b
+      internalID: 280178612
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_15
+      rect:
+        serializedVersion: 2
+        x: 8
+        y: 565
+        width: 13
+        height: 4
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f9d16e5b447da483a8d2e1961fd6fc34
+      internalID: -361518820
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_16
+      rect:
+        serializedVersion: 2
+        x: 58
+        y: 560
+        width: 7
+        height: 11
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5fadc545738244be5b45fc1f1b2e8cd0
+      internalID: -827358386
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_17
+      rect:
+        serializedVersion: 2
+        x: 99
+        y: 553
+        width: 5
+        height: 14
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8a2fbfda614ed49cf8859c89d4cdd3b9
+      internalID: -291173576
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_18
+      rect:
+        serializedVersion: 2
+        x: 126
+        y: 552
+        width: 11
+        height: 20
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 65fb67a2f467d4eb1825ad96c6c0814d
+      internalID: -242605248
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_19
+      rect:
+        serializedVersion: 2
+        x: 204
+        y: 539
+        width: 8
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ddbbe3af859044ebb901585af21d1d3f
+      internalID: 115359697
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_20
+      rect:
+        serializedVersion: 2
+        x: 43
+        y: 453
+        width: 55
+        height: 59
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f47b96d18fa1144fb9b2681fa3d8ad55
+      internalID: -558979858
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_21
+      rect:
+        serializedVersion: 2
+        x: 171
+        y: 458
+        width: 5
+        height: 7
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c5933f9497cc645daae6430ac0b5c62a
+      internalID: 2111842099
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_22
+      rect:
+        serializedVersion: 2
+        x: 177
+        y: 462
+        width: 14
+        height: 69
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 95b58f735207c4191b50625b7e4c974d
+      internalID: -1715112518
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_23
+      rect:
+        serializedVersion: 2
+        x: 187
+        y: 425
+        width: 78
+        height: 69
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f0f890417811640489733368b8e34579
+      internalID: -285187337
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_24
+      rect:
+        serializedVersion: 2
+        x: 303
+        y: 464
+        width: 193
+        height: 60
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bc32be7c1989a492cb14e115e062244f
+      internalID: -1677767108
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_25
+      rect:
+        serializedVersion: 2
+        x: 88
+        y: 406
+        width: 24
+        height: 46
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2bc17a34e67b7472e93bfdab0474608c
+      internalID: -1755258814
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_26
+      rect:
+        serializedVersion: 2
+        x: 101
+        y: 431
+        width: 20
+        height: 20
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a7794fa381fc744e2aa0fe28b9098364
+      internalID: -1604742117
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_27
+      rect:
+        serializedVersion: 2
+        x: 129
+        y: 424
+        width: 15
+        height: 14
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 367b12955be0a43a9bace243235b7b9c
+      internalID: 1837778213
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_28
+      rect:
+        serializedVersion: 2
+        x: 152
+        y: 423
+        width: 10
+        height: 8
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1bb051952cd074ea1bc4b6253e5cdf59
+      internalID: -608889735
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_29
+      rect:
+        serializedVersion: 2
+        x: 332
+        y: 363
+        width: 172
+        height: 79
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8a4dc53b28c594f459de2f4b838aa79f
+      internalID: -846192237
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_30
+      rect:
+        serializedVersion: 2
+        x: 529
+        y: 416
+        width: 22
+        height: 33
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1239ed329153c4f138fab42dcf7c14dd
+      internalID: 361521031
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_31
+      rect:
+        serializedVersion: 2
+        x: 550
+        y: 416
+        width: 30
+        height: 41
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: df91e67cb6e264d629234d7626f4f13b
+      internalID: -912614310
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_32
+      rect:
+        serializedVersion: 2
+        x: 130
+        y: 384
+        width: 21
+        height: 32
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b11285595d2fa46d8bc7c79a59700767
+      internalID: 1764453223
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_33
+      rect:
+        serializedVersion: 2
+        x: 193
+        y: 390
+        width: 60
+        height: 30
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b6f70b41630a643aeabbd6887735f3a5
+      internalID: 1073834712
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_34
+      rect:
+        serializedVersion: 2
+        x: 518
+        y: 412
+        width: 28
+        height: 8
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bb82536d2f7f64ca784065f768d7a49a
+      internalID: 546877008
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_35
+      rect:
+        serializedVersion: 2
+        x: 562
+        y: 410
+        width: 5
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0e8766a15a7da4e1bbaf9882395c2aab
+      internalID: 1089112417
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_36
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 387
+        width: 88
+        height: 24
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c7fe1a91cf77542568713319636c862a
+      internalID: 2595784
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_37
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 383
+        width: 21
+        height: 24
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 71c8e1a6b4d9645908bd3507788e4186
+      internalID: -101664281
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_38
+      rect:
+        serializedVersion: 2
+        x: 183
+        y: 373
+        width: 25
+        height: 26
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3ec151c1f123d405f9a056783a772aa4
+      internalID: 225966168
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_39
+      rect:
+        serializedVersion: 2
+        x: 259
+        y: 396
+        width: 35
+        height: 7
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8dc2906bbc3ea4b33bbe3c03a9ed4528
+      internalID: 1472651214
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_40
+      rect:
+        serializedVersion: 2
+        x: 525
+        y: 380
+        width: 22
+        height: 29
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6da353456a5894c48abf8cc3c3fd38f6
+      internalID: -808011060
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_41
+      rect:
+        serializedVersion: 2
+        x: 547
+        y: 387
+        width: 17
+        height: 23
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 22a0f6d42c05f43e0adfa3b92b84aaaf
+      internalID: -474585366
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_42
+      rect:
+        serializedVersion: 2
+        x: 563
+        y: 394
+        width: 18
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 23246d7f2e8bc43308bc203242589793
+      internalID: -1344164852
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_43
+      rect:
+        serializedVersion: 2
+        x: 150
+        y: 379
+        width: 13
+        height: 7
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 54943831485a743f2b2610f63383ad1f
+      internalID: -916899356
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_44
+      rect:
+        serializedVersion: 2
+        x: 224
+        y: 379
+        width: 4
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7f0658787e34c474580eef0bafd12785
+      internalID: 733494623
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_45
+      rect:
+        serializedVersion: 2
+        x: 231
+        y: 379
+        width: 9
+        height: 10
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: cf7e509470fa548a882e8109d2f35bef
+      internalID: -2000894154
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_46
+      rect:
+        serializedVersion: 2
+        x: 169
+        y: 273
+        width: 21
+        height: 57
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 43f423baa8b274ad5b1d66c30e8bd9a5
+      internalID: 590982887
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_47
+      rect:
+        serializedVersion: 2
+        x: 333
+        y: 310
+        width: 40
+        height: 44
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a490f448cd1924d6489bb9e6e09311eb
+      internalID: -1475171052
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_48
+      rect:
+        serializedVersion: 2
+        x: 471
+        y: 313
+        width: 8
+        height: 25
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2ffa9e57f671e4161bf1f8611d6f2ba4
+      internalID: 367734081
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_49
+      rect:
+        serializedVersion: 2
+        x: 557
+        y: 330
+        width: 5
+        height: 7
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 806d9933049a1418582ec7addacc2862
+      internalID: 467187972
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_50
+      rect:
+        serializedVersion: 2
+        x: 27
+        y: 214
+        width: 236
+        height: 95
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4765a829e67cb474f90bffaf9c540a3d
+      internalID: 1984127664
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_51
+      rect:
+        serializedVersion: 2
+        x: 465
+        y: 300
+        width: 4
+        height: 4
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 32761e5f008884974bd91157b3113103
+      internalID: -2137435048
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_52
+      rect:
+        serializedVersion: 2
+        x: 524
+        y: 295
+        width: 31
+        height: 33
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a8f29cf3eb8e94fcca0108d5254657ba
+      internalID: 1937942002
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_53
+      rect:
+        serializedVersion: 2
+        x: 588
+        y: 296
+        width: 183
+        height: 7
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9ff2786f0400d4f1097b03fe57951028
+      internalID: 765858952
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_54
+      rect:
+        serializedVersion: 2
+        x: 380
+        y: 279
+        width: 17
+        height: 15
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 82aada83a393446aba0ae4182efb735f
+      internalID: 37044943
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_55
+      rect:
+        serializedVersion: 2
+        x: 399
+        y: 275
+        width: 15
+        height: 11
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a7b8fd08e3ede41438eba98673235940
+      internalID: 434583588
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_56
+      rect:
+        serializedVersion: 2
+        x: 489
+        y: 268
+        width: 12
+        height: 11
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1114a4091e95746fda3a23e8f81682a8
+      internalID: 440071330
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_57
+      rect:
+        serializedVersion: 2
+        x: 649
+        y: 224
+        width: 149
+        height: 69
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fe0ea322b626a4e799d6147419ccf3a6
+      internalID: -495997460
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_58
+      rect:
+        serializedVersion: 2
+        x: 387
+        y: 249
+        width: 18
+        height: 29
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 08577c8dff70b471eb187271c7d77f0a
+      internalID: -360950507
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_59
+      rect:
+        serializedVersion: 2
+        x: 422
+        y: 264
+        width: 9
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fce7f835ca6aa4e23bab825363474775
+      internalID: 1960264870
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_60
+      rect:
+        serializedVersion: 2
+        x: 446
+        y: 263
+        width: 10
+        height: 7
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: afb0509a0088d4241b6a625e8960f02a
+      internalID: 1997596519
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_61
+      rect:
+        serializedVersion: 2
+        x: 296
+        y: 232
+        width: 65
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9e465a527285e4e8f833247844dca568
+      internalID: 150399045
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_62
+      rect:
+        serializedVersion: 2
+        x: 352
+        y: 236
+        width: 27
+        height: 14
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 171031a936c744538b3dacd2eb05fabb
+      internalID: 929992152
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_63
+      rect:
+        serializedVersion: 2
+        x: 391
+        y: 223
+        width: 14
+        height: 24
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d3d48522389c84b15a748ce10b109ef1
+      internalID: 1913636283
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_64
+      rect:
+        serializedVersion: 2
+        x: 421
+        y: 226
+        width: 17
+        height: 29
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c73a672d71a3c43b8869e48919caf13b
+      internalID: 1609496250
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_65
+      rect:
+        serializedVersion: 2
+        x: 490
+        y: 247
+        width: 12
+        height: 14
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4a943ce432d4747438713234224c64bd
+      internalID: -953825974
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_66
+      rect:
+        serializedVersion: 2
+        x: 506
+        y: 230
+        width: 30
+        height: 23
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8ca45e789488646b5b2366bb02485055
+      internalID: -1528908072
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_67
+      rect:
+        serializedVersion: 2
+        x: 481
+        y: 212
+        width: 24
+        height: 25
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d610e107f6ec24d3bb6c7b69ef056916
+      internalID: 1104103407
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_68
+      rect:
+        serializedVersion: 2
+        x: 520
+        y: 217
+        width: 15
+        height: 10
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 37588ffdf2f194f82a188fb6c8f75dbb
+      internalID: 465442046
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_69
+      rect:
+        serializedVersion: 2
+        x: 467
+        y: 124
+        width: 16
+        height: 71
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bcd41b4de04c742dd91245d6661d46a6
+      internalID: -2038493962
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_70
+      rect:
+        serializedVersion: 2
+        x: 625
+        y: 187
+        width: 9
+        height: 10
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ffdd8124881a048b48ed9961a73e6afe
+      internalID: 1029888645
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_71
+      rect:
+        serializedVersion: 2
+        x: 352
+        y: 94
+        width: 64
+        height: 80
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c07a4e389c38f4a639a385e58f0a6216
+      internalID: 549531042
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_72
+      rect:
+        serializedVersion: 2
+        x: 644
+        y: 169
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 281e2146869434553a1912a0a8456eaf
+      internalID: 1078688991
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_73
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 164
+        width: 5
+        height: 15
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 69b69b651e8bf463eaf2b70dff659790
+      internalID: -1095962938
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_74
+      rect:
+        serializedVersion: 2
+        x: 824
+        y: 142
+        width: 34
+        height: 36
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ea6e2648a850442cfb212dd017844ad3
+      internalID: 1918583558
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_75
+      rect:
+        serializedVersion: 2
+        x: 58
+        y: 55
+        width: 105
+        height: 69
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 98578b104eda64f39b1530bfd9587ee1
+      internalID: -903985783
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_76
+      rect:
+        serializedVersion: 2
+        x: 171
+        y: 118
+        width: 6
+        height: 19
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 094d5fccb5b954e4e8084effd871d6ad
+      internalID: -1786672512
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_77
+      rect:
+        serializedVersion: 2
+        x: 472
+        y: 56
+        width: 107
+        height: 107
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a7443de78b2854e09a3759feed9145d5
+      internalID: 850826993
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_78
+      rect:
+        serializedVersion: 2
+        x: 673
+        y: 123
+        width: 10
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 208da6a113e0e4cd088eef43eee2f12b
+      internalID: 455133453
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_79
+      rect:
+        serializedVersion: 2
+        x: 425
+        y: 103
+        width: 14
+        height: 10
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 98ffa002d2c8844cca3aff6d8f2325ae
+      internalID: 1466670652
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_80
+      rect:
+        serializedVersion: 2
+        x: 687
+        y: 108
+        width: 8
+        height: 9
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 78c55e7a7561a4a5bb568e4b8b76b4f3
+      internalID: -1832896573
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_81
+      rect:
+        serializedVersion: 2
+        x: 718
+        y: 111
+        width: 5
+        height: 4
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3a112ba6b24664be89c38686dfe67858
+      internalID: -1785011223
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_82
+      rect:
+        serializedVersion: 2
+        x: 791
+        y: 112
+        width: 4
+        height: 4
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: da078034d4fae460dba791df6bb415fc
+      internalID: 1937171651
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_83
+      rect:
+        serializedVersion: 2
+        x: 894
+        y: 60
+        width: 70
+        height: 53
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5ab6cfdeb68db4925acce7b78e9991cc
+      internalID: -1891769581
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_84
+      rect:
+        serializedVersion: 2
+        x: 158
+        y: 54
+        width: 94
+        height: 57
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 525603bcc5e20417bb32d8a4381d08e2
+      internalID: -1099108295
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_85
+      rect:
+        serializedVersion: 2
+        x: 449
+        y: 97
+        width: 6
+        height: 8
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5b7fd3498222e45eaa1b9766659b83ca
+      internalID: -67569419
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_86
+      rect:
+        serializedVersion: 2
+        x: 681
+        y: 89
+        width: 7
+        height: 10
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fe5682614054445d6924d28de7f37441
+      internalID: -172401545
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_87
+      rect:
+        serializedVersion: 2
+        x: 715
+        y: 67
+        width: 34
+        height: 42
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 83af3ce60731f47daab46d019dee2786
+      internalID: -167882141
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_88
+      rect:
+        serializedVersion: 2
+        x: 301
+        y: 59
+        width: 114
+        height: 29
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7da447a585c544cf481a7ba206e1c94d
+      internalID: -2096512873
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_89
+      rect:
+        serializedVersion: 2
+        x: 387
+        y: 79
+        width: 13
+        height: 15
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e6c64cdb35ca54a76a782f0844a9adbd
+      internalID: 221772351
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_90
+      rect:
+        serializedVersion: 2
+        x: 403
+        y: 86
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: def4aaeef1eb348a4b04a9a1eba8eb3b
+      internalID: -142311524
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_91
+      rect:
+        serializedVersion: 2
+        x: 423
+        y: 58
+        width: 33
+        height: 36
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e3e5b54d517ce4fff9e602730cf02c77
+      internalID: 846066472
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_92
+      rect:
+        serializedVersion: 2
+        x: 589
+        y: 75
+        width: 45
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b76af2ca4312c47aba730c95d287b2cb
+      internalID: -1944257799
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_93
+      rect:
+        serializedVersion: 2
+        x: 646
+        y: 76
+        width: 23
+        height: 13
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0b4c08b8cf51842e080e72dbc0808311
+      internalID: 338552416
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_94
+      rect:
+        serializedVersion: 2
+        x: 807
+        y: 71
+        width: 20
+        height: 21
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 27e2694318b2148be9f9ce7f746e9dbf
+      internalID: -425944998
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_95
+      rect:
+        serializedVersion: 2
+        x: 685
+        y: 64
+        width: 7
+        height: 20
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 865293b030afc4d27b203b90e0133142
+      internalID: -1674246250
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_96
+      rect:
+        serializedVersion: 2
+        x: 785
+        y: 53
+        width: 15
+        height: 20
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b07d543443d9f45b49202380eda2a260
+      internalID: -1589246799
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Cas_VFX_Back_97
+      rect:
+        serializedVersion: 2
+        x: 825
+        y: 57
+        width: 4
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9623c3766e5544d75851997e7f6ef29a
+      internalID: 846866845
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 579f6fccb923946409d0c38c5eee7c2a
     internalID: 0
     vertices: []
     indices: 
@@ -147,8 +2303,108 @@ TextureImporter:
     weights: []
     secondaryTextures: []
     spriteCustomMetadata:
-      entries: []
-    nameFileIdTable: {}
+      entries:
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
+    nameFileIdTable:
+      Cas_VFX_Back_0: 1897003433
+      Cas_VFX_Back_1: 922327762
+      Cas_VFX_Back_10: 189211297
+      Cas_VFX_Back_11: 52467332
+      Cas_VFX_Back_12: 1834430554
+      Cas_VFX_Back_13: 1540037908
+      Cas_VFX_Back_14: 280178612
+      Cas_VFX_Back_15: -361518820
+      Cas_VFX_Back_16: -827358386
+      Cas_VFX_Back_17: -291173576
+      Cas_VFX_Back_18: -242605248
+      Cas_VFX_Back_19: 115359697
+      Cas_VFX_Back_2: -1532828189
+      Cas_VFX_Back_20: -558979858
+      Cas_VFX_Back_21: 2111842099
+      Cas_VFX_Back_22: -1715112518
+      Cas_VFX_Back_23: -285187337
+      Cas_VFX_Back_24: -1677767108
+      Cas_VFX_Back_25: -1755258814
+      Cas_VFX_Back_26: -1604742117
+      Cas_VFX_Back_27: 1837778213
+      Cas_VFX_Back_28: -608889735
+      Cas_VFX_Back_29: -846192237
+      Cas_VFX_Back_3: 300609470
+      Cas_VFX_Back_30: 361521031
+      Cas_VFX_Back_31: -912614310
+      Cas_VFX_Back_32: 1764453223
+      Cas_VFX_Back_33: 1073834712
+      Cas_VFX_Back_34: 546877008
+      Cas_VFX_Back_35: 1089112417
+      Cas_VFX_Back_36: 2595784
+      Cas_VFX_Back_37: -101664281
+      Cas_VFX_Back_38: 225966168
+      Cas_VFX_Back_39: 1472651214
+      Cas_VFX_Back_4: 982242334
+      Cas_VFX_Back_40: -808011060
+      Cas_VFX_Back_41: -474585366
+      Cas_VFX_Back_42: -1344164852
+      Cas_VFX_Back_43: -916899356
+      Cas_VFX_Back_44: 733494623
+      Cas_VFX_Back_45: -2000894154
+      Cas_VFX_Back_46: 590982887
+      Cas_VFX_Back_47: -1475171052
+      Cas_VFX_Back_48: 367734081
+      Cas_VFX_Back_49: 467187972
+      Cas_VFX_Back_5: -680368694
+      Cas_VFX_Back_50: 1984127664
+      Cas_VFX_Back_51: -2137435048
+      Cas_VFX_Back_52: 1937942002
+      Cas_VFX_Back_53: 765858952
+      Cas_VFX_Back_54: 37044943
+      Cas_VFX_Back_55: 434583588
+      Cas_VFX_Back_56: 440071330
+      Cas_VFX_Back_57: -495997460
+      Cas_VFX_Back_58: -360950507
+      Cas_VFX_Back_59: 1960264870
+      Cas_VFX_Back_6: 169921029
+      Cas_VFX_Back_60: 1997596519
+      Cas_VFX_Back_61: 150399045
+      Cas_VFX_Back_62: 929992152
+      Cas_VFX_Back_63: 1913636283
+      Cas_VFX_Back_64: 1609496250
+      Cas_VFX_Back_65: -953825974
+      Cas_VFX_Back_66: -1528908072
+      Cas_VFX_Back_67: 1104103407
+      Cas_VFX_Back_68: 465442046
+      Cas_VFX_Back_69: -2038493962
+      Cas_VFX_Back_7: -638627592
+      Cas_VFX_Back_70: 1029888645
+      Cas_VFX_Back_71: 549531042
+      Cas_VFX_Back_72: 1078688991
+      Cas_VFX_Back_73: -1095962938
+      Cas_VFX_Back_74: 1918583558
+      Cas_VFX_Back_75: -903985783
+      Cas_VFX_Back_76: -1786672512
+      Cas_VFX_Back_77: 850826993
+      Cas_VFX_Back_78: 455133453
+      Cas_VFX_Back_79: 1466670652
+      Cas_VFX_Back_8: 307409974
+      Cas_VFX_Back_80: -1832896573
+      Cas_VFX_Back_81: -1785011223
+      Cas_VFX_Back_82: 1937171651
+      Cas_VFX_Back_83: -1891769581
+      Cas_VFX_Back_84: -1099108295
+      Cas_VFX_Back_85: -67569419
+      Cas_VFX_Back_86: -172401545
+      Cas_VFX_Back_87: -167882141
+      Cas_VFX_Back_88: -2096512873
+      Cas_VFX_Back_89: 221772351
+      Cas_VFX_Back_9: 1053734988
+      Cas_VFX_Back_90: -142311524
+      Cas_VFX_Back_91: 846066472
+      Cas_VFX_Back_92: -1944257799
+      Cas_VFX_Back_93: 338552416
+      Cas_VFX_Back_94: -425944998
+      Cas_VFX_Back_95: -1674246250
+      Cas_VFX_Back_96: -1589246799
+      Cas_VFX_Back_97: 846866845
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
