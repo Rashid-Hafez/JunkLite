@@ -8,7 +8,7 @@ namespace junklite
     public class GameInputManager : MonoBehaviour
     {
         public static GameInputManager Instance { get; private set; }
-        private InputSystem_Actions controls;
+        public InputSystem_Actions controls;
 
         // Gameplay events (gated by IsGameplayInputEnabled)
         public event Action<Vector2> OnMove = delegate { };
@@ -35,6 +35,7 @@ namespace junklite
         public event Action<Vector2> OnUINavigate = delegate { };
         public event Action OnUISubmit = delegate { };
         public event Action OnUICancel = delegate { };
+
 
         public Vector2 MoveDirection { get; private set; }
         public bool IsAttackHeld { get; private set; }
@@ -191,7 +192,7 @@ namespace junklite
                 Debug.LogWarning("[Input] Parry action not found on controls. Make sure the input asset defines it.");
             }
 
-            // === INTERACT ===
+            // === INTERACT ===z
             // You must add an "Interact" action to the Player action map in your Input Actions asset.
             // Bind it to the F key (or your preferred key).
             controls.Player.Interact.performed += _ =>
@@ -268,6 +269,8 @@ namespace junklite
             {
                 OnUICancel();
             };
+
+
         }
 
         void OnEnable()
