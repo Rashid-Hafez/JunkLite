@@ -4,12 +4,6 @@ namespace junklite
 {
     /// <summary>
     /// Base class for all mods. Subclass PassiveModData or ActiveModData to create mods.
-    /// 
-    /// To create a new mod:
-    /// 1. Extend PassiveModData (for always-on effects) or ActiveModData (for manual activation)
-    /// 2. Add [CreateAssetMenu] attribute
-    /// 3. Override the relevant hooks
-    /// 4. Create asset in Unity (Right-click → Create → Junklite/Mods/YourMod)
     /// </summary>
     public abstract class ModData : ScriptableObject
     {
@@ -23,6 +17,14 @@ namespace junklite
         public ModType modType;
         public ModRarity rarity;
         public ModElement element;
+
+        [Header("Description")]
+        [TextArea(2, 5)]
+        public string description;
+
+        [Tooltip("Representative damage value shown in the UI. For active mods this is the base hit damage; " +
+                 "for passive mods it is the damage per tick / proc.")]
+        public float baseDamage;
 
         [Header("Visuals")]
         [Tooltip("Prefab spawned by WorldModPickup to represent this mod in the world")]

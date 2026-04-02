@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using System;
 
 namespace junklite
 {
@@ -13,7 +14,7 @@ namespace junklite
         [Header("UI References")]
         [SerializeField] private Image iconImage;
         [SerializeField] private Image durabilityFill;
-        [SerializeField] private Image highlightImage; // Valid target glow
+        [SerializeField] private Image highlightImage;
 
         private WeaponManager weaponManager;
         private int slotIndex; // 1 or 2
@@ -25,6 +26,16 @@ namespace junklite
 
         // Click-to-swap state
         private static InventoryWeaponSlotUI selectedSlot;
+
+        #endregion
+
+        #region Events
+
+        /// <summary>
+        /// Fired when a weapon slot is clicked. Passes null when deselected.
+        /// InventoryUI subscribes to this to update the description box.
+        /// </summary>
+        public static event Action<WeaponInstance> OnWeaponSelected;
 
         #endregion
 
@@ -82,7 +93,6 @@ namespace junklite
 
         private void Update()
         {
-            // Highlight the other weapon slot when one is selected
             if (highlightImage != null)
             {
                 bool showHighlight = selectedSlot != null
@@ -98,10 +108,8 @@ namespace junklite
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            // Don't process clicks during drag
             if (draggedSlot != null) return;
 
-            // No selection yet — select this slot if it has a weapon
             if (selectedSlot == null)
             {
                 if (!IsEmpty)
@@ -109,26 +117,29 @@ namespace junklite
                     selectedSlot = this;
                     if (iconImage != null)
                         iconImage.color = new Color(1, 1, 1, 0.5f);
+
+                    OnWeaponSelected?.Invoke(GetWeapon());
                 }
                 return;
             }
 
-            // Clicking the already-selected slot — deselect
             if (selectedSlot == this)
             {
                 ClearSelection();
+                OnWeaponSelected?.Invoke(null);
                 return;
             }
 
-            // Clicking the other weapon slot — perform swap
             if (selectedSlot.weaponManager == weaponManager)
             {
                 ClearSelection();
+                OnWeaponSelected?.Invoke(null);
                 weaponManager.SwapWeaponSlots();
             }
             else
             {
                 ClearSelection();
+                OnWeaponSelected?.Invoke(null);
             }
         }
 
@@ -148,8 +159,8 @@ namespace junklite
 
         public void OnBeginDrag(PointerEventData eventData)
         {
-            // Cancel any click-selection when starting a drag
             ClearSelection();
+            OnWeaponSelected?.Invoke(null);
 
             if (IsEmpty)
             {
@@ -229,7 +240,6 @@ namespace junklite
             if (weaponManager == null || draggedSlot.weaponManager != weaponManager) return;
 
             draggedSlot.CleanupDrag();
-
             weaponManager.SwapWeaponSlots();
         }
 

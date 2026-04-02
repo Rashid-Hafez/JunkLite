@@ -1,11 +1,21 @@
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.UI;
 using System.Collections.Generic;
 
 namespace junklite
 {
+
     public class InventoryUI : MonoBehaviour
     {
         #region Fields
+        [Header("Tabs")]
+        [SerializeField] private Button inventoryTabButton;
+        [SerializeField] private Button infoTabButton;
+
+        [Header("Tab Screens")]
+        [SerializeField] private GameObject inventoryScreen;
+        [SerializeField] private GameObject infoScreen;
+
 
         [Header("Inventory Slots")]
         [SerializeField] private GameObject inventorySlotPrefab;
@@ -23,6 +33,9 @@ namespace junklite
         [SerializeField] private GameObject weaponSlotPrefab;
         [SerializeField] private Transform weaponSlotParent;
 
+        [Header("Description Box")]
+        [SerializeField] private ItemDescriptionUI descriptionUI;
+
         private InventoryComponent inventory;
         private WeaponManager weaponManager;
         private ModManager modManager;
@@ -32,8 +45,12 @@ namespace junklite
         private readonly List<ModSlotUI> passiveModSlots = new();
         private readonly List<InventoryWeaponSlotUI> weaponSlots = new();
 
+        private enum Tab { Inventory, Info }
+        private Tab activeTab = Tab.Inventory;
+
         #endregion
 
+        
         #region Bind / Unbind
 
         public void Bind(InventoryComponent inv, WeaponManager wm)
@@ -53,6 +70,18 @@ namespace junklite
             if (modManager != null)
                 modManager.OnModSlotsChanged += RefreshModSlots;
 
+            // Slot selection events → description box
+            ModSlotUI.OnModSelected += HandleModSelected;
+            InventoryWeaponSlotUI.OnWeaponSelected += HandleWeaponSelected;
+
+            // Tab buttons
+            if (inventoryTabButton != null)
+                inventoryTabButton.onClick.AddListener(ShowInventoryTab);
+
+            if (infoTabButton != null)
+                infoTabButton.onClick.AddListener(ShowInfoTab);
+
+            ShowInventoryTab();
             RefreshAll();
         }
 
@@ -67,10 +96,21 @@ namespace junklite
             if (modManager != null)
                 modManager.OnModSlotsChanged -= RefreshModSlots;
 
+            ModSlotUI.OnModSelected -= HandleModSelected;
+            InventoryWeaponSlotUI.OnWeaponSelected -= HandleWeaponSelected;
+
+            if (inventoryTabButton != null)
+                inventoryTabButton.onClick.RemoveListener(ShowInventoryTab);
+
+            if (infoTabButton != null)
+                infoTabButton.onClick.RemoveListener(ShowInfoTab);
+
             ClearSlots(inventorySlots);
             ClearSlots(activeModSlots);
             ClearSlots(passiveModSlots);
             ClearWeaponSlots();
+
+            descriptionUI?.Clear();
 
             inventory = null;
             weaponManager = null;
@@ -86,7 +126,49 @@ namespace junklite
 
         #endregion
 
-        #region Inventory
+        #region Tabs
+
+        private void ShowInventoryTab()
+        {
+            activeTab = Tab.Inventory;
+
+            if (inventoryScreen != null) inventoryScreen.SetActive(true);
+            if (infoScreen != null) infoScreen.SetActive(false);
+
+            descriptionUI?.Clear();
+        }
+
+        private void ShowInfoTab()
+        {
+            activeTab = Tab.Info;
+
+            if (inventoryScreen != null) inventoryScreen.SetActive(false);
+            if (infoScreen != null) infoScreen.SetActive(true);
+
+            descriptionUI?.Clear();
+        }
+
+        #endregion
+
+    
+        #region Description Box Handlers
+
+        private void HandleModSelected(ModInstance mod)
+        {
+            if (mod == null) descriptionUI?.Clear();
+            else descriptionUI?.ShowMod(mod);
+        }
+
+        private void HandleWeaponSelected(WeaponInstance weapon)
+        {
+            if (weapon == null) descriptionUI?.Clear();
+            else descriptionUI?.ShowWeapon(weapon);
+        }
+
+        #endregion
+
+       
+        #region Inventory Slots
 
         private void RefreshInventory()
         {
@@ -94,9 +176,7 @@ namespace junklite
 
             if (inventory == null || inventorySlotPrefab == null || inventorySlotParent == null) return;
 
-            int count = inventory.SlotCount;
-
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < inventory.SlotCount; i++)
             {
                 ModInstance mod = inventory.GetModAt(i);
 
@@ -113,7 +193,8 @@ namespace junklite
 
         #endregion
 
-        #region Weapons
+        // -----------------------------------------------------------------------
+        #region Weapon Slots
 
         private void RefreshWeapons()
         {
@@ -142,7 +223,8 @@ namespace junklite
 
         #endregion
 
-        #region Mod Manager Slots
+        // -----------------------------------------------------------------------
+        #region Mod Slots
 
         private void RefreshModSlots()
         {
@@ -182,6 +264,7 @@ namespace junklite
 
         #endregion
 
+        // -----------------------------------------------------------------------
         #region Helpers
 
         private void ClearSlots(List<ModSlotUI> slots)

@@ -21,7 +21,6 @@ namespace junklite
         [Header("References")]
         [SerializeField] private Image iconImage;
         [SerializeField] private Image durabilityFill;
-        [SerializeField] private GameObject readyIndicator;
         [SerializeField] private TMP_Text inputHintText;
 
         [Header("Cooldown")]
@@ -29,6 +28,10 @@ namespace junklite
 
         [Header("Mod Custom UI")]
         [SerializeField] private Transform modUIContainer;
+
+        [Header("Not-Ready Dimming")]
+        [SerializeField] private Color readyColor = Color.white;
+        [SerializeField] private Color notReadyColor = new Color(0.35f, 0.35f, 0.35f, 1f);
 
         private ModInstance boundMod;
         private PlayerCharacter boundPlayer;
@@ -69,13 +72,16 @@ namespace junklite
                 iconImage.enabled = hasMod && boundMod.Data.icon != null;
                 if (iconImage.enabled)
                     iconImage.sprite = boundMod.Data.icon;
+
+                // Show at full brightness by default; Update() will adjust each frame
+                iconImage.color = readyColor;
             }
 
             if (durabilityFill != null)
+            {
+                durabilityFill.fillAmount = 0f;
                 durabilityFill.enabled = hasMod;
-
-            if (readyIndicator != null)
-                readyIndicator.SetActive(false);
+            }
 
             if (cooldownFill != null)
             {
@@ -119,14 +125,19 @@ namespace junklite
         {
             if (boundMod == null) return;
 
+            // Durability bar
             if (durabilityFill != null && durabilityFill.enabled)
             {
                 float max = boundMod.Data.maxDurability;
                 durabilityFill.fillAmount = max > 0f ? boundMod.CurrentDurability / max : 0f;
             }
 
-            if (readyIndicator != null && boundMod.Data is ActiveModData active)
-                readyIndicator.SetActive(active.CanActivate(boundMod, null));
+            // Icon dimming: dim when not ready, full color when ready
+            if (iconImage != null && iconImage.enabled && boundMod.Data is ActiveModData active)
+            {
+                bool isReady = active.CanActivate(boundMod, null);
+                iconImage.color = isReady ? readyColor : notReadyColor;
+            }
 
             // Cooldown overlay
             if (cooldownFill != null)
