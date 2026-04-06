@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 98c63c0f0c3920c4c9ba3bd9afa81924
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 625f186215c104763be7675aa2d941aa, type: 3}
+AssetOrigin:
+  serializedVersion: 1
+  productId: 272229
+  packageName: Cyberpunk Rooftop Market
+  packageVersion: 1.0
+  assetPath: Assets/LeartesStudios/CyberpunkRooftop/HDRP/Art/ShaderGraphs/S_CyberpunkEmissive.shadergraph
+  uploadId: 670142
