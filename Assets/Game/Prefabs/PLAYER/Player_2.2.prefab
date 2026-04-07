@@ -1024,7 +1024,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54798ea1f27bbb441b15ce2e4107c382, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponHolder
-  fistWeaponData: {fileID: 11400000, guid: 897fca1268ced6e4f89322613fd312b7, type: 2}
+  fistWeaponData: {fileID: 11400000, guid: 7e989493f101c4fc78059e432b6ef052, type: 2}
   weaponHolder: {fileID: 4764703469501611834}
   sideAttack: {fileID: 128506076357536208}
   upAttack: {fileID: 7039884645192212358}
