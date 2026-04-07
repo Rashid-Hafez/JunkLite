@@ -33,6 +33,10 @@ namespace junklite
         public Rarity rarity;
         public Sprite icon;
 
+        [Header("Description")]
+        [TextArea(2, 5)]
+        public string description;
+
         // =====================================================================
         // BASE STATS
         // =====================================================================
@@ -74,20 +78,10 @@ namespace junklite
         public WeaponSocketOffset socketOffset;
 
         // =====================================================================
-        // ABSTRACT INTERFACE — implemented by each subclass
-        // CombatState uses these to stay type-agnostic.
+        // ABSTRACT INTERFACE
         // =====================================================================
 
-        /// <summary>
-        /// Returns how many combo steps exist for the given direction and grounded state.
-        /// CombatState uses this to wrap the combo index correctly without knowing the step type.
-        /// </summary>
         public abstract int GetComboLength(AttackDirection dir, bool isGrounded);
-
-        /// <summary>
-        /// Returns the animation name for a given direction, combo index, and grounded state.
-        /// CombatState uses this to trigger animations without knowing the step type.
-        /// </summary>
         public abstract bool TryGetAnimationName(AttackDirection dir, int comboIndex, bool isGrounded, out string animationName);
 
         // =====================================================================

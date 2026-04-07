@@ -7,10 +7,14 @@ namespace junklite
     {
         #region Fields
 
-        [Header("UI References")]
+        [Header("Weapon Display")]
         [SerializeField] private Image iconImage;
         [SerializeField] private Image durabilityFill;
         [SerializeField] private GameObject activeIndicator;
+
+        [Header("Mouse Button Icons")]
+        [SerializeField] private GameObject mousePressedIcon;
+        [SerializeField] private GameObject mouseUnpressedIcon;
 
         private WeaponInstance weapon;
         private bool showDurability;
@@ -40,6 +44,7 @@ namespace junklite
                 durabilityFill.enabled = hasWeapon && showDurability;
 
             SetActive(false);
+            SetMousePressed(false);
         }
 
         /// <summary>
@@ -60,6 +65,7 @@ namespace junklite
                 durabilityFill.enabled = false;
 
             SetActive(false);
+            SetMousePressed(false);
         }
 
         /// <summary>
@@ -71,12 +77,23 @@ namespace junklite
             if (iconImage != null) iconImage.enabled = active;
             if (durabilityFill != null) durabilityFill.enabled = active;
             if (activeIndicator != null) activeIndicator.SetActive(false);
+
+            if (!active) SetMousePressed(false);
         }
 
         public void SetActive(bool active)
         {
             if (activeIndicator != null)
                 activeIndicator.SetActive(active);
+        }
+
+        /// <summary>
+        /// Swap between pressed and unpressed mouse button icons.
+        /// </summary>
+        public void SetMousePressed(bool pressed)
+        {
+            if (mousePressedIcon != null) mousePressedIcon.SetActive(pressed);
+            if (mouseUnpressedIcon != null) mouseUnpressedIcon.SetActive(!pressed);
         }
 
         #endregion

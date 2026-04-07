@@ -125,7 +125,7 @@ namespace junklite
 
         #region Hit Notification
 
-        private void OnEnemyHit(EnemyCharacter enemy)
+        private void OnEnemyHit(EnemyCharacter enemy, float damageDealt)
         {
             if (!isActive) return;
 
@@ -135,7 +135,7 @@ namespace junklite
                 if (mod == null || mod.IsBroken) continue;
                 if (mod.Data is PassiveModData passive)
                 {
-                    passive.OnHitRegistered(mod, playerCharacter, enemy);
+                    passive.OnHitRegistered(mod, playerCharacter, enemy, damageDealt);
 
                     if (mod.IsBroken)
                     {
@@ -154,7 +154,7 @@ namespace junklite
                 if (mod.Data is ActiveModData active)
                 {
                     bool wasReady = active.CanActivate(mod, playerCharacter);
-                    active.OnHitRegistered(mod, playerCharacter, enemy);
+                    active.OnHitRegistered(mod, playerCharacter, enemy, damageDealt);
                     bool nowReady = active.CanActivate(mod, playerCharacter);
 
                     if (!wasReady && nowReady)
@@ -174,30 +174,23 @@ namespace junklite
         {
             if (!isActive) return false;
             if (activeSlotIndex < 0 || activeSlotIndex >= unlockedActiveSlots) return false;
-
             var mod = activeSlots[activeSlotIndex];
             if (mod == null || mod.IsBroken) return false;
-
             if (mod.Data is not ActiveModData active) return false;
-            if (!active.CanActivate(mod, playerCharacter)) return false;
 
-            bool used = active.OnActivate(mod, playerCharacter);
-
+            bool used = active.TryActivate(mod, playerCharacter);
             if (used)
             {
                 mod.ConsumeDurability();
                 OnActiveModActivated?.Invoke(activeSlotIndex);
-
                 if (mod.IsBroken)
                 {
                     active.OnUnequip(playerCharacter);
                     activeSlots[activeSlotIndex] = null;
                     Debug.Log($"[ModManager] Active mod broke: {mod.Data.modName}");
                 }
-
                 OnModSlotsChanged?.Invoke();
             }
-
             return used;
         }
 

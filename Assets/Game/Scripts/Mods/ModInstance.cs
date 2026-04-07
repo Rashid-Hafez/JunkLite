@@ -3,7 +3,7 @@ using UnityEngine;
 namespace junklite
 {
     /// <summary>
-    /// Runtime wrapper for a mod. Tracks durability and charge state.
+    /// Runtime wrapper for a mod. Tracks durability, charge state, and cooldown.
     /// One ModInstance per equipped mod slot.
     /// </summary>
     public class ModInstance
@@ -16,11 +16,33 @@ namespace junklite
         public bool IsActive => Data is ActiveModData;
         public bool IsPassive => Data is PassiveModData;
 
+        // Cooldown
+        private float cooldownStartTime;
+        private float cooldownEndTime;
+
+        public bool IsOnCooldown => Time.time < cooldownEndTime;
+
+        /// <summary>
+        /// Normalized cooldown value: 1 when cooldown just started, 0 when finished.
+        /// </summary>
+        public float CooldownNormalized
+        {
+            get
+            {
+                if (!IsOnCooldown) return 0f;
+                float total = cooldownEndTime - cooldownStartTime;
+                if (total <= 0f) return 0f;
+                return Mathf.Clamp01((cooldownEndTime - Time.time) / total);
+            }
+        }
+
         public ModInstance(ModData data)
         {
             Data = data;
             CurrentDurability = data.maxDurability;
             CurrentCharges = 0;
+            cooldownStartTime = 0f;
+            cooldownEndTime = 0f;
         }
 
         public void ConsumeDurability()
@@ -37,6 +59,22 @@ namespace junklite
         public void ResetCharges()
         {
             CurrentCharges = 0;
+        }
+
+        /// <summary>
+        /// Start cooldown. Call this when the mod's effect finishes (not when it starts).
+        /// </summary>
+        public void StartCooldown(float duration)
+        {
+            if (duration <= 0f) return;
+            cooldownStartTime = Time.time;
+            cooldownEndTime = Time.time + duration;
+        }
+
+        public void ResetCooldown()
+        {
+            cooldownStartTime = 0f;
+            cooldownEndTime = 0f;
         }
     }
 }

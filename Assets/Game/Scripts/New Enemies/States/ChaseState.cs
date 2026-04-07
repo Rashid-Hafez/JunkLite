@@ -2,16 +2,6 @@
 
 namespace junklite
 {
-    /// <summary>
-    /// Chase state - enemy runs toward the player.
-    /// 
-    /// Two modes:
-    /// 1. HasTarget → chase the player directly
-    /// 2. No target but HasLastKnownPosition → run to last known spot, then call OnReachedTarget
-    /// 
-    /// Uses HORIZONTAL distance for last-known arrival check (avoids getting stuck
-    /// when last known position was captured mid-air during a jump).
-    /// </summary>
     public class ChaseState : EnemyStateBase
     {
         private IChaser chaser;
@@ -43,7 +33,7 @@ namespace junklite
 
                 if (chaser != null && chaser.ChaseStopDistance > 0f)
                 {
-                    float distanceToTarget = Vector3.Distance(Transform.position, Target.position);
+                    float distanceToTarget = movement.GetAbsAxisDistance(Transform.position, Target.position);
                     if (distanceToTarget <= chaser.ChaseStopDistance)
                     {
                         movement?.Stop();

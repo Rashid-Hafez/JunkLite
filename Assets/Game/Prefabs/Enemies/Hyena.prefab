@@ -227,13 +227,17 @@ MonoBehaviour:
     chaseStopDistance: 2
   pursuitRadius: 15
   melee:
+    windUpDuration: 0
+    attackDuration: 0.5
     attackSpeed: 0.4
     damage: 20
     knockback: {x: 5, y: 2}
     hitbox: {fileID: 4213466484449388956}
     vfxPrefab: {fileID: 0}
+    hitStartNormalized: 0.45
+    hitEndNormalized: 0.55
   dodge:
-    dodgeDistance: 5
+    dodgeDistance: 4
     dodgeSpeed: 15
     dodgeHeight: 0.5
     hasIFrames: 1
@@ -243,14 +247,14 @@ MonoBehaviour:
       m_Bits: 0
     wallCheckBuffer: 0.3
     forwardDodgeChance: 0.5
-  dodgeChance: 0.5
+  dodgeChance: 1
   dodgeCheckRange: 4
   dodgeCooldown: 0.5
   charge:
-    chargeTime: 1
+    chargeTime: 0.5
     chargeVFXPrefab: {fileID: 4364062416287365583, guid: fe2205740225ab04bb07d3c6308b7c8b, type: 3}
   dash:
-    dashSpeed: 15
+    dashSpeed: 25
     dashDamage: 15
     dashStopDistance: 1
     dashKnockback: {x: 15, y: 5}
@@ -261,8 +265,8 @@ MonoBehaviour:
     attackActiveDuration: 0.12
     whiffResolveDelay: 0.05
   dashChance: 1
-  dashStopPadding: 0.75
   whiffStunDuration: 1.5
+  maxCounterDashRange: 8
 --- !u!114 &424022102533304986
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -304,12 +308,6 @@ MonoBehaviour:
   hurt: Hurt
   death: Death
   stunLoop: 
-  attackWindUpDuration: 0.3
-  useTimerFallback: 1
-  attackHitStartTime: 0.15
-  attackHitDuration: 0.1
-  hitStartEvent: hit_start
-  hitEndEvent: hit_end
   debugLog: 0
 --- !u!82 &5511428486720858210
 AudioSource:

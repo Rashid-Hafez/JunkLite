@@ -11,16 +11,12 @@ namespace junklite
         [SerializeField] private bool hideOnDeath = false;
 
         [Header("References")]
-        [SerializeField] private StatBarUI healthBar; // change this to work with the new UI
-        [SerializeField] private StatBarUI armorBar; // change this to work with the new UI
+        [SerializeField] private StatBarUI healthBar;
+        [SerializeField] private StatBarUI armorBar;
         [SerializeField] private TMP_Text playerNameText;
 
-        [Header("UI Extensions (Weapon + Inventory)")]
-        [SerializeField] private WeaponUI weaponUI;
-
-        [Header("Mod UIs")]
-        [SerializeField] private PhantomStrikeUI phantomStrikeUI;
-        [SerializeField] private CombatModUI combatModUI;
+        [Header("Combat HUD")]
+        [SerializeField] private ModCombatUI modCombatUI;
 
         [Header("Inventory Panel")]
         [SerializeField] private GameObject inventoryPanel;
@@ -87,28 +83,13 @@ namespace junklite
             attributes.OnDeath += HandlePlayerDeath;
 
             _weaponManager = player.GetComponent<WeaponManager>();
-            if (weaponUI != null && _weaponManager != null)
-                weaponUI.Bind(_weaponManager);
-
+            _modManager = player.GetComponent<ModManager>();
             inventory = player.GetComponent<InventoryComponent>();
 
-            _modManager = player.GetComponent<ModManager>();
-            if (combatModUI != null && _modManager != null && _weaponManager != null)
-                combatModUI.Bind(_modManager, _weaponManager);
-
-            if (phantomStrikeUI != null && player is PlayerCharacter pc)
-                phantomStrikeUI.Bind(pc);
-
-            if (_weaponManager != null)
-                _weaponManager.OnCombatModeChanged += RefreshModUIs;
+            if (modCombatUI != null && _modManager != null && _weaponManager != null)
+                modCombatUI.Bind(_modManager, _weaponManager);
 
             SetVisible(true);
-        }
-
-        private void RefreshModUIs()
-        {
-            if (phantomStrikeUI != null)
-                phantomStrikeUI.RefreshTracker();
         }
 
         // -----------------------------------------------------------------------
@@ -118,14 +99,10 @@ namespace junklite
             if (attributes != null)
                 attributes.OnDeath -= HandlePlayerDeath;
 
-            if (_weaponManager != null)
-                _weaponManager.OnCombatModeChanged -= RefreshModUIs;
-
             if (healthBar != null) healthBar.Unbind();
             if (armorBar != null) armorBar.Unbind();
-            if (weaponUI != null) weaponUI.Unbind();
-            if (combatModUI != null) combatModUI.Unbind();
-            if (phantomStrikeUI != null) phantomStrikeUI.Unbind();
+            if (modCombatUI != null) modCombatUI.Unbind();
+
             if (weaponPickupUI != null)
             {
                 weaponPickupUI.OnClosed -= HandleWeaponPickupClosed;
@@ -206,7 +183,7 @@ namespace junklite
         }
 
         // -----------------------------------------------------------------------
-        // INTERACT (single subscription, checks static Current)
+        // INTERACT
         // -----------------------------------------------------------------------
 
         private void HandleInteract()

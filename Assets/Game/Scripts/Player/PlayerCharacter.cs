@@ -674,6 +674,14 @@ namespace junklite
             if (playerState != null && !playerState.CanTakeDamage)
                 return false;
 
+            var shield = GetComponent<DamageShield>();
+            if (shield != null && shield.IsActive)
+            {
+                float remainder = shield.Absorb(info.Amount);
+                if (remainder <= 0f) return false; // fully absorbed
+                info.Amount = remainder; // partial, pass remainder through
+            }
+
             // Invincible: skip health reduction but still do all reactions
             bool damageDealt;
             if (playerState != null && playerState.IsInvincible)

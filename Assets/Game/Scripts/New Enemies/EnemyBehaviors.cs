@@ -192,18 +192,31 @@ namespace junklite
     [System.Serializable]
     public class MeleeAttackBehavior
     {
+        [Tooltip("Delay before the attack swing. Telegraph/anticipation time.")]
+        [SerializeField] private float windUpDuration = 0.3f;
+        [Tooltip("Total duration of one attack swing")]
+        [SerializeField] private float attackDuration = 0.5f;
         [Tooltip("Cooldown between attacks")]
         [SerializeField] private float attackSpeed = 0.5f;
         [SerializeField] private float damage = 10f;
         [SerializeField] private Vector2 knockback = new Vector2(5f, 2f);
         [SerializeField] private Hitbox hitbox;
         [SerializeField] private GameObject vfxPrefab;
+        [Header("Hitbox Timing")]
+        [Tooltip("When during the attack the hitbox activates (0 = start, 1 = end)")]
+        [SerializeField][Range(0f, 1f)] private float hitStartNormalized = 0.3f;
+        [Tooltip("When during the attack the hitbox deactivates")]
+        [SerializeField][Range(0f, 1f)] private float hitEndNormalized = 0.6f;
 
+        public float MeleeWindUpDuration => windUpDuration;
+        public float MeleeAttackDuration => attackDuration;
         public float MeleeAttackSpeed => attackSpeed;
         public float MeleeDamage => damage;
         public Vector2 MeleeKnockback => knockback;
         public Hitbox MeleeHitbox => hitbox;
         public GameObject MeleeVFXPrefab => vfxPrefab;
+        public float MeleeHitStartNormalized => hitStartNormalized;
+        public float MeleeHitEndNormalized => hitEndNormalized;
     }
 
     /// <summary>
@@ -293,5 +306,34 @@ namespace junklite
         public bool CanAttack => Time.time >= lastAttackTime + attackCooldown;
         public void RecordAttack() => lastAttackTime = Time.time;
         public void SetSpawnPoint(Transform point) => spawnPoint = point;
+    }
+
+    /// <summary>
+    /// Reusable stun/stagger implementation.
+    /// </summary>
+    [System.Serializable]
+    public class StunBehavior
+    {
+        [SerializeField] private float staggerDuration = 0.5f;
+        [SerializeField] private GameObject stunVFXObject;
+
+        private float forcedStunDuration;
+
+        public float StaggerDuration => staggerDuration;
+        public GameObject StunVFXObject => stunVFXObject;
+
+        /// <summary>
+        /// When > 0, overrides StaggerDuration (e.g. parry stun, whiff punishment).
+        /// Reset to 0 after the stun completes.
+        /// </summary>
+        public float ForcedStunDuration { get => forcedStunDuration; set => forcedStunDuration = value; }
+
+        /// <summary>
+        /// Returns ForcedStunDuration if set, otherwise StaggerDuration.
+        /// </summary>
+        public float EffectiveDuration =>
+            forcedStunDuration > 0f ? forcedStunDuration : staggerDuration;
+
+        public void ClearForcedDuration() => forcedStunDuration = 0f;
     }
 }

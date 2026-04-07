@@ -95,14 +95,18 @@ namespace junklite
     /// </summary>
     public interface IMeleeAttacker
     {
-        float MeleeAttackSpeed { get; }  // Cooldown between attacks
+        float MeleeWindUpDuration { get; }
+        float MeleeAttackDuration { get; }
+        float MeleeHitStartNormalized { get; }
+        float MeleeHitEndNormalized { get; }
+        float MeleeAttackSpeed { get; }
         float MeleeDamage { get; }
         Vector2 MeleeKnockback { get; }
         Hitbox MeleeHitbox { get; }
         GameObject MeleeVFXPrefab { get; }
-
-        void OnMeleeAttack();    // Called when attack starts
-        void OnMeleeComplete();  // Called when attack cycle finishes (after cooldown)
+        void OnMeleeWindUp();
+        void OnMeleeAttack();
+        void OnMeleeComplete();
     }
 
     /// <summary>
@@ -163,5 +167,15 @@ namespace junklite
 
         // Callback when ranged attack completes
         void OnRangedAttackComplete();
+    }
+
+    public interface IStunnable
+    {
+        float StaggerDuration { get; }
+        float ForcedStunDuration { get; set; }
+        GameObject StunVFXObject { get; }
+
+        // Callback when stun completes - enemy decides what to do next
+        void OnStunComplete();
     }
 }

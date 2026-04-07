@@ -5,13 +5,10 @@ using System.Collections;
 using System.Collections.Generic;
 
 namespace junklite
-{
-    public class PhantomStrikeUI : MonoBehaviour
+{ 
+    public class PhantomStrikeUI : MonoBehaviour, IModSlotUI
     {
         #region Fields
-
-        [Header("Panel")]
-        [SerializeField] private GameObject panel;
 
         [Header("Hit Count")]
         [SerializeField] private TMP_Text hitCountText;
@@ -27,7 +24,7 @@ namespace junklite
         [Header("Colors")]
         [SerializeField] private Color readyColor = Color.yellow;
 
-        private PlayerCharacter player;
+        private ModInstance modInstance;
         private PhantomStrikeTracker tracker;
         private Dictionary<Image, Coroutine> activeCoroutines = new();
         private int lastHitCount;
@@ -36,71 +33,44 @@ namespace junklite
 
         #region Unity
 
-        private void Start()
-        {
-            if (panel != null)
-                panel.SetActive(false);
-
-            if (readyText != null)
-                readyText.gameObject.SetActive(false);
-        }
-
         private void OnDestroy() => Unbind();
 
         #endregion
 
-        #region Bind / Unbind
+        #region IModSlotUI
 
-        public void Bind(PlayerCharacter targetPlayer)
+        public void Bind(ModInstance mod, PlayerCharacter player)
         {
             Unbind();
-            player = targetPlayer;
 
-            if (player == null)
+            modInstance = mod;
+
+            if (player == null || modInstance == null)
+                return;
+
+            // Find the tracker
+            var modTrackers = player.transform.Find("Mod Trackers");
+            tracker = modTrackers != null
+                ? modTrackers.GetComponentInChildren<PhantomStrikeTracker>()
+                : null;
+
+            if (tracker == null || !tracker.IsActive)
             {
-                Hide();
+                tracker = null;
                 return;
             }
 
-            RefreshTracker();
+            SubscribeToTracker();
+            SnapToCurrentState();
         }
 
         public void Unbind()
         {
             UnsubscribeFromTracker();
-            player = null;
+            ClearCoroutines();
+            modInstance = null;
             tracker = null;
-            Hide();
-        }
-
-        public void RefreshTracker()
-        {
-            if (player == null)
-            {
-                Hide();
-                return;
-            }
-
-            // Look for tracker under "Mod Trackers" child
-            var modTrackers = player.transform.Find("Mod Trackers");
-            var newTracker = modTrackers != null
-                ? modTrackers.GetComponentInChildren<PhantomStrikeTracker>()
-                : null;
-
-            if (newTracker == null || !newTracker.IsActive)
-            {
-                UnsubscribeFromTracker();
-                tracker = null;
-                Hide();
-                return;
-            }
-
-            if (newTracker == tracker) return;
-
-            UnsubscribeFromTracker();
-            tracker = newTracker;
-            SubscribeToTracker();
-            Show();
+            lastHitCount = 0;
         }
 
         #endregion
@@ -131,22 +101,41 @@ namespace junklite
 
         #region Display
 
-        private void Show()
+        /// <summary>
+        /// Snap all visuals to match ModInstance's current charges instantly (no animation).
+        /// Called on bind so quick-swapping shows the correct state immediately.
+        /// </summary>
+        private void SnapToCurrentState()
         {
-            if (panel != null)
-                panel.SetActive(true);
+            if (modInstance == null) return;
 
-            lastHitCount = 0;
-            SetAllIconFills(0f);
-        }
+            int current = modInstance.CurrentCharges;
+            int required = modInstance.Data is ActiveModData active ? active.chargesRequired : 0;
+            bool isReady = required > 0 && current >= required;
 
-        private void Hide()
-        {
-            if (panel != null)
-                panel.SetActive(false);
+            // Snap icons
+            if (strikeIcons != null)
+            {
+                for (int i = 0; i < strikeIcons.Length; i++)
+                {
+                    if (strikeIcons[i] != null)
+                        strikeIcons[i].fillAmount = i < current ? 1f : 0f;
+                }
+            }
 
-            ClearCoroutines();
-            lastHitCount = 0;
+            // Snap text
+            if (isReady)
+            {
+                ShowSpecialReady();
+            }
+            else
+            {
+                HideSpecialReady();
+                if (hitCountText != null)
+                    hitCountText.text = $"{current}";
+            }
+
+            lastHitCount = current;
         }
 
         private void UpdateDisplay(int current, int required)
@@ -159,6 +148,7 @@ namespace junklite
                 if (!isReady) hitCountText.text = $"{current}";
             }
 
+            // Only animate newly gained charges
             if (strikeIcons != null && current > lastHitCount && current <= strikeIcons.Length)
                 AnimateIcon(strikeIcons[current - 1], 0f, 1f);
 
@@ -246,13 +236,6 @@ namespace junklite
             foreach (var icon in strikeIcons)
                 if (icon != null && icon.fillAmount > 0f)
                     AnimateIcon(icon, icon.fillAmount, 0f);
-        }
-
-        private void SetAllIconFills(float value)
-        {
-            if (strikeIcons == null) return;
-            foreach (var icon in strikeIcons)
-                if (icon != null) icon.fillAmount = value;
         }
 
         private void ClearCoroutines()

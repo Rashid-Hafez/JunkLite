@@ -4,10 +4,6 @@ using Spine.Unity;
 
 namespace junklite
 {
-    /// <summary>
-    /// Simple enemy animation controller using Spine.
-    /// Listens to state changes and plays appropriate animations.
-    /// </summary>
     public class EnemySpineAnimationController : MonoBehaviour
     {
         [Header("Spine")]
@@ -17,7 +13,6 @@ namespace junklite
         [SerializeField] private string idle = "Idle";
         [SerializeField] private string walk = "Run";
         [SerializeField] private string run = "Run";
-        [Tooltip("Animation played during attack wind-up (before Attack_1). Leave blank to keep current pose.")]
         [SerializeField] private string attackWindUp = "";
         [SerializeField] private string attack = "Attack_1";
         [SerializeField] private string charge = "Charge";
@@ -25,40 +20,16 @@ namespace junklite
         [SerializeField] private string dodge = "JumpBack";
         [SerializeField] private string hurt = "Hurt";
         [SerializeField] private string death = "Death";
+
         [Header("Stun")]
-        [Tooltip("Looping animation to play while stunned due to a parry; leave blank to use 'hurt'")]
         [SerializeField] private string stunLoop = "";
-
-        [Header("Attack Wind-up")]
-        [Tooltip("Delay before playing attack animation (how long until the attack happens). Warning can show during this time.")]
-        [SerializeField] private float attackWindUpDuration = 0.3f;
-
-        [Header("Hitbox Timing (Timer Fallback)")]
-        [SerializeField] private bool useTimerFallback = true;
-        [SerializeField] private float attackHitStartTime = 0.15f;
-        [SerializeField] private float attackHitDuration = 0.1f;
-
-        [Header("Spine Event Names (if using events instead of timer)")]
-        [SerializeField] private string hitStartEvent = "hit_start";
-        [SerializeField] private string hitEndEvent = "hit_end";
 
         [Header("Debug")]
         [SerializeField] private bool debugLog = false;
 
         private StateMachine stateMachine;
         private EnemyCharacter enemyCharacter;
-        private IMeleeAttacker meleeAttacker;
-        private IDasher dasher;
-
-        private TrackEntry currentAttackEntry;
-        private bool isAttacking;
-        private bool hitboxActive;
-        private float attackStartTime;
-        private bool hitStarted;
-        private bool isInCooldown;
-        private float cooldownTimer;
         private bool isDead;
-        private Coroutine attackWindUpCoroutine;
 
         private void Awake()
         {
@@ -67,20 +38,12 @@ namespace junklite
 
             stateMachine = GetComponentInParent<StateMachine>();
             enemyCharacter = GetComponentInParent<EnemyCharacter>();
-            meleeAttacker = GetComponentInParent<IMeleeAttacker>();
-            dasher = GetComponentInParent<IDasher>();
         }
 
         private void OnEnable()
         {
             if (stateMachine != null)
                 stateMachine.OnStateChanged += HandleStateChanged;
-
-            if (skeletonAnimation != null)
-            {
-                skeletonAnimation.AnimationState.Event += OnSpineEvent;
-                skeletonAnimation.AnimationState.Complete += OnAnimationComplete;
-            }
         }
 
         private void Start()
@@ -104,49 +67,6 @@ namespace junklite
         {
             if (stateMachine != null)
                 stateMachine.OnStateChanged -= HandleStateChanged;
-
-            if (skeletonAnimation != null)
-            {
-                skeletonAnimation.AnimationState.Event -= OnSpineEvent;
-                skeletonAnimation.AnimationState.Complete -= OnAnimationComplete;
-            }
-        }
-
-        private void Update()
-        {
-            if (isDead) return;
-
-            // Handle cooldown between attacks
-            if (isInCooldown)
-            {
-                cooldownTimer -= Time.deltaTime;
-                if (cooldownTimer <= 0f)
-                {
-                    isInCooldown = false;
-                    if (stateMachine != null && stateMachine.CurrentState is MeleeAttackState)
-                    {
-                        if (debugLog) Debug.Log($"[AnimCtrl] Cooldown done, restarting attack");
-                        StartAttackAnimation();
-                    }
-                }
-                return;
-            }
-
-            // Timer fallback for hitbox
-            if (!useTimerFallback || !isAttacking) return;
-
-            float elapsed = Time.time - attackStartTime;
-
-            if (!hitStarted && elapsed >= attackHitStartTime)
-            {
-                hitStarted = true;
-                ActivateHitbox();
-            }
-
-            if (hitStarted && hitboxActive && elapsed >= attackHitStartTime + attackHitDuration)
-            {
-                DeactivateHitbox();
-            }
         }
 
         private void HandleStateChanged(IState from, IState to)
@@ -156,23 +76,15 @@ namespace junklite
 
             if (skeletonAnimation == null || to == null) return;
 
-            // Death takes priority - once dead, stay dead
             if (to is DeadState)
             {
                 PlayDeath();
                 return;
             }
 
-            // Don't process other states if dead
             if (isDead) return;
 
-            ResetAttackState();
-
             var state = skeletonAnimation.AnimationState;
-
-            // Reset skeleton to default pose, then clear the track.
-            // ClearTrack alone leaves bones wherever the previous animation left them.
-            // SetToSetupPose resets ALL bones to their original transforms first.
             skeletonAnimation.Skeleton.SetToSetupPose();
             state.ClearTrack(0);
 
@@ -183,94 +95,57 @@ namespace junklite
             else if (to is ChaseState)
                 state.SetAnimation(0, run, true);
             else if (to is MeleeAttackState)
-                StartAttackWindUp();
+            {
+                // Don't play anything here — the enemy will call
+                // PlayWindUpAnimation() and PlayAttackAnimation()
+                // at the right moments via OnMeleeWindUp / OnMeleeAttack.
+            }
             else if (to is ChargeState)
                 state.SetAnimation(0, charge, true);
             else if (to is DashState)
                 state.SetAnimation(0, dash, false);
             else if (to is DodgeState)
                 state.SetAnimation(0, dodge, false);
-            else if (to is HurtState)
-                state.SetAnimation(0, hurt, false);
             else if (to is StunnedState)
             {
-                // Parry stun should read as a held neutral state instead of looping hurt.
-                string stunAnim = (enemyCharacter != null && enemyCharacter.IsParryStunned) ? idle : hurt;
-                state.SetAnimation(0, stunAnim, true);
-            }
-        }
-
-        private void PlayDeath()
-        {
-            if (isDead) return;
-            isDead = true;
-
-            if (debugLog)
-                Debug.Log($"[AnimCtrl] DEATH - clearing all and playing: {death}");
-
-            ResetAttackState();
-
-            var state = skeletonAnimation.AnimationState;
-            skeletonAnimation.Skeleton.SetToSetupPose();
-            state.ClearTracks();
-            var entry = state.SetAnimation(0, death, false);
-
-            if (entry != null)
-            {
-                entry.MixDuration = 0f;
-                if (debugLog)
-                    Debug.Log($"[AnimCtrl] Death animation playing");
-            }
-            else
-            {
-                Debug.LogError($"[AnimCtrl] Failed to play '{death}' - check animation name in Spine!");
-            }
-        }
-
-        private void OnSpineEvent(TrackEntry trackEntry, Spine.Event e)
-        {
-            if (!isAttacking) return;
-            if (trackEntry.Animation.Name != attack) return;
-
-            if (debugLog)
-                Debug.Log($"[AnimCtrl] Spine Event: {e.Data.Name}");
-
-            if (e.Data.Name == hitStartEvent)
-                ActivateHitbox();
-            else if (e.Data.Name == hitEndEvent)
-                DeactivateHitbox();
-        }
-
-        private void OnAnimationComplete(TrackEntry trackEntry)
-        {
-            if (!isAttacking) return;
-            if (trackEntry != currentAttackEntry) return;
-            if (trackEntry.Animation.Name != attack) return;
-
-            if (debugLog)
-                Debug.Log($"[AnimCtrl] Attack complete");
-
-            DeactivateHitbox();
-            isAttacking = false;
-            currentAttackEntry = null;
-
-            meleeAttacker?.OnMeleeComplete();
-
-            if (stateMachine != null && stateMachine.CurrentState is MeleeAttackState)
-            {
-                float cooldown = meleeAttacker?.MeleeAttackSpeed ?? 0f;
-                if (cooldown > 0f)
+                // Parry stun = held neutral pose, normal stagger = hurt animation
+                if (enemyCharacter != null && enemyCharacter.IsParryStunned)
                 {
-                    isInCooldown = true;
-                    cooldownTimer = cooldown;
+                    string stunAnim = string.IsNullOrEmpty(stunLoop) ? idle : stunLoop;
+                    state.SetAnimation(0, stunAnim, true);
+                }
+                else
+                {
+                    state.SetAnimation(0, hurt, false);
                 }
             }
         }
 
-        /// <summary>
-        /// External call to play a looping stun animation for a set duration.
-        /// After the timer expires we simply re-sync the animation based on current state.
-        /// </summary>
+        #region Public API
+
+        public void PlayWindUpAnimation()
+        {
+            if (isDead || skeletonAnimation == null) return;
+
+            var state = skeletonAnimation.AnimationState;
+            skeletonAnimation.Skeleton.SetToSetupPose();
+            state.ClearTrack(0);
+
+            if (!string.IsNullOrEmpty(attackWindUp))
+                state.SetAnimation(0, attackWindUp, false);
+            else
+                state.SetAnimation(0, idle, true);
+        }
+
+        public void PlayAttackAnimation()
+        {
+            if (isDead || skeletonAnimation == null) return;
+
+            var state = skeletonAnimation.AnimationState;
+            var entry = state.SetAnimation(0, attack, false);
+            if (entry != null) entry.MixDuration = 0f;
+        }
+
         public void PlayStunLoop(float duration)
         {
             if (skeletonAnimation == null) return;
@@ -280,6 +155,8 @@ namespace junklite
             StartCoroutine(ClearStunAfter(duration));
         }
 
+        #endregion
+
         private System.Collections.IEnumerator ClearStunAfter(float duration)
         {
             yield return new WaitForSeconds(duration);
@@ -287,75 +164,20 @@ namespace junklite
                 HandleStateChanged(null, stateMachine.CurrentState);
         }
 
-        private void StartAttackAnimation()
+        private void PlayDeath()
         {
-            if (skeletonAnimation == null || isDead) return;
-
-            isAttacking = true;
-            hitStarted = false;
-            hitboxActive = false;
-            attackStartTime = Time.time;
+            if (isDead) return;
+            isDead = true;
 
             var state = skeletonAnimation.AnimationState;
-            currentAttackEntry = state.SetAnimation(0, attack, false);
-            currentAttackEntry.MixDuration = 0f;
+            skeletonAnimation.Skeleton.SetToSetupPose();
+            state.ClearTracks();
+            var entry = state.SetAnimation(0, death, false);
 
-            if (debugLog)
-                Debug.Log($"[AnimCtrl] Attack started");
-        }
-
-        private void ActivateHitbox()
-        {
-            if (hitboxActive || isDead) return;
-            hitboxActive = true;
-            meleeAttacker?.MeleeHitbox?.Activate();
-            if (debugLog) Debug.Log($"[AnimCtrl] Hitbox ON");
-        }
-
-        private void DeactivateHitbox()
-        {
-            if (!hitboxActive) return;
-            hitboxActive = false;
-            meleeAttacker?.MeleeHitbox?.Deactivate();
-            if (debugLog) Debug.Log($"[AnimCtrl] Hitbox OFF");
-        }
-
-        private void ResetAttackState()
-        {
-            if (attackWindUpCoroutine != null)
-            {
-                StopCoroutine(attackWindUpCoroutine);
-                attackWindUpCoroutine = null;
-            }
-            hitboxActive = false;
-            meleeAttacker?.MeleeHitbox?.Deactivate();
-            dasher?.DashHitbox?.Deactivate();
-            isAttacking = false;
-            isInCooldown = false;
-            hitStarted = false;
-            currentAttackEntry = null;
-        }
-
-        private void StartAttackWindUp()
-        {
-            if (attackWindUpCoroutine != null)
-                StopCoroutine(attackWindUpCoroutine);
-            attackWindUpCoroutine = StartCoroutine(AttackWindUpThenAttack());
-        }
-
-        private System.Collections.IEnumerator AttackWindUpThenAttack()
-        {
-            if (skeletonAnimation != null && !string.IsNullOrEmpty(attackWindUp))
-            {
-                var state = skeletonAnimation.AnimationState;
-                skeletonAnimation.Skeleton.SetToSetupPose();
-                state.SetAnimation(0, attackWindUp, false);
-            }
-
-            yield return new WaitForSeconds(attackWindUpDuration);
-            attackWindUpCoroutine = null;
-            if (stateMachine != null && stateMachine.CurrentState is MeleeAttackState && !isDead)
-                StartAttackAnimation();
+            if (entry != null)
+                entry.MixDuration = 0f;
+            else
+                Debug.LogError($"[AnimCtrl] Failed to play '{death}' - check animation name in Spine!");
         }
     }
 }

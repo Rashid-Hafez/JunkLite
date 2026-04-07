@@ -5,7 +5,7 @@ namespace junklite
     /// <summary>
     /// Parried state - enemy was successfully parried by the player.
     /// 
-    /// Universal state - works with any enemy.
+    /// Universal state - works with any enemy that implements IStunnable.
     /// 
     /// This state:
     /// - Cannot be interrupted by reactive behaviors (dodge, chase tracking, etc.)
@@ -15,6 +15,7 @@ namespace junklite
     /// </summary>
     public class ParriedState : EnemyStateBase
     {
+        private IStunnable stunnable;
         private float timer;
 
         public ParriedState(EnemyCharacter enemy) : base(enemy) { }
@@ -24,16 +25,28 @@ namespace junklite
 
         public override void Enter()
         {
-            timer = enemy.ForcedStunDuration;
+            stunnable = enemy as IStunnable;
+
+            if (stunnable == null)
+            {
+                Debug.LogWarning($"{enemy.name} entered ParriedState but does not implement IStunnable.");
+                enemy.OnParryComplete();
+                return;
+            }
+
+            timer = stunnable.ForcedStunDuration;
             enemy.Movement?.Stop();
         }
 
         public override void Update()
         {
             timer -= Time.deltaTime;
+
             if (timer <= 0f)
             {
-                enemy.ForcedStunDuration = 0f;
+                if (stunnable != null)
+                    stunnable.ForcedStunDuration = 0f;
+
                 enemy.OnParryComplete();
             }
         }

@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using System;
 
 namespace junklite
 {
@@ -14,8 +15,8 @@ namespace junklite
         [SerializeField] private Image iconImage;
         [SerializeField] private Image durabilityFill;
         [SerializeField] private Image backgroundImage;
-        [SerializeField] private Image crossIcon;       // Incompatible indicator
-        [SerializeField] private Image highlightImage;   // Valid target glow
+        [SerializeField] private Image crossIcon;
+        [SerializeField] private Image highlightImage;
 
         // Data
         private ModInstance modInstance;
@@ -42,6 +43,16 @@ namespace junklite
             ActiveMod,
             PassiveMod
         }
+
+        #endregion
+
+        #region Events
+
+        /// <summary>
+        /// Fired when a mod slot is clicked and a mod is selected (or null when deselected).
+        /// InventoryUI subscribes to this to update the description box.
+        /// </summary>
+        public static event Action<ModInstance> OnModSelected;
 
         #endregion
 
@@ -126,15 +137,10 @@ namespace junklite
             UpdateOverlays();
         }
 
-        /// <summary>
-        /// Update cross icon and highlight based on drag or click-select state.
-        /// </summary>
         private void UpdateOverlays()
         {
-            // Determine which mod is being moved (drag or click-select)
             ModSlotUI source = draggedSlot != null ? draggedSlot : selectedSlot;
 
-            // --- Cross icon (incompatible mod slot) ---
             if (crossIcon != null)
             {
                 bool showCross = false;
@@ -152,35 +158,26 @@ namespace junklite
                 crossIcon.enabled = showCross;
             }
 
-            // --- Highlight (valid target for click-select) ---
             if (highlightImage != null)
             {
                 bool showHighlight = false;
                 if (selectedSlot != null && selectedSlot != this)
-                {
                     showHighlight = IsValidTargetFor(selectedSlot);
-                }
                 highlightImage.enabled = showHighlight;
             }
         }
 
-        /// <summary>
-        /// Can the selected mod be placed into this slot?
-        /// </summary>
         private bool IsValidTargetFor(ModSlotUI source)
         {
             if (source == null || source.modInstance == null) return false;
 
             ModInstance srcMod = source.modInstance;
 
-            // Inventory slots accept any mod
             if (!IsModSlot) return true;
 
-            // Mod slots require type match
             if (slotType == SlotType.ActiveMod && !srcMod.IsActive) return false;
             if (slotType == SlotType.PassiveMod && !srcMod.IsPassive) return false;
 
-            // If this slot has a mod, check it can go back to the source
             if (modInstance != null && source.IsModSlot)
             {
                 bool sourceIsActive = source.slotType == SlotType.ActiveMod;
@@ -213,10 +210,8 @@ namespace junklite
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            // Don't process clicks during drag
             if (draggedSlot != null) return;
 
-            // No selection yet — select this slot if it has a mod
             if (selectedSlot == null)
             {
                 if (!IsEmpty)
@@ -224,22 +219,24 @@ namespace junklite
                     selectedSlot = this;
                     if (iconImage != null)
                         iconImage.color = new Color(1, 1, 1, 0.5f);
+
+                    OnModSelected?.Invoke(modInstance);
                 }
                 return;
             }
 
-            // Clicking the already-selected slot — deselect
             if (selectedSlot == this)
             {
                 ClearSelection();
+                OnModSelected?.Invoke(null);
                 return;
             }
 
-            // Clicking a valid target — perform the move
             if (IsValidTargetFor(selectedSlot))
             {
                 ModSlotUI source = selectedSlot;
                 ClearSelection();
+                OnModSelected?.Invoke(null);
 
                 ModInstance srcMod = source.modInstance;
                 ModInstance dstMod = this.modInstance;
@@ -252,8 +249,8 @@ namespace junklite
             }
             else
             {
-                // Clicked an invalid target — cancel selection
                 ClearSelection();
+                OnModSelected?.Invoke(null);
             }
         }
 
@@ -273,8 +270,8 @@ namespace junklite
 
         public void OnBeginDrag(PointerEventData eventData)
         {
-            // Cancel any click-selection when starting a drag
             ClearSelection();
+            OnModSelected?.Invoke(null);
 
             if (IsEmpty)
             {
@@ -353,7 +350,6 @@ namespace junklite
 
             ModSlotUI source = draggedSlot;
 
-            // Validate mod type if dropping INTO a mod slot
             if (this.IsModSlot)
             {
                 bool targetIsActive = this.slotType == SlotType.ActiveMod;
@@ -361,7 +357,6 @@ namespace junklite
                 if (!targetIsActive && !source.modInstance.IsPassive) return;
             }
 
-            // Validate mod type if swapping back (occupied target going into source mod slot)
             if (source.IsModSlot && this.modInstance != null)
             {
                 bool sourceIsActive = source.slotType == SlotType.ActiveMod;
@@ -381,15 +376,12 @@ namespace junklite
             PlaceInSlot(source, dstMod);
         }
 
-        /// <summary>Remove whatever mod is in this slot from its backing store.</summary>
         private void RemoveFromSlot(ModSlotUI slot)
         {
             if (slot.modInstance == null) return;
 
             if (slot.slotType == SlotType.Inventory)
-            {
                 slot.inventory?.RemoveMod(slot.modInstance);
-            }
             else
             {
                 bool isActive = slot.slotType == SlotType.ActiveMod;
@@ -397,15 +389,12 @@ namespace junklite
             }
         }
 
-        /// <summary>Place a mod into this slot's backing store.</summary>
         private void PlaceInSlot(ModSlotUI slot, ModInstance mod)
         {
             if (mod == null) return;
 
             if (slot.slotType == SlotType.Inventory)
-            {
                 slot.inventory?.InsertMod(mod, slot.slotIndex);
-            }
             else
             {
                 bool isActive = slot.slotType == SlotType.ActiveMod;
