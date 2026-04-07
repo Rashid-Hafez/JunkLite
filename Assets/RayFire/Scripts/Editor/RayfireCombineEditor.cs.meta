@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 49e2c44479c2c9f4e8233fa97fdd34e7
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Scripts/Editor/RayfireCombineEditor.cs
+  uploadId: 881330

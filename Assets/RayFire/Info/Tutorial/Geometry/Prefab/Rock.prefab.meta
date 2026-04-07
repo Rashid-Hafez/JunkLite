@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 0d24f4ec46c0f054c9cebb2b9186dc23
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Info/Tutorial/Geometry/Prefab/Rock.prefab
+  uploadId: 881330

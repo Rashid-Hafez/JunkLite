@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 3f9c4ca5de794dd40baa54fc960b80eb
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Scripts/Editor/RayfireActivatorEditor.cs
+  uploadId: 881330

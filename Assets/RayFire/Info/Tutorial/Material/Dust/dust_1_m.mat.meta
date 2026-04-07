@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3a4c97cd5df56ef489449351d8b240fa
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Info/Tutorial/Material/Dust/dust_1_m.mat
+  uploadId: 881330

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 6ac27c1ece3b6af4bac4e545cab53fee
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Info/Tutorial/Geometry/Prefab/Debris.prefab
+  uploadId: 881330

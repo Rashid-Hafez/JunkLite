@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 44240d0cb619420479e75d0d48e19d5e
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Scripts/Classes/Rigid/RFDemolitionCluster.cs
+  uploadId: 881330

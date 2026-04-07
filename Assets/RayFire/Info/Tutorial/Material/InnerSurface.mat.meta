@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 359bd248961e9a74ba6e13a625297e6f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Info/Tutorial/Material/InnerSurface.mat
+  uploadId: 881330

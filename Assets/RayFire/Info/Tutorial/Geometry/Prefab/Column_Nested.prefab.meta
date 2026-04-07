@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e2a3c93a3a6b815459239a9f5a10ecde
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Info/Tutorial/Geometry/Prefab/Column_Nested.prefab
+  uploadId: 881330

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1bf9fd6733c9d9243be130c8351e5fea
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 4300000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Info/Tutorial/Geometry/Mesh/Fence_decomposed.asset
+  uploadId: 881330

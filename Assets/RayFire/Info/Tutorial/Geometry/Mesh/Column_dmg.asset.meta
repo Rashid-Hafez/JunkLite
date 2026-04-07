@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c66d305fd7ce57641928fd52a6b06e1b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 4300000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Info/Tutorial/Geometry/Mesh/Column_dmg.asset
+  uploadId: 881330

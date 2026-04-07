@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 6285f948af3999d4d8430e31b249d07f
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Scripts/Classes/Rigid/RFPhysic.cs
+  uploadId: 881330

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 6c5c0375b75d00a41aea646d4d1f18ac
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Scripts/Editor/RFUI.cs
+  uploadId: 881330
