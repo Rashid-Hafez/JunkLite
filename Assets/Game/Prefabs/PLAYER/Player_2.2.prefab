@@ -1063,7 +1063,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 742461cb8ea1b944d926782607ca985a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.InventoryComponent
-  slotCount: 12
+  slotCount: 20
 --- !u!54 &458443418991649798
 Rigidbody:
   m_ObjectHideFlags: 0

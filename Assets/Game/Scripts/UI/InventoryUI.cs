@@ -50,7 +50,7 @@ namespace junklite
 
         #endregion
 
-        
+
         #region Bind / Unbind
 
         public void Bind(InventoryComponent inv, WeaponManager wm)
@@ -150,7 +150,7 @@ namespace junklite
 
         #endregion
 
-    
+
         #region Description Box Handlers
 
         private void HandleModSelected(ModInstance mod)
@@ -167,7 +167,7 @@ namespace junklite
 
         #endregion
 
-       
+
         #region Inventory Slots
 
         private void RefreshInventory()
@@ -235,7 +235,7 @@ namespace junklite
 
             if (activeModSlotParent != null && activeModSlotPrefab != null)
             {
-                for (int i = 0; i < modManager.UnlockedActiveSlots; i++)
+                for (int i = 0; i < modManager.MaxActiveSlots; i++)
                 {
                     var go = Instantiate(activeModSlotPrefab, activeModSlotParent);
                     var slot = go.GetComponent<ModSlotUI>();
@@ -249,7 +249,7 @@ namespace junklite
 
             if (passiveModSlotParent != null && passiveModSlotPrefab != null)
             {
-                for (int i = 0; i < modManager.UnlockedPassiveSlots; i++)
+                for (int i = 0; i < modManager.MaxActiveSlots; i++)
                 {
                     var go = Instantiate(passiveModSlotPrefab, passiveModSlotParent);
                     var slot = go.GetComponent<ModSlotUI>();

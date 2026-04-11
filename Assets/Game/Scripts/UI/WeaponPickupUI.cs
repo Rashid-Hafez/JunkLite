@@ -21,7 +21,6 @@ namespace junklite
         [SerializeField] private TMP_Text slot1Name;
         [SerializeField] private TMP_Text slot1EmptyText;
         [SerializeField] private GameObject slot1Highlight;
-        [SerializeField] private TMP_Text slot1StatusText;
         [SerializeField] private Image slot1DurabilityFill;
 
         [Header("Slot 2")]
@@ -30,7 +29,6 @@ namespace junklite
         [SerializeField] private TMP_Text slot2Name;
         [SerializeField] private TMP_Text slot2EmptyText;
         [SerializeField] private GameObject slot2Highlight;
-        [SerializeField] private TMP_Text slot2StatusText;
         [SerializeField] private Image slot2DurabilityFill;
 
         [Header("Input Hints")]
@@ -38,8 +36,6 @@ namespace junklite
 
         [Header("Display Settings")]
         [SerializeField] private Color occupiedNameColor = Color.white;
-        [SerializeField] private Color replaceColor = new Color(1f, 0.3f, 0.3f, 1f);
-        [SerializeField] private Color equipColor = new Color(0.3f, 1f, 0.5f, 1f);
 
         private WeaponManager weaponManager;
         private WorldWeaponPickup pendingPickup;
@@ -165,23 +161,6 @@ namespace junklite
         {
             if (slot1Highlight != null) slot1Highlight.SetActive(selectedIndex == 0);
             if (slot2Highlight != null) slot2Highlight.SetActive(selectedIndex == 1);
-
-            UpdateSlotStatus(slot1StatusText, weaponManager?.WeaponSlot1, selectedIndex == 0);
-            UpdateSlotStatus(slot2StatusText, weaponManager?.WeaponSlot2, selectedIndex == 1);
-        }
-
-        private void UpdateSlotStatus(TMP_Text statusText, WeaponInstance slotWeapon, bool isSelected)
-        {
-            if (statusText == null) return;
-
-            if (!isSelected)
-            {
-                statusText.text = "";
-                return;
-            }
-
-            statusText.text = slotWeapon != null ? "▸ REPLACE ◂" : "▸ EQUIP HERE ◂";
-            statusText.color = slotWeapon != null ? replaceColor : equipColor;
         }
 
         #endregion
