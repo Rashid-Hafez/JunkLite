@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 using TMPro;
 using System;
@@ -20,12 +20,15 @@ public class DialogueManager : MonoBehaviour
     private DialogueSequence currentSequence;
     private int currentIndex;
 
+    public bool IsInDialogue => currentSequence != null;
+
     private Coroutine typingCoroutine;
     private bool isTyping;
     private bool waitingForInput;
 
     // Dialogue events
     public event Action OnDialogueContinue = delegate { };
+    public event Action OnDialogueEnded = delegate { };
 
     private void Start()
     {
@@ -152,16 +155,19 @@ public class DialogueManager : MonoBehaviour
 
     void EndDialogue()
     {
+        var finished = currentSequence;
         dialogueBox.SetActive(false);
         currentSequence = null;
 
-        // Restore player control
         GameInputManager.Instance.SetGameplayInputEnabled(true);
 
-        // 🔗 Chain next sequence
-        if (currentSequence != null && currentSequence.nextSequence != null)
+        if (finished != null && finished.nextSequence != null)
         {
-            StartDialogue(currentSequence.nextSequence);
+            StartDialogue(finished.nextSequence);
+        }
+        else
+        {
+            OnDialogueEnded();
         }
     }
 
