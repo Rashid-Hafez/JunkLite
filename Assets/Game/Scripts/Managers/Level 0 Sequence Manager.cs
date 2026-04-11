@@ -22,15 +22,25 @@ namespace junklite
         [SerializeField] private Light overheadSpotlight;
         [Tooltip("Optional god-ray particle system that starts after intro dialogue and fades by stopping emission after the director finishes.")]
         [SerializeField] private ParticleSystem godRayParticles;
+        [Tooltip("How long it takes for the god-ray particles to fade out after the director starts.")]
+        [SerializeField] private float godRayFadeDuration = 1f;
+        [Tooltip("How long it takes to ramp the environment reflection intensity to full during the reveal.")]
+        [SerializeField] private float reflectionRevealDuration = 1f;
 
         [Header("Director / Timeline")]
         [SerializeField] private PlayableDirector director;
+        [Tooltip("Optional director for the reusable 'platform complete' beat played after each obstacle course.")]
+        [SerializeField] private PlayableDirector platformCompleteDirector;
 
         [Header("Dialogue")]
         [Tooltip("Played immediately after the player spawns.")]
         [SerializeField] private DialogueSequence introDialogue;
-        [Tooltip("Played after the cinematic timeline finishes.")]
+        [Tooltip("Played after the cinematic timeline finishes, before platform trial 1.")]
         [SerializeField] private DialogueSequence postCinematicDialogue;
+        [Tooltip("Played after platform trial 1, before platform trial 2 starts.")]
+        [SerializeField] private DialogueSequence secondPlatformDialogue;
+        [Tooltip("Played after platform trial 2, before the combat wave spawns.")]
+        [SerializeField] private DialogueSequence combatIntroDialogue;
         [Tooltip("Played after the final objective, before combat/inventory onboarding.")]
         [SerializeField] private DialogueSequence finalDialogue;
 
@@ -66,8 +76,13 @@ namespace junklite
             PlayTimeline,
             TutorialDialogue,
             ObjectiveOne,
-            CenterRespawn,
+            PlatformOneComplete,
+            ResetForPlatformTwo,
+            SecondPlatformDialogue,
             ObjectiveTwo,
+            PlatformTwoComplete,
+            ResetForCombat,
+            CombatIntroDialogue,
             EnemyWave,
             FinalObjective,
             FinalDialogue,
@@ -80,6 +95,7 @@ namespace junklite
         private Stage currentStage;
         private PlayerCharacter currentPlayer;
         private Light playerLight;
+        private Coroutine godRayFadeRoutine;
 
         private readonly List<EnemyCharacter> spawnedEnemies = new();
         private int enemiesAlive;
@@ -142,19 +158,20 @@ namespace junklite
                 godRayParticles.gameObject.SetActive(true);
                 godRayParticles.Play(true);
             }
+            StartCoroutine(LerpReflectionIntensity(RenderSettings.reflectionIntensity, 1f, reflectionRevealDuration));
 
             // 3 — Play director timeline (dolly zoom corridor)
             SetStage(Stage.PlayTimeline);
-            if (director != null)
-                yield return RunTimeline();
-
-            // Director done — overhead spotlight off, scene lighting takes over
-            if (overheadSpotlight != null) overheadSpotlight.enabled = false;
             if (godRayParticles != null)
             {
-                // Stop emitting so existing particles fade out over their lifetime.
-                godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                if (godRayFadeRoutine != null)
+                    StopCoroutine(godRayFadeRoutine);
+                godRayFadeRoutine = StartCoroutine(FadeOutGodRayParticles());
             }
+            if (director != null)
+                yield return RunDirector(director, rewindToStart: true);
+
+            // Director done — any remaining reveal particles have already been faded out.
 
             // 4 — Post-cinematic tutorial dialogue
             SetStage(Stage.TutorialDialogue);
@@ -167,41 +184,66 @@ namespace junklite
             if (objective1Trigger != null)
                 yield return WaitForTrigger(objective1Trigger);
 
-            // 6 — Reposition player to center room
-            SetStage(Stage.CenterRespawn);
+            // 6 — Play completion beat for platform 1
+            SetStage(Stage.PlatformOneComplete);
+            if (platformCompleteDirector != null)
+                yield return RunDirector(platformCompleteDirector, rewindToStart: true);
+
+            // 7 — Reposition player to the shared reset marker
+            SetStage(Stage.ResetForPlatformTwo);
             RepositionPlayer(centerRoomSpawn);
             yield return null;
 
-            // 7 — Activate second platform step, wait for objective 2
+            // 8 — Explain the second platform lesson
+            SetStage(Stage.SecondPlatformDialogue);
+            if (secondPlatformDialogue != null)
+                yield return RunDialogue(secondPlatformDialogue);
+
+            // 9 — Activate second platform step, wait for objective 2
             SetStage(Stage.ObjectiveTwo);
             if (platformStep2 != null) platformStep2.SetActive(true);
             if (objective2Trigger != null)
                 yield return WaitForTrigger(objective2Trigger);
 
-            // 8 — Spawn enemy wave, wait until all dead
+            // 10 — Play completion beat for platform 2
+            SetStage(Stage.PlatformTwoComplete);
+            if (platformCompleteDirector != null)
+                yield return RunDirector(platformCompleteDirector, rewindToStart: true);
+
+            // 11 — Reposition player to the same reset marker before combat
+            SetStage(Stage.ResetForCombat);
+            RepositionPlayer(centerRoomSpawn);
+            yield return null;
+
+            // 12 — Explain the combat tutorial before enemies appear
+            SetStage(Stage.CombatIntroDialogue);
+            if (combatIntroDialogue != null)
+                yield return RunDialogue(combatIntroDialogue);
+
+            // 13 — Spawn enemy wave, wait until all dead
             SetStage(Stage.EnemyWave);
             SpawnEnemyWave();
             yield return WaitForAllEnemiesDead();
 
-            // 9 — Final objective
+            // 14 — Final objective
             SetStage(Stage.FinalObjective);
             if (finalObjectiveTrigger != null)
                 yield return WaitForTrigger(finalObjectiveTrigger);
 
-            // 10 — Final dialogue
+            // 15 — Final dialogue
             SetStage(Stage.FinalDialogue);
             if (finalDialogue != null)
                 yield return RunDialogue(finalDialogue);
 
-            // 11 — Wait for combat mode toggle (Q)
+            // 16 — Wait for combat mode toggle (Q)
             SetStage(Stage.WaitCombatMode);
             yield return WaitForCombatModeToggle();
 
-            // 12 — Wait for inventory open
+            // 17 — Wait for inventory open
             SetStage(Stage.WaitInventoryOpen);
             yield return WaitForInventoryOpen();
 
-            // 13 — Load next scene
+            // 18 — Load next scene
             SetStage(Stage.LoadNextScene);
             LoadConfiguredScene();
         }
@@ -291,16 +333,25 @@ namespace junklite
         // TIMELINE HELPERS
         // ====================================================================
 
-        private IEnumerator RunTimeline()
+        private IEnumerator RunDirector(PlayableDirector targetDirector, bool rewindToStart)
         {
             timelineFinished = false;
-            director.stopped += OnTimelineStopped;
-            director.Play();
+            if (targetDirector == null)
+                yield break;
+
+            if (rewindToStart)
+            {
+                targetDirector.time = 0;
+                targetDirector.Evaluate();
+            }
+
+            targetDirector.stopped += OnTimelineStopped;
+            targetDirector.Play();
 
             while (!timelineFinished)
                 yield return null;
 
-            director.stopped -= OnTimelineStopped;
+            targetDirector.stopped -= OnTimelineStopped;
         }
 
         private void OnTimelineStopped(PlayableDirector _)
@@ -438,6 +489,60 @@ namespace junklite
             inventoryOpened = true;
         }
 
+        private IEnumerator LerpReflectionIntensity(float from, float to, float duration)
+        {
+            if (duration <= 0f)
+            {
+                RenderSettings.reflectionIntensity = to;
+                DynamicGI.UpdateEnvironment();
+                yield break;
+            }
+
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                RenderSettings.reflectionIntensity = Mathf.Lerp(from, to, t);
+                yield return null;
+            }
+
+            RenderSettings.reflectionIntensity = to;
+            DynamicGI.UpdateEnvironment();
+        }
+
+        private IEnumerator FadeOutGodRayParticles()
+        {
+            if (godRayParticles == null)
+                yield break;
+
+            var emission = godRayParticles.emission;
+            float startRate = emission.rateOverTimeMultiplier;
+
+            if (godRayFadeDuration <= 0f)
+            {
+                emission.rateOverTimeMultiplier = 0f;
+                godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                if (overheadSpotlight != null) overheadSpotlight.enabled = false;
+                godRayFadeRoutine = null;
+                yield break;
+            }
+
+            float elapsed = 0f;
+            while (elapsed < godRayFadeDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / godRayFadeDuration);
+                emission.rateOverTimeMultiplier = Mathf.Lerp(startRate, 0f, t);
+                yield return null;
+            }
+
+            emission.rateOverTimeMultiplier = 0f;
+            godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            if (overheadSpotlight != null) overheadSpotlight.enabled = false;
+            godRayFadeRoutine = null;
+        }
+
         // ====================================================================
         // SCENE TRANSITION
         // ====================================================================
@@ -469,6 +574,11 @@ namespace junklite
 
             if (director != null)
                 director.stopped -= OnTimelineStopped;
+            if (platformCompleteDirector != null)
+                platformCompleteDirector.stopped -= OnTimelineStopped;
+
+            if (godRayFadeRoutine != null)
+                StopCoroutine(godRayFadeRoutine);
 
             if (GameInputManager.Instance != null)
             {
