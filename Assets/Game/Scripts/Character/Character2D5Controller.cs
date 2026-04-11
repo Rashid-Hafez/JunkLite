@@ -73,9 +73,12 @@ namespace junklite
         [SerializeField] private float wallJumpForce = 15f;
         [SerializeField] private float wallJumpHorizontalForce = 7f;
         [SerializeField] private float wallJumpDuration = 0.18f;
+        [SerializeField] private float wallJumpUpwardBonus = 2f;
+        [SerializeField] private float doubleJumpLockoutAfterWallJump = 0.2f;
 
         private bool isWallJumping = false;
         private float wallJumpEndTime = 0f;
+        private float lastWallJumpTime = float.NegativeInfinity;
 
         [Header ("Ledge Detection Settings")]
         [SerializeField] private Transform ledgeCheckTransform;
@@ -549,7 +552,8 @@ namespace junklite
 
             // Air jump - direct, no buffer
             bool canAirJump = airJumpCount < maxAirJumps
-                && Time.time >= becameAirborneTime + minAirtimeForDoubleJump;
+                && Time.time >= becameAirborneTime + minAirtimeForDoubleJump
+                && Time.time >= lastWallJumpTime + doubleJumpLockoutAfterWallJump;
 
             if (canAirJump)
             {
@@ -771,11 +775,15 @@ namespace junklite
 
             isWallJumping = true;
             wallJumpEndTime = Time.time + wallJumpDuration;
+            lastWallJumpTime = Time.time;
 
             // Jump away from the wall
             int jumpDir = -wallDirection;
 
-            rb.linearVelocity = transform.right * jumpDir * wallJumpHorizontalForce + transform.up * wallJumpForce;
+            // Wall jump refreshes the air jump and gets a little extra vertical pop.
+            airJumpCount = 0;
+            rb.linearVelocity = transform.right * jumpDir * wallJumpHorizontalForce
+                + transform.up * (wallJumpForce + wallJumpUpwardBonus);
 
             StartMinJumpHoldWindow();
 

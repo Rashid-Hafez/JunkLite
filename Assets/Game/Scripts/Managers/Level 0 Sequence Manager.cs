@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Playables;
 using UnityEngine.SceneManagement;
+using UnityEngine.Video;
 
 namespace junklite
 {
@@ -29,8 +30,16 @@ namespace junklite
 
         [Header("Director / Timeline")]
         [SerializeField] private PlayableDirector director;
-        [Tooltip("Optional director for the reusable 'platform complete' beat played after each obstacle course.")]
+        [Tooltip("Optional fallback director for the reusable 'platform complete' beat played after each obstacle course.")]
         [SerializeField] private PlayableDirector platformCompleteDirector;
+
+        [Header("Completed Video")]
+        [Tooltip("Optional root object for the completion video overlay. Enabled while the video plays.")]
+        [SerializeField] private GameObject completedVideoRoot;
+        [Tooltip("Optional transparent completion video player. Used after each platform step if assigned.")]
+        [SerializeField] private VideoPlayer completedVideoPlayer;
+        [Tooltip("Delay after the completed beat finishes before the player is moved to the room spawn.")]
+        [SerializeField] private float completedResetDelay = 0.5f;
 
         [Header("Dialogue")]
         [Tooltip("Played immediately after the player spawns.")]
@@ -39,7 +48,9 @@ namespace junklite
         [SerializeField] private DialogueSequence postCinematicDialogue;
         [Tooltip("Played after platform trial 1, before platform trial 2 starts.")]
         [SerializeField] private DialogueSequence secondPlatformDialogue;
-        [Tooltip("Played after platform trial 2, before the combat wave spawns.")]
+        [Tooltip("Played after platform trial 2, before platform trial 3 starts.")]
+        [SerializeField] private DialogueSequence thirdPlatformDialogue;
+        [Tooltip("Played after platform trial 3, before the combat wave spawns.")]
         [SerializeField] private DialogueSequence combatIntroDialogue;
         [Tooltip("Played after the final objective, before combat/inventory onboarding.")]
         [SerializeField] private DialogueSequence finalDialogue;
@@ -49,15 +60,28 @@ namespace junklite
         [SerializeField] private GameObject platformStep1;
         [Tooltip("Second dissolve platform group — activated before objective 2.")]
         [SerializeField] private GameObject platformStep2;
+        [Tooltip("Optional dissolver on the second platform group's parent. Called when step 2 should phase in.")]
+        [SerializeField] private TutorialStepDissolver platformStep2Dissolver;
+        [Tooltip("Third dissolve platform group — activated before objective 3.")]
+        [SerializeField] private GameObject platformStep3;
+        [Tooltip("Optional dissolver on the third platform group's parent. Called when step 3 should phase in.")]
+        [SerializeField] private TutorialStepDissolver platformStep3Dissolver;
 
         [Header("Objectives (SequenceTrigger colliders)")]
         [SerializeField] private SequenceTrigger objective1Trigger;
         [SerializeField] private SequenceTrigger objective2Trigger;
+        [SerializeField] private SequenceTrigger objective3Trigger;
         [SerializeField] private SequenceTrigger finalObjectiveTrigger;
 
         [Header("Enemies")]
         [SerializeField] private GameObject[] enemyPrefabs;
         [SerializeField] private Transform[] enemySpawnPoints;
+        [Tooltip("Weapon pickup spawned after the first combat enemy dies.")]
+        [SerializeField] private GameObject tutorialWeaponPickupPrefab;
+        [SerializeField] private Transform tutorialWeaponPickupSpawnPoint;
+        [Tooltip("Follow-up enemy spawned after the player picks up the weapon and enters combat mode.")]
+        [SerializeField] private GameObject postPickupEnemyPrefab;
+        [SerializeField] private Transform postPickupEnemySpawnPoint;
 
         [Header("Scene Transition")]
         [SerializeField] private string nextSceneName;
@@ -81,13 +105,17 @@ namespace junklite
             SecondPlatformDialogue,
             ObjectiveTwo,
             PlatformTwoComplete,
+            ResetForPlatformThree,
+            ThirdPlatformDialogue,
+            ObjectiveThree,
+            PlatformThreeComplete,
             ResetForCombat,
             CombatIntroDialogue,
             EnemyWave,
-            FinalObjective,
+            WeaponPickup,
+            FinalEnemyWave,
             FinalDialogue,
             WaitCombatMode,
-            WaitInventoryOpen,
             LoadNextScene,
             Done
         }
@@ -95,16 +123,20 @@ namespace junklite
         private Stage currentStage;
         private PlayerCharacter currentPlayer;
         private Light playerLight;
+        private WeaponManager currentWeaponManager;
         private Coroutine godRayFadeRoutine;
+        private bool platformCompleteBeatRunning;
 
         private readonly List<EnemyCharacter> spawnedEnemies = new();
         private int enemiesAlive;
+        private WorldWeaponPickup activeTutorialPickup;
 
         private bool dialogueFinished;
         private bool timelineFinished;
         private bool objectiveHit;
         private bool combatModeToggled;
         private bool inventoryOpened;
+        private bool weaponPickedUp;
 
         // ====================================================================
         // STARTUP
@@ -114,14 +146,18 @@ namespace junklite
         {
             Time.timeScale = 1f;
 
-            if (platformStep1 != null) platformStep1.SetActive(false);
             if (platformStep2 != null) platformStep2.SetActive(false);
+            if (platformStep3 != null) platformStep3.SetActive(false);
 
             if (overheadSpotlight != null) overheadSpotlight.enabled = false;
             if (godRayParticles != null)
             {
                 godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             }
+            if (completedVideoRoot != null)
+                completedVideoRoot.SetActive(false);
+            if (completedVideoPlayer != null)
+                completedVideoPlayer.Stop();
         }
 
         private void Start()
@@ -180,70 +216,79 @@ namespace junklite
 
             // 5 — Activate first platform step, wait for objective 1
             SetStage(Stage.ObjectiveOne);
-            if (platformStep1 != null) platformStep1.SetActive(true);
             if (objective1Trigger != null)
                 yield return WaitForTrigger(objective1Trigger);
 
             // 6 — Play completion beat for platform 1
             SetStage(Stage.PlatformOneComplete);
-            if (platformCompleteDirector != null)
-                yield return RunDirector(platformCompleteDirector, rewindToStart: true);
+            yield return PlayPlatformCompleteBeatAndReset(platformStep1);
+            if (platformStep2 != null)
+                platformStep2.SetActive(true);
+            if (platformStep2Dissolver != null)
+                platformStep2Dissolver.UndissolveAll();
 
-            // 7 — Reposition player to the shared reset marker
-            SetStage(Stage.ResetForPlatformTwo);
-            RepositionPlayer(centerRoomSpawn);
-            yield return null;
-
-            // 8 — Explain the second platform lesson
+            // 7 — Explain the second platform lesson
             SetStage(Stage.SecondPlatformDialogue);
             if (secondPlatformDialogue != null)
                 yield return RunDialogue(secondPlatformDialogue);
 
-            // 9 — Activate second platform step, wait for objective 2
+            // 8 — Activate second platform step, wait for objective 2
             SetStage(Stage.ObjectiveTwo);
-            if (platformStep2 != null) platformStep2.SetActive(true);
             if (objective2Trigger != null)
                 yield return WaitForTrigger(objective2Trigger);
 
-            // 10 — Play completion beat for platform 2
+            // 9 — Play completion beat for platform 2
             SetStage(Stage.PlatformTwoComplete);
-            if (platformCompleteDirector != null)
-                yield return RunDirector(platformCompleteDirector, rewindToStart: true);
+            yield return PlayPlatformCompleteBeatAndReset(platformStep2);
+            if (platformStep3 != null)
+                platformStep3.SetActive(true);
+            if (platformStep3Dissolver != null)
+                platformStep3Dissolver.UndissolveAll();
 
-            // 11 — Reposition player to the same reset marker before combat
-            SetStage(Stage.ResetForCombat);
-            RepositionPlayer(centerRoomSpawn);
-            yield return null;
+            // 10 — Explain the third platform lesson
+            SetStage(Stage.ThirdPlatformDialogue);
+            if (thirdPlatformDialogue != null)
+                yield return RunDialogue(thirdPlatformDialogue);
 
-            // 12 — Explain the combat tutorial before enemies appear
+            // 11 — Activate third platform step, wait for objective 3
+            SetStage(Stage.ObjectiveThree);
+            if (objective3Trigger != null)
+                yield return WaitForTrigger(objective3Trigger);
+
+            // 12 — Play completion beat for platform 3
+            SetStage(Stage.PlatformThreeComplete);
+            yield return PlayPlatformCompleteBeatAndReset(platformStep3);
+
+            // 13 — Explain the combat tutorial before enemies appear
             SetStage(Stage.CombatIntroDialogue);
             if (combatIntroDialogue != null)
                 yield return RunDialogue(combatIntroDialogue);
 
-            // 13 — Spawn enemy wave, wait until all dead
+            // 14 — Spawn enemy wave, wait until all dead
             SetStage(Stage.EnemyWave);
             SpawnEnemyWave();
             yield return WaitForAllEnemiesDead();
 
-            // 14 — Final objective
-            SetStage(Stage.FinalObjective);
-            if (finalObjectiveTrigger != null)
-                yield return WaitForTrigger(finalObjectiveTrigger);
+            // 15 — Spawn the tutorial weapon pickup and wait for the player to actually take it
+            SetStage(Stage.WeaponPickup);
+            SpawnTutorialWeaponPickup();
+            yield return WaitForWeaponPickup();
 
-            // 15 — Final dialogue
+            // 16 — Wait for the player to enter combat mode with the new weapon
+            SetStage(Stage.WaitCombatMode);
+            yield return WaitForCombatModeToggle();
+
+            // 17 — Spawn the follow-up enemy and wait until it is dead
+            SetStage(Stage.FinalEnemyWave);
+            SpawnPostPickupEnemy();
+            yield return WaitForAllEnemiesDead();
+
+            // 18 — Final dialogue
             SetStage(Stage.FinalDialogue);
             if (finalDialogue != null)
                 yield return RunDialogue(finalDialogue);
 
-            // 16 — Wait for combat mode toggle (Q)
-            SetStage(Stage.WaitCombatMode);
-            yield return WaitForCombatModeToggle();
-
-            // 17 — Wait for inventory open
-            SetStage(Stage.WaitInventoryOpen);
-            yield return WaitForInventoryOpen();
-
-            // 18 — Load next scene
+            // 19 — Load next scene
             SetStage(Stage.LoadNextScene);
             LoadConfiguredScene();
         }
@@ -305,6 +350,9 @@ namespace junklite
         {
             if (GameManager.Instance != null && GameManager.Instance.Player != null)
                 currentPlayer = GameManager.Instance.Player;
+
+            if (currentPlayer != null)
+                currentWeaponManager = currentPlayer.GetComponentInChildren<WeaponManager>(true);
         }
 
         // ====================================================================
@@ -359,6 +407,73 @@ namespace junklite
             timelineFinished = true;
         }
 
+        private IEnumerator PlayPlatformCompleteBeat()
+        {
+            if (completedVideoPlayer != null)
+            {
+                yield return PlayCompletedVideo();
+                yield break;
+            }
+
+            if (platformCompleteDirector != null)
+                yield return RunDirector(platformCompleteDirector, rewindToStart: true);
+        }
+
+        private IEnumerator PlayPlatformCompleteBeatAndReset(GameObject completedPlatformStep)
+        {
+            if (platformCompleteBeatRunning)
+                yield break;
+
+            platformCompleteBeatRunning = true;
+            yield return PlayPlatformCompleteBeat();
+
+            if (completedResetDelay > 0f)
+                yield return new WaitForSeconds(completedResetDelay);
+
+            RepositionPlayer(centerRoomSpawn);
+            if (completedPlatformStep != null)
+                completedPlatformStep.SetActive(false);
+            HideCompletedVideo();
+            platformCompleteBeatRunning = false;
+        }
+
+        private IEnumerator PlayCompletedVideo()
+        {
+            if (completedVideoPlayer == null)
+                yield break;
+
+            if (completedVideoRoot != null)
+                completedVideoRoot.SetActive(true);
+
+            bool complete = false;
+            void OnLoopPointReached(VideoPlayer _) => complete = true;
+
+            completedVideoPlayer.loopPointReached += OnLoopPointReached;
+            completedVideoPlayer.isLooping = false;
+            completedVideoPlayer.Stop();
+            completedVideoPlayer.time = 0d;
+            completedVideoPlayer.Prepare();
+
+            while (!completedVideoPlayer.isPrepared)
+                yield return null;
+
+            completedVideoPlayer.Play();
+
+            while (!complete)
+                yield return null;
+
+            completedVideoPlayer.loopPointReached -= OnLoopPointReached;
+        }
+
+        private void HideCompletedVideo()
+        {
+            if (completedVideoPlayer != null)
+                completedVideoPlayer.Stop();
+
+            if (completedVideoRoot != null)
+                completedVideoRoot.SetActive(false);
+        }
+
         // ====================================================================
         // TRIGGER / OBJECTIVE HELPERS
         // ====================================================================
@@ -378,6 +493,8 @@ namespace junklite
         private void OnObjectiveHit()
         {
             objectiveHit = true;
+            if (GameInputManager.Instance != null)
+                GameInputManager.Instance.SetGameplayInputEnabled(false);
         }
 
         // ====================================================================
@@ -386,6 +503,7 @@ namespace junklite
 
         private void SpawnEnemyWave()
         {
+            UnsubscribeEnemyCallbacks();
             spawnedEnemies.Clear();
             enemiesAlive = 0;
 
@@ -424,6 +542,42 @@ namespace junklite
             Debug.Log($"[Level0Sequence] Spawned {enemiesAlive} enemies");
         }
 
+        private void SpawnPostPickupEnemy()
+        {
+            UnsubscribeEnemyCallbacks();
+            spawnedEnemies.Clear();
+            enemiesAlive = 0;
+
+            if (postPickupEnemyPrefab == null)
+            {
+                Debug.LogWarning("[Level0Sequence] No post-pickup enemy prefab assigned.");
+                return;
+            }
+
+            Vector3 pos = postPickupEnemySpawnPoint != null ? postPickupEnemySpawnPoint.position : Vector3.zero;
+            SpawnTrackedEnemy(postPickupEnemyPrefab, pos);
+            Debug.Log("[Level0Sequence] Spawned post-pickup enemy.");
+        }
+
+        private void SpawnTrackedEnemy(GameObject enemyPrefab, Vector3 position)
+        {
+            var go = Instantiate(enemyPrefab, position, Quaternion.identity);
+            var enemy = go.GetComponent<EnemyCharacter>();
+
+            if (enemy == null)
+            {
+                Debug.LogWarning("[Level0Sequence] Spawned enemy prefab missing EnemyCharacter!");
+                return;
+            }
+
+            spawnedEnemies.Add(enemy);
+            enemiesAlive++;
+
+            var sm = enemy.GetComponent<StateMachine>();
+            if (sm != null)
+                sm.OnStateChanged += OnWaveEnemyStateChanged;
+        }
+
         private void OnWaveEnemyStateChanged(IState from, IState to)
         {
             if (to is DeadState)
@@ -451,6 +605,50 @@ namespace junklite
                 if (sm != null)
                     sm.OnStateChanged -= OnWaveEnemyStateChanged;
             }
+        }
+
+        private void SpawnTutorialWeaponPickup()
+        {
+            if (activeTutorialPickup != null)
+                Destroy(activeTutorialPickup.gameObject);
+
+            if (tutorialWeaponPickupPrefab == null)
+            {
+                Debug.LogWarning("[Level0Sequence] No tutorial weapon pickup prefab assigned.");
+                return;
+            }
+
+            Vector3 pos = tutorialWeaponPickupSpawnPoint != null
+                ? tutorialWeaponPickupSpawnPoint.position
+                : centerRoomSpawn != null ? centerRoomSpawn.position : Vector3.zero;
+
+            var go = Instantiate(tutorialWeaponPickupPrefab, pos, Quaternion.identity);
+            activeTutorialPickup = go.GetComponent<WorldWeaponPickup>();
+        }
+
+        private IEnumerator WaitForWeaponPickup()
+        {
+            RefreshPlayerRef();
+
+            if (currentWeaponManager == null)
+            {
+                Debug.LogWarning("[Level0Sequence] No WeaponManager found on current player.");
+                yield break;
+            }
+
+            weaponPickedUp = false;
+            currentWeaponManager.OnWeaponChanged += OnWeaponPickedUp;
+
+            while (!weaponPickedUp)
+                yield return null;
+
+            currentWeaponManager.OnWeaponChanged -= OnWeaponPickedUp;
+            activeTutorialPickup = null;
+        }
+
+        private void OnWeaponPickedUp()
+        {
+            weaponPickedUp = true;
         }
 
         // ====================================================================
@@ -576,6 +774,12 @@ namespace junklite
                 director.stopped -= OnTimelineStopped;
             if (platformCompleteDirector != null)
                 platformCompleteDirector.stopped -= OnTimelineStopped;
+            if (completedVideoPlayer != null)
+                completedVideoPlayer.Stop();
+            if (currentWeaponManager != null)
+                currentWeaponManager.OnWeaponChanged -= OnWeaponPickedUp;
+            if (activeTutorialPickup != null)
+                Destroy(activeTutorialPickup.gameObject);
 
             if (godRayFadeRoutine != null)
                 StopCoroutine(godRayFadeRoutine);
