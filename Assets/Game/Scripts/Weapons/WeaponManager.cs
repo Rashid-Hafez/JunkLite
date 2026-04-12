@@ -268,7 +268,6 @@ namespace junklite
             TryPrewarmRangedPool(weaponSlot1);
             TryPrewarmRangedPool(weaponSlot2);
 
-            Log("Entered Mod Combat");
             OnCombatModeChanged?.Invoke();
         }
 
@@ -283,7 +282,6 @@ namespace junklite
             SetWeaponVisible(weaponSlot1, false);
             SetWeaponVisible(weaponSlot2, false);
 
-            Log("Exited Mod Combat");
             OnCombatModeChanged?.Invoke();
         }
 

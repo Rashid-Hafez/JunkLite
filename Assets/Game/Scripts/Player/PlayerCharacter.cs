@@ -73,6 +73,7 @@ namespace junklite
         private WeaponManager _weaponManager;
         private ModManager _modManager;
         private ParryHandler parryHandler;
+        private bool inputSubscribed;
 
         private FeedbackManager feedbackManager;
         private PlayerAudioHandler audioHandler;
@@ -359,6 +360,9 @@ namespace junklite
         // SUBSCRIBE / UNSUBSCRIBE
         void SubscribeToInput()
         {
+            if (inputSubscribed)
+                return;
+
             if (inputManager == null) inputManager = GameInputManager.Instance;
 
             if (inputManager != null)
@@ -395,10 +399,15 @@ namespace junklite
                 Controller.OnFallStarted += HandleFallStarted;
                 Controller.OnFallEnded += HandleFallEnded;
             }
+
+            inputSubscribed = true;
         }
 
         void UnsubscribeFromInput()
         {
+            if (!inputSubscribed)
+                return;
+
             if (inputManager != null)
             {
                 inputManager.OnJump -= OnJumpPressed;
@@ -432,6 +441,8 @@ namespace junklite
                 Controller.OnFallStarted -= HandleFallStarted;
                 Controller.OnFallEnded -= HandleFallEnded;
             }
+
+            inputSubscribed = false;
         }
 
         // ====================================================================

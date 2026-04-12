@@ -463,6 +463,9 @@ namespace junklite
             if (completedVideoPlayer == null)
                 yield break;
 
+            completedVideoPlayer.Stop();
+            ClearCompletedVideoRenderTexture();
+
             if (completedVideoRoot != null)
                 completedVideoRoot.SetActive(true);
 
@@ -471,13 +474,15 @@ namespace junklite
 
             completedVideoPlayer.loopPointReached += OnLoopPointReached;
             completedVideoPlayer.isLooping = false;
-            completedVideoPlayer.Stop();
             completedVideoPlayer.time = 0d;
+            completedVideoPlayer.frame = 0;
             completedVideoPlayer.Prepare();
 
             while (!completedVideoPlayer.isPrepared)
                 yield return null;
 
+            completedVideoPlayer.time = 0d;
+            completedVideoPlayer.frame = 0;
             completedVideoPlayer.Play();
 
             while (!complete)
@@ -489,10 +494,24 @@ namespace junklite
         private void HideCompletedVideo()
         {
             if (completedVideoPlayer != null)
+            {
                 completedVideoPlayer.Stop();
+                ClearCompletedVideoRenderTexture();
+            }
 
             if (completedVideoRoot != null)
                 completedVideoRoot.SetActive(false);
+        }
+
+        private void ClearCompletedVideoRenderTexture()
+        {
+            if (completedVideoPlayer == null || completedVideoPlayer.targetTexture == null)
+                return;
+
+            RenderTexture previous = RenderTexture.active;
+            RenderTexture.active = completedVideoPlayer.targetTexture;
+            GL.Clear(true, true, Color.clear);
+            RenderTexture.active = previous;
         }
 
         // ====================================================================

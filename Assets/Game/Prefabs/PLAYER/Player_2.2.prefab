@@ -924,6 +924,8 @@ MonoBehaviour:
   wallJumpForce: 10
   wallJumpHorizontalForce: 7
   wallJumpDuration: 0.2
+  wallJumpUpwardBonus: 2
+  doubleJumpLockoutAfterWallJump: 0.2
   ledgeCheckTransform: {fileID: 711466271944293612}
   ledgeCheckSize: {x: 0.5, y: 0.2}
   groundSnapMaxDistance: 0.4
@@ -1377,6 +1379,8 @@ MonoBehaviour:
   weaponAttackTimeScale: 1.5
   downAttackTimeScale: 2
   forceOverrideGroundedHoldDuration: 0.4
+  modCombatEntryAnim: Attack_WolverinePose
+  modEntryVFXPrefab: {fileID: 2057006026388923700}
   footstepEvent: {fileID: 11400000, guid: 2657d9f265aa59446b055dc0c1018419, type: 2}
   footstepSource: {fileID: 0}
   footstepPitchOffset: 0.2

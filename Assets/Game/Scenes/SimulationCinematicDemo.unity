@@ -992,7 +992,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolume
   mode: 1
-  size: {x: 125.27457, y: 48.98328, z: 1065.0903}
+  size: {x: 3, y: 3, z: 3}
   overrideRendererFilters: 0
   minRendererVolumeSize: 0.1
   objectLayerMask:
@@ -1032,7 +1032,7 @@ Transform:
   m_GameObject: {fileID: 673264643}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.052349, y: 5.159767, z: 958.8413}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6358,8 +6358,8 @@ MonoBehaviour:
   secondPlatformDialogue: {fileID: 11400000, guid: 98cf15ba842ad4be5b1b2f0e142c6e08, type: 2}
   thirdPlatformDialogue: {fileID: 11400000, guid: 91e5312a3333f47a0bbcfc2c0aa9d496, type: 2}
   combatIntroDialogue: {fileID: 11400000, guid: 391ddb2c71ea745d6a2486a694a66df4, type: 2}
-  postEnemyDialogue: {fileID: 0}
-  postPickupDialogue: {fileID: 0}
+  postEnemyDialogue: {fileID: 11400000, guid: 8d089c37da16c4c038c4eb920fcabb84, type: 2}
+  postPickupDialogue: {fileID: 11400000, guid: b13ceaf5d50f347f4b7fa067e1c8f9dc, type: 2}
   finalDialogue: {fileID: 11400000, guid: 8d089c37da16c4c038c4eb920fcabb84, type: 2}
   platformStep1: {fileID: 475989695}
   platformStep2: {fileID: 5850483783724389931}
@@ -11571,7 +11571,7 @@ Light:
   m_BounceIntensity: 1
   m_ColorTemperature: 6570
   m_UseColorTemperature: 0
-  m_BoundingSphereOverride: {x: 0, y: 0.0003654193, z: 6e-45, w: 543336.5}
+  m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: NaN}
   m_UseBoundingSphereOverride: 0
   m_UseViewFrustumForShadowCasterCull: 1
   m_ForceVisible: 0
@@ -17107,15 +17107,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: field of view
-      value: 32.095764
+      value: 32.09576
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_FocalLength
-      value: 40
+      value: 40.000004
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: far clip plane
-      value: 500
+      value: 1500
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: near clip plane
@@ -17155,19 +17155,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 2.72
+      value: -6.4
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -27.1
+      value: 589.4
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6456068929264633748, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_SortingOrder
@@ -17321,7 +17321,7 @@ PrefabInstance:
     - target: {fileID: 6708160109121364283, guid: 8b89a65709c0ecd40a2644c08718f1bc, type: 3}
       propertyPath: playerUIPrefab
       value: 
-      objectReference: {fileID: 5629233250633362458, guid: 3ac3a9a2304de3d4a8e73a5cb895e251, type: 3}
+      objectReference: {fileID: 1946179015980326645, guid: 6776eb6b105fcbc4ea90b3bf2157c168, type: 3}
     - target: {fileID: 6708160109121364283, guid: 8b89a65709c0ecd40a2644c08718f1bc, type: 3}
       propertyPath: reloadSceneOnDeathTemp
       value: 1
@@ -17853,7 +17853,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5824505345399447104, guid: 637cf4693c5da4dddae88c224a4f6225, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6541921566557460336, guid: 637cf4693c5da4dddae88c224a4f6225, type: 3}
       propertyPath: m_Mesh
