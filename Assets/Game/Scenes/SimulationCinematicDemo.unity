@@ -778,9 +778,17 @@ PrefabInstance:
       value: 24
       objectReference: {fileID: 0}
     - target: {fileID: 490370084539925688, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+    - target: {fileID: 490370084539925688, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
       propertyPath: m_fontSizeBase
       value: 24
       objectReference: {fileID: 0}
+    - target: {fileID: 490370084539925688, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
     - target: {fileID: 1552659151692697362, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
       propertyPath: m_Name
       value: DialoguePanel
@@ -790,9 +798,17 @@ PrefabInstance:
       value: 24
       objectReference: {fileID: 0}
     - target: {fileID: 5844490656072979783, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+    - target: {fileID: 5844490656072979783, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
       propertyPath: m_fontSizeBase
       value: 24
       objectReference: {fileID: 0}
+    - target: {fileID: 5844490656072979783, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
     - target: {fileID: 6411742453859284202, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -976,7 +992,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolume
   mode: 1
-  size: {x: 3, y: 3, z: 3}
+  size: {x: 125.27457, y: 48.98328, z: 1065.0903}
   overrideRendererFilters: 0
   minRendererVolumeSize: 0.1
   objectLayerMask:
@@ -1016,7 +1032,7 @@ Transform:
   m_GameObject: {fileID: 673264643}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 3.052349, y: 5.159767, z: 958.8413}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6342,6 +6358,8 @@ MonoBehaviour:
   secondPlatformDialogue: {fileID: 11400000, guid: 98cf15ba842ad4be5b1b2f0e142c6e08, type: 2}
   thirdPlatformDialogue: {fileID: 11400000, guid: 91e5312a3333f47a0bbcfc2c0aa9d496, type: 2}
   combatIntroDialogue: {fileID: 11400000, guid: 391ddb2c71ea745d6a2486a694a66df4, type: 2}
+  postEnemyDialogue: {fileID: 0}
+  postPickupDialogue: {fileID: 0}
   finalDialogue: {fileID: 11400000, guid: 8d089c37da16c4c038c4eb920fcabb84, type: 2}
   platformStep1: {fileID: 475989695}
   platformStep2: {fileID: 5850483783724389931}
@@ -17089,15 +17107,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: field of view
-      value: 32.09576
+      value: 32.095764
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_FocalLength
-      value: 40.000004
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: far clip plane
-      value: 1500
+      value: 500
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: near clip plane
@@ -17137,19 +17155,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -6.4
+      value: 2.72
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 589.4
+      value: -27.1
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5539602762722590332, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6456068929264633748, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_SortingOrder
@@ -17781,6 +17799,26 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 11
       objectReference: {fileID: 0}
+    - target: {fileID: 366638004974490405, guid: 637cf4693c5da4dddae88c224a4f6225, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 3.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 366638004974490405, guid: 637cf4693c5da4dddae88c224a4f6225, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 3.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 366638004974490405, guid: 637cf4693c5da4dddae88c224a4f6225, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 3.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 366638004974490405, guid: 637cf4693c5da4dddae88c224a4f6225, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.88
+      objectReference: {fileID: 0}
+    - target: {fileID: 366638004974490405, guid: 637cf4693c5da4dddae88c224a4f6225, type: 3}
+      propertyPath: m_ConstrainProportionsScale
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 1086865357827334699, guid: 637cf4693c5da4dddae88c224a4f6225, type: 3}
       propertyPath: m_Material
       value: 
@@ -17815,7 +17853,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5824505345399447104, guid: 637cf4693c5da4dddae88c224a4f6225, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6541921566557460336, guid: 637cf4693c5da4dddae88c224a4f6225, type: 3}
       propertyPath: m_Mesh

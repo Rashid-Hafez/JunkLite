@@ -52,6 +52,10 @@ namespace junklite
         [SerializeField] private DialogueSequence thirdPlatformDialogue;
         [Tooltip("Played after platform trial 3, before the combat wave spawns.")]
         [SerializeField] private DialogueSequence combatIntroDialogue;
+        [Tooltip("Played after the first combat enemy dies and the player is moved back to the room spawn.")]
+        [SerializeField] private DialogueSequence postEnemyDialogue;
+        [Tooltip("Played after the player picks up the weapon, before the final enemy spawns.")]
+        [SerializeField] private DialogueSequence postPickupDialogue;
         [Tooltip("Played after the final objective, before combat/inventory onboarding.")]
         [SerializeField] private DialogueSequence finalDialogue;
 
@@ -112,7 +116,9 @@ namespace junklite
             ResetForCombat,
             CombatIntroDialogue,
             EnemyWave,
+            PostEnemyDialogue,
             WeaponPickup,
+            PostPickupDialogue,
             FinalEnemyWave,
             FinalDialogue,
             WaitCombatMode,
@@ -269,26 +275,37 @@ namespace junklite
             SpawnEnemyWave();
             yield return WaitForAllEnemiesDead();
 
-            // 15 — Spawn the tutorial weapon pickup and wait for the player to actually take it
+            // 15 — Move the player back to the room spawn, then explain the weapon pickup
+            RepositionPlayer(centerRoomSpawn);
+            SetStage(Stage.PostEnemyDialogue);
+            if (postEnemyDialogue != null)
+                yield return RunDialogue(postEnemyDialogue);
+
+            // 16 — Spawn the tutorial weapon pickup and wait for the player to actually take it
             SetStage(Stage.WeaponPickup);
             SpawnTutorialWeaponPickup();
             yield return WaitForWeaponPickup();
 
-            // 16 — Wait for the player to enter combat mode with the new weapon
+            // 17 — Explain the next combat beat after the weapon is picked up
+            SetStage(Stage.PostPickupDialogue);
+            if (postPickupDialogue != null)
+                yield return RunDialogue(postPickupDialogue);
+
+            // 18 — Wait for the player to enter combat mode with the new weapon
             SetStage(Stage.WaitCombatMode);
             yield return WaitForCombatModeToggle();
 
-            // 17 — Spawn the follow-up enemy and wait until it is dead
+            // 19 — Spawn the follow-up enemy and wait until it is dead
             SetStage(Stage.FinalEnemyWave);
             SpawnPostPickupEnemy();
             yield return WaitForAllEnemiesDead();
 
-            // 18 — Final dialogue
+            // 20 — Final dialogue
             SetStage(Stage.FinalDialogue);
             if (finalDialogue != null)
                 yield return RunDialogue(finalDialogue);
 
-            // 19 — Load next scene
+            // 21 — Load next scene
             SetStage(Stage.LoadNextScene);
             LoadConfiguredScene();
         }
@@ -425,6 +442,8 @@ namespace junklite
                 yield break;
 
             platformCompleteBeatRunning = true;
+            if (DialogueManager.instance != null)
+                DialogueManager.instance.IsContinueInputSuppressed = true;
             yield return PlayPlatformCompleteBeat();
 
             if (completedResetDelay > 0f)
@@ -434,6 +453,8 @@ namespace junklite
             if (completedPlatformStep != null)
                 completedPlatformStep.SetActive(false);
             HideCompletedVideo();
+            if (DialogueManager.instance != null)
+                DialogueManager.instance.IsContinueInputSuppressed = false;
             platformCompleteBeatRunning = false;
         }
 
@@ -768,7 +789,10 @@ namespace junklite
             UnsubscribeEnemyCallbacks();
 
             if (DialogueManager.instance != null)
+            {
                 DialogueManager.instance.OnDialogueEnded -= OnDialogueEnded;
+                DialogueManager.instance.IsContinueInputSuppressed = false;
+            }
 
             if (director != null)
                 director.stopped -= OnTimelineStopped;

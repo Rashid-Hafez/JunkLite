@@ -21,6 +21,7 @@ public class DialogueManager : MonoBehaviour
     private int currentIndex;
 
     public bool IsInDialogue => currentSequence != null;
+    public bool IsContinueInputSuppressed { get; set; }
 
     private Coroutine typingCoroutine;
     private bool isTyping;
@@ -45,11 +46,13 @@ public class DialogueManager : MonoBehaviour
 
         GameInputManager.Instance.controls.Player.DialogueContinue.performed += _ =>
         {
+            if (IsContinueInputSuppressed) return;
             OnDialogueContinue();
         };
 
         GameInputManager.Instance.controls.UI.DialogueContinue.performed += _ =>
         {
+            if (IsContinueInputSuppressed) return;
             OnDialogueContinue();
         };
     }
