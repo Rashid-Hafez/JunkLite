@@ -118,6 +118,14 @@ namespace junklite
         public AttackDirection CurrentAttackDirection => currentAttackDir;
         public float Facing => Mathf.Sign(playerTransform.localScale.x);
 
+        /// <summary>
+        /// The horizontal movement axis for the current 2.5D lane.
+        /// XY lane (Y rot = 0°)  → Vector3.right   (1, 0, 0)
+        /// ZY lane (Y rot = 90°) → controller.transform.right = (0, 0, -1)
+        /// Matches EnemyMovement.horizontalAxis so attacks fire along the correct world axis.
+        /// </summary>
+        private Vector3 FacingAxis => controller != null ? controller.transform.right : Vector3.right;
+
         public WeaponData FistWeaponData => fistWeaponData;
         public WeaponInstance WeaponSlot1 => weaponSlot1;
         public WeaponInstance WeaponSlot2 => weaponSlot2;
@@ -383,7 +391,7 @@ namespace junklite
             weapon.transform.SetParent(pickup.transform, false);
             weapon.gameObject.SetActive(false);
 
-            pickup.transform.position = playerTransform.position + Vector3.right * Facing * 1.2f;
+            pickup.transform.position = playerTransform.position + FacingAxis * Facing * 1.2f;
             pickup.gameObject.SetActive(true);
 
             RemoveWeaponFromSlot(slot);
@@ -768,7 +776,7 @@ namespace junklite
                 }
 
                 // Wall (facing direction)
-                Vector3 forwardDir = Vector3.right * Facing;
+                Vector3 forwardDir = FacingAxis * Facing;
                 if (Physics.Raycast(blastOrigin, forwardDir, out RaycastHit wallHit, envRayLength, environmentLayer, QueryTriggerInteraction.Ignore))
                 {
                     CombatEffectsManager.Instance.SpawnEnvHitParticle(wallHit.point, wallHit.normal);
@@ -823,7 +831,7 @@ namespace junklite
 
             Transform muzzle = (muzzlePoint != null) ? muzzlePoint : sideAttack;
             Vector3 origin = muzzle.position;
-            Vector3 dir = Vector3.right * Facing;
+            Vector3 dir = FacingAxis * Facing;
             float maxRange = step.maxRange > 0f ? step.maxRange : 50f;
             float castRadius = step.bulletRadius;
             float tracerDuration = step.tracerDuration > 0f ? step.tracerDuration : 0.06f;
@@ -1011,7 +1019,7 @@ namespace junklite
             Vector3 origin = playerTransform.position;
 
             if (forwardOffset > 0f)
-                origin += Vector3.right * Facing * forwardOffset;
+                origin += FacingAxis * Facing * forwardOffset;
 
             switch (dir)
             {
@@ -1033,7 +1041,7 @@ namespace junklite
             {
                 case AttackDirection.Down: recoilDir = Vector3.up; break;
                 case AttackDirection.Up: recoilDir = Vector3.down; break;
-                default: recoilDir = Vector3.right * -Facing; break;
+                default: recoilDir = FacingAxis * -Facing; break;
             }
 
             Vector3 peakVelocity = recoilDir * recoilMagnitude;
@@ -1046,8 +1054,10 @@ namespace junklite
                 float multiplier = 1f - (t * t);
 
                 Vector3 vel = playerRb.linearVelocity;
-                if (Mathf.Abs(recoilDir.x) > 0f) vel.x = peakVelocity.x * multiplier;
-                if (Mathf.Abs(recoilDir.y) > 0f) vel.y = peakVelocity.y * multiplier;
+                // Project onto recoilDir so we correctly handle both X and Z lanes
+                float currentAlong = Vector3.Dot(vel, recoilDir.normalized);
+                float targetAlong = peakVelocity.magnitude * multiplier;
+                vel += recoilDir.normalized * (targetAlong - currentAlong);
                 playerRb.linearVelocity = vel;
 
                 yield return null;
@@ -1446,7 +1456,7 @@ namespace junklite
             {
                 AttackDirection.Up => Vector3.up,
                 AttackDirection.Down => Vector3.down,
-                _ => Vector3.right * Facing
+                _ => FacingAxis * Facing
             };
         }
 
@@ -1540,10 +1550,7 @@ namespace junklite
             switch (dir)
             {
                 case AttackDirection.Side:
-                    return new Vector3(
-                        playerTransform.position.x + Facing * range,
-                        anchor.position.y,
-                        playerTransform.position.z);
+                    return anchor.position + FacingAxis * (Facing * range);
 
                 case AttackDirection.Up:
                     return new Vector3(
@@ -1594,7 +1601,7 @@ namespace junklite
         {
             if (playerRb == null || dir != AttackDirection.Side) return;
             if (Mathf.Abs(hitRecoil) <= 0f) return;
-            playerRb.AddForce(Vector3.right * -Facing * hitRecoil, ForceMode.Impulse);
+            playerRb.AddForce(FacingAxis * -Facing * hitRecoil, ForceMode.Impulse);
         }
 
         private void ApplyAttackInputLock()
