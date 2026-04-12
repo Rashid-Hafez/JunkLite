@@ -31,6 +31,8 @@ namespace junklite
 
         public int UnlockedActiveSlots => unlockedActiveSlots;
         public int UnlockedPassiveSlots => unlockedPassiveSlots;
+        public int MaxActiveSlots => maxActiveSlots;
+        public int MaxPassiveSlots => maxPassiveSlots;
         public bool IsActive => isActive;
 
         public event Action OnModSlotsChanged;
