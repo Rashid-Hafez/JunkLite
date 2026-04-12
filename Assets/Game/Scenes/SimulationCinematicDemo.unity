@@ -773,42 +773,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 9020430206254315046}
     m_Modifications:
-    - target: {fileID: 490370084539925688, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
-      propertyPath: m_fontSize
-      value: 24
-      objectReference: {fileID: 0}
-    - target: {fileID: 490370084539925688, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
-      propertyPath: m_fontAsset
-      value: 
-      objectReference: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-    - target: {fileID: 490370084539925688, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
-      propertyPath: m_fontSizeBase
-      value: 24
-      objectReference: {fileID: 0}
-    - target: {fileID: 490370084539925688, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
-      propertyPath: m_sharedMaterial
-      value: 
-      objectReference: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
     - target: {fileID: 1552659151692697362, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
       propertyPath: m_Name
       value: DialoguePanel
       objectReference: {fileID: 0}
-    - target: {fileID: 5844490656072979783, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
-      propertyPath: m_fontSize
-      value: 24
-      objectReference: {fileID: 0}
-    - target: {fileID: 5844490656072979783, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
-      propertyPath: m_fontAsset
-      value: 
-      objectReference: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-    - target: {fileID: 5844490656072979783, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
-      propertyPath: m_fontSizeBase
-      value: 24
-      objectReference: {fileID: 0}
-    - target: {fileID: 5844490656072979783, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
-      propertyPath: m_sharedMaterial
-      value: 
-      objectReference: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
     - target: {fileID: 6411742453859284202, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -6360,7 +6328,7 @@ MonoBehaviour:
   combatIntroDialogue: {fileID: 11400000, guid: 391ddb2c71ea745d6a2486a694a66df4, type: 2}
   postEnemyDialogue: {fileID: 11400000, guid: 8d089c37da16c4c038c4eb920fcabb84, type: 2}
   postPickupDialogue: {fileID: 11400000, guid: b13ceaf5d50f347f4b7fa067e1c8f9dc, type: 2}
-  finalDialogue: {fileID: 11400000, guid: 8d089c37da16c4c038c4eb920fcabb84, type: 2}
+  finalDialogue: {fileID: 11400000, guid: ab0258e30eac04422b0ba19901867f85, type: 2}
   platformStep1: {fileID: 475989695}
   platformStep2: {fileID: 5850483783724389931}
   platformStep2Dissolver: {fileID: 1922018216355878114}
@@ -6372,6 +6340,7 @@ MonoBehaviour:
   finalObjectiveTrigger: {fileID: 0}
   enemyPrefabs:
   - {fileID: 84268223678430046, guid: 015a35f97bcbd45e5a6b0e5998f45f69, type: 3}
+  - {fileID: 84268223678430046, guid: 015a35f97bcbd45e5a6b0e5998f45f69, type: 3}
   enemySpawnPoints:
   - {fileID: 1955712852}
   tutorialWeaponPickupPrefab: {fileID: 5612364688996449167, guid: 48377b0cb212849febc8109d51345e1a, type: 3}
@@ -6379,7 +6348,7 @@ MonoBehaviour:
   postPickupEnemyPrefab: {fileID: 0}
   postPickupEnemySpawnPoint: {fileID: 0}
   nextSceneName: Level1Whitebox 1st Track
-  showDebugInfo: 1
+  showDebugInfo: 0
 --- !u!1001 &1444674245
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -16999,11 +16968,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 740480251650863943, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: Lens.FieldOfView
-      value: 32.09576
+      value: 33.69152
       objectReference: {fileID: 0}
     - target: {fileID: 740480251650863943, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: Lens.FarClipPlane
-      value: 1500
+      value: 1000
+      objectReference: {fileID: 0}
+    - target: {fileID: 740480251650863943, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
+      propertyPath: Lens.NearClipPlane
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1215283625997370988, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalPosition.z
@@ -17107,19 +17080,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: field of view
-      value: 32.09576
+      value: 33.69152
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_FocalLength
-      value: 40.000004
+      value: 37.999996
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: far clip plane
-      value: 1500
+      value: 1000
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: near clip plane
-      value: 0.01
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_BackGroundColor.a

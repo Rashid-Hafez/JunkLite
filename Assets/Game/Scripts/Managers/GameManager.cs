@@ -100,7 +100,7 @@ namespace junklite
             gameplayCanvasTransform = null;
 
             // Find spawn points in the new scene
-            //FindSpawnPoints();
+            FindSpawnPoints();
 
             // Find canvas in the new scene
             FindGameplayCanvas();
@@ -163,7 +163,7 @@ namespace junklite
         private void InitializeGame()
         {
             if (spawnPoints == null || spawnPoints.Length == 0)
-                //FindSpawnPoints();
+                FindSpawnPoints();
 
             EnsurePlayerUI();
 
@@ -196,32 +196,23 @@ namespace junklite
                 Debug.LogError("Player UI prefab is missing a PlayerUI component.");
         }
 
-        /*private void FindSpawnPoints()
+        private void FindSpawnPoints()
         {
-            // Find all SpawnPoint components in the scene
-            var spawnPointComponents = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None);
-
-            if (spawnPointComponents.Length > 0)
+            var spawnObjects = GameObject.FindGameObjectsWithTag("SpawnPoint");
+            if (spawnObjects != null && spawnObjects.Length > 0)
             {
-                spawnPoints = new Transform[spawnPointComponents.Length];
-                for (int i = 0; i < spawnPointComponents.Length; i++)
-                    spawnPoints[i] = spawnPointComponents[i].transform;
+                Array.Sort(spawnObjects, (a, b) => string.CompareOrdinal(a.name, b.name));
+                spawnPoints = new Transform[spawnObjects.Length];
+                for (int i = 0; i < spawnObjects.Length; i++)
+                    spawnPoints[i] = spawnObjects[i].transform;
 
-                Debug.Log($"[GameManager] Found {spawnPoints.Length} spawn points via SpawnPoint component.");
+                Debug.Log($"[GameManager] Found {spawnPoints.Length} spawn points via tag.");
                 return;
             }
 
-            // Fallback: try to find by tag
-            var spawnObjects = GameObject.FindGameObjectsWithTag("SpawnPoint");
-            spawnPoints = new Transform[spawnObjects.Length];
-            for (int i = 0; i < spawnObjects.Length; i++)
-                spawnPoints[i] = spawnObjects[i].transform;
-
-            if (spawnPoints.Length == 0)
-                Debug.LogWarning("[GameManager] No spawn points found! Add SpawnPoint components or tag objects as 'SpawnPoint'.");
-            else
-                Debug.Log($"[GameManager] Found {spawnPoints.Length} spawn points via tag.");
-        }*/
+            spawnPoints = Array.Empty<Transform>();
+            Debug.LogWarning("[GameManager] No spawn points found! Tag at least one object as 'SpawnPoint'.");
+        }
 
         public void SpawnPlayer()
         {
