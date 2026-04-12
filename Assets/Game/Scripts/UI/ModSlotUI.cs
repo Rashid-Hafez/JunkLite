@@ -17,6 +17,7 @@ namespace junklite
         [SerializeField] private Image backgroundImage;
         [SerializeField] private Image crossIcon;
         [SerializeField] private Image highlightImage;
+        [SerializeField] private TMPro.TMP_Text controlsText;
 
         // Data
         private ModInstance modInstance;
@@ -124,6 +125,22 @@ namespace junklite
             }
 
             UpdateDurabilityBar();
+            UpdateControlsText();
+        }
+
+        private void UpdateControlsText()
+        {
+            if (controlsText == null) return;
+
+            if (slotType == SlotType.ActiveMod && GameInputManager.Instance != null)
+            {
+                controlsText.text = GameInputManager.Instance.GetModActivateHint(slotIndex);
+                controlsText.gameObject.SetActive(true);
+            }
+            else
+            {
+                controlsText.gameObject.SetActive(false);
+            }
         }
 
         private void Update()

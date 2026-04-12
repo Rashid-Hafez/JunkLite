@@ -47,9 +47,18 @@ namespace junklite
         /// </summary>
         public bool IsGameplayInputEnabled { get; private set; } = true;
 
-        /// <summary>
-        /// Enable or disable gameplay inputs. Use when opening menus/inventory.
-        /// </summary>
+  
+        public string GetModActivateHint(int slotIndex)
+        {
+            return slotIndex switch
+            {
+                0 => controls.Player.ModActivate1.GetBindingDisplayString(),
+                1 => controls.Player.ModActivate2.GetBindingDisplayString(),
+                2 => controls.Player.ModActivate3.GetBindingDisplayString(),
+                3 => controls.Player.ModActivate4.GetBindingDisplayString(),
+                _ => ""
+            };
+        }
         public void SetGameplayInputEnabled(bool enabled)
         {
             IsGameplayInputEnabled = enabled;
@@ -66,14 +75,7 @@ namespace junklite
             }
         }
 
-        // -----------------------------------------------------------------------
-        // ACTION MAP SWITCHING
-        // -----------------------------------------------------------------------
 
-        /// <summary>
-        /// Switch to the UI action map. Disables Player actions.
-        /// Use when opening weapon pickup UI or other modal UIs.
-        /// </summary>
         public void SwitchToUIActionMap()
         {
             controls.Player.Disable();

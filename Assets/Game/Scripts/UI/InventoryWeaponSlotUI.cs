@@ -46,13 +46,26 @@ namespace junklite
 
         #endregion
 
-        #region Bind
+        #region Bind / Unbind
 
         public void Bind(WeaponManager manager, int slot)
         {
             weaponManager = manager;
             slotIndex = slot;
             Refresh();
+        }
+
+        public void Unbind()
+        {
+            if (draggedSlot == this) CleanupDrag();
+            if (selectedSlot == this) ClearSelection();
+
+            weaponManager = null;
+            slotIndex = 0;
+
+            if (iconImage != null) { iconImage.enabled = false; iconImage.sprite = null; iconImage.color = Color.white; }
+            if (durabilityFill != null) durabilityFill.enabled = false;
+            if (highlightImage != null) highlightImage.enabled = false;
         }
 
         public void Refresh()
