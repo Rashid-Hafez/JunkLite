@@ -38,6 +38,8 @@ namespace junklite
         [SerializeField] private GameObject completedVideoRoot;
         [Tooltip("Optional transparent completion video player. Used after each platform step if assigned.")]
         [SerializeField] private VideoPlayer completedVideoPlayer;
+        [Tooltip("Maximum time the completion video is allowed to block progression before the sequence continues anyway.")]
+        [SerializeField] private float completedVideoTimeout = 1.5f;
         [Tooltip("Delay after the completed beat finishes before the player is moved to the room spawn.")]
         [SerializeField] private float completedResetDelay = 0.5f;
 
@@ -470,25 +472,42 @@ namespace junklite
                 completedVideoRoot.SetActive(true);
 
             bool complete = false;
+            bool errorReceived = false;
             void OnLoopPointReached(VideoPlayer _) => complete = true;
+            void OnErrorReceived(VideoPlayer _, string message)
+            {
+                errorReceived = true;
+                Debug.LogWarning($"[Level0Sequence] Completed video failed: {message}");
+            }
 
             completedVideoPlayer.loopPointReached += OnLoopPointReached;
+            completedVideoPlayer.errorReceived += OnErrorReceived;
             completedVideoPlayer.isLooping = false;
             completedVideoPlayer.time = 0d;
             completedVideoPlayer.frame = 0;
             completedVideoPlayer.Prepare();
 
-            while (!completedVideoPlayer.isPrepared)
+            float timeoutAt = Time.unscaledTime + completedVideoTimeout;
+
+            while (!completedVideoPlayer.isPrepared && !errorReceived && Time.unscaledTime < timeoutAt)
                 yield return null;
 
-            completedVideoPlayer.time = 0d;
-            completedVideoPlayer.frame = 0;
-            completedVideoPlayer.Play();
+            if (completedVideoPlayer.isPrepared && !errorReceived)
+            {
+                completedVideoPlayer.time = 0d;
+                completedVideoPlayer.frame = 0;
+                completedVideoPlayer.Play();
 
-            while (!complete)
-                yield return null;
+                while (!complete && !errorReceived && Time.unscaledTime < timeoutAt)
+                    yield return null;
+            }
+            else
+            {
+                Debug.LogWarning("[Level0Sequence] Completed video timed out while preparing. Continuing sequence.");
+            }
 
             completedVideoPlayer.loopPointReached -= OnLoopPointReached;
+            completedVideoPlayer.errorReceived -= OnErrorReceived;
         }
 
         private void HideCompletedVideo()

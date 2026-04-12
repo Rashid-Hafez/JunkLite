@@ -1,9 +1,5 @@
 fileFormatVersion: 2
-<<<<<<<< HEAD:Assets/Plugins/ParticleEffectForUGUI-main/Samples~/Demo/Scripts.meta
 guid: 6bef82dac243d4989b75a236e63bffb1
-========
-guid: cb40e28beaee740b09fe2ca1165e4f77
->>>>>>>> origin/Milestone-2.3:Assets/Game/SPINE ENEMIES/HYENA/Scripts.meta
 folderAsset: yes
 DefaultImporter:
   externalObjects: {}

@@ -6320,6 +6320,7 @@ MonoBehaviour:
   platformCompleteDirector: {fileID: 0}
   completedVideoRoot: {fileID: 2120730653}
   completedVideoPlayer: {fileID: 188130105}
+  completedVideoTimeout: 1.5
   completedResetDelay: 0.5
   introDialogue: {fileID: 11400000, guid: 0a9256d4cb4ffe447bc7bbc919272f7d, type: 2}
   postCinematicDialogue: {fileID: 11400000, guid: 4c48cad93059a406999b16e3d5ddaca1, type: 2}
@@ -16968,15 +16969,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 740480251650863943, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: Lens.FieldOfView
-      value: 33.69152
+      value: 32.09576
       objectReference: {fileID: 0}
     - target: {fileID: 740480251650863943, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: Lens.FarClipPlane
-      value: 1000
+      value: 500
       objectReference: {fileID: 0}
     - target: {fileID: 740480251650863943, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: Lens.NearClipPlane
-      value: 1
+      value: 0.01
       objectReference: {fileID: 0}
     - target: {fileID: 1215283625997370988, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_LocalPosition.z
@@ -17080,19 +17081,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: field of view
-      value: 33.69152
+      value: 32.09576
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_FocalLength
-      value: 37.999996
+      value: 40.000004
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: far clip plane
-      value: 1000
+      value: 500
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: near clip plane
-      value: 1
+      value: 0.01
       objectReference: {fileID: 0}
     - target: {fileID: 4335359885975137023, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
       propertyPath: m_BackGroundColor.a
