@@ -76,6 +76,14 @@ namespace junklite
         [Tooltip("When grounded, wait this long after the override animation ends before returning to idle/run")]
         [SerializeField] private float forceOverrideGroundedHoldDuration = 0.4f;
 
+        [Header("Mod Combat Entry")]
+        [Tooltip("Spine animation played when entering mod combat (Q). Leave empty to skip.")]
+        [SerializeField] private string modCombatEntryAnim = "Attack_WolverinePose";
+        [Tooltip("VFX prefab spawned at the player when entering mod combat (same ripple as parry).")]
+        [SerializeField] private GameObject modEntryVFXPrefab;
+        [Tooltip("Fallback animation if the configured mod-entry animation is missing on the skeleton.")]
+        [SerializeField] private string modCombatEntryFallbackAnim = "Attack_WolverinePose";
+
         [Header("Footsteps")]
         [SerializeField] private EventDataReferenceAsset footstepEvent;
         [SerializeField] private AudioSource footstepSource;
@@ -153,6 +161,9 @@ namespace junklite
             if (controller != null)
                 controller.OnDoubleJumpPerformed += OnControllerDoubleJumpPerformed;
 
+            if (weaponManager != null)
+                weaponManager.OnCombatModeChanged += HandleCombatModeChanged;
+
             PlayLocomotion(idle, true);
         }
 
@@ -188,6 +199,9 @@ namespace junklite
 
             if (controller != null)
                 controller.OnDoubleJumpPerformed -= OnControllerDoubleJumpPerformed;
+
+            if (weaponManager != null)
+                weaponManager.OnCombatModeChanged -= HandleCombatModeChanged;
 
             if (skeletonAnimation != null)
                 skeletonAnimation.AnimationState.Event -= HandleSpineEvent;
@@ -457,6 +471,54 @@ namespace junklite
 
         /// <summary>True while a ForcePlayOverride animation is playing.</summary>
         public bool IsForceOverrideActive => forceOverrideActive;
+
+        #endregion
+
+        #region Mod Combat Entry
+
+        private void HandleCombatModeChanged()
+        {
+            if (weaponManager == null || !weaponManager.IsModCombat)
+                return;
+
+            string animationToPlay = ResolveModCombatEntryAnimation();
+            if (string.IsNullOrEmpty(animationToPlay))
+                return;
+
+            if (playerState != null)
+                playerState.SetInputLocked(true);
+
+            if (controller != null)
+                controller.StopAllVelocity();
+
+            if (modEntryVFXPrefab != null)
+                Instantiate(modEntryVFXPrefab, transform.position, Quaternion.identity);
+
+            ForcePlayOverride(animationToPlay, false, () =>
+            {
+                if (playerState != null)
+                    playerState.SetInputLocked(false);
+            });
+        }
+
+        private string ResolveModCombatEntryAnimation()
+        {
+            if (HasAnimation(modCombatEntryAnim))
+                return modCombatEntryAnim;
+
+            if (HasAnimation(modCombatEntryFallbackAnim))
+            {
+                Log($"Mod entry animation '{modCombatEntryAnim}' not found. Falling back to '{modCombatEntryFallbackAnim}'.");
+                return modCombatEntryFallbackAnim;
+            }
+
+            Log($"No valid mod entry animation found. Checked '{modCombatEntryAnim}' and '{modCombatEntryFallbackAnim}'.");
+            return string.Empty;
+        }
+
+        #endregion
+
+        #region Attack Interruption
 
         private void InterruptAttack(string reason)
         {

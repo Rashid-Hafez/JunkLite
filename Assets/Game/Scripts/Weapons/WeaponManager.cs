@@ -235,12 +235,15 @@ namespace junklite
         public bool TryToggleCombatMode()
         {
             if (isAttacking) return false;
+            if (spineController != null && spineController.IsForceOverrideActive) return false;
 
             if (isModCombat)
             {
                 ExitModCombat();
                 return true;
             }
+
+            if (playerState != null && playerState.IsInputLocked) return false;
 
             if (weaponSlot1 == null && weaponSlot2 == null)
             {
