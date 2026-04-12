@@ -1381,6 +1381,7 @@ MonoBehaviour:
   forceOverrideGroundedHoldDuration: 0.4
   modCombatEntryAnim: Attack_WolverinePose
   modEntryVFXPrefab: {fileID: 2057006026388923700}
+  modCombatEntryFallbackAnim: Attack_WolverinePose
   footstepEvent: {fileID: 11400000, guid: 2657d9f265aa59446b055dc0c1018419, type: 2}
   footstepSource: {fileID: 0}
   footstepPitchOffset: 0.2
@@ -1400,7 +1401,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.ModManager
   maxActiveSlots: 4
   maxPassiveSlots: 2
-  unlockedActiveSlots: 1
+  unlockedActiveSlots: 4
   unlockedPassiveSlots: 2
 --- !u!114 &1478857151611631190
 MonoBehaviour:
