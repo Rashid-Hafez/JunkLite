@@ -1,10 +1,11 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using System;
 using System.Collections.Generic;
 
 namespace junklite
 {
-
     public class InventoryUI : MonoBehaviour
     {
         #region Fields
@@ -30,8 +31,8 @@ namespace junklite
         [SerializeField] private Transform passiveModSlotParent;
 
         [Header("Weapon Slots")]
-        [SerializeField] private GameObject weaponSlotPrefab;
-        [SerializeField] private Transform weaponSlotParent;
+        [SerializeField] private InventoryWeaponSlotUI weaponSlot1;
+        [SerializeField] private InventoryWeaponSlotUI weaponSlot2;
 
         [Header("Description Box")]
         [SerializeField] private ItemDescriptionUI descriptionUI;
@@ -43,10 +44,11 @@ namespace junklite
         private readonly List<ModSlotUI> inventorySlots = new();
         private readonly List<ModSlotUI> activeModSlots = new();
         private readonly List<ModSlotUI> passiveModSlots = new();
-        private readonly List<InventoryWeaponSlotUI> weaponSlots = new();
 
         private enum Tab { Inventory, Info }
         private Tab activeTab = Tab.Inventory;
+
+        private TabButtonDeselectHelper inventoryTabDeselectHelper;
 
         #endregion
 
@@ -76,7 +78,12 @@ namespace junklite
 
             // Tab buttons
             if (inventoryTabButton != null)
+            {
                 inventoryTabButton.onClick.AddListener(ShowInventoryTab);
+                inventoryTabDeselectHelper = inventoryTabButton.gameObject.GetComponent<TabButtonDeselectHelper>()
+                    ?? inventoryTabButton.gameObject.AddComponent<TabButtonDeselectHelper>();
+                inventoryTabDeselectHelper.OnDeselected += HandleInventoryTabDeselected;
+            }
 
             if (infoTabButton != null)
                 infoTabButton.onClick.AddListener(ShowInfoTab);
@@ -102,6 +109,9 @@ namespace junklite
             if (inventoryTabButton != null)
                 inventoryTabButton.onClick.RemoveListener(ShowInventoryTab);
 
+            if (inventoryTabDeselectHelper != null)
+                inventoryTabDeselectHelper.OnDeselected -= HandleInventoryTabDeselected;
+
             if (infoTabButton != null)
                 infoTabButton.onClick.RemoveListener(ShowInfoTab);
 
@@ -126,7 +136,24 @@ namespace junklite
 
         #endregion
 
+        private void HandleInventoryTabDeselected()
+        {
+            if (activeTab == Tab.Inventory && inventoryTabButton != null)
+                inventoryTabButton.Select();
+        }
+
         #region Tabs
+
+        private void Update()
+        {
+            if (activeTab == Tab.Inventory
+                && inventoryTabButton != null
+                && EventSystem.current != null
+                && EventSystem.current.currentSelectedGameObject == null)
+            {
+                inventoryTabButton.Select();
+            }
+        }
 
         private void ShowInventoryTab()
         {
@@ -134,6 +161,8 @@ namespace junklite
 
             if (inventoryScreen != null) inventoryScreen.SetActive(true);
             if (infoScreen != null) infoScreen.SetActive(false);
+
+            if (inventoryTabButton != null) inventoryTabButton.Select();
 
             descriptionUI?.Clear();
         }
@@ -198,27 +227,16 @@ namespace junklite
 
         private void RefreshWeapons()
         {
-            ClearWeaponSlots();
+            if (weaponManager == null) return;
 
-            if (weaponManager == null || weaponSlotPrefab == null || weaponSlotParent == null) return;
-
-            for (int i = 1; i <= 2; i++)
-            {
-                var go = Instantiate(weaponSlotPrefab, weaponSlotParent);
-                var ui = go.GetComponent<InventoryWeaponSlotUI>();
-                if (ui != null)
-                {
-                    ui.Bind(weaponManager, i);
-                    weaponSlots.Add(ui);
-                }
-            }
+            weaponSlot1?.Bind(weaponManager, 1);
+            weaponSlot2?.Bind(weaponManager, 2);
         }
 
         private void ClearWeaponSlots()
         {
-            foreach (var slot in weaponSlots)
-                if (slot != null) Destroy(slot.gameObject);
-            weaponSlots.Clear();
+            weaponSlot1?.Unbind();
+            weaponSlot2?.Unbind();
         }
 
         #endregion
@@ -283,5 +301,15 @@ namespace junklite
         private void OnDestroy() => Unbind();
 
         #endregion
+    }
+
+    /// <summary>
+    /// Fires an event when the attached Button is deselected by the EventSystem.
+    /// </summary>
+    public class TabButtonDeselectHelper : MonoBehaviour, IDeselectHandler
+    {
+        public event Action OnDeselected;
+
+        public void OnDeselect(BaseEventData eventData) => OnDeselected?.Invoke();
     }
 }

@@ -23,9 +23,6 @@ namespace junklite
         [SerializeField] private Transform activeModParent;
         [SerializeField] private CombatModSlotUI modSlotPrefab;
 
-        [Header("Input Hints (Active Slots)")]
-        [SerializeField] private string[] activeSlotHints = { "X+C", "Y+C", "X+V", "Y+V" };
-
         // Runtime
         private WeaponManager _weaponManager;
         private ModManager _modManager;
@@ -199,7 +196,9 @@ namespace junklite
             for (int i = 0; i < activeSlotUIs.Count; i++)
             {
                 var mod = _modManager.GetActiveMod(i);
-                string hint = i < activeSlotHints.Length ? activeSlotHints[i] : "";
+                string hint = GameInputManager.Instance != null
+                    ? GameInputManager.Instance.GetModActivateHint(i)
+                    : "";
                 activeSlotUIs[i].Bind(mod, _player, hint);
             }
         }

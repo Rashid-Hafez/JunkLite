@@ -1622,7 +1622,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -1749017694, guid: 629189fa9ac414597a270953384a1e4a, type: 3}
+  m_Sprite: {fileID: -1510505636, guid: 629189fa9ac414597a270953384a1e4a, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1898,11 +1898,6 @@ MonoBehaviour:
   slot2: {fileID: 3910914186372284105}
   activeModParent: {fileID: 8314804045858316532}
   modSlotPrefab: {fileID: 4882513819511076147, guid: 9515f829429e93a49870d1bfa95a1840, type: 3}
-  activeSlotHints:
-  - X+C
-  - Y+C
-  - X+V
-  - Y+V
 --- !u!1 &3620941906573541157
 GameObject:
   m_ObjectHideFlags: 0
@@ -3670,8 +3665,8 @@ MonoBehaviour:
   activeModSlotParent: {fileID: 1354067842365419019}
   passiveModSlotPrefab: {fileID: 6209669155372079997, guid: e4355cbbf5c823b4c84ea561ee1c1581, type: 3}
   passiveModSlotParent: {fileID: 5028699316687935355}
-  weaponSlotPrefab: {fileID: 4984490401915298965, guid: e8b3080e17bd9f143bbb9ebe4b15a826, type: 3}
-  weaponSlotParent: {fileID: 323794885566657853}
+  weaponSlot1: {fileID: 0}
+  weaponSlot2: {fileID: 0}
   descriptionUI: {fileID: 3897783407409097875}
 --- !u!222 &5641767889167318056
 CanvasRenderer:
@@ -4327,7 +4322,7 @@ MonoBehaviour:
   slot2Highlight: {fileID: 6089815193231491864}
   slot2DurabilityFill: {fileID: 6361592950892021106}
   inputHintsText: {fileID: 0}
-  occupiedNameColor: {r: 0, g: 0, b: 0, a: 1}
+  occupiedNameColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &6076940736416836330
 GameObject:
   m_ObjectHideFlags: 0
@@ -7569,7 +7564,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &3070057636594996171
 RectTransform:
   m_ObjectHideFlags: 0

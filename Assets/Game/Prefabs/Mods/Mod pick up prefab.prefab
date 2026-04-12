@@ -9722,7 +9722,7 @@ Transform:
   m_GameObject: {fileID: 1810501840101692228}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.06991005, y: 0.432, z: -1.7350168}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -19544,7 +19544,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a9ac92cc302d0046afdc0b9ee405945, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.WorldModPickup
-  modData: {fileID: 11400000, guid: b1036ee54b12d1548abae30ea8df5074, type: 2}
+  modData: {fileID: 11400000, guid: ffaf7a00873602a44b29335a1bfa7d6a, type: 2}
   defaultVisual: {fileID: 1810501840101692228}
 --- !u!65 &1312789794559120729
 BoxCollider:
