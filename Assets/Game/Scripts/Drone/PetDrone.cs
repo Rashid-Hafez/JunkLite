@@ -1,7 +1,6 @@
-﻿using System;
+﻿using junklite;
+using System;
 using System.Collections;
-using junklite;
-using Unity.VisualScripting;
 using UnityEngine;
 
 /// <summary>
@@ -22,11 +21,11 @@ public class PetDrone : MonoBehaviour
 {
     /// ///////////// FOLLOW EFFECT /////////////
     // Follow equation
-    Rigidbody2D rb;
+    Rigidbody rb;
     Rigidbody playerRb;
-    Vector2 F; // F
-    Vector2 p; // p
-    Vector2 r; // r
+    Vector3 F; // F
+    Vector3 p; // p
+    Vector3 r; // r
     public float k = 5f; // spring constant (stiffness)
     public float mass = 1f; // mass of the drone
     public float damping = 0.8f; // damping factor to reduce oscillations
@@ -37,10 +36,10 @@ public class PetDrone : MonoBehaviour
 
     /// ///////////// HOVERING EFFECT /////////////
 
-    Vector2 hoverPosition;
+    Vector3 hoverPosition;
     float amountToHover = 0.5f; // Height of the hover
     float hoverSpeed = 2f; // Speed of the hover
-    Vector2 initpos; // Initial position of the object
+    Vector3 initpos; // Initial position of the object
     public float tickRate = 0.02f; // like FixedUpdate (50 Hz)
     [SerializeField] Vector3 offset = new Vector3(1f, 1.5f, 0f); // side + above the player
 
@@ -101,13 +100,13 @@ public class PetDrone : MonoBehaviour
         // Ensure player reference is set before starting
         if (player1 != null)
         {
-            rb = GetComponent<Rigidbody2D>();
+            rb = GetComponent<Rigidbody>();
             playerRb = player1.GetComponent<Rigidbody>();
 
             if (rb == null)
             {
-                Debug.LogWarning("Rigidbody2D component missing on PetDrone.");
-                throw new Exception("Rigidbody2D component missing on PetDrone.");
+                Debug.LogWarning("Rigidbody component missing on PetDrone.");
+                throw new Exception("Rigidbody component missing on PetDrone.");
             }
             if (initpos == null)
             {
@@ -172,10 +171,12 @@ public class PetDrone : MonoBehaviour
             r   = player1.transform.position + offset; // Target position (player position + offset)
             F = -k * (p - r); // Spring force equation: F = -k(p - r)
 
-            rb.AddForce(F / rb.mass, ForceMode2D.Force); // Apply force to the drone
+            rb.AddForce(F / rb.mass, ForceMode.Force); // Apply force to the drone
             
             rb.linearVelocity *= damping; // Apply damping to reduce oscillations
             rb.linearVelocity = Vector3.ClampMagnitude(rb.linearVelocity, maxSpeed); // Limit max speed
+
+            rb.rotation = player1.transform.rotation; // Rotate drone to face the same direction as the player
 
             yield return new WaitForFixedUpdate(); // Wait for the next physics update
         }
