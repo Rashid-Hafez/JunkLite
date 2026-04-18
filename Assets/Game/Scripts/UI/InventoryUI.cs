@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System;
 using System.Collections.Generic;
@@ -10,13 +9,14 @@ namespace junklite
     {
         #region Fields
         [Header("Tabs")]
-        [SerializeField] private Button inventoryTabButton;
-        [SerializeField] private Button infoTabButton;
+        [SerializeField] private MenuButton inventoryTabButton;
+        [SerializeField] private MenuButton infoTabButton;
+        [SerializeField] private MenuButton missionsTabButton;
 
         [Header("Tab Screens")]
         [SerializeField] private GameObject inventoryScreen;
         [SerializeField] private GameObject infoScreen;
-
+        [SerializeField] private GameObject missionsScreen;
 
         [Header("Inventory Slots")]
         [SerializeField] private GameObject inventorySlotPrefab;
@@ -45,10 +45,8 @@ namespace junklite
         private readonly List<ModSlotUI> activeModSlots = new();
         private readonly List<ModSlotUI> passiveModSlots = new();
 
-        private enum Tab { Inventory, Info }
+        private enum Tab { Inventory, Info, Missions }
         private Tab activeTab = Tab.Inventory;
-
-        private TabButtonDeselectHelper inventoryTabDeselectHelper;
 
         #endregion
 
@@ -72,21 +70,17 @@ namespace junklite
             if (modManager != null)
                 modManager.OnModSlotsChanged += RefreshModSlots;
 
-            // Slot selection events → description box
             ModSlotUI.OnModSelected += HandleModSelected;
             InventoryWeaponSlotUI.OnWeaponSelected += HandleWeaponSelected;
 
-            // Tab buttons
             if (inventoryTabButton != null)
-            {
-                inventoryTabButton.onClick.AddListener(ShowInventoryTab);
-                inventoryTabDeselectHelper = inventoryTabButton.gameObject.GetComponent<TabButtonDeselectHelper>()
-                    ?? inventoryTabButton.gameObject.AddComponent<TabButtonDeselectHelper>();
-                inventoryTabDeselectHelper.OnDeselected += HandleInventoryTabDeselected;
-            }
+                inventoryTabButton.OnClick += ShowInventoryTab;
 
             if (infoTabButton != null)
-                infoTabButton.onClick.AddListener(ShowInfoTab);
+                infoTabButton.OnClick += ShowInfoTab;
+
+            if (missionsTabButton != null)
+                missionsTabButton.OnClick += ShowMissionsTab;
 
             ShowInventoryTab();
             RefreshAll();
@@ -107,13 +101,13 @@ namespace junklite
             InventoryWeaponSlotUI.OnWeaponSelected -= HandleWeaponSelected;
 
             if (inventoryTabButton != null)
-                inventoryTabButton.onClick.RemoveListener(ShowInventoryTab);
-
-            if (inventoryTabDeselectHelper != null)
-                inventoryTabDeselectHelper.OnDeselected -= HandleInventoryTabDeselected;
+                inventoryTabButton.OnClick -= ShowInventoryTab;
 
             if (infoTabButton != null)
-                infoTabButton.onClick.RemoveListener(ShowInfoTab);
+                infoTabButton.OnClick -= ShowInfoTab;
+
+            if (missionsTabButton != null)
+                missionsTabButton.OnClick -= ShowMissionsTab;
 
             ClearSlots(inventorySlots);
             ClearSlots(activeModSlots);
@@ -136,33 +130,20 @@ namespace junklite
 
         #endregion
 
-        private void HandleInventoryTabDeselected()
-        {
-            if (activeTab == Tab.Inventory && inventoryTabButton != null)
-                inventoryTabButton.Select();
-        }
 
         #region Tabs
-
-        private void Update()
-        {
-            if (activeTab == Tab.Inventory
-                && inventoryTabButton != null
-                && EventSystem.current != null
-                && EventSystem.current.currentSelectedGameObject == null)
-            {
-                inventoryTabButton.Select();
-            }
-        }
 
         private void ShowInventoryTab()
         {
             activeTab = Tab.Inventory;
 
+            inventoryTabButton?.SetSelected(true);
+            infoTabButton?.SetSelected(false);
+            missionsTabButton?.SetSelected(false);
+
             if (inventoryScreen != null) inventoryScreen.SetActive(true);
             if (infoScreen != null) infoScreen.SetActive(false);
-
-            if (inventoryTabButton != null) inventoryTabButton.Select();
+            if (missionsScreen != null) missionsScreen.SetActive(false);
 
             descriptionUI?.Clear();
         }
@@ -171,8 +152,28 @@ namespace junklite
         {
             activeTab = Tab.Info;
 
+            inventoryTabButton?.SetSelected(false);
+            infoTabButton?.SetSelected(true);
+            missionsTabButton?.SetSelected(false);
+
             if (inventoryScreen != null) inventoryScreen.SetActive(false);
             if (infoScreen != null) infoScreen.SetActive(true);
+            if (missionsScreen != null) missionsScreen.SetActive(false);
+
+            descriptionUI?.Clear();
+        }
+
+        private void ShowMissionsTab()
+        {
+            activeTab = Tab.Missions;
+
+            inventoryTabButton?.SetSelected(false);
+            infoTabButton?.SetSelected(false);
+            missionsTabButton?.SetSelected(true);
+
+            if (inventoryScreen != null) inventoryScreen.SetActive(false);
+            if (infoScreen != null) infoScreen.SetActive(false);
+            if (missionsScreen != null) missionsScreen.SetActive(true);
 
             descriptionUI?.Clear();
         }
@@ -222,7 +223,7 @@ namespace junklite
 
         #endregion
 
-        // -----------------------------------------------------------------------
+
         #region Weapon Slots
 
         private void RefreshWeapons()
@@ -241,7 +242,7 @@ namespace junklite
 
         #endregion
 
-        // -----------------------------------------------------------------------
+
         #region Mod Slots
 
         private void RefreshModSlots()
@@ -255,11 +256,12 @@ namespace junklite
             {
                 for (int i = 0; i < modManager.MaxActiveSlots; i++)
                 {
+                    bool locked = i >= modManager.UnlockedActiveSlots;
                     var go = Instantiate(activeModSlotPrefab, activeModSlotParent);
                     var slot = go.GetComponent<ModSlotUI>();
                     if (slot != null)
                     {
-                        slot.Bind(modManager.GetActiveMod(i), modManager, inventory, i, true);
+                        slot.Bind(modManager.GetActiveMod(i), modManager, inventory, i, true, locked);
                         activeModSlots.Add(slot);
                     }
                 }
@@ -267,13 +269,14 @@ namespace junklite
 
             if (passiveModSlotParent != null && passiveModSlotPrefab != null)
             {
-                for (int i = 0; i < modManager.MaxActiveSlots; i++)
+                for (int i = 0; i < modManager.MaxPassiveSlots; i++)
                 {
+                    bool locked = i >= modManager.UnlockedPassiveSlots;
                     var go = Instantiate(passiveModSlotPrefab, passiveModSlotParent);
                     var slot = go.GetComponent<ModSlotUI>();
                     if (slot != null)
                     {
-                        slot.Bind(modManager.GetPassiveMod(i), modManager, inventory, i, false);
+                        slot.Bind(modManager.GetPassiveMod(i), modManager, inventory, i, false, locked);
                         passiveModSlots.Add(slot);
                     }
                 }
@@ -282,7 +285,7 @@ namespace junklite
 
         #endregion
 
-        // -----------------------------------------------------------------------
+
         #region Helpers
 
         private void ClearSlots(List<ModSlotUI> slots)
@@ -301,15 +304,5 @@ namespace junklite
         private void OnDestroy() => Unbind();
 
         #endregion
-    }
-
-    /// <summary>
-    /// Fires an event when the attached Button is deselected by the EventSystem.
-    /// </summary>
-    public class TabButtonDeselectHelper : MonoBehaviour, IDeselectHandler
-    {
-        public event Action OnDeselected;
-
-        public void OnDeselect(BaseEventData eventData) => OnDeselected?.Invoke();
     }
 }

@@ -50,6 +50,9 @@ namespace junklite
 
             activeSlots = new ModInstance[maxActiveSlots];
             passiveSlots = new ModInstance[maxPassiveSlots];
+
+            unlockedActiveSlots = Mathf.Clamp(unlockedActiveSlots, 0, maxActiveSlots);
+            unlockedPassiveSlots = Mathf.Clamp(unlockedPassiveSlots, 0, maxPassiveSlots);
         }
 
         private void OnEnable()

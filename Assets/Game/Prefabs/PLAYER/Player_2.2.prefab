@@ -1399,7 +1399,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d6ea44cd110e2844a8046a48b6d7a5fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.ModManager
-  maxActiveSlots: 4
+  maxActiveSlots: 2
   maxPassiveSlots: 2
   unlockedActiveSlots: 4
   unlockedPassiveSlots: 2

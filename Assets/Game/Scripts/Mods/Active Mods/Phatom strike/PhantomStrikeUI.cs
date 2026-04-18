@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace junklite
 { 
-    public class PhantomStrikeUI : MonoBehaviour, IModSlotUI
+    public class PhantomStrikeUI : MonoBehaviour 
     {
         #region Fields
 
