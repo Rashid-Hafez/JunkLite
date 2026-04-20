@@ -2,6 +2,7 @@ using UnityEngine;
 using Unity.Cinemachine;
 using System.Collections;
 using System;
+using System.Linq;
 
 namespace junklite
 {
@@ -33,7 +34,9 @@ namespace junklite
         private Action combatStartHandler;
         private Action combatEndHandler;
 
-
+        [Header("Culling Objects")]
+        private bool hidden = false;
+        [SerializeField] private GameObject[] objectsToHide;
 
         private void OnEnable()
         {
@@ -110,56 +113,87 @@ namespace junklite
             {
                 Debug.Log("Entered trigger");
 
-
-
-                if (switchCameras)
-                {
-                    Debug.Log("Switching cameras");
-                    // Toggle cameras
-                    if (cameraA != null && cameraB != null)
-                    {
-                        CinemachineCamera nextCam;
-                        if (usingFirstState)
-                        {
-                            cameraA.Prioritize();
-                            nextCam = cameraA;
-                        }
-                        else
-                        {
-                            cameraB.Prioritize();
-                            nextCam = cameraB;
-                        }
-                        cinemachineBrain.DefaultBlend.Time = cameraBlendDuration;
-
-                        CameraManager.Instance?.SetActiveCamera(nextCam);
-                    }
-
-
-                }
-
-                if (rotateOnTrigger)
-                {
-
-                    // Fix the player's position to prevent sliding
-                    controller.transform.position = usingFirstState ?
-                        new Vector3(pointA.position.x, controller.transform.position.y, pointA.position.z)
-                        : new Vector3(pointB.position.x, controller.transform.position.y, pointB.position.z);
-
-
-                    // Set the correct rotation
-                    controller.RotatePLayer(usingFirstState ? rotationA : rotationB);
-
-                    controller.FreezePerpendicularAxis();
-
-                    // Start billboard coroutine (GETS APPLIED TO THE SPINE OBJECT)
-                    StartCoroutine(BillboardRotate(playerSpine));
-                }
-              
+                SwitchCamera();
+                RotateCharacter(controller, playerSpine);
 
                 if (!oneWaySwitch)
                 {
                     usingFirstState = !usingFirstState; // Toggle state for next trigger
                 }
+
+                HideObjects();
+            }
+        }
+
+        private void RotateCharacter(Character2D5Controller controller, Transform playerSpine)
+        {
+            if (rotateOnTrigger)
+            {
+
+                // Fix the player's position to prevent sliding
+                controller.transform.position = usingFirstState ?
+                    new Vector3(pointA.position.x, controller.transform.position.y, pointA.position.z)
+                    : new Vector3(pointB.position.x, controller.transform.position.y, pointB.position.z);
+
+
+                // Set the correct rotation
+                controller.RotatePLayer(usingFirstState ? rotationA : rotationB);
+
+                controller.FreezePerpendicularAxis();
+
+                // Start billboard coroutine (GETS APPLIED TO THE SPINE OBJECT)
+                StartCoroutine(BillboardRotate(playerSpine));
+            }
+        }
+
+        private void SwitchCamera()
+        {
+            if (switchCameras)
+            {
+                Debug.Log("Switching cameras");
+                // Toggle cameras
+                if (cameraA != null && cameraB != null)
+                {
+                    CinemachineCamera nextCam;
+                    if (usingFirstState)
+                    {
+                        cameraA.Prioritize();
+                        nextCam = cameraA;
+                    }
+                    else
+                    {
+                        cameraB.Prioritize();
+                        nextCam = cameraB;
+                    }
+                    cinemachineBrain.DefaultBlend.Time = cameraBlendDuration;
+
+                    CameraManager.Instance?.SetActiveCamera(nextCam);
+                }
+
+
+            }
+        }
+
+        private void HideObjects()
+        {
+            if (objectsToHide.Length > 0)
+            {
+                if (!hidden)
+                {
+                    foreach (var obj in objectsToHide)
+                    {
+                        obj.SetActive(false);
+                    }
+                }
+                else
+                {
+                    foreach (var obj in objectsToHide)
+                    {
+                        obj.SetActive(true);
+                    }
+                }
+
+                hidden = !hidden;
             }
         }
 
