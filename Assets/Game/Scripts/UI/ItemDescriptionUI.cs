@@ -1,16 +1,15 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
 namespace junklite
 {
-    /// <summary>
-    /// Populates the shared description box in the inventory screen.
-    /// Call ShowWeapon() or ShowMod() when a slot is selected.
-    /// Call Clear() when nothing is selected.
-    /// </summary>
     public class ItemDescriptionUI : MonoBehaviour
     {
         #region Fields
+
+        [Header("Icon")]
+        [SerializeField] private Image iconImage;
 
         [Header("Text References")]
         [SerializeField] private TMP_Text itemNameText;
@@ -35,6 +34,12 @@ namespace junklite
             var data = instance.weaponData;
 
             SetEmptyState(false);
+
+            if (iconImage != null)
+            {
+                iconImage.sprite = data.icon;
+                iconImage.enabled = data.icon != null;
+            }
 
             if (itemNameText != null)
                 itemNameText.text = string.IsNullOrEmpty(data.displayName) ? "Unknown Weapon" : data.displayName;
@@ -68,6 +73,12 @@ namespace junklite
             var data = instance.Data;
 
             SetEmptyState(false);
+
+            if (iconImage != null)
+            {
+                iconImage.sprite = data.icon;
+                iconImage.enabled = data.icon != null;
+            }
 
             if (itemNameText != null)
                 itemNameText.text = string.IsNullOrEmpty(data.modName) ? "Unknown Mod" : data.modName;
@@ -106,6 +117,7 @@ namespace junklite
         {
             SetEmptyState(true);
 
+            if (iconImage != null) { iconImage.sprite = null; iconImage.enabled = false; }
             if (itemNameText != null) itemNameText.text = "";
             if (descriptionText != null) descriptionText.text = "";
             if (statsText != null) statsText.text = "";

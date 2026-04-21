@@ -2,6 +2,7 @@
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System;
+using TMPro;
 
 namespace junklite
 {
@@ -17,7 +18,7 @@ namespace junklite
         [SerializeField] private Image backgroundImage;
         [SerializeField] private Image crossIcon;
         [SerializeField] private Image highlightImage;
-        [SerializeField] private TMPro.TMP_Text controlsText;
+        [SerializeField] private TMP_Text inputHintText;
 
         // Data
         private ModInstance modInstance;
@@ -25,6 +26,7 @@ namespace junklite
         private ModManager modManager;
         private int slotIndex;
         private SlotType slotType;
+        private bool isLocked;
 
         // Drag state
         private static ModSlotUI draggedSlot;
@@ -79,13 +81,23 @@ namespace junklite
             UpdateDisplay();
         }
 
-        public void Bind(ModInstance mod, ModManager manager, InventoryComponent inv, int index, bool isActiveMod)
+        public void Bind(ModInstance mod, ModManager manager, InventoryComponent inv, int index, bool isActiveMod, bool locked = false)
         {
             modInstance = mod;
             modManager = manager;
             inventory = inv;
             slotIndex = index;
             slotType = isActiveMod ? SlotType.ActiveMod : SlotType.PassiveMod;
+            isLocked = locked;
+
+            if (inputHintText != null)
+            {
+                if (isActiveMod && GameInputManager.Instance != null)
+                    inputHintText.text = GameInputManager.Instance.GetModActivateHint(index);
+                else
+                    inputHintText.text = "";
+            }
+
             UpdateDisplay();
         }
 
@@ -99,7 +111,8 @@ namespace junklite
 
             if (crossIcon != null)
             {
-                crossIcon.enabled = false;
+                // Locked slots always show the cross; drag-hover logic handled in UpdateOverlays
+                crossIcon.enabled = isLocked;
                 crossIcon.raycastTarget = false;
             }
 
@@ -125,22 +138,6 @@ namespace junklite
             }
 
             UpdateDurabilityBar();
-            UpdateControlsText();
-        }
-
-        private void UpdateControlsText()
-        {
-            if (controlsText == null) return;
-
-            if (slotType == SlotType.ActiveMod && GameInputManager.Instance != null)
-            {
-                controlsText.text = GameInputManager.Instance.GetModActivateHint(slotIndex);
-                controlsText.gameObject.SetActive(true);
-            }
-            else
-            {
-                controlsText.gameObject.SetActive(false);
-            }
         }
 
         private void Update()
@@ -160,8 +157,8 @@ namespace junklite
 
             if (crossIcon != null)
             {
-                bool showCross = false;
-                if (source != null && source != this && IsModSlot)
+                bool showCross = isLocked; // locked slots always show cross
+                if (!isLocked && source != null && source != this && IsModSlot)
                 {
                     ModInstance srcMod = source.modInstance;
                     if (srcMod != null)
@@ -178,7 +175,7 @@ namespace junklite
             if (highlightImage != null)
             {
                 bool showHighlight = false;
-                if (selectedSlot != null && selectedSlot != this)
+                if (!isLocked && selectedSlot != null && selectedSlot != this)
                     showHighlight = IsValidTargetFor(selectedSlot);
                 highlightImage.enabled = showHighlight;
             }
@@ -187,6 +184,7 @@ namespace junklite
         private bool IsValidTargetFor(ModSlotUI source)
         {
             if (source == null || source.modInstance == null) return false;
+            if (isLocked) return false; // locked slots never accept drops
 
             ModInstance srcMod = source.modInstance;
 
@@ -364,6 +362,8 @@ namespace junklite
         {
             if (draggedSlot == null || draggedSlot == this || draggedSlot.IsEmpty)
                 return;
+
+            if (isLocked) return; // never accept drops on locked slots
 
             ModSlotUI source = draggedSlot;
 

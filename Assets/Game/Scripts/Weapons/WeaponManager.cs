@@ -28,7 +28,8 @@ namespace junklite
         [Tooltip("Spawn point for hitscan rays and tracer origin. If unassigned, falls back to sideAttack.")]
         private Transform muzzlePoint;
 
-        [Header("Fallback Hit Radii")]
+        [Header("Hit Leniency")]
+        [Tooltip("Added on top of each step's hitRadius for all attacks. Tune this for forgiveness.")]
         [SerializeField] private float sideRadius = 1f;
         [SerializeField] private float upRadius = 1f;
         [SerializeField] private float downRadius = 1f;
@@ -468,11 +469,11 @@ namespace junklite
             var data = GetWeaponDataForSlot(slot);
             if (combat == null || data == null) return;
 
-            if (playerState != null && !playerState.IsGrounded && !playerState.CanAirAttack)
-            {
-                Log("Air attack blocked");
-                return;
-            }
+            /* if (playerState != null && !playerState.IsGrounded && !playerState.CanAirAttack)
+             {
+                 Log("Air attack blocked");
+                 return;
+             }*/ // Why are we blocking air attack??
 
             if (lastAttackedSlot >= 0 && lastAttackedSlot != slot)
             {
@@ -572,16 +573,19 @@ namespace junklite
 
             Transform anchor = GetAttackTransform(dir);
             bool isPiercing = step.piercing || (activeWeapon?.PiercingOverride ?? false);
-            float radius = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
+            float radius = step.hitRadius + GetFallbackRadius(dir);
             Vector2 knockback = step.overrideKnockback ? step.knockback : activeWeaponData.knockbackForce;
 
             bool hasHitEnemy = false;
             bool hasHitEnvironment = false;
             float windowEnd = Time.time + attackOpenWindow;
 
+            // Snapshot hit origin once so the hitbox represents where the swing landed,
+            // not where the player drifts to over the window duration.
+            Vector3 hitOrigin = ResolveHitOrigin(dir, anchor);
+
             while (Time.time < windowEnd)
             {
-                Vector3 hitOrigin = ResolveHitOrigin(dir, anchor);
                 var hitResult = DetectHit(hitOrigin, radius, isPiercing);
 
                 if (hitResult.type == AttackHitResult.Enemy && !hasHitEnemy)
@@ -602,9 +606,8 @@ namespace junklite
                 if (hitResult.type == AttackHitResult.Environment && !hasHitEnvironment)
                 {
                     hasHitEnvironment = true;
-                    Vector3 hitOriginForVfx = ResolveHitOrigin(dir, anchor);
                     float radiusForVfx = step.hitRadius > 0f ? step.hitRadius : GetFallbackRadius(dir);
-                    Vector3 impactPoint = ResolveImpactPoint(dir, hitOriginForVfx, radiusForVfx);
+                    Vector3 impactPoint = ResolveImpactPoint(dir, hitOrigin, radiusForVfx);
                     Vector3 attackDir = GetAttackDirection(dir);
                     if (CombatEffectsManager.Instance != null)
                     {
