@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c677688ef3042284595272795d5b252d
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Scripts/RayFireAssembly.asmdef
+  uploadId: 881330

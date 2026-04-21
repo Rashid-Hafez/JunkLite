@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 0ecaf00f9b2b4e044bcaf3a429921d28
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Info/Tutorial/Geometry/Prefab/Column_Dmg.prefab
+  uploadId: 881330

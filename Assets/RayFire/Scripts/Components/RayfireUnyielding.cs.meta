@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 2dae403a59cd85344ab1c214fcc3ccef
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 10
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Scripts/Components/RayfireUnyielding.cs
+  uploadId: 881330

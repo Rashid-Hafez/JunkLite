@@ -1,0 +1,12 @@
+Temp/ScriptUpdater/831419196/1996089205_RFReferenceDemolition.cs => Assets/RayFire/Scripts/Classes/Rigid/RFReferenceDemolition.cs
+Temp/ScriptUpdater/831419196/847128493_RFActivation.cs => Assets/RayFire/Scripts/Classes/Rigid/RFActivation.cs
+Temp/ScriptUpdater/831419196/284375321_RFFade.cs => Assets/RayFire/Scripts/Classes/Rigid/RFFade.cs
+Temp/ScriptUpdater/831419196/1450042019_RFMaterial.cs => Assets/RayFire/Scripts/Classes/Man/RFMaterial.cs
+Temp/ScriptUpdater/831419196/1888431886_RayfireBomb.cs => Assets/RayFire/Scripts/Components/RayfireBomb.cs
+Temp/ScriptUpdater/831419196/873807843_RayfireMan.cs => Assets/RayFire/Scripts/Components/RayfireMan.cs
+Temp/ScriptUpdater/831419196/495981780_RayfireVortex.cs => Assets/RayFire/Scripts/Components/RayfireVortex.cs
+Temp/ScriptUpdater/831419196/1271566106_RFReset.cs => Assets/RayFire/Scripts/Classes/Rigid/RFReset.cs
+Temp/ScriptUpdater/831419196/2103210695_RFBackupCluster.cs => Assets/RayFire/Scripts/Classes/Rigid/RFBackupCluster.cs
+Temp/ScriptUpdater/831419196/1020906065_RayfireRigid.cs => Assets/RayFire/Scripts/Components/RayfireRigid.cs
+Temp/ScriptUpdater/831419196/1313916475_RFPhysic.cs => Assets/RayFire/Scripts/Classes/Rigid/RFPhysic.cs
+Temp/ScriptUpdater/831419196/547596988_RayfireRecorder.cs => Assets/RayFire/Scripts/Components/RayfireRecorder.cs

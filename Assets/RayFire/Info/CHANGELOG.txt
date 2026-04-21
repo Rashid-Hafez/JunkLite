@@ -1,0 +1,65 @@
+ 
+  [2.07] March 14
+       
+ - Rigid. Slice By Blade fix for Blade with Demolition action.  
+ - Rigid. Removed Affect Inactive property.   
+ - Shatter. Batch Export function exports all deep children meshes, even fragments added after fragmentation.
+ - Activator. Local position animation fix.
+       
+  [2.06] March 3
+       
+ - Rigid. Velocity fix for demolished Connected Clusters.
+ - Rigid. Reference demolition fix for single mesh references.  
+ - Rigid. Reference demolition fix for Inherit Materials property.  
+ - Rigid. Removed Outer Surface material property.
+ - Rigid. Fix for By Simulation and Life Time fading.
+ - Fix for compiling build without libraries.
+       
+  [2.05] February 16
+
+ - Shatter. New Reduce Tris property for clustering. Optimize topology of clustered meshes. 
+ - Shatter. Export meshes support for skinned mesh fragments.
+ - Shatter. Fix for skinned meshes with scaled parents and enabled petrify.
+ - Shatter. Fix for Interactive mode with enabled Shell.
+ - Shatter. Increased Contact Bias radius.
+ - Rigid. Disabled runtime demolition for default Reference without Rigid.
+ - Rigid. Demolished fragments mass fix.
+ - Rigid. Fix for deactivated faded objects.
+ - Rigid. UNITY 6 directive fix for correct mass.
+ - Rigid. Runtime caching improvements.
+ - Rigid. Convert to Connectivity setup fix.
+ - Recorder. Fix for recording with disabled Demolition property.
+              
+  [2.04] November 24
+
+ - Lib. Crash fix for Mac builds.
+ - Rigid & RigidRoot. Removed Activation by Velocity.
+ - Rigid. Activation tutorial scene.
+   
+  [2.03] November 17
+
+ - Rigid. Demolition support for Static Simulation type objects.
+ - Rigid. Velocity caching works only for clusters.
+ - Rigid. Skinned Mesh demolition fix. 
+ - Rigid. Clusters inherited velocity fix.   
+ - Rigid. Increased Dampening Max cap.    
+ - Fix for Obsolete Unity methods.
+ - Rigid. Basic tutorial scenes.
+  
+  [2.02] November 11 
+  
+ - Rigid. Fixed bug with Use Shatter property.
+ - Rigid. Fix for collider set for demolition fragments.
+ - Rigid. Fragments inherited velocity fix.   
+ - Shatter. Tutorial scenes.
+    
+  [2.01] November 1
+ 
+ - First release
+
+ New fragmentation engine, 2-10 faster than old one (depends on mesh complexity).
+ Removed older obsolete fragmentation engine.
+ Code refactor and optimizations.
+ 
+ IMPORTANT: For those who updates from older Rayfire for Unity plugin:
+ Components will require checkup for correct properties because of internal code changes that were postponed as much as possible before.

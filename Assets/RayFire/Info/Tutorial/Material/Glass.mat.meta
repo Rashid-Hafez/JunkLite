@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 77a1471e3cc1e49419e18e7002746110
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Info/Tutorial/Material/Glass.mat
+  uploadId: 881330

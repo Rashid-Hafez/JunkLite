@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 32a804fedb24aab43bd0e204545f5861
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Scripts/Classes/Rigid/RFBackupCluster.cs
+  uploadId: 881330

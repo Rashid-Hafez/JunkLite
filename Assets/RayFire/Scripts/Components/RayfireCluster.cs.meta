@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 1a71d099d5a86a944a98c1e9decf3fe1
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Scripts/Components/RayfireCluster.cs
+  uploadId: 881330

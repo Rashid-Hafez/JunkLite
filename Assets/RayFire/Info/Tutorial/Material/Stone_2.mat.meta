@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b4fcffc6b7579714b9052c30bd1a7703
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 342492
+  packageName: RayFire 2
+  packageVersion: 2.07
+  assetPath: Assets/RayFire/Info/Tutorial/Material/Stone_2.mat
+  uploadId: 881330
