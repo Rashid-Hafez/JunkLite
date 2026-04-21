@@ -38,6 +38,10 @@ namespace junklite
         private bool hidden = false;
         [SerializeField] private GameObject[] objectsToHide;
 
+        [Header("Arrows")]
+        [SerializeField] private Renderer[] arrowRenderers;
+        [SerializeField] private Color lockColor, unlockColor;
+
         private void OnEnable()
         {
             if (PlayerCombatTracker.Instance != null)
@@ -90,14 +94,27 @@ namespace junklite
         {
             locked = true;
             if (triggerCollider != null)
+            {
                 triggerCollider.isTrigger = false;
+                foreach (Renderer renderer in arrowRenderers)
+                {
+                    renderer.material.SetColor("_EmissionColor", lockColor);
+                }
+            }
+                
         }
 
         private void OnCombatEnded()
         {
             locked = false;
             if (triggerCollider != null)
+            {
                 triggerCollider.isTrigger = true;
+                foreach (Renderer renderer in arrowRenderers)
+                {
+                    renderer.material.SetColor("_EmissionColor", unlockColor);
+                }
+            }
         }
 
         private void OnTriggerEnter(Collider other)

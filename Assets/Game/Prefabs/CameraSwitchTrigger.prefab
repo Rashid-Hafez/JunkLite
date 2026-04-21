@@ -102,12 +102,16 @@ MonoBehaviour:
   rotateOnTrigger: 0
   rotationA: 0
   rotationB: -90
+  ccwAB: 1
   switchCameras: 0
   cameraA: {fileID: 0}
   cameraB: {fileID: 0}
   cinemachineBrain: {fileID: 0}
   cameraBlendDuration: 0.5
   oneWaySwitch: 0
+  locked: 0
+  triggerCollider: {fileID: 0}
+  objectsToHide: []
 --- !u!1 &8542497818702504322
 GameObject:
   m_ObjectHideFlags: 0
