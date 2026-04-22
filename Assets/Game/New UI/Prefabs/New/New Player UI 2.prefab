@@ -845,7 +845,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2332021762741880299
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1287,6 +1287,7 @@ MonoBehaviour:
   healthBar: {fileID: 0}
   armorBar: {fileID: 0}
   playerNameText: {fileID: 0}
+  healthIconFeedback: {fileID: 8462336898480373002}
   modCombatUI: {fileID: 8615370108159043596}
   inventoryPanel: {fileID: 6949096089251354401}
   inventoryUI: {fileID: 3942245547236276918}
@@ -1520,7 +1521,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &5664707225324587506
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6233,6 +6234,7 @@ GameObject:
   - component: {fileID: 5596355076182404925}
   - component: {fileID: 7811733973941465011}
   - component: {fileID: 2913149470842139573}
+  - component: {fileID: 8462336898480373002}
   m_Layer: 5
   m_Name: Health
   m_TagString: Untagged
@@ -6281,10 +6283,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 2100000, guid: d7563a8ac5e49d0418ece3f6be77d7f9, type: 2}
-  m_Color: {r: 0, g: 0, b: 0, a: 1}
+  m_Color: {r: 0.14150941, g: 0.10613206, b: 0.10613206, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
+  m_Maskable: 0
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -6298,6 +6300,52 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &8462336898480373002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7183803679292135806}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be9f07e661ba742b581d333bf4ee1ca2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  boxGraphic: {fileID: 2913149470842139573}
+  iconGraphic: {fileID: 1290270605474461084}
+  normalColor: {r: 0.9144716, g: 0.28595585, b: 0.9622642, a: 1}
+  criticalColor: {r: 1, g: 0, b: 0.13618708, a: 1}
+  criticalThreshold: 0.24
+  criticalDistortion: 0.1
+  hitDistortionPeak: 0.6
+  hitPulseDuration: 1
+  hitPulseCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  enableDebugLogs: 0
+  includeCallStack: 0
 --- !u!1 &7258710223552340280
 GameObject:
   m_ObjectHideFlags: 0
@@ -8113,7 +8161,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
-  m_Material: {fileID: 2100000, guid: 4aad61496b1bb484cbe5a1c463dc2a99, type: 2}
+  m_Material: {fileID: 2100000, guid: c17f35520339eda49a992538e6ddd4d0, type: 2}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}

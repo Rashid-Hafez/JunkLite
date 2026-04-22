@@ -14,6 +14,7 @@ namespace junklite
         [SerializeField] private StatBarUI healthBar;
         [SerializeField] private StatBarUI armorBar;
         [SerializeField] private TMP_Text playerNameText;
+        [SerializeField] private HealthIcon_Damaged healthIconFeedback;
 
         [Header("Combat HUD")]
         [SerializeField] private ModCombatUI modCombatUI;
@@ -71,6 +72,9 @@ namespace junklite
             if (healthBar != null)
                 healthBar.Bind(attributes.Health);
 
+            if (healthIconFeedback != null)
+                healthIconFeedback.Bind(attributes.Health);
+
             if (armorBar != null)
             {
                 var armorAttr = attributes.Get(AttributeType.Armor);
@@ -100,6 +104,7 @@ namespace junklite
                 attributes.OnDeath -= HandlePlayerDeath;
 
             if (healthBar != null) healthBar.Unbind();
+            if (healthIconFeedback != null) healthIconFeedback.Unbind();
             if (armorBar != null) armorBar.Unbind();
             if (modCombatUI != null) modCombatUI.Unbind();
 
