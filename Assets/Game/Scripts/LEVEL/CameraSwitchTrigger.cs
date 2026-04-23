@@ -79,6 +79,12 @@ namespace junklite
                 PlayerCombatTracker.Instance.OnCombatStarted += OnCombatStarted;
                 PlayerCombatTracker.Instance.OnCombatEnded += OnCombatEnded;
             }
+            arrowRenderers = GetComponentsInChildren<Renderer>();
+
+            foreach (Renderer renderer in arrowRenderers)
+            {
+                renderer.material.SetFloat("_ZWrite", 1f);
+            }
         }
 
         private void OnDestroy()
@@ -98,7 +104,7 @@ namespace junklite
                 triggerCollider.isTrigger = false;
                 foreach (Renderer renderer in arrowRenderers)
                 {
-                    renderer.material.SetColor("_EmissionColor", lockColor);
+                    renderer.material.SetColor("_BaseColor", lockColor);
                 }
             }
                 
@@ -112,7 +118,7 @@ namespace junklite
                 triggerCollider.isTrigger = true;
                 foreach (Renderer renderer in arrowRenderers)
                 {
-                    renderer.material.SetColor("_EmissionColor", unlockColor);
+                    renderer.material.SetColor("_BaseColor", unlockColor);
                 }
             }
         }
