@@ -27,11 +27,11 @@ Transform:
   m_GameObject: {fileID: 151662067452879980}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.427, y: 1.51, z: -7.39}
+  m_LocalPosition: {x: -0.18000002, y: 1.5100001, z: -7.39}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 7117484140060184854}
+  m_Father: {fileID: 2489384785993987126}
   m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
 --- !u!108 &2786367953726027545
 Light:
@@ -83,7 +83,7 @@ Light:
     serializedVersion: 2
     m_Bits: 65536
   m_RenderingLayerMask: 1
-  m_Lightmapping: 4
+  m_Lightmapping: 2
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 100
@@ -265,7 +265,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 1
   m_IsActive: 1
 --- !u!4 &4764703469501611834
 Transform:
@@ -275,8 +275,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.90505725, w: 0.42528975}
-  m_LocalPosition: {x: -0.38870037, y: 1.5630195, z: -0.015999999}
+  m_LocalRotation: {x: 0, y: 0, z: -0.6756545, w: 0.73721844}
+  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: -0.015999999}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -457,7 +457,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d25b133a252844bfaf8464c5e643dc7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LedgeDetection
-  radius: 0.3
+  radius: 0.35
   WhatIsGround:
     serializedVersion: 2
     m_Bits: 2048
@@ -481,8 +481,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.53842956, y: 1.6701299, z: 1}
-  m_Center: {x: 0.02698179, y: 0.9928627, z: 0}
+  m_Size: {x: 0.35369694, y: 1.6511871, z: 1}
+  m_Center: {x: -0.06538452, y: 1.0023341, z: 0}
 --- !u!1 &3569891202695748256
 GameObject:
   m_ObjectHideFlags: 0
@@ -559,7 +559,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 1
   m_IsActive: 1
 --- !u!4 &7630895652577832484
 Transform:
@@ -622,7 +622,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 1
   m_IsActive: 1
 --- !u!4 &2730142446252023279
 Transform:
@@ -632,8 +632,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5313947137746381582}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.027386421, w: 0.99962497}
-  m_LocalPosition: {x: 0.7914761, y: 1.1734627, z: -0.0028}
+  m_LocalRotation: {x: 0, y: 0, z: -0.6350002, w: 0.77251196}
+  m_LocalPosition: {x: 0.12740609, y: 1.2658193, z: -0.0023999999}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -741,7 +741,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 1
   m_IsActive: 1
 --- !u!4 &280269240309670116
 Transform:
@@ -848,7 +848,6 @@ Transform:
   - {fileID: 2881757924107890758}
   - {fileID: 1941436517345911957}
   - {fileID: 3157734557489371329}
-  - {fileID: 5636224546535858016}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1482493438042684396
@@ -6738,7 +6737,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 1
   m_IsActive: 1
 --- !u!4 &2489384785993987126
 Transform:
@@ -6756,6 +6755,7 @@ Transform:
   - {fileID: 4764703469501611834}
   - {fileID: 7630895652577832484}
   - {fileID: 2730142446252023279}
+  - {fileID: 5636224546535858016}
   m_Father: {fileID: 7117484140060184854}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!23 &5004409500042836950
@@ -6856,7 +6856,7 @@ MonoBehaviour:
   physicsMovementRelativeTo: {fileID: 0}
   updateTiming: 1
   unscaledTime: 0
-  _animationName: Run
+  _animationName: Attack_1
   loop: 1
   timeScale: 1
 --- !u!114 &3136467324379222940
