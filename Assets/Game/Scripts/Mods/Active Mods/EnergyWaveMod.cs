@@ -152,9 +152,10 @@ namespace junklite
                              + Vector3.up * spawnHeightOffset
                              + Vector3.right * (facing * spawnForwardOffset);
 
-            Vector3 direction = Vector3.right * facing;
+            Vector3 direction = player.transform.right * facing;
 
-            var go = Object.Instantiate(wavePrefab, spawnPos, Quaternion.identity);
+            var go = Object.Instantiate(wavePrefab, spawnPos,Quaternion.identity);
+            go.transform.Rotate(0, (facing < 0 ? 0 : 180) + player.transform.rotation.eulerAngles.y, 0);
             var pulse = go.GetComponent<EnergyWavePulse>();
 
             if (pulse != null)
