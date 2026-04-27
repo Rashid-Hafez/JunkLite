@@ -127,6 +127,9 @@ namespace junklite
 
         private void InitializeForNewScene()
         {
+            loadingScreenUIInstance?.Hide();
+            isLoadingScene = false;
+            
             currentSpawnIndex = 0;
 
             if (respawnRoutine != null)
@@ -142,9 +145,6 @@ namespace junklite
             EnsurePauseMenuUI();
             SpawnPlayer();
             SetGameState(GameState.Playing);
-
-            loadingScreenUIInstance?.Hide();
-            isLoadingScene = false;
         }
 
         #endregion
@@ -472,9 +472,21 @@ namespace junklite
 
             loadingScreenUIInstance?.Show();
 
+            // Wait for the video to finish before starting the scene load
+            while (loadingScreenUIInstance != null && !loadingScreenUIInstance.IsVideoFinished)
+                yield return null;
+
             var asyncOp = string.IsNullOrEmpty(sceneName)
                 ? SceneManager.LoadSceneAsync(sceneIndex)
                 : SceneManager.LoadSceneAsync(sceneName);
+
+            if (asyncOp == null)
+            {
+                Debug.LogError($"[GameManager] Failed to load scene — is it added to Build Settings?");
+                loadingScreenUIInstance?.Hide();
+                isLoadingScene = false;
+                yield break;
+            }
 
             asyncOp.allowSceneActivation = false;
 
