@@ -5,6 +5,7 @@
 [Bb]uilds/
 [Ll]ogs/
 [Mm]emoryCaptures/
+[Tt]emp/
 
 # Visual Studio / MonoDevelop generated files
 .vs/

@@ -74,12 +74,13 @@ namespace junklite
             released = false;
 
             // Face the pulse in its travel direction
-            if (direction.x < 0f)
-            {
-                Vector3 s = transform.localScale;
-                s.x = -Mathf.Abs(s.x);
-                transform.localScale = s;
-            }
+            //if (direction.x < 0f)
+            //{
+            //    Vector3 s = transform.localScale;
+            //    s.x = -Mathf.Abs(s.x);
+            //    transform.localScale = s;
+            //}
+
         }
 
         #endregion

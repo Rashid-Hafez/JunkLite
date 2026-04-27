@@ -123,6 +123,7 @@ Material:
     - _DistortionPower: 0.08
     - _DistortionSpeed: 1
     - _DstBlend: 10
+    - _DstBlendAlpha: 10
     - _Emission: 1
     - _Enable_Speed_Control: 0
     - _EnvironmentReflections: 1
@@ -149,6 +150,7 @@ Material:
     - _Soft_Particle: 170.9
     - _SpecularHighlights: 1
     - _SrcBlend: 5
+    - _SrcBlendAlpha: 1
     - _Strech: 1
     - _StrechY: 0
     - _Strength: 0
@@ -159,7 +161,7 @@ Material:
     - _ZWrite: 0
     - _ZWriteControl: 0
     m_Colors:
-    - _BackColor: {r: 0.041743267, g: 0, b: 0.4716981, a: 1}
+    - _BackColor: {r: 1, g: 1, b: 1, a: 1}
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _CustomUV: {r: 0, g: 0, b: 0, a: 0}
@@ -168,7 +170,7 @@ Material:
     - _DissolveScroll: {r: 1, g: 0, b: 0, a: 0}
     - _DistortionSpeed: {r: 0.1, g: 0.1, b: 0, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _FrontColor: {r: 1.3776453, g: 0.46804318, b: 3.8867934, a: 1}
+    - _FrontColor: {r: 0, g: 0.78083616, b: 5.189174, a: 1}
     - _MaskCenter: {r: 0, g: 0, b: 0, a: 0}
     - _MaskSpeed: {r: 1, g: 0, b: 0, a: 0}
     - _Offset: {r: 0, g: 0, b: 0, a: 0}
