@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 6708160109121364283}
   - component: {fileID: 498257921127036517}
   - component: {fileID: 7433742776496313932}
+  - component: {fileID: 6193730749670565681}
   m_Layer: 0
   m_Name: Game Manager
   m_TagString: Untagged
@@ -27,7 +28,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8053377969660216567}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0.69944, y: -0, z: -3.12494}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -50,9 +51,12 @@ MonoBehaviour:
   spawnPoints:
   - {fileID: 0}
   respawnDelay: 2
-  playerUIPrefab: {fileID: 8137984413679329371, guid: 905d7fae8f34a5f419bbe412383d05a5, type: 3}
-  gameplayCanvasTransform: {fileID: 0}
+  playerUIPrefab: {fileID: 1946179015980326645, guid: 6776eb6b105fcbc4ea90b3bf2157c168, type: 3}
+  pauseMenuUIPrefab: {fileID: 4187855846369575803, guid: 002fe864f03bd544688a821473d81a8a, type: 3}
+  loadingScreenUIPrefab: {fileID: 0}
   showDebugInfo: 0
+  reloadSceneOnDeathTemp: 1
+  debugLoadDelay: 6
 --- !u!82 &498257921127036517
 AudioSource:
   m_ObjectHideFlags: 0
@@ -162,3 +166,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 49190fde7ff62447899d10d48e8c8415, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerCombatTracker
+--- !u!114 &6193730749670565681
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8053377969660216567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a48c4eaa0c4681449a965554a12d8fd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ActivateTestManager
+  testManager: {fileID: 0}

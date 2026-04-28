@@ -3,6 +3,7 @@ using UnityEngine;
 using TMPro;
 using System;
 using junklite;
+using UnityEngine.InputSystem;
 
 public class DialogueManager : MonoBehaviour
 {
@@ -27,37 +28,50 @@ public class DialogueManager : MonoBehaviour
     private bool isTyping;
     private bool waitingForInput;
 
-    // Dialogue events
     public event Action OnDialogueContinue = delegate { };
     public event Action OnDialogueEnded = delegate { };
 
+    // Stored so we can unsubscribe on destroy
+    private Action<InputAction.CallbackContext> playerContinueCallback;
+    private Action<InputAction.CallbackContext> uiContinueCallback;
+
+    #region Lifecycle
+
     private void Start()
     {
-        OnDialogueContinue += NextLine;
-
         if (instance == null)
             instance = this;
         else if (instance != this)
+        {
             Destroy(gameObject);
+            return;
+        }
+
+        OnDialogueContinue += NextLine;
 
         dialogueBox.SetActive(false);
         if (continueIndicator) continueIndicator.SetActive(false);
 
+        playerContinueCallback = _ => { if (!IsContinueInputSuppressed) OnDialogueContinue(); };
+        uiContinueCallback = _ => { if (!IsContinueInputSuppressed) OnDialogueContinue(); };
 
-        GameInputManager.Instance.controls.Player.DialogueContinue.performed += _ =>
-        {
-            if (IsContinueInputSuppressed) return;
-            OnDialogueContinue();
-        };
-
-        GameInputManager.Instance.controls.UI.DialogueContinue.performed += _ =>
-        {
-            if (IsContinueInputSuppressed) return;
-            OnDialogueContinue();
-        };
+        GameInputManager.Instance.controls.Player.DialogueContinue.performed += playerContinueCallback;
+        GameInputManager.Instance.controls.UI.DialogueContinue.performed += uiContinueCallback;
     }
 
-    // ENTRY POINT (used by everything)
+    private void OnDestroy()
+    {
+        OnDialogueContinue -= NextLine;
+
+        if (GameInputManager.Instance == null) return;
+        GameInputManager.Instance.controls.Player.DialogueContinue.performed -= playerContinueCallback;
+        GameInputManager.Instance.controls.UI.DialogueContinue.performed -= uiContinueCallback;
+    }
+
+    #endregion
+
+    #region Public API
+
     public void StartDialogue(DialogueSequence sequence)
     {
         currentSequence = sequence;
@@ -66,21 +80,54 @@ public class DialogueManager : MonoBehaviour
         ShowLine();
     }
 
-    void ShowLine()
+    // Timeline hook
+    public void PlayDialogue(DialogueSequence sequence) => StartDialogue(sequence);
+
+    public void NextLine()
+    {
+        if (currentSequence == null) return;
+
+        var line = currentSequence.dialogueLines[currentIndex];
+
+        // Skip typing — reveal full line immediately
+        if (isTyping)
+        {
+            StopCoroutine(typingCoroutine);
+            dialogueText.text = line.dialogueText;
+            isTyping = false;
+
+            if (line.requiresPlayerInput)
+            {
+                waitingForInput = true;
+                if (continueIndicator) continueIndicator.SetActive(true);
+            }
+
+            return;
+        }
+
+        if (line.requiresPlayerInput && !waitingForInput) return;
+
+        waitingForInput = false;
+        if (continueIndicator) continueIndicator.SetActive(false);
+
+        currentIndex++;
+
+        if (currentIndex >= currentSequence.dialogueLines.Length)
+            EndDialogue();
+        else
+            ShowLine();
+    }
+
+    #endregion
+
+    #region Internal
+
+    private void ShowLine()
     {
         var line = currentSequence.dialogueLines[currentIndex];
 
         speakerText.text = line.speakerName;
-
-        // 🔒 Apply player control
-        if (line.lockPlayerMovement)
-        {
-            GameInputManager.Instance.SetGameplayInputEnabled(false);
-        }
-        else
-        {
-            GameInputManager.Instance.SetGameplayInputEnabled(true);
-        }
+        GameInputManager.Instance.SetGameplayInputEnabled(!line.lockPlayerMovement);
 
         if (typingCoroutine != null)
             StopCoroutine(typingCoroutine);
@@ -88,11 +135,10 @@ public class DialogueManager : MonoBehaviour
         typingCoroutine = StartCoroutine(TypeLine(line));
     }
 
-    IEnumerator TypeLine(DialogueLine line)
+    private IEnumerator TypeLine(DialogueLine line)
     {
         isTyping = true;
         waitingForInput = false;
-
         dialogueText.text = "";
 
         foreach (char c in line.dialogueText)
@@ -115,48 +161,7 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
-    public void NextLine()
-    {
-        if (currentSequence == null) return;
-
-        var line = currentSequence.dialogueLines[currentIndex];
-
-        // Skip typing
-        if (isTyping)
-        {
-            StopCoroutine(typingCoroutine);
-            dialogueText.text = line.dialogueText;
-            isTyping = false;
-
-            if (line.requiresPlayerInput)
-            {
-                waitingForInput = true;
-                if (continueIndicator) continueIndicator.SetActive(true);
-            }
-
-            return;
-        }
-
-        // Block if not ready
-        if (line.requiresPlayerInput && !waitingForInput)
-            return;
-
-        waitingForInput = false;
-        if (continueIndicator) continueIndicator.SetActive(false);
-
-        currentIndex++;
-
-        if (currentIndex >= currentSequence.dialogueLines.Length)
-        {
-            EndDialogue();
-        }
-        else
-        {
-            ShowLine();
-        }
-    }
-
-    void EndDialogue()
+    private void EndDialogue()
     {
         var finished = currentSequence;
         dialogueBox.SetActive(false);
@@ -165,18 +170,10 @@ public class DialogueManager : MonoBehaviour
         GameInputManager.Instance.SetGameplayInputEnabled(true);
 
         if (finished != null && finished.nextSequence != null)
-        {
             StartDialogue(finished.nextSequence);
-        }
         else
-        {
             OnDialogueEnded();
-        }
     }
 
-    // 🎬 Timeline hook
-    public void PlayDialogue(DialogueSequence sequence)
-    {
-        StartDialogue(sequence);
-    }
+    #endregion
 }
