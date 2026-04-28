@@ -1487,14 +1487,25 @@ namespace junklite
         private void SetupWeaponInSlot(int slot, WorldWeaponPickup pickup)
         {
             var weapon = pickup.weaponInstance;
+            bool isRanged = weapon.weaponData is RangedWeaponData;
             pickup.gameObject.SetActive(false);
 
             weapon.gameObject.SetActive(true);
-            weapon.transform.parent = weaponHolder;
-            weapon.GetComponent<SpriteRenderer>().sortingOrder = 11;
+            // Keep ranged weapons out of the hand socket; they attack from data/muzzle logic.
+            weapon.transform.SetParent(isRanged ? transform : weaponHolder, false);
+
+            var rootRenderer = weapon.GetComponent<SpriteRenderer>();
+            if (rootRenderer != null)
+                rootRenderer.sortingOrder = 11;
             weapon.SetOwnerRigidbody(playerRb);
 
-            if (weapon.weaponData != null)
+            if (isRanged)
+            {
+                weapon.transform.localPosition = Vector3.zero;
+                weapon.transform.localRotation = Quaternion.identity;
+                weapon.transform.localScale = Vector3.one;
+            }
+            else if (weapon.weaponData != null)
             {
                 var socketOffset = weapon.weaponData.socketOffset;
                 weapon.transform.localPosition = socketOffset.localPositionOffset;
@@ -1575,6 +1586,9 @@ namespace junklite
         private void SetWeaponVisible(WeaponInstance weapon, bool visible)
         {
             if (weapon == null) return;
+            if (weapon.weaponData is RangedWeaponData)
+                visible = false;
+
             var renderers = weapon.GetComponentsInChildren<SpriteRenderer>(true);
             foreach (var sr in renderers)
                 if (sr != null) sr.enabled = visible;
