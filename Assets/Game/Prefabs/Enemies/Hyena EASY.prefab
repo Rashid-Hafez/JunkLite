@@ -17,7 +17,6 @@ GameObject:
   - component: {fileID: 1845504704677704398}
   - component: {fileID: 7420164895081332977}
   - component: {fileID: 8620707696424177089}
-  - component: {fileID: 424022102533304986}
   - component: {fileID: 6885050171418826779}
   - component: {fileID: 5511428486720858210}
   - component: {fileID: -8649487350880432651}
@@ -269,23 +268,6 @@ MonoBehaviour:
   stun:
     staggerDuration: 0.5
     stunVFXObject: {fileID: 0}
---- !u!114 &424022102533304986
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 84268223678430046}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f7f90d1fda7e41c4b36cce21c3ed434, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.DamageFlashUniversal
-  flashDuration: 0.12
-  flashAmount: 0.65
-  normalAmount: 2
-  isSpine: 1
-  flashColor: {r: 1, g: 0.4292453, b: 0.7365343, a: 1}
 --- !u!114 &6885050171418826779
 MonoBehaviour:
   m_ObjectHideFlags: 0

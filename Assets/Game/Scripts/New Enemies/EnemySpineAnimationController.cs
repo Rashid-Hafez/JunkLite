@@ -23,6 +23,9 @@ namespace junklite
 
         [Header("Stun")]
         [SerializeField] private string stunLoop = "";
+        [Header("Parry")]
+        [Tooltip("Spine animation to play when entering ParriedState (one-shot).")]
+        [SerializeField] private string onParried = "OnParried";
 
         [Header("Debug")]
         [SerializeField] private bool debugLog = false;
@@ -96,7 +99,7 @@ namespace junklite
                 state.SetAnimation(0, run, true);
             else if (to is MeleeAttackState)
             {
-                // Don't play anything here ó the enemy will call
+                // Don't play anything here ù the enemy will call
                 // PlayWindUpAnimation() and PlayAttackAnimation()
                 // at the right moments via OnMeleeWindUp / OnMeleeAttack.
             }
@@ -106,6 +109,15 @@ namespace junklite
                 state.SetAnimation(0, dash, false);
             else if (to is DodgeState)
                 state.SetAnimation(0, dodge, false);
+            else if (to is ParriedState)
+            {
+                // ParriedState = parry success. Play a short 'on parried' anim, then transition to the stun loop.
+                string parriedAnim = string.IsNullOrEmpty(onParried) ? idle : onParried;
+                string stunAnim = string.IsNullOrEmpty(stunLoop) ? hurt : stunLoop;
+
+                state.SetAnimation(0, parriedAnim, false);
+                state.AddAnimation(0, stunAnim, true, 0f);
+            }
             else if (to is StunnedState)
             {
                 // Parry stun = held neutral pose, normal stagger = hurt animation
