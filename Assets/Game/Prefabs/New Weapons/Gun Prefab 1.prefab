@@ -19832,12 +19832,12 @@ GameObject:
   - component: {fileID: 9007971571403614673}
   - component: {fileID: 4629309542349593531}
   m_Layer: 0
-  m_Name: sword instance
+  m_Name: Gun instance
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &3814835749749319796
 Transform:
   m_ObjectHideFlags: 0

@@ -2,15 +2,7 @@ using UnityEngine;
 
 namespace junklite
 {
-    // ============================================================
-    // SERIALIZABLE BEHAVIOR CLASSES
-    // 
-    // Reusable implementations for capability interfaces.
-    // Enemies embed these as [SerializeField] fields and delegate.
-    // 
-    // Add this file to: Scripts/Enemies/Core/EnemyBehaviors.cs
-    // ============================================================
-
+ 
     /// <summary>
     /// Reusable patrol implementation.
     /// </summary>
