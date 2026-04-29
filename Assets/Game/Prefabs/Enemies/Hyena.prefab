@@ -305,12 +305,13 @@ MonoBehaviour:
   run: Run
   attackWindUp: 
   attack: Attack_1_2
-  charge: Charge
+  charge: Attack_Wolverine
   dash: Dash_2
   dodge: JumpBack
   hurt: Hurt
   death: Death
-  stunLoop: 
+  stunLoop: Stunt
+  onParried: Hurt
   debugLog: 0
 --- !u!82 &5511428486720858210
 AudioSource:
