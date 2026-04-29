@@ -23,6 +23,7 @@ namespace junklite
 
         [Header("Stun")]
         [SerializeField] private string stunLoop = "";
+        [SerializeField] private string parryStun = "";
 
         [Header("Debug")]
         [SerializeField] private bool debugLog = false;
@@ -108,17 +109,26 @@ namespace junklite
                 state.SetAnimation(0, dodge, false);
             else if (to is StunnedState)
             {
-                // Parry stun = held neutral pose, normal stagger = hurt animation
-                if (enemyCharacter != null && enemyCharacter.IsParryStunned)
+                // normal hit stagger: hurt -> stun loop
+                var hurtEntry = state.SetAnimation(0, hurt, false);
+                if (hurtEntry != null)
                 {
-                    string stunAnim = string.IsNullOrEmpty(stunLoop) ? idle : stunLoop;
-                    state.SetAnimation(0, stunAnim, true);
-                }
-                else
-                {
-                    state.SetAnimation(0, hurt, false);
+                    hurtEntry.Complete += _ =>
+                    {
+                        if (stateMachine.CurrentState is StunnedState)
+                        {
+                            string stunAnim = string.IsNullOrEmpty(stunLoop) ? idle : stunLoop;
+                            skeletonAnimation.AnimationState.SetAnimation(0, stunAnim, true);
+                        }
+                    };
                 }
             }
+            else if (to is ParriedState)
+            {
+                string parryAnim = string.IsNullOrEmpty(parryStun) ? idle : parryStun;
+                state.SetAnimation(0, parryAnim, true);
+            }
+
         }
 
         #region Public API
