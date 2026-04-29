@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.cqf.urpvolumetricfog": "https://github.com/CristianQiu/Unity-URP-Volumetric-Light.git",
     "com.unity.animation.rigging": "1.4.0",
     "com.unity.cinemachine": "3.1.4",
     "com.unity.collab-proxy": "2.10.2",
