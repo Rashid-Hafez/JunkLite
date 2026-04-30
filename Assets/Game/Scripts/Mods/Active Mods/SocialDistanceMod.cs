@@ -1,4 +1,6 @@
 ﻿using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace junklite
 {
@@ -8,14 +10,12 @@ namespace junklite
         #region Config
 
         [Header("Push")]
-        [Tooltip("Radius of the push effect around Cas")]
         public float pushRadius = 5f;
-
-        [Tooltip("Horizontal knockback force (enemy's knockback system handles direction from Cas → enemy)")]
         public float pushForce = 15f;
-
-        [Tooltip("Upward lift applied alongside the push")]
         public float pushUpForce = 5f;
+
+        [Tooltip("How long the pulse takes to expand to full radius")]
+        public float pulseDuration = 0.35f;
 
         [Tooltip("Force multiplier at the edge of the radius (0.1 = 10% force at border)")]
         [Range(0.01f, 1f)]
@@ -24,10 +24,10 @@ namespace junklite
         public LayerMask enemyLayerMask = 1;
 
         [Header("Damage")]
-        [Tooltip("Damage dealt to pushed enemies (0 = no damage, just push)")]
         public float pushDamage = 10f;
 
         [Header("VFX")]
+        [Tooltip("Should be a flat radial effect — will be scaled up to match push radius over pulse duration")]
         public GameObject pushVFX;
 
         [Header("Feedback")]
@@ -36,8 +36,14 @@ namespace junklite
         #endregion
 
         private static readonly Collider[] pushBuffer = new Collider[32];
+        private bool isExecuting;
 
         #region Overrides
+
+        public override bool CanActivate(ModInstance instance, PlayerCharacter player)
+        {
+            return base.CanActivate(instance, player) && !isExecuting;
+        }
 
         public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt)
         {
@@ -46,55 +52,28 @@ namespace junklite
 
         protected override bool ExecuteAbility(ModInstance instance, PlayerCharacter player)
         {
+            if (isExecuting) return false;
+
+            isExecuting = true;
+            player.StartCoroutine(CoExecutePulse(player));
+            return true;
+        }
+
+        public override void OnEquip(PlayerCharacter player)
+        {
+            isExecuting = false;
+        }
+
+        #endregion
+
+        #region Pulse
+
+        private IEnumerator CoExecutePulse(PlayerCharacter player)
+        {
             Vector3 origin = player.transform.position;
+            var hitEnemies = new HashSet<EnemyCharacter>();
 
-            int count = Physics.OverlapSphereNonAlloc(origin, pushRadius, pushBuffer, enemyLayerMask);
-
-            if (count == 0)
-            {
-                Debug.Log("[SocialDistance] No enemies in range.");
-                return false;
-            }
-
-            bool hitAny = false;
-
-            for (int i = 0; i < count; i++)
-            {
-                var col = pushBuffer[i];
-                if (col.gameObject == player.gameObject) continue;
-
-                var enemy = col.GetComponentInParent<EnemyCharacter>();
-                if (enemy == null || !enemy.IsAlive) continue;
-
-                var damageable = enemy.GetComponentInParent<IDamageable>();
-                if (damageable == null) continue;
-
-                hitAny = true;
-
-                // Distance falloff: full force at center, edgeFalloff at border
-                float dist = Vector3.Distance(origin, enemy.transform.position);
-                float t = Mathf.Clamp01(dist / pushRadius);
-                float strength = Mathf.Lerp(1f, edgeFalloff, t);
-
-                Vector2 knockback = new Vector2(pushForce * strength, pushUpForce * strength);
-
-                damageable.TakeDamage(new DamageInfo(
-                    pushDamage,
-                    player.gameObject,
-                    DamageType.Physical,
-                    knockback
-                ));
-
-                SpawnHitEffects(origin, enemy);
-            }
-
-            if (!hitAny) return false;
-
-            // Push VFX at player position
-            if (pushVFX != null)
-                Instantiate(pushVFX, origin, Quaternion.identity);
-
-            // Camera shake
+            // Camera shake at start of pulse
             if (cameraShakeIntensity > 0f && FeedbackManager.Instance != null)
             {
                 var impulse = player.GetComponent<Unity.Cinemachine.CinemachineImpulseSource>();
@@ -102,7 +81,61 @@ namespace junklite
                     FeedbackManager.Instance.DoCameraShake(impulse, cameraShakeIntensity);
             }
 
-            return true;
+            // Spawn and scale VFX in sync with pulse expansion
+            GameObject vfxInstance = null;
+            if (pushVFX != null)
+                vfxInstance = Instantiate(pushVFX, origin, Quaternion.identity);
+
+            float elapsed = 0f;
+
+            while (elapsed < pulseDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / pulseDuration);
+                float currentRadius = Mathf.Lerp(0f, pushRadius, t);
+
+                // Scale VFX to match current pulse radius
+                if (vfxInstance != null)
+                {
+                    float diameter = currentRadius * 2f;
+                    vfxInstance.transform.localScale = Vector3.one * diameter;
+                }
+
+                // Check for newly reached enemies
+                int count = Physics.OverlapSphereNonAlloc(origin, currentRadius, pushBuffer, enemyLayerMask);
+
+                for (int i = 0; i < count; i++)
+                {
+                    var col = pushBuffer[i];
+                    if (col.gameObject == player.gameObject) continue;
+
+                    var enemy = col.GetComponentInParent<EnemyCharacter>();
+                    if (enemy == null || !enemy.IsAlive || hitEnemies.Contains(enemy)) continue;
+
+                    var damageable = enemy.GetComponentInParent<IDamageable>();
+                    if (damageable == null) continue;
+
+                    hitEnemies.Add(enemy);
+
+                    float dist = Vector3.Distance(origin, enemy.transform.position);
+                    float falloff = Mathf.Lerp(1f, edgeFalloff, Mathf.Clamp01(dist / pushRadius));
+
+                    Vector2 knockback = new Vector2(pushForce * falloff, pushUpForce * falloff);
+
+                    damageable.TakeDamage(new DamageInfo(
+                        pushDamage,
+                        player.gameObject,
+                        DamageType.Physical,
+                        knockback
+                    ));
+
+                    SpawnHitEffects(origin, enemy);
+                }
+
+                yield return null;
+            }
+
+            isExecuting = false;
         }
 
         #endregion

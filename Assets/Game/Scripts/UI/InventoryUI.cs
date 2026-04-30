@@ -70,8 +70,10 @@ namespace junklite
             if (modManager != null)
                 modManager.OnModSlotsChanged += RefreshModSlots;
 
-            ModSlotUI.OnModSelected += HandleModSelected;
-            InventoryWeaponSlotUI.OnWeaponSelected += HandleWeaponSelected;
+            ModSlotUI.OnModHovered += HandleModHovered;
+            ModSlotUI.OnModHoverExit += HandleHoverExit;
+            InventoryWeaponSlotUI.OnWeaponHovered += HandleWeaponHovered;
+            InventoryWeaponSlotUI.OnWeaponHoverExit += HandleHoverExit;
 
             if (inventoryTabButton != null)
                 inventoryTabButton.OnClick += ShowInventoryTab;
@@ -97,8 +99,10 @@ namespace junklite
             if (modManager != null)
                 modManager.OnModSlotsChanged -= RefreshModSlots;
 
-            ModSlotUI.OnModSelected -= HandleModSelected;
-            InventoryWeaponSlotUI.OnWeaponSelected -= HandleWeaponSelected;
+            ModSlotUI.OnModHovered -= HandleModHovered;
+            ModSlotUI.OnModHoverExit -= HandleHoverExit;
+            InventoryWeaponSlotUI.OnWeaponHovered -= HandleWeaponHovered;
+            InventoryWeaponSlotUI.OnWeaponHoverExit -= HandleHoverExit;
 
             if (inventoryTabButton != null)
                 inventoryTabButton.OnClick -= ShowInventoryTab;
@@ -183,16 +187,21 @@ namespace junklite
 
         #region Description Box Handlers
 
-        private void HandleModSelected(ModInstance mod)
+        private void HandleModHovered(ModInstance mod)
         {
             if (mod == null) descriptionUI?.Clear();
             else descriptionUI?.ShowMod(mod);
         }
 
-        private void HandleWeaponSelected(WeaponInstance weapon)
+        private void HandleWeaponHovered(WeaponInstance weapon)
         {
             if (weapon == null) descriptionUI?.Clear();
             else descriptionUI?.ShowWeapon(weapon);
+        }
+
+        private void HandleHoverExit()
+        {
+            descriptionUI?.Clear();
         }
 
         #endregion

@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 3056947161353418572}
   - component: {fileID: 3030126236891126513}
   - component: {fileID: 6913254730701434281}
+  - component: {fileID: 5602424089708726349}
   m_Layer: 15
   m_Name: PhantomStrikeMod
   m_TagString: Untagged
@@ -46,7 +47,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a9ac92cc302d0046afdc0b9ee405945, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.WorldModPickup
-  modData: {fileID: 11400000, guid: 76b04d4d83d51d34eb9e5989c5d53c9a, type: 2}
+  modData: {fileID: 11400000, guid: 9d6a0e508a8f56d458e982c79e904da3, type: 2}
   defaultVisual: {fileID: 8263845245233833153}
 --- !u!65 &6913254730701434281
 BoxCollider:
@@ -69,6 +70,25 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.5757961, y: 0.57673407, z: 0.31935555}
   m_Center: {x: 0.012290001, y: 0.010213137, z: -0.03636238}
+--- !u!114 &5602424089708726349
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3402055460298535195}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98ea3c99bb7d5884c86bb9027844bdcb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.CustomGravity
+  gravity: 12
+  groundCheckRadius: 0.34
+  groundCheckDistance: 0.39
+  originOffset: 0
+  groundLayerMask:
+    serializedVersion: 2
+    m_Bits: 2049
 --- !u!1 &5804228232778595232
 GameObject:
   m_ObjectHideFlags: 0
@@ -14697,7 +14717,7 @@ Transform:
   m_GameObject: {fileID: 8263845245233833153}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.06991005, y: 0.432, z: -1.7350168}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

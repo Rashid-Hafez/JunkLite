@@ -7,7 +7,7 @@ namespace junklite
 {
     public class InventoryWeaponSlotUI : MonoBehaviour,
         IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler,
-        IPointerClickHandler
+        IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
     {
         #region Fields
 
@@ -17,7 +17,7 @@ namespace junklite
         [SerializeField] private Image highlightImage;
 
         private WeaponManager weaponManager;
-        private int slotIndex; // 1 or 2
+        private int slotIndex;
 
         // Drag state
         private static InventoryWeaponSlotUI draggedSlot;
@@ -31,11 +31,9 @@ namespace junklite
 
         #region Events
 
-        /// <summary>
-        /// Fired when a weapon slot is clicked. Passes null when deselected.
-        /// InventoryUI subscribes to this to update the description box.
-        /// </summary>
         public static event Action<WeaponInstance> OnWeaponSelected;
+        public static event Action<WeaponInstance> OnWeaponHovered;
+        public static event Action OnWeaponHoverExit;
 
         #endregion
 
@@ -113,6 +111,22 @@ namespace junklite
                     && selectedSlot.weaponManager == weaponManager;
                 highlightImage.enabled = showHighlight;
             }
+        }
+
+        #endregion
+
+        #region Hover
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            var weapon = GetWeapon();
+            if (weapon == null) return;
+            OnWeaponHovered?.Invoke(weapon);
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            OnWeaponHoverExit?.Invoke();
         }
 
         #endregion

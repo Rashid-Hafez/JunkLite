@@ -3,11 +3,6 @@ using System.Collections;
 
 namespace junklite
 {
-    /// <summary>
-    /// Don't Blink Mod - Teleport behind the nearest enemy in facing direction and strike.
-    /// Deals bonus damage. Consumes mod durability only (not weapon durability).
-    /// No charges required - activate on demand.
-    /// </summary>
     [CreateAssetMenu(fileName = "DontBlinkMod", menuName = "Junklite/Mods/Dont Blink")]
     public class DontBlinkMod : ActiveModData
     {
@@ -21,6 +16,12 @@ namespace junklite
         public float behindOffset = 1.5f;
 
         public LayerMask enemyLayerMask = 1;
+
+        [Tooltip("Layer mask used to raycast for ground beneath the enemy (set to your Ground layer)")]
+        public LayerMask groundLayerMask = 1;
+
+        [Tooltip("How far down to raycast when snapping to ground beneath the enemy")]
+        public float groundSnapDistance = 10f;
 
         [Header("Strike")]
         public float strikeDamage = 30f;
@@ -102,7 +103,6 @@ namespace junklite
             var rb = player.GetComponent<Rigidbody>();
 
             Vector3 startPos = player.transform.position;
-            float playerY = startPos.y;
             float facing = Mathf.Sign(player.transform.localScale.x);
 
             // --- LOCK EVERYTHING ---
@@ -147,9 +147,13 @@ namespace junklite
 
             Vector3 enemyPos = enemy.transform.position;
 
+            // FIX: Always use the enemy's Y (or ground beneath them) rather than
+            // the player's Y at activation time, which could be mid-air.
+            float targetY = GetGroundYBeneathEnemy(enemyPos);
+
             Vector3 behindPos = new Vector3(
                 enemyPos.x + (facing * behindOffset),
-                playerY,
+                targetY,
                 enemyPos.z
             );
 
@@ -208,6 +212,18 @@ namespace junklite
 
             // --- RESTORE EVERYTHING ---
             RestorePhysics(player, playerState, controller, rb, wasKinematic);
+        }
+        
+        private float GetGroundYBeneathEnemy(Vector3 enemyPos)
+        {
+            // Cast from slightly above the enemy's feet downward
+            Vector3 rayOrigin = enemyPos + Vector3.up * 0.1f;
+
+            if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, groundSnapDistance, groundLayerMask, QueryTriggerInteraction.Ignore))
+                return hit.point.y;
+
+            // No ground found - use the enemy's Y so we at least match their level
+            return enemyPos.y;
         }
 
         private void SpawnHitEffects(Vector3 attackOrigin, EnemyCharacter enemy)
