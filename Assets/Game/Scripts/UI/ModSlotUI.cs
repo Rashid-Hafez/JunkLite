@@ -8,7 +8,7 @@ namespace junklite
 {
     public class ModSlotUI : MonoBehaviour,
         IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler,
-        IPointerClickHandler
+        IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
     {
         #region Fields
 
@@ -18,6 +18,7 @@ namespace junklite
         [SerializeField] private Image backgroundImage;
         [SerializeField] private Image crossIcon;
         [SerializeField] private Image highlightImage;
+        [SerializeField] private GameObject hoverImage;
         [SerializeField] private TMP_Text inputHintText;
 
         // Data
@@ -51,11 +52,9 @@ namespace junklite
 
         #region Events
 
-        /// <summary>
-        /// Fired when a mod slot is clicked and a mod is selected (or null when deselected).
-        /// InventoryUI subscribes to this to update the description box.
-        /// </summary>
         public static event Action<ModInstance> OnModSelected;
+        public static event Action<ModInstance> OnModHovered;
+        public static event Action OnModHoverExit;
 
         #endregion
 
@@ -111,7 +110,6 @@ namespace junklite
 
             if (crossIcon != null)
             {
-                // Locked slots always show the cross; drag-hover logic handled in UpdateOverlays
                 crossIcon.enabled = isLocked;
                 crossIcon.raycastTarget = false;
             }
@@ -157,7 +155,7 @@ namespace junklite
 
             if (crossIcon != null)
             {
-                bool showCross = isLocked; // locked slots always show cross
+                bool showCross = isLocked;
                 if (!isLocked && source != null && source != this && IsModSlot)
                 {
                     ModInstance srcMod = source.modInstance;
@@ -184,7 +182,7 @@ namespace junklite
         private bool IsValidTargetFor(ModSlotUI source)
         {
             if (source == null || source.modInstance == null) return false;
-            if (isLocked) return false; // locked slots never accept drops
+            if (isLocked) return false;
 
             ModInstance srcMod = source.modInstance;
 
@@ -217,6 +215,23 @@ namespace junklite
             {
                 durabilityFill.gameObject.SetActive(false);
             }
+        }
+
+        #endregion
+
+        #region Hover
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (hoverImage != null) hoverImage.SetActive(true);
+            if (modInstance == null) return;
+            OnModHovered?.Invoke(modInstance);
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            if (hoverImage != null) hoverImage.SetActive(false);
+            OnModHoverExit?.Invoke();
         }
 
         #endregion
@@ -363,7 +378,7 @@ namespace junklite
             if (draggedSlot == null || draggedSlot == this || draggedSlot.IsEmpty)
                 return;
 
-            if (isLocked) return; // never accept drops on locked slots
+            if (isLocked) return;
 
             ModSlotUI source = draggedSlot;
 

@@ -19509,6 +19509,7 @@ GameObject:
   - component: {fileID: 1247947898183578266}
   - component: {fileID: 6021792282018443440}
   - component: {fileID: 1312789794559120729}
+  - component: {fileID: 2388019662248432161}
   m_Layer: 15
   m_Name: Mod pick up prefab
   m_TagString: Untagged
@@ -19567,3 +19568,22 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.5757961, y: 0.57673407, z: 0.31935555}
   m_Center: {x: 0.012290001, y: 0.010213137, z: -0.03636238}
+--- !u!114 &2388019662248432161
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8161909773096738608}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98ea3c99bb7d5884c86bb9027844bdcb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.CustomGravity
+  gravity: 6
+  groundCheckRadius: 0.33
+  groundCheckDistance: 0.46
+  originOffset: 0.02
+  groundLayerMask:
+    serializedVersion: 2
+    m_Bits: 2049
