@@ -78,6 +78,8 @@ namespace junklite
         private FeedbackManager feedbackManager;
         private PlayerAudioHandler audioHandler;
 
+
+        public Vector3 VFXCenter => transform.position + damageVFXOffset;
         protected override void Awake()
         {
             base.Awake();
