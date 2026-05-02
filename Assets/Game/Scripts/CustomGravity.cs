@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace junklite
 {
@@ -18,21 +18,30 @@ namespace junklite
             if (grounded) return;
 
             verticalVelocity -= gravity * Time.deltaTime;
-            transform.position += Vector3.up * verticalVelocity * Time.deltaTime;
 
+            float moveThisFrame = Mathf.Abs(verticalVelocity * Time.deltaTime);
             Vector3 origin = transform.position + Vector3.up * originOffset;
 
             if (Physics.SphereCast(
                     origin,
                     groundCheckRadius,
                     Vector3.down,
-                    out _,
-                    originOffset + groundCheckDistance,
+                    out RaycastHit hit,
+                    originOffset + groundCheckDistance + moveThisFrame, // ← cast the full travel distance
                     groundLayerMask,
                     QueryTriggerInteraction.Ignore))
             {
+                // Snap flush to the surface instead of tunnelling through it
+                float snapDistance = hit.distance - originOffset;
+                if (snapDistance > 0f)
+                    transform.position += Vector3.down * snapDistance;
+
                 grounded = true;
                 verticalVelocity = 0f;
+            }
+            else
+            {
+                transform.position += Vector3.up * verticalVelocity * Time.deltaTime;
             }
         }
 

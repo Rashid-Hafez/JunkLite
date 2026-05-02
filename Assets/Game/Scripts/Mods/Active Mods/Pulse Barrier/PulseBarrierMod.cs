@@ -55,7 +55,6 @@ namespace junklite
 
             cachedPlayer = player;
 
-
             var shield = GetOrCreateShield(player);
 
             // Subscribe before activating so we catch immediate breaks
@@ -65,19 +64,8 @@ namespace junklite
             shield.Activate(shieldHP, shieldDuration);
             isShieldActive = true;
 
-            // Activation VFX (parented to player, destroyed when shield breaks)
-            if (shieldActivateVFX != null)
-            {
-                activeActivateVFX = Instantiate(shieldActivateVFX, player.transform);
-                activeActivateVFX.transform.localPosition = Vector3.zero;
-            }
-
-            // Loop VFX (parented to player, destroyed when shield breaks)
-            if (shieldLoopVFXPrefab != null)
-            {
-                activeLoopVFX = Instantiate(shieldLoopVFXPrefab, player.transform);
-                activeLoopVFX.transform.localPosition = Vector3.zero;
-            }
+            activeActivateVFX = SpawnVFX(shieldActivateVFX, player);
+            activeLoopVFX = SpawnVFX(shieldLoopVFXPrefab, player);
 
             Debug.Log($"[PulseBarrier] Shield activated: {shieldHP} HP, {shieldDuration}s duration.");
             return true;
@@ -113,20 +101,13 @@ namespace junklite
         private void OnShieldDamaged(float currentHP, float maxHP)
         {
             Debug.Log($"[PulseBarrier] Shield hit! Remaining: {currentHP}/{maxHP}");
-
-            // Absorb VFX parented to player
-            if (shieldAbsorbVFX != null && cachedPlayer != null)
-            {
-                var vfx = Instantiate(shieldAbsorbVFX, cachedPlayer.transform);
-                vfx.transform.localPosition = Vector3.zero;
-            }
+            SpawnVFX(shieldAbsorbVFX, cachedPlayer);
         }
 
         private void OnShieldBroken()
         {
             Debug.Log("[PulseBarrier] Shield broken/expired.");
 
-            // Unsubscribe
             if (cachedPlayer != null)
             {
                 var shield = cachedPlayer.GetComponent<DamageShield>();
@@ -163,6 +144,22 @@ namespace junklite
 
         #region Helpers
 
+        /// <summary>
+        /// Spawns a VFX prefab parented to the player, centered using vfxCenter if available,
+        /// otherwise falls back to the collider bounds center, then a manual height offset.
+        /// </summary>
+        private GameObject SpawnVFX(GameObject prefab, PlayerCharacter player)
+        {
+            if (prefab == null || player == null) return null;
+
+            var vfx = Instantiate(prefab, player.transform);
+            vfx.transform.position = player.VFXCenter;
+            vfx.transform.localRotation = Quaternion.identity;
+            vfx.transform.localScale = Vector3.one;
+            return vfx;
+        }
+
+       
         private DamageShield GetOrCreateShield(PlayerCharacter player)
         {
             var shield = player.GetComponent<DamageShield>();
