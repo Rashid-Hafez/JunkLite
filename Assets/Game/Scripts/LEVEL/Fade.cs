@@ -1,17 +1,39 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.UI;
 
 public class Fade : MonoBehaviour
 {
+    // URP Lit uses _BaseColor as the visible color. material.color aliases
+    // _Color on legacy shaders and is unreliable on URP, so we drive _BaseColor
+    // explicitly via a cached property ID.
+    private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+    private static readonly int ZWriteId = Shader.PropertyToID("_ZWrite");
+
+    // Above this alpha the wall behaves as opaque (writes depth, contributes
+    // to depth/normals prepass, casts shadows, sits in the AlphaTest queue).
+    // Below it, we flip back to a true transparent so the room behind shows
+    // through correctly. The threshold is high enough that the visual change
+    // is invisible during a fade.
+    private const float OpaqueAlphaThreshold = 0.99f;
+
     private Renderer rend;
     private Material material;
     private Coroutine fadeRoutine;
 
+    private bool? lastDepthState;
+
     private void Awake()
     {
         rend = GetComponent<MeshRenderer>();
-        material = rend.material; // creates instance (safe)
+
+        // Drive the shared material directly (no per-renderer instance).
+        material = rend.sharedMaterial;
+
+        // Reset to fully opaque on play. Because we edit sharedMaterial, the
+        // alpha and depth state we left the asset in (e.g. faded-out inside
+        // the building) persists across editor play sessions. Force a clean
+        // starting state so the player always begins with the wall solid.
+        ApplyAlpha(1f);
     }
 
     public void FadeIn(float duration)
@@ -34,24 +56,59 @@ public class Fade : MonoBehaviour
 
     private IEnumerator FadeRoutine(float targetAlpha, float duration)
     {
-        float timer = 0f;
-        float startAlpha = material.color.a;
+        // Guard against zero/negative durations so we don't divide by zero
+        // and snap immediately.
+        if (duration <= 0f)
+        {
+            ApplyAlpha(targetAlpha);
+            fadeRoutine = null;
+            yield break;
+        }
 
+        Color startColor = material.GetColor(BaseColorId);
+        float startAlpha = startColor.a;
+
+        float timer = 0f;
         while (timer < duration)
         {
             timer += Time.deltaTime;
-            float t = timer / duration;
+            float t = Mathf.Clamp01(timer / duration);
 
             float alpha = Mathf.Lerp(startAlpha, targetAlpha, t);
-            Color c = material.color;
-            c.a = alpha;
-            material.color = c;
+            ApplyAlpha(alpha);
 
             yield return null;
         }
 
-        Color final = material.color;
-        final.a = targetAlpha;
-        material.color = final;
+        ApplyAlpha(targetAlpha);
+        fadeRoutine = null;
+    }
+
+    private void ApplyAlpha(float alpha)
+    {
+        Color c = material.GetColor(BaseColorId);
+        c.a = alpha;
+        material.SetColor(BaseColorId, c);
+
+        SetDepthState(alpha >= OpaqueAlphaThreshold);
+    }
+
+    /// <summary>
+    /// Switches the material between "opaque-style" (writes depth, in
+    /// AlphaTest queue, depth/normals/shadow passes enabled) and "transparent"
+    /// (no depth write, in Transparent queue). This avoids the classic
+    /// transparent-with-ZWrite bug where a faded surface still occludes
+    /// everything behind it and ends up rendering as the clear color.
+    /// </summary>
+    private void SetDepthState(bool opaqueStyle)
+    {
+        if (lastDepthState == opaqueStyle) return;
+        lastDepthState = opaqueStyle;
+
+        material.SetInt(ZWriteId, opaqueStyle ? 1 : 0);
+        material.SetShaderPassEnabled("DepthOnly", opaqueStyle);
+        material.SetShaderPassEnabled("DepthNormals", opaqueStyle);
+        material.SetShaderPassEnabled("ShadowCaster", opaqueStyle);
+        material.renderQueue = opaqueStyle ? 2450 : 3000;
     }
 }
