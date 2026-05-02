@@ -11,6 +11,7 @@ public class DialogueLine
 
     [Header("Flow")]
     public bool requiresPlayerInput = true;
+    public bool canSkip = true;
     public float autoAdvanceDelay = 2f;
 
     [Header("Gamplay Lock")]
