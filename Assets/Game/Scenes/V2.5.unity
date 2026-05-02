@@ -30055,6 +30055,87 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4436821309807888, guid: 81c57be835b6a8f43952764ef69a1fc6, type: 3}
   m_PrefabInstance: {fileID: 1694677786}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &700363476
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 3257670850206951952, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: UVModule.mode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3257670850206951952, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: UVModule.enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3257670850206951952, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: UVModule.timeMode
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3257670850206951952, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: RotationModule.enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3257670850206951952, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: UVModule.uvChannelMask
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3257670850206951952, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: UVModule.sprites.Array.data[0].sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 9efda78c8dc975548af4f7e895c85e55, type: 3}
+    - target: {fileID: 6361724532176904976, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: m_Name
+      value: Pulse Barrier Mod Visual
+      objectReference: {fileID: 0}
+    - target: {fileID: 8562586932355092368, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -50.26405
+      objectReference: {fileID: 0}
+    - target: {fileID: 8562586932355092368, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.773
+      objectReference: {fileID: 0}
+    - target: {fileID: 8562586932355092368, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.04
+      objectReference: {fileID: 0}
+    - target: {fileID: 8562586932355092368, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8562586932355092368, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8562586932355092368, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8562586932355092368, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8562586932355092368, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8562586932355092368, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8562586932355092368, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: a748e88e6aa3eb240956322ac1cb2088, type: 3}
 --- !u!1001 &740272285
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -45288,7 +45369,7 @@ PrefabInstance:
     - target: {fileID: 6021792282018443440, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
       propertyPath: modData
       value: 
-      objectReference: {fileID: 11400000, guid: 975119205d90231409ba68fb55d0d5c6, type: 2}
+      objectReference: {fileID: 11400000, guid: d2defecf0453bfe4590c2ad254626b68, type: 2}
     - target: {fileID: 8161909773096738608, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
       propertyPath: m_Name
       value: Mod pick up prefab (1)
@@ -142787,3 +142868,4 @@ SceneRoots:
   - {fileID: 1285110909}
   - {fileID: 1569675968}
   - {fileID: 1017528237}
+  - {fileID: 700363476}
