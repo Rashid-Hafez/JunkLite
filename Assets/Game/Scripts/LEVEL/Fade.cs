@@ -26,14 +26,24 @@ public class Fade : MonoBehaviour
     {
         rend = GetComponent<MeshRenderer>();
 
-        // Drive the shared material directly (no per-renderer instance).
-        material = rend.sharedMaterial;
+        // Use a per-renderer material instance so fades affect ONLY this
+        // wall, not every other object that shares SafeRoomFadeMat. Unity
+        // creates the instance on first access to .material; we cache it
+        // immediately so we don't accidentally create more than one.
+        material = rend.material;
 
-        // Reset to fully opaque on play. Because we edit sharedMaterial, the
-        // alpha and depth state we left the asset in (e.g. faded-out inside
-        // the building) persists across editor play sessions. Force a clean
-        // starting state so the player always begins with the wall solid.
+        // Always start fully opaque. The instance is fresh per play session
+        // so this isn't strictly required in builds, but it keeps editor
+        // play-mode behaviour consistent if anything ever pre-tweaks alpha.
         ApplyAlpha(1f);
+    }
+
+    private void OnDestroy()
+    {
+        // Clean up the instanced material we created in Awake to avoid a
+        // small per-renderer leak when the wall is destroyed.
+        if (material != null)
+            Destroy(material);
     }
 
     public void FadeIn(float duration)
