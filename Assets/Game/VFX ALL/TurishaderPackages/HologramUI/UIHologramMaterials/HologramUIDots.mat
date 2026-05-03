@@ -50,7 +50,7 @@ Material:
     - _AlphaCutoff: 0.5
     - _ColorMask: 15
     - _ColorMultiplier: 4
-    - _DistortionAmount: 0.1
+    - _DistortionAmount: 0
     - _GlitchAmount: 0.061
     - _GlitchMinOpacity: 0.588
     - _GlitchTiling: 2.2
@@ -72,7 +72,7 @@ Material:
     - _VertexGlithcAmount: 0
     - _VertexGlithcFrequency: 10
     m_Colors:
-    - _Color: {r: 1, g: 0, b: 0.13618708, a: 1}
+    - _Color: {r: 0.9144716, g: 0.28595585, b: 0.9622642, a: 1}
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
     - _Vertexdistortiondirection: {r: 1, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
