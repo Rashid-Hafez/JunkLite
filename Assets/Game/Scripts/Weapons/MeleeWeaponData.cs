@@ -37,8 +37,6 @@ namespace junklite
             public float forwardImpulseDuration;
             [Tooltip("Velocity curve over the lunge duration. Left = start, Right = end. Default ease-out if left empty.")]
             public AnimationCurve lungeCurve;
-            [Tooltip("Override gravity multiplier during air attacks. 1 = normal.")]
-            public float airGravityMultiplier;
 
             [Header("On Hit")]
             [Tooltip("Delay after lunge starts before the hitbox opens. Tune this to match when the sword visually connects.")]

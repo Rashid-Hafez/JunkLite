@@ -52,6 +52,12 @@ namespace junklite
         private float attackOpenWindow = 0.3f;
         [SerializeField] private float BUFFER_DURATION = 0.3f;
 
+        [Header("Down Attack Float")]
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("Fraction of the total attack duration the player floats when performing an airborne down attack. 0 = no float, 1 = full window.")]
+        private float downAttackFloatNormalized = 0.4f;
+
         [Header("Attack Settings")]
         [SerializeField] private float facingLockDuration = 0.25f;
         [SerializeField] private float inputThreshold = 0.5f;
@@ -557,7 +563,16 @@ namespace junklite
         private IEnumerator CoMeleeAttack(AttackDirection dir, MeleeWeaponData.MeleeComboStep step, string animName)
         {
             StartCoroutine(CoApplyAttackPush(dir, step.forwardImpulse, step.verticalImpulse, step.forwardImpulseDuration, step.lungeCurve));
-            ApplyAttackGravityOverride(dir, step.airGravityMultiplier);
+
+            // Float: only fires on airborne down attacks.
+            // Duration is computed from this step's actual timing so the normalized
+            // slider always maps to a consistent fraction of the real attack window.
+            if (dir == AttackDirection.Down && !currentAttackGrounded && downAttackFloatNormalized > 0f)
+            {
+                float hitDelay = step.hitDelay > 0f ? step.hitDelay : Mathf.Max(0f, delayBeforeAttack - animationLeadTime);
+                float totalDuration = animationLeadTime + hitDelay + attackOpenWindow;
+                StartCoroutine(CoDownAttackFloat(downAttackFloatNormalized * totalDuration));
+            }
 
             if (animationLeadTime > 0f)
                 yield return new WaitForSeconds(animationLeadTime);
@@ -567,9 +582,9 @@ namespace junklite
             else
                 OnAttackAnimationComplete();
 
-            float hitDelay = step.hitDelay > 0f ? step.hitDelay : Mathf.Max(0f, delayBeforeAttack - animationLeadTime);
-            if (hitDelay > 0f)
-                yield return new WaitForSeconds(hitDelay);
+            float hitDelay2 = step.hitDelay > 0f ? step.hitDelay : Mathf.Max(0f, delayBeforeAttack - animationLeadTime);
+            if (hitDelay2 > 0f)
+                yield return new WaitForSeconds(hitDelay2);
 
             Transform anchor = GetAttackTransform(dir);
             bool isPiercing = step.piercing || (activeWeapon?.PiercingOverride ?? false);
@@ -671,13 +686,9 @@ namespace junklite
             bool isDirectional = (dir == AttackDirection.Down || dir == AttackDirection.Up);
 
             if (isDirectional)
-            {
                 yield return CoDirectionalBlast(dir, step, rangedData, capturedWeapon, capturedWeaponSlot);
-            }
             else
-            {
                 yield return CoSideHitscan(step, rangedData, capturedWeapon, capturedWeaponSlot);
-            }
 
             // HOLD BULLET TIME
             if (useBulletTime && step.bulletTimeDuration > 0f)
@@ -1057,7 +1068,6 @@ namespace junklite
                 float multiplier = 1f - (t * t);
 
                 Vector3 vel = playerRb.linearVelocity;
-                // Project onto recoilDir so we correctly handle both X and Z lanes
                 float currentAlong = Vector3.Dot(vel, recoilDir.normalized);
                 float targetAlong = peakVelocity.magnitude * multiplier;
                 vel += recoilDir.normalized * (targetAlong - currentAlong);
@@ -1171,7 +1181,6 @@ namespace junklite
             if (playerRb == null) yield break;
 
             // Resolve local axes so attack pushes respect the current 2.5D lane orientation.
-            // Default to world axes if we don't have a controller reference.
             Vector3 right = controller != null ? controller.transform.right : Vector3.right;
             Vector3 up = controller != null ? controller.transform.up : Vector3.up;
 
@@ -1179,16 +1188,13 @@ namespace junklite
 
             if (dir == AttackDirection.Side)
             {
-                // Side attacks: allow both forward (along lane) and optional vertical impulse.
                 if (Mathf.Abs(forwardImpulse) > 0f)
                     peakVelocity += right * (forwardImpulse * Facing);
-
                 if (Mathf.Abs(verticalImpulse) > 0f)
                     peakVelocity += up * verticalImpulse;
             }
             else
             {
-                // Non-side (Up/Down) attacks: keep existing vertical-only behaviour.
                 if (Mathf.Abs(verticalImpulse) > 0f)
                 {
                     float signedVertical = (dir == AttackDirection.Down ? -verticalImpulse : verticalImpulse);
@@ -1212,67 +1218,52 @@ namespace junklite
 
                 Vector3 vel = playerRb.linearVelocity;
 
-                // Project current velocity onto local axes and apply the scaled peakVelocity along those axes
-                // so we don't accidentally write into the wrong world component when the lane is rotated.
                 float currentRight = Vector3.Dot(vel, right);
                 float currentUp = Vector3.Dot(vel, up);
-
                 float targetRight = currentRight;
                 float targetUp = currentUp;
 
-                // Only override components that this attack actually uses.
                 float peakRight = Vector3.Dot(peakVelocity, right);
                 float peakUp = Vector3.Dot(peakVelocity, up);
 
-                if (!Mathf.Approximately(peakRight, 0f))
-                    targetRight = peakRight * multiplier;
+                if (!Mathf.Approximately(peakRight, 0f)) targetRight = peakRight * multiplier;
+                if (!Mathf.Approximately(peakUp, 0f)) targetUp = peakUp * multiplier;
 
-                if (!Mathf.Approximately(peakUp, 0f))
-                    targetUp = peakUp * multiplier;
-
-                // Rebuild velocity from modified local components plus any remaining component along the forward axis.
                 Vector3 forward = controller != null ? controller.transform.forward : Vector3.forward;
                 Vector3 forwardComponent = Vector3.Project(vel, forward);
 
-                vel = right * targetRight + up * targetUp + forwardComponent;
-                playerRb.linearVelocity = vel;
-
+                playerRb.linearVelocity = right * targetRight + up * targetUp + forwardComponent;
                 yield return null;
             }
 
-            // After the lunge, clear only the components this attack was controlling, leave others intact.
+            // After the lunge, clear only the components this attack was controlling.
             {
                 Vector3 vel = playerRb.linearVelocity;
-
                 float peakRight = Vector3.Dot(peakVelocity, right);
                 float peakUp = Vector3.Dot(peakVelocity, up);
 
-                if (!Mathf.Approximately(peakRight, 0f))
-                    vel -= right * Vector3.Dot(vel, right);
-
-                if (!Mathf.Approximately(peakUp, 0f))
-                    vel -= up * Vector3.Dot(vel, up);
+                if (!Mathf.Approximately(peakRight, 0f)) vel -= right * Vector3.Dot(vel, right);
+                if (!Mathf.Approximately(peakUp, 0f)) vel -= up * Vector3.Dot(vel, up);
 
                 playerRb.linearVelocity = vel;
             }
         }
 
-        private void ApplyAttackGravityOverride(AttackDirection dir, float airGravityMultiplier)
+        /// <summary>
+        /// Zeroes Y velocity and holds gravity at zero for <paramref name="duration"/> seconds.
+        /// Only fires on airborne down attacks. ClearAttackGravityOverride() in both attack-end
+        /// callbacks acts as a safety net if the attack is interrupted before this finishes.
+        /// </summary>
+        private IEnumerator CoDownAttackFloat(float duration)
         {
-            if (controller == null) return;
-            if (playerState == null || playerState.IsGrounded) return;
-            if (airGravityMultiplier < 0f) return; // negative = disabled
+            if (controller == null || playerRb == null || duration <= 0f) yield break;
 
-            // For down attacks, zero out Y velocity so the float starts cleanly
-            if (dir == AttackDirection.Down && playerRb != null)
-                playerRb.linearVelocity = new Vector3(playerRb.linearVelocity.x, 0f, playerRb.linearVelocity.z);
+            playerRb.linearVelocity = new Vector3(
+                playerRb.linearVelocity.x, 0f, playerRb.linearVelocity.z);
 
-            controller.SetGravityMultiplierOverride(airGravityMultiplier);
-        }
-
-        private void ApplyAttackGravityOverride(float airGravityMultiplier)
-        {
-            ApplyAttackGravityOverride(currentAttackDir, airGravityMultiplier);
+            controller.SetGravityMultiplierOverride(0f);
+            yield return new WaitForSeconds(duration);
+            controller.ClearGravityMultiplierOverride();
         }
 
         private void ClearAttackGravityOverride()
@@ -1488,7 +1479,6 @@ namespace junklite
 
             SetupWeaponInSlot(slot, pickup);
         }
-
 
         public bool HasEmptyWeaponSlot()
         {

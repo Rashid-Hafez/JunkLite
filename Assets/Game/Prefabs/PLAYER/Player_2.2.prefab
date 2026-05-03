@@ -1047,6 +1047,7 @@ MonoBehaviour:
   animationLeadTime: 0.05
   attackOpenWindow: 0.28
   BUFFER_DURATION: 0.3
+  downAttackFloatNormalized: 0.5
   facingLockDuration: 0.25
   inputThreshold: 0.5
   defaultPushDuration: 0.08
