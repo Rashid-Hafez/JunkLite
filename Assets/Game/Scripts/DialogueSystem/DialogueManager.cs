@@ -86,9 +86,14 @@ public class DialogueManager : MonoBehaviour
     public void NextLine()
     {
         if (currentSequence == null) return;
-
         var line = currentSequence.dialogueLines[currentIndex];
-
+        if (line.canSkip)
+        { 
+            IsContinueInputSuppressed = false;
+        }else
+        {
+            IsContinueInputSuppressed = true;
+        }
         // Skip typing — reveal full line immediately
         if (isTyping)
         {
