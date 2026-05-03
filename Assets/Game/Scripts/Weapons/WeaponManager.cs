@@ -557,7 +557,7 @@ namespace junklite
         private IEnumerator CoMeleeAttack(AttackDirection dir, MeleeWeaponData.MeleeComboStep step, string animName)
         {
             StartCoroutine(CoApplyAttackPush(dir, step.forwardImpulse, step.verticalImpulse, step.forwardImpulseDuration, step.lungeCurve));
-            ApplyAttackGravityOverride(step.airGravityMultiplier);
+            ApplyAttackGravityOverride(dir, step.airGravityMultiplier);
 
             if (animationLeadTime > 0f)
                 yield return new WaitForSeconds(animationLeadTime);
@@ -1257,11 +1257,22 @@ namespace junklite
             }
         }
 
-        private void ApplyAttackGravityOverride(float airGravityMultiplier)
+        private void ApplyAttackGravityOverride(AttackDirection dir, float airGravityMultiplier)
         {
             if (controller == null) return;
-            if (playerState != null && !playerState.IsGrounded && airGravityMultiplier > 0f)
-                controller.SetGravityMultiplierOverride(airGravityMultiplier);
+            if (playerState == null || playerState.IsGrounded) return;
+            if (airGravityMultiplier < 0f) return; // negative = disabled
+
+            // For down attacks, zero out Y velocity so the float starts cleanly
+            if (dir == AttackDirection.Down && playerRb != null)
+                playerRb.linearVelocity = new Vector3(playerRb.linearVelocity.x, 0f, playerRb.linearVelocity.z);
+
+            controller.SetGravityMultiplierOverride(airGravityMultiplier);
+        }
+
+        private void ApplyAttackGravityOverride(float airGravityMultiplier)
+        {
+            ApplyAttackGravityOverride(currentAttackDir, airGravityMultiplier);
         }
 
         private void ClearAttackGravityOverride()

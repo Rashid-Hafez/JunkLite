@@ -33,6 +33,7 @@ namespace junklite
         private float becameAirborneTime = 0f;
         private bool hasJumpBeenCut = false;  // ensures velocity cut happens only once per jump
         private bool isExternalBounce = false; // true when bounce comes from pogo/trampoline/etc (ignores jump hold)
+        private bool isPogoBounce = false;    // true during pogo arc: ignores jump hold but uses gentle gravity
 
         [Header("Double Jump Settings")]
         [SerializeField] private int maxAirJumps = 1;
@@ -80,7 +81,7 @@ namespace junklite
         private float wallJumpEndTime = 0f;
         private float lastWallJumpTime = float.NegativeInfinity;
 
-        [Header ("Ledge Detection Settings")]
+        [Header("Ledge Detection Settings")]
         [SerializeField] private Transform ledgeCheckTransform;
         [SerializeField] private Vector2 ledgeCheckSize = new Vector2(0.5f, 1f);
         // how far below the probe we raycast when attempting to snap
@@ -89,7 +90,7 @@ namespace junklite
         [SerializeField] private float groundSnapForwardOffset = 0.1f;
         // additional vertical offset applied when snapping (can be negative to sink slightly)
         [SerializeField] private float groundSnapVerticalOffset = 0f;
-        
+
         // ledge detection state (written by external helper or logic)
         private bool ledgeDetected;
         /// <summary>True when controller has detected a ledge (via an external component such as LedgeDetection).</summary>
@@ -103,7 +104,7 @@ namespace junklite
                 OnLedgeDetectedChanged?.Invoke(value);
             }
         }
-        
+
         // event fired when ledge detection state changes (true=>started, false=>ended)
         public System.Action<bool> OnLedgeDetectedChanged;
 
@@ -131,7 +132,7 @@ namespace junklite
         [SerializeField] private bool faceMovementDirection = true;
         [SerializeField] private FacingMode facingMode = FacingMode.ScaleFlip;
         [SerializeField] private float rotationSpeed = 10f;
-      
+
         private bool physicsOverride = false;
         public enum FacingMode { ScaleFlip, YAxisRotation }
 
@@ -349,6 +350,7 @@ namespace junklite
                 airJumpCount = 0;
                 hasJumpBeenCut = false;  // reset for next jump
                 isExternalBounce = false; // reset external bounce flag
+                isPogoBounce = false;     // reset pogo flag
             }
             else
             {
@@ -499,6 +501,21 @@ namespace junklite
             minJumpHoldEndTime = Time.time + minJumpHoldTime;
         }
 
+        /// <summary>
+        /// Pogo / stomp bounce. Uses gentle gravity arc but ignores jump hold — height is fixed.
+        /// </summary>
+        public void ApplyPogoLaunch(float force)
+        {
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, force, rb.linearVelocity.z);
+
+            isExternalBounce = false;
+            isPogoBounce = true;   // gentle gravity, but jump hold is ignored
+            hasJumpBeenCut = true; // height is fixed, no velocity cut
+            StartMinJumpHoldWindow();
+            airJumpCount = 0;
+        }
+
 
         public void SetMovementInput(float horizontal, float vertical = 0f)
         {
@@ -573,7 +590,7 @@ namespace junklite
 
         public void Dash()
         {
-           // Debug.Log("Dash");
+            // Debug.Log("Dash");
             if (!CanDash) return;
 
             Vector3 dir = transform.right * (IsFacingRight ? 1f : -1f);
@@ -906,7 +923,7 @@ namespace junklite
                 Vector3 right = transform.right;
                 Vector3 up = transform.up;
 
-                float dir = IsFacingRight? 1f : -1f;
+                float dir = IsFacingRight ? 1f : -1f;
 
                 Vector3 dashVel = right * dashSpeed * dir;
 
@@ -958,10 +975,14 @@ namespace junklite
 
             // Hold window expired → treat as released even if button is still down
             bool holdExpired = Time.time >= jumpStartTime + minJumpHoldTime + maxJumpHoldTime;
-            bool canCutJump = isExternalBounce || holdExpired || (!JumpHeldExternally && !minHoldActive);
+
+            // Pogo ignores jump hold — height is fixed, can't be extended by holding space
+            bool holdEffective = !isExternalBounce && !isPogoBounce && JumpHeldExternally;
+            bool canCutJump = isExternalBounce || isPogoBounce || holdExpired || (!holdEffective && !minHoldActive);
 
             // --- ONE-TIME HARD JUMP CUT (Hollow Knight / Celeste style) ---
-            if (yVel > 0.1f && canCutJump && !hasJumpBeenCut && !isExternalBounce)
+            // Skip for external bounce and pogo — their height is always fixed
+            if (yVel > 0.1f && canCutJump && !hasJumpBeenCut && !isExternalBounce && !isPogoBounce)
             {
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, yVel * jumpCutMultiplier, rb.linearVelocity.z);
                 hasJumpBeenCut = true;
@@ -979,19 +1000,21 @@ namespace junklite
             // --- GRAVITY ---
             if (yVel < apexThreshold)
             {
+                // Falling or near apex — always heavy gravity
                 rb.AddForce(Physics.gravity * currentGravityMultiplier * fallGravityMultiplier, ForceMode.Acceleration);
             }
-            else if (canCutJump)
+            else if (!canCutJump || isPogoBounce)
             {
-                rb.AddForce(Physics.gravity * currentGravityMultiplier * lowJumpMultiplier, ForceMode.Acceleration);
-            }
-            else
-            {
-                // Rising with jump held -- ramp gravity from 1x → heldJumpGravityRamp over the hold window
+                // Rising with jump held (or pogo arc) — gentle ramp from 1x to heldJumpGravityRamp
                 float holdElapsed = Time.time - jumpStartTime - minJumpHoldTime;
                 float holdT = Mathf.Clamp01(holdElapsed / maxJumpHoldTime);
                 float rampedGravity = Mathf.Lerp(1f, heldJumpGravityRamp, holdT);
                 rb.AddForce(Physics.gravity * currentGravityMultiplier * rampedGravity, ForceMode.Acceleration);
+            }
+            else
+            {
+                // Jump released / cut — snappier gravity on the way up
+                rb.AddForce(Physics.gravity * currentGravityMultiplier * lowJumpMultiplier, ForceMode.Acceleration);
             }
         }
 
@@ -1006,7 +1029,7 @@ namespace junklite
             // Clear horizontal velocity so we don't "carry" motion across axes
             Vector3 up = transform.up;
             float verticalVel = Vector3.Dot(rb.linearVelocity, up);
-            
+
 
             // Apply rotation safely via Rigidbody
             Quaternion delta = Quaternion.Euler(0f, yRotation, 0f);
