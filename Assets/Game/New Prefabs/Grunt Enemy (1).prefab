@@ -9851,7 +9851,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3077278375241920629}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -3.309, y: 3.35, z: -41}
   m_LocalScale: {x: 1.4999999, y: 1.4999999, z: 1}
   m_ConstrainProportionsScale: 0
@@ -10195,8 +10195,11 @@ MonoBehaviour:
   dodge: JumpBack
   hurt: Hurt
   death: Death
+  fall: Jump_1_Start
   stunLoop: Stunt
+  onParried: OnParried
   parryStun: Stunt
+  fallVelocityThreshold: -0.5
   debugLog: 0
 --- !u!1 &4861581856651961198
 GameObject:
@@ -24876,10 +24879,15 @@ MonoBehaviour:
   targetLayers:
     serializedVersion: 2
     m_Bits: 65536
-  requireLineOfSight: 0
+  requireLineOfSight: 1
   losBlockingLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 2049
+  requireReachablePath: 1
+  platformLayers:
+    serializedVersion: 2
+    m_Bits: 6144
+  minVerticalDifferenceToCheck: 0.5
   showGizmos: 1
 --- !u!1 &8765929258289981566
 GameObject:

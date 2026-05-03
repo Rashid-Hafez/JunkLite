@@ -33,8 +33,10 @@ namespace junklite
 
                 if (chaser != null && chaser.ChaseStopDistance > 0f)
                 {
-                    float distanceToTarget = movement.GetAbsAxisDistance(Transform.position, Target.position);
-                    if (distanceToTarget <= chaser.ChaseStopDistance)
+                    float horizontalDist = movement.GetAbsAxisDistance(Transform.position, Target.position);
+                    float verticalDist = Mathf.Abs(Transform.position.y - Target.position.y);
+
+                    if (horizontalDist <= chaser.ChaseStopDistance && verticalDist <= enemy.AttackRange)
                     {
                         movement?.Stop();
                         movement?.FaceTarget(Target.position);
