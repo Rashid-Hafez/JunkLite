@@ -4898,7 +4898,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a9ac92cc302d0046afdc0b9ee405945, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.WorldModPickup
-  modData: {fileID: 11400000, guid: 5e55b12afc0f98e42a896ef0d82f6eac, type: 2}
+  modData: {fileID: 11400000, guid: d2defecf0453bfe4590c2ad254626b68, type: 2}
   defaultVisual: {fileID: 5980663967594344653}
 --- !u!65 &5901962600963262140
 BoxCollider:
