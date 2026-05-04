@@ -2,9 +2,6 @@ using UnityEngine;
 
 namespace junklite
 {
-    /// <summary>
-    /// Trigger-based detection zone. Fires events on enter/exit, no per-frame scanning.
-    /// </summary>
     [RequireComponent(typeof(Collider))]
     public class DetectionZone : MonoBehaviour
     {
@@ -12,6 +9,13 @@ namespace junklite
         [SerializeField] private LayerMask targetLayers = ~0;
         [SerializeField] private bool requireLineOfSight = false;
         [SerializeField] private LayerMask losBlockingLayers;
+
+        [Header("Reachability")]
+        [Tooltip("If true, enemy won't engage if there is a floor between it and the player")]
+        [SerializeField] private bool requireReachablePath = true;
+        [SerializeField] private LayerMask platformLayers;
+        [Tooltip("Only applies reachability check if enemy is this many units above the player")]
+        [SerializeField] private float minVerticalDifferenceToCheck = 0.5f;
 
         [Header("Debug")]
         [SerializeField] private bool showGizmos = true;
@@ -40,7 +44,6 @@ namespace junklite
 
             owner = GetComponentInParent<EnemyCharacter>();
 
-            // Always include the Player layer in target detection if it exists.
             int playerLayer = LayerMask.NameToLayer("Player");
             if (playerLayer >= 0)
                 targetLayers |= 1 << playerLayer;
@@ -66,13 +69,11 @@ namespace junklite
             var player = other.GetComponent<PlayerCharacter>()
                       ?? other.GetComponentInParent<PlayerCharacter>();
 
-            if (player != null && player.IsAlive)
-            {
-                if (requireLineOfSight && !HasLineOfSight(player.transform))
-                    return;
+            if (player == null || !player.IsAlive) return;
+            if (requireLineOfSight && !HasLineOfSight(player.transform)) return;
+            if (requireReachablePath && !IsTargetReachable(player.transform)) return;
 
-                SetTarget(player);
-            }
+            SetTarget(player);
         }
 
         private void OnTriggerExit(Collider other)
@@ -88,13 +89,8 @@ namespace junklite
 
         private void OnTriggerStay(Collider other)
         {
-            // RE-ACQUISITION: If we lost our target (player died, respawned, etc.),
-            // try to pick them up again. OnTriggerEnter won't fire because they
-            // never left the collider.
             if (!HasTarget)
             {
-                // Clear stale reference (e.g. dead player object still cached)
-                // so we can re-acquire when they respawn and IsAlive becomes true again
                 detectedPlayer = null;
                 detectedTarget = null;
 
@@ -103,23 +99,53 @@ namespace junklite
                 var player = other.GetComponent<PlayerCharacter>()
                           ?? other.GetComponentInParent<PlayerCharacter>();
 
-                if (player != null && player.IsAlive)
-                {
-                    if (requireLineOfSight && !HasLineOfSight(player.transform))
-                        return;
+                if (player == null || !player.IsAlive) return;
+                if (requireLineOfSight && !HasLineOfSight(player.transform)) return;
+                if (requireReachablePath && !IsTargetReachable(player.transform)) return;
 
-                    SetTarget(player);
-                }
+                SetTarget(player);
                 return;
             }
 
-            // LOS check for existing target
-            if (!requireLineOfSight) return;
-
             if (Time.frameCount % 10 != 0) return;
 
-            if (!HasLineOfSight(detectedTarget))
+            // Drop target if they're no longer reachable (e.g. player dropped off a ledge)
+            if (requireReachablePath && !IsTargetReachable(detectedTarget))
+            {
                 ClearTarget();
+                return;
+            }
+
+            if (requireLineOfSight && !HasLineOfSight(detectedTarget))
+                ClearTarget();
+        }
+
+        // Casts downward from the enemy — if a floor is hit between the enemy's Y
+        // and the player's Y, there's a platform between them and the enemy can't reach them.
+        private bool IsTargetReachable(Transform target)
+        {
+            float enemyY = transform.position.y;
+            float targetY = target.position.y;
+            float verticalDiff = enemyY - targetY;
+
+            // Player is at same level or above — always reachable
+            if (verticalDiff < minVerticalDifferenceToCheck)
+                return true;
+
+            // Cast downward from enemy; check if anything solid sits between the two Y positions
+            if (Physics.Raycast(
+                    transform.position,
+                    Vector3.down,
+                    out RaycastHit hit,
+                    verticalDiff,
+                    platformLayers,
+                    QueryTriggerInteraction.Ignore))
+            {
+                // Hit something between enemy and player — floor is blocking the path
+                return false;
+            }
+
+            return true;
         }
 
         private bool HasLineOfSight(Transform target)
@@ -139,8 +165,6 @@ namespace junklite
             detectedTarget = player.transform;
 
             owner?.SetTarget(player);
-
-            // Always fire — enemy's OnPlayerSpotted handles "already in combat" gracefully
             OnTargetEnter?.Invoke(player);
         }
 
@@ -167,13 +191,22 @@ namespace junklite
             Gizmos.color = HasTarget ? new Color(1f, 0.5f, 0f, 0.3f) : new Color(1f, 1f, 0f, 0.2f);
 
             if (col is SphereCollider sphere)
-            {
                 Gizmos.DrawWireSphere(transform.position + sphere.center, sphere.radius);
-            }
             else if (col is BoxCollider box)
             {
                 Gizmos.matrix = transform.localToWorldMatrix;
                 Gizmos.DrawWireCube(box.center, box.size);
+            }
+
+            // Visualize the downward reachability ray when selected
+            if (requireReachablePath && detectedTarget != null)
+            {
+                float diff = transform.position.y - detectedTarget.position.y;
+                if (diff > minVerticalDifferenceToCheck)
+                {
+                    Gizmos.color = Color.cyan;
+                    Gizmos.DrawLine(transform.position, transform.position + Vector3.down * diff);
+                }
             }
         }
 #endif
