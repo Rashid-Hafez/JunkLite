@@ -12,7 +12,7 @@ namespace junklite
         public bool rotateOnTrigger;
         public float rotationA; // first rotation (Y-axis)
         public float rotationB; // second rotation (Y-axis)
-        [SerializeField,Tooltip("Set to true if the rotation from A to B is Counter-clockwise.")] private bool ccwAB = true; // Counter-clockwise rotation flag
+        [SerializeField, Tooltip("Set to true if the rotation from A to B is Counter-clockwise.")] private bool ccwAB = true;
 
         [Header("Camera Settings")]
         public bool switchCameras;
@@ -72,6 +72,7 @@ namespace junklite
             combatStartHandler = OnCombatStarted;
             combatEndHandler = OnCombatEnded;
         }
+
         private void Start()
         {
             if (PlayerCombatTracker.Instance != null)
@@ -79,12 +80,17 @@ namespace junklite
                 PlayerCombatTracker.Instance.OnCombatStarted += OnCombatStarted;
                 PlayerCombatTracker.Instance.OnCombatEnded += OnCombatEnded;
             }
-            arrowRenderers = GetComponentsInChildren<Renderer>();
 
+            arrowRenderers = GetComponentsInChildren<Renderer>();
             foreach (Renderer renderer in arrowRenderers)
             {
                 renderer.material.SetFloat("_ZWrite", 1f);
             }
+
+            // Reset this trigger's state whenever the player dies so it's
+            // fresh for the next run. Camera snap is handled by CameraManager.
+            if (GameManager.Instance != null)
+                GameManager.Instance.OnPlayerDied += ResetToDefaultState;
         }
 
         private void OnDestroy()
@@ -93,6 +99,27 @@ namespace junklite
             {
                 PlayerCombatTracker.Instance.OnCombatStarted -= OnCombatStarted;
                 PlayerCombatTracker.Instance.OnCombatEnded -= OnCombatEnded;
+            }
+
+            if (GameManager.Instance != null)
+                GameManager.Instance.OnPlayerDied -= ResetToDefaultState;
+        }
+
+        /// <summary>
+        /// Resets this trigger back to its initial state.
+        /// Called on player death so every trigger is clean for the next run.
+        /// </summary>
+        private void ResetToDefaultState()
+        {
+            usingFirstState = false;
+
+            // Restore any objects that were hidden mid-run
+            if (objectsToHide.Length > 0 && hidden)
+            {
+                foreach (var obj in objectsToHide)
+                    obj.SetActive(true);
+
+                hidden = false;
             }
         }
 
@@ -103,11 +130,8 @@ namespace junklite
             {
                 triggerCollider.isTrigger = false;
                 foreach (Renderer renderer in arrowRenderers)
-                {
                     renderer.material.SetColor("_BaseColor", lockColor);
-                }
             }
-                
         }
 
         private void OnCombatEnded()
@@ -117,9 +141,7 @@ namespace junklite
             {
                 triggerCollider.isTrigger = true;
                 foreach (Renderer renderer in arrowRenderers)
-                {
                     renderer.material.SetColor("_BaseColor", unlockColor);
-                }
             }
         }
 
@@ -130,7 +152,6 @@ namespace junklite
 
             Character2D5Controller controller = other.GetComponent<Character2D5Controller>();
             Transform playerSpine = other.transform.Find("BODY SPINE");
-           
 
             if (controller != null && playerSpine != null)
             {
@@ -141,7 +162,7 @@ namespace junklite
 
                 if (!oneWaySwitch)
                 {
-                    usingFirstState = !usingFirstState; // Toggle state for next trigger
+                    usingFirstState = !usingFirstState;
                 }
 
                 HideObjects();
@@ -152,19 +173,13 @@ namespace junklite
         {
             if (rotateOnTrigger)
             {
-
-                // Fix the player's position to prevent sliding
                 controller.transform.position = usingFirstState ?
                     new Vector3(pointA.position.x, controller.transform.position.y, pointA.position.z)
                     : new Vector3(pointB.position.x, controller.transform.position.y, pointB.position.z);
 
-
-                // Set the correct rotation
                 controller.RotatePLayer(usingFirstState ? rotationA : rotationB);
-
                 controller.FreezePerpendicularAxis();
 
-                // Start billboard coroutine (GETS APPLIED TO THE SPINE OBJECT)
                 StartCoroutine(BillboardRotate(playerSpine));
             }
         }
@@ -174,7 +189,6 @@ namespace junklite
             if (switchCameras)
             {
                 Debug.Log("Switching cameras");
-                // Toggle cameras
                 if (cameraA != null && cameraB != null)
                 {
                     CinemachineCamera nextCam;
@@ -192,8 +206,6 @@ namespace junklite
 
                     CameraManager.Instance?.SetActiveCamera(nextCam);
                 }
-
-
             }
         }
 
@@ -204,16 +216,12 @@ namespace junklite
                 if (!hidden)
                 {
                     foreach (var obj in objectsToHide)
-                    {
                         obj.SetActive(false);
-                    }
                 }
                 else
                 {
                     foreach (var obj in objectsToHide)
-                    {
                         obj.SetActive(true);
-                    }
                 }
 
                 hidden = !hidden;
@@ -222,22 +230,18 @@ namespace junklite
 
         public IEnumerator BillboardRotate(Transform playerSpine)
         {
-            playerSpine.localRotation = Quaternion.Euler(0f, ccwAB?90f:-90f, 0f);
-            yield return null; // Wait for the next frame to ensure the camera switch has taken effect
+            playerSpine.localRotation = Quaternion.Euler(0f, ccwAB ? 90f : -90f, 0f);
+            yield return null;
             while (cinemachineBrain.ActiveBlend.BlendWeight < 0.9f && cinemachineBrain.ActiveBlend != null)
             {
-                //Debug.Log("Blending cameras, progress: " + cinemachineBrain.ActiveBlend.BlendWeight);
                 float progress = cinemachineBrain.ActiveBlend.BlendWeight;
-
                 playerSpine.localRotation = Quaternion.Euler(0f, Mathf.Lerp(ccwAB ? 90f : -90f, 0f, progress), 0f);
                 yield return null;
             }
 
-            playerSpine.localRotation = Quaternion.Euler(0f, 0f, 0f); // Ensure final rotation is correct   
-        
-        
-        
+            playerSpine.localRotation = Quaternion.Euler(0f, 0f, 0f);
         }
+
         private void OnDrawGizmos()
         {
             Gizmos.color = locked ? Color.red : Color.green;
@@ -246,5 +250,3 @@ namespace junklite
         }
     }
 }
-
-

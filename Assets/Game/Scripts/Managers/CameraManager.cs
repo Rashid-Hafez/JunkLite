@@ -14,6 +14,8 @@ namespace junklite
         [Header("Camera References")]
         [SerializeField] private CinemachineCamera mainCamera;
         [SerializeField] private CinemachineCamera deathCamera;
+        [SerializeField, Tooltip("The camera to snap back to on respawn. If unassigned, falls back to mainCamera.")]
+        private CinemachineCamera spawnCamera;
 
         [Header("Settings")]
         [SerializeField] private Transform playerTransform;
@@ -22,6 +24,7 @@ namespace junklite
         [Tooltip("When using Physical/Perspective: zoom-out Field of View in degrees (wider = more zoomed out). When Orthographic: zoom-out ortho size.")]
         [SerializeField] private float zoomOutValue = 55f;
         [SerializeField] private float parryZoomOut = 40f;
+
         [Header("Parry Zoom / SlowMo")]
         [Tooltip("Target zoom value to use when parry zooms IN (smaller = closer for FOV).")]
         [SerializeField] private float parryZoomInTarget = 30f;
@@ -75,13 +78,10 @@ namespace junklite
 
         private void Start()
         {
-            // Set player as follow target and activate main camera
             if (mainCamera != null && playerTransform != null)
             {
                 mainCamera.Target.TrackingTarget = playerTransform;
                 SwitchToMainCamera();
-
-                
             }
         }
 
@@ -100,7 +100,7 @@ namespace junklite
             currentPlayer = character;
             playerTransform = character.gameObject.transform;
 
-            // Set all cameras to low priority
+            // Set all cameras to low priority and point at the new player transform
             foreach (CinemachineCamera camera in cameraList)
             {
                 if (camera != null)
@@ -113,7 +113,8 @@ namespace junklite
             // Subscribe to camera follow requests
             currentPlayer.OnCameraFollowRequested += HandleCameraFollowRequested;
 
- 
+            // Snap back to the spawn camera instantly on every (re)spawn
+            ResetToSpawnCamera();
         }
 
         private void UnsubscribeFromPlayer()
@@ -123,6 +124,34 @@ namespace junklite
                 currentPlayer.OnCameraFollowRequested -= HandleCameraFollowRequested;
                 currentPlayer = null;
             }
+        }
+
+        /// <summary>
+        /// Snaps instantly to the designated spawn camera with no blend.
+        /// Blend time is restored on the next frame so future transitions still animate.
+        /// </summary>
+        public void ResetToSpawnCamera()
+        {
+            CinemachineCamera target = spawnCamera != null ? spawnCamera : mainCamera;
+            if (target == null) return;
+
+            CinemachineBrain brain = FindAnyObjectByType<CinemachineBrain>();
+            if (brain == null) return;
+
+            float previousBlend = brain.DefaultBlend.Time;
+            brain.DefaultBlend.Time = 0f;
+
+            target.Prioritize();
+            SetActiveCamera(target);
+
+            StartCoroutine(RestoreBlendNextFrame(brain, previousBlend));
+        }
+
+        private IEnumerator RestoreBlendNextFrame(CinemachineBrain brain, float blendTime)
+        {
+            yield return null;
+            if (brain != null)
+                brain.DefaultBlend.Time = blendTime;
         }
 
         /// <summary>
@@ -136,13 +165,11 @@ namespace junklite
 
             if (follow)
             {
-                // Resume following player
                 activeCamera.Target.TrackingTarget = cachedTrackingTarget;
                 Debug.Log("[CameraManager] Camera follow enabled");
             }
             else
             {
-                // Cache current target and set to null to freeze
                 cachedTrackingTarget = activeCamera.Target.TrackingTarget;
                 activeCamera.Target.TrackingTarget = null;
                 Debug.Log("[CameraManager] Camera follow disabled (frozen)");
@@ -163,7 +190,6 @@ namespace junklite
             var lens = activeCamera.Lens;
             if (customZoomOutValue <= 0f)
                 customZoomOutValue = zoomOutValue;
-            // Capture current zoom so we can restore it when zooming back in
             defaultIsOrthographic = lens.Orthographic;
             defaultZoomValue = defaultIsOrthographic ? lens.OrthographicSize : lens.FieldOfView;
             if (zoomCoroutine != null)
@@ -208,33 +234,26 @@ namespace junklite
             if (activeCamera == null)
                 yield break;
 
-            // capture current lens as default to restore later
             var lens = activeCamera.Lens;
             defaultIsOrthographic = lens.Orthographic;
             defaultZoomValue = defaultIsOrthographic ? lens.OrthographicSize : lens.FieldOfView;
 
-            // zoom into the parry target (use our CoZoom for smooth tween)
             if (zoomCoroutine != null) StopCoroutine(zoomCoroutine);
             zoomCoroutine = StartCoroutine(CoZoom(parryZoomInTarget, parryZoomInDuration));
 
-            // keep the slow-mo for the configured real-time duration
             yield return new WaitForSecondsRealtime(parrySlowMoRealtimeDuration);
 
-                        // enter slow-motion (use unscaled wait for hold length)
             float origTime = Time.timeScale;
             float origFixed = Time.fixedDeltaTime;
             Time.timeScale = Mathf.Clamp01(parrySlowMoScale);
             Time.fixedDeltaTime = origFixed * Time.timeScale;
-            
-            // optional extra hold at full zoom (unscaled)
+
             if (parryZoomHoldRealtime > 0f)
                 yield return new WaitForSecondsRealtime(parryZoomHoldRealtime);
 
-            // restore time scale
             Time.timeScale = origTime;
             Time.fixedDeltaTime = origFixed;
 
-            // smoothly return to default zoom
             if (zoomCoroutine != null) StopCoroutine(zoomCoroutine);
             zoomCoroutine = StartCoroutine(CoZoom(defaultZoomValue, parryZoomReturnDuration));
         }
@@ -283,12 +302,11 @@ namespace junklite
         private void InitializeCameras()
         {
             cameras = new Dictionary<string, CinemachineCamera>
-                {
-                    { "Main", mainCamera },
-                    { "Death", deathCamera }
-                };
+            {
+                { "Main", mainCamera },
+                { "Death", deathCamera }
+            };
         }
-
 
         public void SwitchToMainCamera()
         {
@@ -301,23 +319,19 @@ namespace junklite
             SwitchToCamera("Death");
         }
 
-
         public void SwitchToCamera(string cameraName)
         {
             if (cameras.ContainsKey(cameraName) && cameras[cameraName] != null)
             {
-                // Disable all cameras
                 foreach (var camera in cameras.Values)
                 {
                     if (camera != null)
                         camera.gameObject.SetActive(false);
                 }
 
-                // Enable target camera
                 cameras[cameraName].gameObject.SetActive(true);
             }
         }
-
 
         /// <summary>
         /// Called by CameraSwitchTrigger (or anything else that changes the live Cinemachine camera)

@@ -274,6 +274,11 @@ namespace junklite
 
             currentPlayer.ReviveAt(spawnPosition);
             currentPlayer.Activate();
+
+            // Reset movement axis to match the spawn point's orientation.
+            // This ensures XY/ZY config is always correct regardless of where the player died.
+            ResetPlayerMovementAxis();
+
             OnPlayerSpawned?.Invoke(currentPlayer);
 
             if (currentPlayer.Stats != null)
@@ -303,6 +308,32 @@ namespace junklite
             }
             Debug.LogWarning("[GameManager] No spawn points available, spawning at origin!");
             return Vector3.zero;
+        }
+
+        /// <summary>
+        /// Returns the Y rotation of the active spawn point.
+        /// This is the source of truth for which movement axis the player should start on.
+        /// Rotate your SpawnPoint GameObject in the Inspector to set the correct initial facing.
+        /// </summary>
+        private float GetSpawnRotation()
+        {
+            if (spawnPoints != null && spawnPoints.Length > 0)
+            {
+                currentSpawnIndex = Mathf.Clamp(currentSpawnIndex, 0, spawnPoints.Length - 1);
+                return spawnPoints[currentSpawnIndex].eulerAngles.y;
+            }
+            return 0f; // default: XY plane (FreezePositionZ)
+        }
+
+        /// <summary>
+        /// Resets the player's movement axis and rotation to match the current spawn point.
+        /// Fixes the bug where dying in a ZY section respawns the player with ZY config.
+        /// </summary>
+        private void ResetPlayerMovementAxis()
+        {
+            if (currentPlayer?.Controller == null) return;
+            currentPlayer.Controller.ResetToSpawnOrientation(GetSpawnRotation());
+            Debug.Log($"[GameManager] Player movement axis reset to spawn rotation: {GetSpawnRotation()}°");
         }
 
         public void SetSpawnPoint(int index)
@@ -403,6 +434,11 @@ namespace junklite
 
             currentPlayer.ReviveAt(spawnPosition);
             currentPlayer.Activate();
+
+            // Reset movement axis to match the spawn point's orientation.
+            // This fixes respawning in ZY config after dying in a ZY camera section.
+            ResetPlayerMovementAxis();
+
             OnPlayerSpawned?.Invoke(currentPlayer);
             Debug.Log($"[GameManager] Player respawned at {spawnPosition}");
             respawnRoutine = null;
