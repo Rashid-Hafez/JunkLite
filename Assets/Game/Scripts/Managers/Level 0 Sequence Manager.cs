@@ -26,6 +26,7 @@ namespace junklite
 
         [Header("Completion Animation")]
         [SerializeField] private PngSequencePlayer completionAnimation;
+        [SerializeField] private GameObject videoScreen;
         [SerializeField] private float completedResetDelay = 0.5f;
 
         [Header("Dialogue")]
@@ -110,6 +111,10 @@ namespace junklite
             if (overheadSpotlight != null) overheadSpotlight.enabled = false;
             if (godRayParticles != null)
                 godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            if (videoScreen == null)
+                videoScreen = GameObject.Find("VideoScreen");
+            if (videoScreen != null)
+                videoScreen.SetActive(false);
         }
 
         private void Start() => StartCoroutine(RunSequence());

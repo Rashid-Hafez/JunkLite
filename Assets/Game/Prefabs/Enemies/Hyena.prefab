@@ -312,6 +312,7 @@ MonoBehaviour:
   death: Death
   stunLoop: Stunt
   onParried: Hurt
+  parryStun: OnParried
   debugLog: 0
 --- !u!82 &5511428486720858210
 AudioSource:
@@ -763,6 +764,11 @@ MonoBehaviour:
   losBlockingLayers:
     serializedVersion: 2
     m_Bits: 6144
+  requireReachablePath: 1
+  platformLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  minVerticalDifferenceToCheck: 0.5
   showGizmos: 1
 --- !u!1 &9101347373124830079
 GameObject:
