@@ -26,6 +26,7 @@ namespace junklite
         private Transform pointB;
 
         [SerializeField] private bool oneWaySwitch = false;
+        private bool hasSwitched = false;
         private bool usingFirstState = false;
 
         [Header("Lock Settings")]
@@ -159,13 +160,14 @@ namespace junklite
 
                 SwitchCamera();
                 RotateCharacter(controller, playerSpine);
-
-                if (!oneWaySwitch)
-                {
-                    usingFirstState = !usingFirstState;
-                }
-
+                usingFirstState = !usingFirstState;
                 HideObjects();
+
+                if (oneWaySwitch && !hasSwitched)
+                {
+                    OnCombatStarted();
+                    hasSwitched = true;
+                }
             }
         }
 
