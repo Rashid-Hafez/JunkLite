@@ -45483,7 +45483,7 @@ PrefabInstance:
     - target: {fileID: 6021792282018443440, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
       propertyPath: modData
       value: 
-      objectReference: {fileID: 11400000, guid: 601f5daa033c0774f87ce7333e8f0ff6, type: 2}
+      objectReference: {fileID: 11400000, guid: acedb068b025b634f8f13f8d877a9625, type: 2}
     - target: {fileID: 8161909773096738608, guid: 21d6705fe97926b4db74291e1248ca13, type: 3}
       propertyPath: m_Name
       value: Mod pick up prefab (1)
