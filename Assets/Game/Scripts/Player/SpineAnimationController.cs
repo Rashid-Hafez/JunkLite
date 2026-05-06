@@ -103,7 +103,6 @@ namespace junklite
         private bool wasAirborne = false;
         private string currentLocomotionAnim = "";
         private bool attackActive = false;
-        private bool attackOverwriteActive = false;
         private TrackEntry currentAttackEntry = null;
         private bool forceOverrideActive = false;
 
@@ -111,6 +110,18 @@ namespace junklite
         private bool waitingForParryEnd = false;
 
         public TrackEntry CurrentAttackEntry => currentAttackEntry;
+
+        public bool TryGetDeathAnimationDuration(out float duration)
+        {
+            duration = 0f;
+
+            var animation = skeletonAnimation?.Skeleton?.Data?.FindAnimation(death);
+            if (animation == null)
+                return false;
+
+            duration = animation.Duration / Mathf.Max(0.01f, deathTimeScale);
+            return duration > 0f;
+        }
 
         #region Unity Lifecycle
 
@@ -249,7 +260,6 @@ namespace junklite
 
                 Debug.Log("Playing parry hit animation with special settings to prevent blending issues");
                 attackActive = true;
-                attackOverwriteActive = true;
                 // clear overlay so it cannot influence locomotion bones (we'll play on overlay)
                 skeletonAnimation?.AnimationState.ClearTrack(overlayTrack);
                 var entry = skeletonAnimation.AnimationState.SetAnimation(overlayTrack, animationName, false);
@@ -283,7 +293,6 @@ namespace junklite
 
             if (attackOverwrite)
             {
-                attackOverwriteActive = true;
                 var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, animationName, false);
                 entry.MixDuration = attackMix;
                 entry.MixBlend = MixBlend.Replace;
@@ -294,7 +303,6 @@ namespace junklite
             }
             else
             {
-                attackOverwriteActive = false;
                 var entry = skeletonAnimation.AnimationState.SetAnimation(overlayTrack, animationName, false);
                 entry.MixDuration = attackMix;
                 entry.MixBlend = MixBlend.Replace;
@@ -320,7 +328,6 @@ namespace junklite
             }
 
             attackActive = false;
-            attackOverwriteActive = false;
             currentAttackEntry = null;
 
             if (skeletonAnimation != null)
@@ -344,7 +351,6 @@ namespace junklite
             }
 
             attackActive = false;
-            attackOverwriteActive = false;
             currentAttackEntry = null;
 
             // Return to appropriate locomotion
@@ -371,7 +377,6 @@ namespace junklite
             LogAttack("Attack interrupted");
 
             attackActive = false;
-            attackOverwriteActive = false;
             currentAttackEntry = null;
 
             if (skeletonAnimation != null)
@@ -384,7 +389,6 @@ namespace junklite
         private void ForceFinishAttack()
         {
             attackActive = false;
-            attackOverwriteActive = false;
             currentAttackEntry = null;
 
             if (skeletonAnimation != null)
@@ -527,7 +531,6 @@ namespace junklite
             LogAttack($"Attack interrupted by: {reason}");
 
             attackActive = false;
-            attackOverwriteActive = false;
             currentAttackEntry = null;
 
             if (skeletonAnimation != null)

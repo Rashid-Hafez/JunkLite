@@ -16,6 +16,7 @@ namespace junklite
         [SerializeField] private GameObject playerPrefab;
         [SerializeField] private Transform[] spawnPoints;
         [SerializeField] private float respawnDelay = 3f;
+        [SerializeField, Min(0f)] private float deathScreenFallbackDelay = 1.25f;
 
         [Header("UI - Player HUD")]
         [SerializeField] private GameObject playerUIPrefab;
@@ -44,6 +45,7 @@ namespace junklite
         private PlayerCharacter currentPlayer;
         private int currentSpawnIndex = 0;
         private Coroutine respawnRoutine;
+        private Coroutine deathRoutine;
         private bool gameInitialized = false;
         private bool isLoadingScene = false;
 
@@ -87,6 +89,7 @@ namespace junklite
 
         void OnDestroy()
         {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
             UnsubscribeFromPlayer(currentPlayer);
             UnsubscribeFromCombatTracker();
         }
@@ -136,6 +139,12 @@ namespace junklite
             {
                 StopCoroutine(respawnRoutine);
                 respawnRoutine = null;
+            }
+
+            if (deathRoutine != null)
+            {
+                StopCoroutine(deathRoutine);
+                deathRoutine = null;
             }
 
             UnsubscribeFromPlayer(currentPlayer);
@@ -373,23 +382,42 @@ namespace junklite
 
         private void HandlePlayerDeath()
         {
+            if (deathRoutine != null) return;
+
             Debug.Log("[GameManager] Player died!");
             OnPlayerDied?.Invoke();
-            
-            currentPlayer?.Deactivate();
-            
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
 
-            /*if (ShouldReloadSceneOnDeath())
-            {
-                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-                return;
-            }
+            deathRoutine = StartCoroutine(PlayerDeathSequence(currentPlayer));
+        }
 
-            currentPlayer?.Deactivate();
+        private IEnumerator PlayerDeathSequence(PlayerCharacter deadPlayer)
+        {
+            float delay = deathScreenFallbackDelay;
 
-            if (respawnRoutine != null) StopCoroutine(respawnRoutine);
-            respawnRoutine = StartCoroutine(SoftRespawnAfterDelay(respawnDelay));*/
+            // Let all PlayerState.OnDeath subscribers, including animation, react this frame first.
+            yield return null;
+
+            var spineAnimation = deadPlayer != null
+                ? deadPlayer.GetComponentInChildren<SpineAnimationController>(true)
+                : null;
+
+            if (spineAnimation != null && spineAnimation.TryGetDeathAnimationDuration(out float animationDuration))
+                delay = animationDuration;
+
+            float endTime = Time.unscaledTime + delay;
+            while (Time.unscaledTime < endTime)
+                yield return null;
+
+            deadPlayer?.Deactivate();
+            SetGameState(GameState.GameOver);
+            deathRoutine = null;
+        }
+
+        public void KillPlayer()
+        {
+            if (currentPlayer == null || !currentPlayer.IsAlive) return;
+
+            currentPlayer.Health?.SetToZero();
         }
 
         private bool ShouldReloadSceneOnDeath()
@@ -477,12 +505,16 @@ namespace junklite
                 respawnRoutine = null;
             }
 
+            if (deathRoutine != null)
+            {
+                StopCoroutine(deathRoutine);
+                deathRoutine = null;
+            }
+
             UnsubscribeFromPlayer(currentPlayer);
             currentPlayer = null;
 
-            if (currentState == GameState.Paused) ResumeGame();
-
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            LoadLevel(SceneManager.GetActiveScene().buildIndex);
         }
 
         public void RestartGame()
@@ -508,7 +540,7 @@ namespace junklite
             if (isLoadingScene) yield break;
             isLoadingScene = true;
 
-            if (currentState == GameState.Paused) ResumeGame();
+            if (currentState != GameState.Playing) SetGameState(GameState.Playing);
 
             loadingScreenUIInstance?.Show();
 
@@ -540,14 +572,14 @@ namespace junklite
             asyncOp.allowSceneActivation = true;
         }
 
-        // Soft-respawn without reloading — used for death respawn only
+        // Soft-respawn without reloading.
         public void RestartLevel()
         {
             currentSpawnIndex = 0;
             currentPlayer?.Deactivate();
 
             if (respawnRoutine != null) StopCoroutine(respawnRoutine);
-            respawnRoutine = StartCoroutine(SoftRespawnAfterDelay(0f));
+            respawnRoutine = StartCoroutine(SoftRespawnAfterDelay(respawnDelay));
             SetGameState(GameState.Playing);
         }
 

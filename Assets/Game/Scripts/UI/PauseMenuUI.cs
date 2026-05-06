@@ -10,6 +10,7 @@ namespace junklite
         [SerializeField] private MenuButton restartLevelButton;
         [SerializeField] private MenuButton restartGameButton;
         [SerializeField] private MenuButton quitButton;
+        [SerializeField] private bool showOnGameOver = true;
 
         #endregion
 
@@ -42,7 +43,7 @@ namespace junklite
 
         private void OnGameStateChanged(GameManager.GameState state)
         {
-            if (state == GameManager.GameState.Paused)
+            if (state == GameManager.GameState.Paused || (showOnGameOver && state == GameManager.GameState.GameOver))
                 Show();
             else
                 Hide();

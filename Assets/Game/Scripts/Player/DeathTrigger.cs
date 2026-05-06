@@ -11,7 +11,7 @@ namespace junklite
             var gm = GameManager.Instance;
             if (gm == null || !gm.IsPlaying) return;
 
-            gm.RestartLevel();
+            gm.KillPlayer();
         }
     }
 }
