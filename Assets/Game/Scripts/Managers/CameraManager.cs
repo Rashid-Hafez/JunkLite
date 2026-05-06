@@ -78,6 +78,12 @@ namespace junklite
 
         private void Start()
         {
+            if (GameManager.Instance?.Player != null)
+            {
+                ConnectToPlayer(GameManager.Instance.Player);
+                return;
+            }
+
             if (mainCamera != null && playerTransform != null)
             {
                 mainCamera.Target.TrackingTarget = playerTransform;

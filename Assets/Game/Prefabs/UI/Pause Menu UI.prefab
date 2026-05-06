@@ -372,6 +372,7 @@ MonoBehaviour:
   restartLevelButton: {fileID: 2402450843783954700}
   restartGameButton: {fileID: 2162704819422696440}
   quitButton: {fileID: 7437589813745408065}
+  showOnGameOver: 0
 --- !u!1 &4805542924831728407
 GameObject:
   m_ObjectHideFlags: 0

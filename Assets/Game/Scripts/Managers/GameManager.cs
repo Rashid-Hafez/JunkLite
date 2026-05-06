@@ -2,6 +2,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace junklite
 {
@@ -24,6 +25,9 @@ namespace junklite
         [Header("UI - Pause Menu")]
         [SerializeField] private GameObject pauseMenuUIPrefab;
 
+        [Header("UI - Game Over")]
+        [SerializeField] private GameObject gameOverUIPrefab;
+
         [Header("UI - Loading Screen")]
         [SerializeField] private GameObject loadingScreenUIPrefab;
 
@@ -38,6 +42,8 @@ namespace junklite
         // UI instances
         private PlayerUI playerUIInstance;
         private PauseMenuUI pauseMenuUIInstance;
+        private GameObject gameOverUIInstance;
+        private Button gameOverRestartButton;
         private LoadingScreenUI loadingScreenUIInstance;
 
         // Game state
@@ -46,6 +52,7 @@ namespace junklite
         private int currentSpawnIndex = 0;
         private Coroutine respawnRoutine;
         private Coroutine deathRoutine;
+        private Coroutine sceneInitializationRoutine;
         private bool gameInitialized = false;
         private bool isLoadingScene = false;
 
@@ -103,8 +110,20 @@ namespace junklite
             Debug.Log($"[GameManager] Scene loaded: {scene.name}");
             if (!gameInitialized) return;
 
+            if (sceneInitializationRoutine != null)
+                StopCoroutine(sceneInitializationRoutine);
+
+            sceneInitializationRoutine = StartCoroutine(InitializeForNewSceneAfterLoad());
+        }
+
+        private IEnumerator InitializeForNewSceneAfterLoad()
+        {
+            // Give scene-local managers one frame to finish Awake/Start subscriptions.
+            yield return null;
+
             RefreshSceneReferences();
             InitializeForNewScene();
+            sceneInitializationRoutine = null;
         }
 
         private void RefreshSceneReferences()
@@ -131,6 +150,7 @@ namespace junklite
         private void InitializeForNewScene()
         {
             loadingScreenUIInstance?.Hide();
+            HideGameOverUI();
             isLoadingScene = false;
             
             currentSpawnIndex = 0;
@@ -152,6 +172,7 @@ namespace junklite
 
             EnsurePlayerUI();
             EnsurePauseMenuUI();
+            EnsureGameOverUI();
             SpawnPlayer();
             SetGameState(GameState.Playing);
         }
@@ -168,6 +189,7 @@ namespace junklite
             FindGameplayCanvas();
             EnsureLoadingScreenUI();
             EnsurePauseMenuUI();
+            EnsureGameOverUI();
             EnsurePlayerUI();
 
             SpawnPlayer();
@@ -214,6 +236,45 @@ namespace junklite
             pauseMenuUIInstance = go.GetComponent<PauseMenuUI>();
             if (pauseMenuUIInstance == null)
                 Debug.LogError("[GameManager] PauseMenuUI prefab is missing a PauseMenuUI component.");
+        }
+
+        private void EnsureGameOverUI()
+        {
+            if (gameOverUIPrefab == null)
+            {
+                Debug.LogWarning("[GameManager] No GameOverUI prefab assigned.");
+                return;
+            }
+
+            if (gameOverUIInstance != null)
+                Destroy(gameOverUIInstance);
+
+            gameOverUIInstance = Instantiate(gameOverUIPrefab, gameplayCanvasTransform);
+            gameOverUIInstance.name = "Game Over UI";
+            gameOverRestartButton = gameOverUIInstance.GetComponentInChildren<Button>(true);
+            if (gameOverRestartButton != null)
+                gameOverRestartButton.onClick.AddListener(RestartCurrentScene);
+            else
+                Debug.LogWarning("[GameManager] GameOverUI prefab has no Button child for restart.");
+
+            HideGameOverUI();
+        }
+
+        private void ShowGameOverUI()
+        {
+            if (gameOverUIInstance != null)
+                gameOverUIInstance.SetActive(true);
+        }
+
+        private void HideGameOverUI()
+        {
+            if (gameOverUIInstance != null)
+                gameOverUIInstance.SetActive(false);
+            else
+            {
+                gameOverUIInstance = null;
+                gameOverRestartButton = null;
+            }
         }
 
         private void EnsureLoadingScreenUI()
@@ -287,6 +348,9 @@ namespace junklite
             // Reset movement axis to match the spawn point's orientation.
             // This ensures XY/ZY config is always correct regardless of where the player died.
             ResetPlayerMovementAxis();
+
+            if (CameraManager.Instance != null)
+                CameraManager.Instance.ConnectToPlayer(currentPlayer);
 
             OnPlayerSpawned?.Invoke(currentPlayer);
 
@@ -410,6 +474,7 @@ namespace junklite
 
             deadPlayer?.Deactivate();
             SetGameState(GameState.GameOver);
+            ShowGameOverUI();
             deathRoutine = null;
         }
 
@@ -541,6 +606,7 @@ namespace junklite
             isLoadingScene = true;
 
             if (currentState != GameState.Playing) SetGameState(GameState.Playing);
+            HideGameOverUI();
 
             loadingScreenUIInstance?.Show();
 
