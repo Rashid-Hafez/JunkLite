@@ -375,8 +375,12 @@ namespace junklite
         {
             Debug.Log("[GameManager] Player died!");
             OnPlayerDied?.Invoke();
+            
+            currentPlayer?.Deactivate();
+            
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
 
-            if (ShouldReloadSceneOnDeath())
+            /*if (ShouldReloadSceneOnDeath())
             {
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
                 return;
@@ -385,7 +389,7 @@ namespace junklite
             currentPlayer?.Deactivate();
 
             if (respawnRoutine != null) StopCoroutine(respawnRoutine);
-            respawnRoutine = StartCoroutine(SoftRespawnAfterDelay(respawnDelay));
+            respawnRoutine = StartCoroutine(SoftRespawnAfterDelay(respawnDelay));*/
         }
 
         private bool ShouldReloadSceneOnDeath()
