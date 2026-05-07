@@ -66,6 +66,7 @@ namespace junklite
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
         [SerializeField] private float postParryRespawnDelay = 0.6f;
+        [SerializeField] private int objectiveRepositionPasses = 3;
 
         #endregion
 
@@ -296,13 +297,53 @@ namespace junklite
         private void RepositionPlayer(Transform spawnPoint)
         {
             RefreshPlayerRef();
-            if (currentPlayer == null || spawnPoint == null) return;
+            if (currentPlayer == null)
+            {
+                Debug.LogWarning($"[Level0Sequence] Reposition skipped during {currentStage}: currentPlayer is null.");
+                return;
+            }
 
-            currentPlayer.ReviveAt(spawnPoint.position);
+            if (spawnPoint == null)
+            {
+                Debug.LogWarning($"[Level0Sequence] Reposition skipped during {currentStage}: spawnPoint is null.");
+                return;
+            }
+
+            Vector3 from = currentPlayer.transform.position;
+            Vector3 target = spawnPoint.position;
+            Debug.Log($"[Level0Sequence] Reposition begin during {currentStage}: player '{currentPlayer.name}' from {from} to spawn '{spawnPoint.name}' at {target}. timeScale={Time.timeScale:0.###}");
+
+            currentPlayer.ReviveAt(target);
             currentPlayer.Activate();
 
             if (CameraManager.Instance != null)
+            {
                 CameraManager.Instance.ConnectToPlayer(currentPlayer);
+                Debug.Log($"[Level0Sequence] Camera reconnected to player after reposition during {currentStage}.");
+            }
+
+            Debug.Log($"[Level0Sequence] Reposition complete during {currentStage}: player now at {currentPlayer.transform.position}.");
+        }
+
+        private IEnumerator ForceObjectiveReposition(Transform spawnPoint)
+        {
+            int passes = Mathf.Max(1, objectiveRepositionPasses);
+
+            for (int i = 0; i < passes; i++)
+            {
+                RepositionPlayer(spawnPoint);
+
+                if (i == 0)
+                    yield return null;
+                else
+                    yield return new WaitForFixedUpdate();
+            }
+
+            if (currentPlayer != null && spawnPoint != null)
+            {
+                float remaining = Vector3.Distance(currentPlayer.transform.position, spawnPoint.position);
+                Debug.Log($"[Level0Sequence] Objective reposition settled during {currentStage}: remaining distance to spawn = {remaining:0.###}");
+            }
         }
 
         private void RefreshPlayerRef()
@@ -323,7 +364,12 @@ namespace junklite
                                      (playerState.IsParrying || playerState.IsInputLocked || Time.timeScale < 0.999f);
 
             if (!parryLikelyActive)
+            {
+                Debug.Log($"[Level0Sequence] No parry settle wait needed during {currentStage}. timeScale={Time.timeScale:0.###}");
                 yield break;
+            }
+
+            Debug.Log($"[Level0Sequence] Waiting for parry effects during {currentStage}. IsParrying={playerState?.IsParrying ?? false}, IsInputLocked={playerState?.IsInputLocked ?? false}, timeScale={Time.timeScale:0.###}");
 
             float endTime = Time.realtimeSinceStartup + Mathf.Max(0f, postParryRespawnDelay);
             while (Time.realtimeSinceStartup < endTime)
@@ -343,6 +389,7 @@ namespace junklite
                 yield return null;
             }
 
+            Debug.Log($"[Level0Sequence] Parry effects settled during {currentStage}. timeScale={Time.timeScale:0.###}");
             yield return null;
         }
 
@@ -410,12 +457,10 @@ namespace junklite
 
             // Always move the player to safety first so they cannot fall
             // while the completion beat is playing.
-            RepositionPlayer(centerRoomSpawn);
+            yield return ForceObjectiveReposition(centerRoomSpawn);
 
             if (completedPlatformStep != null)
                 completedPlatformStep.SetActive(false);
-
-            yield return null;
 
             if (completionAnimation != null)
             {

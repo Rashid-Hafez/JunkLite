@@ -293,7 +293,16 @@ MonoBehaviour:
   death: Death
   stunLoop: Stunt
   onParried: Hurt
-  parryStun: OnParried
+  parryStun: Stunt
+  hurtSettings:
+    resetPoseFirst: 1
+    mixDuration: 0
+  stunSettings:
+    resetPoseFirst: 0
+    mixDuration: 0.468
+  onParriedSettings:
+    resetPoseFirst: 0
+    mixDuration: 0.362
   debugLog: 0
 --- !u!82 &5511428486720858210
 AudioSource:

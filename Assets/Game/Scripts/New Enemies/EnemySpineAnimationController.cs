@@ -4,6 +4,20 @@ using Spine.Unity;
 
 namespace junklite
 {
+    /// <summary>
+    /// Controls how a Spine animation is played back.
+    /// Set mixDuration = 0 and resetPoseFirst = true to hard-cut with no blending
+    /// (prevents bone-rotation artifacts like 360° head spins).
+    /// </summary>
+    [System.Serializable]
+    public struct AnimPlaySettings
+    {
+        [Tooltip("Reset skeleton to setup pose before playing. Eliminates 360° bone-rotation artifacts caused by blending.")]
+        public bool resetPoseFirst;
+        [Tooltip("Blend duration in seconds. 0 = instant hard cut with no interpolation.")]
+        [Range(0f, 1f)] public float mixDuration;
+    }
+
     public class EnemySpineAnimationController : MonoBehaviour
     {
         [Header("Spine")]
@@ -25,8 +39,20 @@ namespace junklite
         [SerializeField] private string stunLoop = "";
         [Header("Parry")]
         [Tooltip("Spine animation to play when entering ParriedState (one-shot).")]
-        [SerializeField] private string onParried = "OnParried";
-        [SerializeField] private string parryStun = "";
+        [SerializeField] private string onParried = "Hurt";
+        [SerializeField] private string parryStun = "Stunt";
+
+        [Header("Playback Settings — Hurt")]
+        [Tooltip("How to play the Hurt animation. Hard-cut (mixDuration=0, resetPose=true) avoids 360° bone spin.")]
+        [SerializeField] private AnimPlaySettings hurtSettings = new AnimPlaySettings { resetPoseFirst = true, mixDuration = 0f };
+
+        [Header("Playback Settings — Stun")]
+        [Tooltip("How to play the Stun loop. Hard-cut (mixDuration=0, resetPose=true) avoids 360° bone spin.")]
+        [SerializeField] private AnimPlaySettings stunSettings = new AnimPlaySettings { resetPoseFirst = true, mixDuration = 0f };
+
+        [Header("Playback Settings — OnParried")]
+        [Tooltip("How to play the OnParried animation. Hard-cut (mixDuration=0, resetPose=true) avoids 360° bone spin.")]
+        [SerializeField] private AnimPlaySettings onParriedSettings = new AnimPlaySettings { resetPoseFirst = true, mixDuration = 0f };
 
         [Header("Debug")]
         [SerializeField] private bool debugLog = false;
@@ -112,17 +138,23 @@ namespace junklite
                 state.SetAnimation(0, dodge, false);
             else if (to is ParriedState)
             {
-                // ParriedState = parry success. Play a short 'on parried' anim, then transition to the stun loop.
+                // Hard-cut to 'onParried' one-shot, then queue the parry-stun loop.
                 string parriedAnim = string.IsNullOrEmpty(onParried) ? idle : onParried;
-                string stunAnim = string.IsNullOrEmpty(stunLoop) ? hurt : stunLoop;
+                string stunAnim    = string.IsNullOrEmpty(parryStun)
+                    ? (string.IsNullOrEmpty(stunLoop) ? hurt : stunLoop)
+                    : parryStun;
 
-                state.SetAnimation(0, parriedAnim, false);
-                state.AddAnimation(0, stunAnim, true, 0f);
+                var parriedEntry = PlayWithSettings(0, parriedAnim, false, onParriedSettings);
+                if (parriedEntry != null)
+                {
+                    var queuedStun = state.AddAnimation(0, stunAnim, true, 0f);
+                    if (queuedStun != null) queuedStun.MixDuration = stunSettings.mixDuration;
+                }
             }
             else if (to is StunnedState)
             {
-                // normal hit stagger: hurt -> stun loop
-                var hurtEntry = state.SetAnimation(0, hurt, false);
+                // Hard-cut to hurt, then hard-cut to stun loop on completion.
+                var hurtEntry = PlayWithSettings(0, hurt, false, hurtSettings);
                 if (hurtEntry != null)
                 {
                     hurtEntry.Complete += _ =>
@@ -130,15 +162,10 @@ namespace junklite
                         if (stateMachine.CurrentState is StunnedState)
                         {
                             string stunAnim = string.IsNullOrEmpty(stunLoop) ? idle : stunLoop;
-                            skeletonAnimation.AnimationState.SetAnimation(0, stunAnim, true);
+                            PlayWithSettings(0, stunAnim, true, stunSettings);
                         }
                     };
                 }
-            }
-            else if (to is ParriedState)
-            {
-                string parryAnim = string.IsNullOrEmpty(parryStun) ? idle : parryStun;
-                state.SetAnimation(0, parryAnim, true);
             }
 
         }
@@ -172,12 +199,34 @@ namespace junklite
         {
             if (skeletonAnimation == null) return;
             string anim = string.IsNullOrEmpty(stunLoop) ? hurt : stunLoop;
-            var state = skeletonAnimation.AnimationState;
-            state.SetAnimation(0, anim, true);
+            PlayWithSettings(0, anim, true, stunSettings);
             StartCoroutine(ClearStunAfter(duration));
         }
 
         #endregion
+
+        /// <summary>
+        /// Plays a Spine animation using the supplied <see cref="AnimPlaySettings"/>.
+        /// When <c>resetPoseFirst</c> is true the skeleton is snapped to its setup pose
+        /// and the track is cleared before the new animation is set, preventing any
+        /// cross-animation bone interpolation (e.g. 360° head spins).
+        /// </summary>
+        private TrackEntry PlayWithSettings(int track, string animName, bool loop, AnimPlaySettings settings)
+        {
+            if (skeletonAnimation == null || string.IsNullOrEmpty(animName)) return null;
+
+            var state = skeletonAnimation.AnimationState;
+
+            if (settings.resetPoseFirst)
+            {
+                skeletonAnimation.Skeleton.SetToSetupPose();
+                state.ClearTrack(track);
+            }
+
+            var entry = state.SetAnimation(track, animName, loop);
+            if (entry != null) entry.MixDuration = settings.mixDuration;
+            return entry;
+        }
 
         private System.Collections.IEnumerator ClearStunAfter(float duration)
         {

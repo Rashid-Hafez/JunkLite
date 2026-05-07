@@ -5228,7 +5228,16 @@ MonoBehaviour:
   death: Death
   stunLoop: Stunt
   onParried: Hurt
-  parryStun: 
+  parryStun: Stunt
+  hurtSettings:
+    resetPoseFirst: 1
+    mixDuration: 0
+  stunSettings:
+    resetPoseFirst: 1
+    mixDuration: 0
+  onParriedSettings:
+    resetPoseFirst: 1
+    mixDuration: 0
   debugLog: 0
 --- !u!1 &2049112635380343708
 GameObject:
@@ -34644,6 +34653,11 @@ MonoBehaviour:
   losBlockingLayers:
     serializedVersion: 2
     m_Bits: 6144
+  requireReachablePath: 1
+  platformLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  minVerticalDifferenceToCheck: 0.5
   showGizmos: 1
 --- !u!1001 &4923704872802420427
 PrefabInstance:
