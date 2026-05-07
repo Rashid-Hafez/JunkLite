@@ -120,6 +120,18 @@ namespace junklite
                     float dist = Vector3.Distance(origin, enemy.transform.position);
                     float falloff = Mathf.Lerp(1f, edgeFalloff, Mathf.Clamp01(dist / pushRadius));
 
+                    // KnockbackForce.x is a SCALAR MAGNITUDE, not a direction.
+                    //
+                    // EnemyCharacter.ApplyKnockback independently derives the outward world-space
+                    // direction from info.Source (player.gameObject):
+                    //   knockbackDir = (enemy.position - source.position).normalized  (Y=0)
+                    //   finalForce   = knockbackDir * KnockbackForce.x + Vector3.up * KnockbackForce.y
+                    //
+                    // Passing a signed X (as in dir.x * pushForce) would cause ApplyKnockback to
+                    // multiply two opposing signs and push enemies TOWARD the player on one side.
+                    // Keep X positive so enemies are always pushed away, regardless of which
+                    // plane (XY or ZY) the game is currently on — the direction math is entirely
+                    // world-space inside ApplyKnockback and naturally handles both planes.
                     Vector2 knockback = new Vector2(pushForce * falloff, pushUpForce * falloff);
 
                     damageable.TakeDamage(new DamageInfo(
