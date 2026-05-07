@@ -39,13 +39,13 @@ public class DialogueManager : MonoBehaviour
 
     private void Start()
     {
-        if (instance == null)
-            instance = this;
-        else if (instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        //if (instance == null)
+        //    instance = this;
+        //else if (instance != this)
+        //{
+        //    Destroy(gameObject);
+        //    return;
+        //}
 
         OnDialogueContinue += NextLine;
 
@@ -63,7 +63,7 @@ public class DialogueManager : MonoBehaviour
     {
         OnDialogueContinue -= NextLine;
 
-        if (GameInputManager.Instance == null) return;
+        //if (GameInputManager.Instance == null) return;
         GameInputManager.Instance.controls.Player.DialogueContinue.performed -= playerContinueCallback;
         GameInputManager.Instance.controls.UI.DialogueContinue.performed -= uiContinueCallback;
     }
@@ -78,11 +78,21 @@ public class DialogueManager : MonoBehaviour
         currentIndex = 0;
         dialogueBox.SetActive(true);
         ShowLine();
+
     }
 
     // Timeline hook
     public void PlayDialogue(DialogueSequence sequence) => StartDialogue(sequence);
 
+    public void TurnOffInput()
+    { 
+        GameInputManager.Instance.SetGameplayInputEnabled(false);
+    }
+
+    public void TurnOnInput()
+    {
+        GameInputManager.Instance.SetGameplayInputEnabled(true);
+    }
     public void NextLine()
     {
         if (currentSequence == null) return;
