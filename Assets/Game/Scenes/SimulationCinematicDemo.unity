@@ -1690,7 +1690,8 @@ MonoBehaviour:
   postPickupEnemyPrefab: {fileID: 0}
   postPickupEnemySpawnPoint: {fileID: 0}
   nextSceneName: Backup 01Level1Whitebox 2
-  showDebugInfo: 1
+  showDebugInfo: 0
+  postParryRespawnDelay: 0.6
 --- !u!1001 &1444674245
 PrefabInstance:
   m_ObjectHideFlags: 0

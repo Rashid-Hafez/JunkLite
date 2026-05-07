@@ -65,6 +65,7 @@ namespace junklite
 
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
+        [SerializeField] private float postParryRespawnDelay = 0.6f;
 
         #endregion
 
@@ -221,6 +222,7 @@ namespace junklite
             SetStage(Stage.EnemyWave);
             SpawnEnemyWave();
             yield return WaitForAllEnemiesDead();
+            yield return WaitForParryEffectsToSettle();
 
             RepositionPlayer(centerRoomSpawn);
             SetStage(Stage.PostEnemyDialogue);
@@ -241,6 +243,7 @@ namespace junklite
             SetStage(Stage.FinalEnemyWave);
             SpawnPostPickupEnemy();
             yield return WaitForAllEnemiesDead();
+            yield return WaitForParryEffectsToSettle();
 
             SetStage(Stage.FinalDialogue);
             if (finalDialogue != null)
@@ -309,6 +312,38 @@ namespace junklite
 
             if (currentPlayer != null)
                 currentWeaponManager = currentPlayer.GetComponentInChildren<WeaponManager>(true);
+        }
+
+        private IEnumerator WaitForParryEffectsToSettle()
+        {
+            RefreshPlayerRef();
+
+            PlayerState playerState = currentPlayer != null ? currentPlayer.PlayerState : null;
+            bool parryLikelyActive = playerState != null &&
+                                     (playerState.IsParrying || playerState.IsInputLocked || Time.timeScale < 0.999f);
+
+            if (!parryLikelyActive)
+                yield break;
+
+            float endTime = Time.realtimeSinceStartup + Mathf.Max(0f, postParryRespawnDelay);
+            while (Time.realtimeSinceStartup < endTime)
+                yield return null;
+
+            while (true)
+            {
+                RefreshPlayerRef();
+                playerState = currentPlayer != null ? currentPlayer.PlayerState : null;
+
+                bool waitingOnParry = playerState != null && (playerState.IsParrying || playerState.IsInputLocked);
+                bool waitingOnTimeScale = Time.timeScale < 0.999f;
+
+                if (!waitingOnParry && !waitingOnTimeScale)
+                    break;
+
+                yield return null;
+            }
+
+            yield return null;
         }
 
         #endregion
