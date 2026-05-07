@@ -37,16 +37,19 @@ public class DialogueManager : MonoBehaviour
 
     #region Lifecycle
 
+    private void Awake()
+    {
+        if (instance == null)
+            instance = this;
+        else if (instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+    }
+
     private void Start()
     {
-        //if (instance == null)
-        //    instance = this;
-        //else if (instance != this)
-        //{
-        //    Destroy(gameObject);
-        //    return;
-        //}
-
         OnDialogueContinue += NextLine;
 
         dialogueBox.SetActive(false);
@@ -61,6 +64,9 @@ public class DialogueManager : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (instance == this)
+            instance = null;
+
         OnDialogueContinue -= NextLine;
 
         //if (GameInputManager.Instance == null) return;

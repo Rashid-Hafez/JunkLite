@@ -84,7 +84,7 @@ namespace junklite
         private PlayerCharacter currentPlayer;
         private Light playerLight;
         private WeaponManager currentWeaponManager;
-        private Coroutine godRayFadeRoutine;
+        private Coroutine revealFadeRoutine;
         private bool platformCompleteBeatRunning;
 
         private readonly List<EnemyCharacter> spawnedEnemies = new();
@@ -111,13 +111,14 @@ namespace junklite
             if (overheadSpotlight != null) overheadSpotlight.enabled = false;
             if (godRayParticles != null)
                 godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            if (videoScreen == null)
-                videoScreen = GameObject.Find("VideoScreen");
-            if (videoScreen != null)
-                videoScreen.SetActive(false);
+            DisableVideoScreen();
         }
 
-        private void Start() => StartCoroutine(RunSequence());
+        private void Start()
+        {
+            DisableVideoScreen();
+            StartCoroutine(RunSequence());
+        }
 
         private void OnDestroy()
         {
@@ -134,7 +135,7 @@ namespace junklite
             if (completionAnimation != null) completionAnimation.Stop();
             if (currentWeaponManager != null) currentWeaponManager.OnWeaponChanged -= OnWeaponPickedUp;
             if (activeTutorialPickup != null) Destroy(activeTutorialPickup.gameObject);
-            if (godRayFadeRoutine != null) StopCoroutine(godRayFadeRoutine);
+            if (revealFadeRoutine != null) StopCoroutine(revealFadeRoutine);
 
             if (GameInputManager.Instance != null)
             {
@@ -171,11 +172,8 @@ namespace junklite
             StartCoroutine(LerpReflectionIntensity(RenderSettings.reflectionIntensity, 1f, reflectionRevealDuration));
 
             SetStage(Stage.PlayTimeline);
-            if (godRayParticles != null)
-            {
-                if (godRayFadeRoutine != null) StopCoroutine(godRayFadeRoutine);
-                godRayFadeRoutine = StartCoroutine(FadeOutGodRayParticles());
-            }
+            if (revealFadeRoutine != null) StopCoroutine(revealFadeRoutine);
+            revealFadeRoutine = StartCoroutine(FadeOutRevealEffects());
             if (director != null)
                 yield return RunDirector(director, rewindToStart: true);
 
@@ -260,6 +258,15 @@ namespace junklite
 
         #endregion
 
+        private void DisableVideoScreen()
+        {
+            if (videoScreen == null)
+                videoScreen = GameObject.Find("VideoScreen");
+
+            if (videoScreen != null)
+                videoScreen.SetActive(false);
+        }
+
         #region Player
 
         private IEnumerator WaitForPlayer()
@@ -310,6 +317,12 @@ namespace junklite
 
         private IEnumerator RunDialogue(DialogueSequence sequence)
         {
+            if (sequence == null)
+                yield break;
+
+            while (DialogueManager.instance == null)
+                yield return null;
+
             dialogueFinished = false;
             DialogueManager.instance.OnDialogueEnded += OnDialogueEnded;
             DialogueManager.instance.StartDialogue(sequence);
@@ -360,6 +373,15 @@ namespace junklite
             if (DialogueManager.instance != null)
                 DialogueManager.instance.IsContinueInputSuppressed = true;
 
+            // Always move the player to safety first so they cannot fall
+            // while the completion beat is playing.
+            RepositionPlayer(centerRoomSpawn);
+
+            if (completedPlatformStep != null)
+                completedPlatformStep.SetActive(false);
+
+            yield return null;
+
             if (completionAnimation != null)
             {
                 yield return completionAnimation.Play();
@@ -377,11 +399,6 @@ namespace junklite
                 if (completedResetDelay > 0f)
                     yield return new WaitForSeconds(completedResetDelay);
             }
-
-            RepositionPlayer(centerRoomSpawn);
-
-            if (completedPlatformStep != null)
-                completedPlatformStep.SetActive(false);
 
             if (DialogueManager.instance != null)
                 DialogueManager.instance.IsContinueInputSuppressed = false;
@@ -617,19 +634,31 @@ namespace junklite
             DynamicGI.UpdateEnvironment();
         }
 
-        private IEnumerator FadeOutGodRayParticles()
+        private IEnumerator FadeOutRevealEffects()
         {
-            if (godRayParticles == null) yield break;
-
-            var emission = godRayParticles.emission;
-            float startRate = emission.rateOverTimeMultiplier;
+            float startSpotlightIntensity = overheadSpotlight != null ? overheadSpotlight.intensity : 0f;
+            ParticleSystem.EmissionModule emission = default;
+            float startRate = 0f;
+            bool hasGodRayParticles = godRayParticles != null;
+            if (hasGodRayParticles)
+            {
+                emission = godRayParticles.emission;
+                startRate = emission.rateOverTimeMultiplier;
+            }
 
             if (godRayFadeDuration <= 0f)
             {
-                emission.rateOverTimeMultiplier = 0f;
-                godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
-                if (overheadSpotlight != null) overheadSpotlight.enabled = false;
-                godRayFadeRoutine = null;
+                if (overheadSpotlight != null)
+                {
+                    overheadSpotlight.intensity = 0f;
+                    overheadSpotlight.enabled = false;
+                }
+                if (hasGodRayParticles)
+                {
+                    emission.rateOverTimeMultiplier = 0f;
+                    godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                }
+                revealFadeRoutine = null;
                 yield break;
             }
 
@@ -637,14 +666,30 @@ namespace junklite
             while (elapsed < godRayFadeDuration)
             {
                 elapsed += Time.deltaTime;
-                emission.rateOverTimeMultiplier = Mathf.Lerp(startRate, 0f, Mathf.Clamp01(elapsed / godRayFadeDuration));
+                float t = Mathf.Clamp01(elapsed / godRayFadeDuration);
+
+                if (overheadSpotlight != null)
+                    overheadSpotlight.intensity = Mathf.Lerp(startSpotlightIntensity, 0f, t);
+
+                if (hasGodRayParticles)
+                    emission.rateOverTimeMultiplier = Mathf.Lerp(startRate, 0f, t);
+
                 yield return null;
             }
 
-            emission.rateOverTimeMultiplier = 0f;
-            godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
-            if (overheadSpotlight != null) overheadSpotlight.enabled = false;
-            godRayFadeRoutine = null;
+            if (overheadSpotlight != null)
+            {
+                overheadSpotlight.intensity = 0f;
+                overheadSpotlight.enabled = false;
+            }
+
+            if (hasGodRayParticles)
+            {
+                emission.rateOverTimeMultiplier = 0f;
+                godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            }
+
+            revealFadeRoutine = null;
         }
 
         #endregion
