@@ -110,11 +110,18 @@ namespace junklite
             base.Awake();
             enemyType = EnemyType.Grunt;
 
-            if (melee.MeleeHitbox != null)
+            // Always resolve the hitbox from THIS instance's own hierarchy.
+            // This prevents stale cross-instance references when duplicating prefabs in the scene.
+            var resolvedHitbox = GetComponentInChildren<Hitbox>(true);
+            
+            if (resolvedHitbox == null)
             {
-                melee.MeleeHitbox.OnHit += OnMeleeHitboxHit;
-                melee.MeleeHitbox.Deactivate();
+                return;
             }
+
+            melee.AssignHitbox(resolvedHitbox);
+            melee.MeleeHitbox.OnHit += OnMeleeHitboxHit;
+            melee.MeleeHitbox.Deactivate();
         }
 
         protected override void InitializeStateMachine()
@@ -285,6 +292,7 @@ namespace junklite
 
         private void OnMeleeHitboxHit(Collider other, Hitbox hitbox)
         {
+            //Debug.Log($"{name}: hitbox hit {other.name}");
             var dmg = other.GetComponent<IDamageable>() ?? other.GetComponentInParent<IDamageable>();
             if (dmg == null || !dmg.IsAlive) return;
             dmg.TakeDamage(new DamageInfo(melee.MeleeDamage, gameObject, DamageType.Physical, melee.MeleeKnockback));

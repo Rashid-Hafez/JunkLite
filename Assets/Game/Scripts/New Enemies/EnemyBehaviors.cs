@@ -200,6 +200,8 @@ namespace junklite
         [Tooltip("When during the attack the hitbox deactivates")]
         [SerializeField][Range(0f, 1f)] private float hitEndNormalized = 0.6f;
 
+
+        public void AssignHitbox(Hitbox resolvedHitbox) => hitbox = resolvedHitbox;
         public float MeleeWindUpDuration => windUpDuration;
         public float MeleeAttackDuration => attackDuration;
         public float MeleeAttackSpeed => attackSpeed;

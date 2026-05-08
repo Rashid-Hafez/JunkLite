@@ -491,12 +491,12 @@ namespace junklite
         public virtual void Attack()
         {
             if (!HasTarget || !IsTargetInAttackRange) return;
-            Debug.Log($"{gameObject.name} attacks {target.name}!");
+            //Debug.Log($"{gameObject.name} attacks {target.name}!");
         }
 
         protected override void HandleDeath()
         {
-            Debug.Log($"[{gameObject.name}] HandleDeath called!");
+            LevelStatsTracker.Instance?.NotifyEnemyKilled(this);
 
             SpawnDeathParticles();
             DisableEnemyVisual();
