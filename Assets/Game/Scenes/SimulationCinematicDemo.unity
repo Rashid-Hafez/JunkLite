@@ -1663,6 +1663,34 @@ MonoBehaviour:
   completionAnimation: {fileID: 956710496}
   videoScreen: {fileID: 2120730653}
   completedResetDelay: 1.5
+  introSequenceSfx:
+    clip: {fileID: 8300000, guid: 66386df0074e341e8b1e3b48334963d7, type: 3}
+    volume: 1
+    pitchMin: 1
+    pitchMax: 1
+    effects: []
+  lightRevealSfx:
+    clip: {fileID: 0}
+    volume: 1
+    pitchMin: 1
+    pitchMax: 1
+    effects: []
+  platformCompleteSfx:
+    clip: {fileID: 8300000, guid: 216cfc660e1cd4a4c9bb3f7f1853e044, type: 3}
+    volume: 1
+    pitchMin: 0.99
+    pitchMax: 1.11
+    effects: []
+  platformDissolveSfx:
+    clip: {fileID: 8300000, guid: fc69ada9b20334c6cab1f15acfa624e9, type: 3}
+    volume: 1
+    pitchMin: 0.94
+    pitchMax: 1.06
+    effects: []
+  introSfxPoint: {fileID: 0}
+  platformStep1DissolveSfxPoint: {fileID: 0}
+  platformStep2DissolveSfxPoint: {fileID: 0}
+  platformStep3DissolveSfxPoint: {fileID: 0}
   introDialogue: {fileID: 11400000, guid: 0a9256d4cb4ffe447bc7bbc919272f7d, type: 2}
   postCinematicDialogue: {fileID: 11400000, guid: 4c48cad93059a406999b16e3d5ddaca1, type: 2}
   secondPlatformDialogue: {fileID: 11400000, guid: 98cf15ba842ad4be5b1b2f0e142c6e08, type: 2}

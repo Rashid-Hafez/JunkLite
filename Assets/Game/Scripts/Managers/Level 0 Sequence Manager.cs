@@ -29,6 +29,16 @@ namespace junklite
         [SerializeField] private GameObject videoScreen;
         [SerializeField] private float completedResetDelay = 0.5f;
 
+        [Header("Cinematic Audio")]
+        [SerializeField] private SoundEntry introSequenceSfx;
+        [SerializeField] private SoundEntry lightRevealSfx;
+        [SerializeField] private SoundEntry platformCompleteSfx;
+        [SerializeField] private SoundEntry platformDissolveSfx;
+        [SerializeField] private Transform introSfxPoint;
+        [SerializeField] private Transform platformStep1DissolveSfxPoint;
+        [SerializeField] private Transform platformStep2DissolveSfxPoint;
+        [SerializeField] private Transform platformStep3DissolveSfxPoint;
+
         [Header("Dialogue")]
         [SerializeField] private DialogueSequence introDialogue;
         [SerializeField] private DialogueSequence postCinematicDialogue;
@@ -166,6 +176,7 @@ namespace junklite
 
             if (playerLight != null) playerLight.enabled = true;
             if (overheadSpotlight != null) overheadSpotlight.enabled = true;
+            PlayCinematicSfx(introSequenceSfx, introSfxPoint);
             if (godRayParticles != null)
             {
                 godRayParticles.gameObject.SetActive(true);
@@ -179,6 +190,8 @@ namespace junklite
             if (director != null)
                 yield return RunDirector(director, rewindToStart: true);
 
+            PlayCinematicSfx(platformDissolveSfx, platformStep1DissolveSfxPoint);
+
             SetStage(Stage.TutorialDialogue);
             if (postCinematicDialogue != null)
                 yield return RunDialogue(postCinematicDialogue);
@@ -190,7 +203,11 @@ namespace junklite
             SetStage(Stage.PlatformOneComplete);
             yield return PlayCompletionBeatAndReset(platformStep1);
             if (platformStep2 != null) platformStep2.SetActive(true);
-            if (platformStep2Dissolver != null) platformStep2Dissolver.UndissolveAll();
+            if (platformStep2Dissolver != null)
+            {
+                PlayCinematicSfx(platformDissolveSfx, platformStep2DissolveSfxPoint);
+                platformStep2Dissolver.UndissolveAll();
+            }
 
             SetStage(Stage.SecondPlatformDialogue);
             if (secondPlatformDialogue != null)
@@ -203,7 +220,11 @@ namespace junklite
             SetStage(Stage.PlatformTwoComplete);
             yield return PlayCompletionBeatAndReset(platformStep2);
             if (platformStep3 != null) platformStep3.SetActive(true);
-            if (platformStep3Dissolver != null) platformStep3Dissolver.UndissolveAll();
+            if (platformStep3Dissolver != null)
+            {
+                PlayCinematicSfx(platformDissolveSfx, platformStep3DissolveSfxPoint);
+                platformStep3Dissolver.UndissolveAll();
+            }
 
             SetStage(Stage.ThirdPlatformDialogue);
             if (thirdPlatformDialogue != null)
@@ -355,6 +376,20 @@ namespace junklite
                 currentWeaponManager = currentPlayer.GetComponentInChildren<WeaponManager>(true);
         }
 
+        private void PlayCinematicSfx(SoundEntry entry, Transform point = null)
+        {
+            if (AudioManager.Instance == null || entry == null || !entry.IsValid)
+                return;
+
+            if (point != null)
+            {
+                AudioManager.Instance.PlaySpatialAtPosition(entry, point.position, spatialBlend: 1f);
+                return;
+            }
+
+            AudioManager.Instance.PlayUI(entry);
+        }
+
         private IEnumerator WaitForParryEffectsToSettle()
         {
             RefreshPlayerRef();
@@ -464,6 +499,7 @@ namespace junklite
 
             if (completionAnimation != null)
             {
+                PlayCinematicSfx(platformCompleteSfx);
                 yield return completionAnimation.Play();
 
                 // Hold on last frame for the reset delay, then fade out
