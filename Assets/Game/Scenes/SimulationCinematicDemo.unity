@@ -796,6 +796,10 @@ PrefabInstance:
       propertyPath: m_hasFontAssetChanged
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3945283265687733119, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 5844490656072979783, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
       propertyPath: m_fontAsset
       value: 
@@ -6977,6 +6981,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 597363684}
     - target: {fileID: 2953186222001567115, guid: 2812e0d4ac65fa74da646dc3601a2649, type: 3}
+      propertyPath: portraitImage
+      value: 
+      objectReference: {fileID: 2030047361}
+    - target: {fileID: 2953186222001567115, guid: 2812e0d4ac65fa74da646dc3601a2649, type: 3}
       propertyPath: continueIndicator
       value: 
       objectReference: {fileID: 597363682}
@@ -7094,6 +7102,17 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1593813765}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2030047361 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3945283265687733119, guid: cefee5b64c5f72e498b204870b13b8a3, type: 3}
+  m_PrefabInstance: {fileID: 597363681}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
 --- !u!1 &2066127608
 GameObject:
   m_ObjectHideFlags: 1

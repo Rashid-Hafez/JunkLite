@@ -41,13 +41,13 @@ public class DialogueManager : MonoBehaviour
 
     private void Awake()
     {
-        //if (instance == null)
-        //    instance = this;
-        //else if (instance != this)
-        //{
-        //    Destroy(gameObject);
-        //    return;
-        //}
+        if (instance == null)
+            instance = this;
+        else if (instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
     }
 
     private void Start()
@@ -153,10 +153,9 @@ public class DialogueManager : MonoBehaviour
         if (portraitImage)
         {
             portraitImage.sprite = line.speakerPortrait;
-            portraitImage.color = Color.white;
+            portraitImage.color = line.speakerPortrait != null ? Color.white : Color.clear;
         }
-        else {portraitImage.color = Color.clear; }
-            GameInputManager.Instance.SetGameplayInputEnabled(!line.lockPlayerMovement);
+        GameInputManager.Instance.SetGameplayInputEnabled(!line.lockPlayerMovement);
 
         if (typingCoroutine != null)
             StopCoroutine(typingCoroutine);

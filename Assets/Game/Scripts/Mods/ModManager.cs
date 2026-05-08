@@ -186,6 +186,7 @@ namespace junklite
             bool used = active.TryActivate(mod, playerCharacter);
             if (used)
             {
+                PlayModActivationSfx(active);
                 mod.ConsumeDurability();
                 OnActiveModActivated?.Invoke(activeSlotIndex);
                 if (mod.IsBroken)
@@ -351,6 +352,15 @@ namespace junklite
             for (int i = 0; i < unlockedPassiveSlots; i++)
                 if (passiveSlots[i] == null) return true;
             return false;
+        }
+
+        private void PlayModActivationSfx(ActiveModData active)
+        {
+            if (AudioManager.Instance == null || active == null || active.activationSfx == null || !active.activationSfx.IsValid)
+                return;
+
+            Vector3 position = playerCharacter != null ? playerCharacter.transform.position : transform.position;
+            AudioManager.Instance.PlaySpatialAtPosition(active.activationSfx, position, spatialBlend: 0f);
         }
 
         #endregion

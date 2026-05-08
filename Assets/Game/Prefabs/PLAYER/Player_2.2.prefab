@@ -1051,6 +1051,12 @@ MonoBehaviour:
   facingLockDuration: 0.25
   inputThreshold: 0.5
   defaultPushDuration: 0.08
+  modCombatEnterSfx:
+    clip: {fileID: 8300000, guid: edd41387e7be54757bb3862001b20ab3, type: 3}
+    volume: 0.838
+    pitchMin: 1.09
+    pitchMax: 0.91
+    effects: []
   lockMovementDuringAttack: 1
   logAttacks: 0
 --- !u!114 &7181291251784971520

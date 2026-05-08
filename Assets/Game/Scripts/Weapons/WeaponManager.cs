@@ -66,6 +66,9 @@ namespace junklite
         [Tooltip("Fallback push duration when ComboStep.forwardImpulseDuration is 0")]
         [SerializeField] private float defaultPushDuration = 0.08f;
 
+        [Header("Combat Mode Audio")]
+        [SerializeField] private SoundEntry modCombatEnterSfx;
+
         [Header("Attack Input Lock")]
         [SerializeField] private bool lockMovementDuringAttack = true;
 
@@ -282,6 +285,7 @@ namespace junklite
 
             TryPrewarmRangedPool(weaponSlot1);
             TryPrewarmRangedPool(weaponSlot2);
+            PlaySfxAtPlayer(modCombatEnterSfx);
 
             OnCombatModeChanged?.Invoke();
         }
@@ -305,6 +309,14 @@ namespace junklite
             if (weapon == null || weapon.weaponData is not RangedWeaponData ranged) return;
             if (ranged.tracerPrefab == null) return;
             ProjectileManager.Instance?.PrewarmPool(ranged.tracerPrefab, 10);
+        }
+
+        private void PlaySfxAtPlayer(SoundEntry entry)
+        {
+            if (AudioManager.Instance == null || entry == null || !entry.IsValid) return;
+
+            Vector3 position = playerTransform != null ? playerTransform.position : transform.position;
+            AudioManager.Instance.PlaySpatialAtPosition(entry, position, spatialBlend: 0f);
         }
 
         #endregion

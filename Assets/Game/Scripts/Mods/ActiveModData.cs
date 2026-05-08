@@ -21,6 +21,9 @@ namespace junklite
         [Header("Slot UI")]
         public GameObject modSlotUIPrefab;
 
+        [Header("Audio")]
+        public SoundEntry activationSfx;
+
         /// <summary>Called when player lands a hit. Update charges on the instance.</summary>
         public virtual void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt)
         {
