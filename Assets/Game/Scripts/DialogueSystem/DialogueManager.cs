@@ -153,6 +153,7 @@ public class DialogueManager : MonoBehaviour
         if (portraitImage)
         {
             portraitImage.sprite = line.speakerPortrait;
+            portraitImage.color = Color.white;
         }
         else {portraitImage.color = Color.clear; }
             GameInputManager.Instance.SetGameplayInputEnabled(!line.lockPlayerMovement);
