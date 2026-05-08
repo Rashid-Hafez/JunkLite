@@ -44,7 +44,7 @@ Light:
   serializedVersion: 12
   m_Type: 0
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 65
+  m_Intensity: 55
   m_Range: 100
   m_SpotAngle: 93.55363
   m_InnerSpotAngle: 72.33944
@@ -276,7 +276,7 @@ Transform:
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: -0.6756545, w: 0.73721844}
-  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: -0.015999999}
+  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: -0.464}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -633,7 +633,7 @@ Transform:
   m_GameObject: {fileID: 5313947137746381582}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: -0.6350002, w: 0.77251196}
-  m_LocalPosition: {x: 0.12740609, y: 1.2658193, z: -0.0023999999}
+  m_LocalPosition: {x: 0.12740609, y: 1.2658193, z: -0.0696}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -6766,8 +6766,8 @@ MonoBehaviour:
   initialFlipY: 0
   updateWhenInvisible: 3
   separatorSlotNames:
-  - 
-  zSpacing: -0.0002
+  - 34_Right_Hand
+  zSpacing: -0.0058
   useClipping: 1
   immutableTriangles: 1
   pmaVertexColors: 1
