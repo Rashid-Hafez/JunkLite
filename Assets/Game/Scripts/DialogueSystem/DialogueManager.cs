@@ -4,12 +4,14 @@ using TMPro;
 using System;
 using junklite;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class DialogueManager : MonoBehaviour
 {
     public static DialogueManager instance;
 
     [Header("UI")]
+    public Image portraitImage;
     public GameObject dialogueBox;
     public TMP_Text speakerText;
     public TMP_Text dialogueText;
@@ -39,13 +41,13 @@ public class DialogueManager : MonoBehaviour
 
     private void Awake()
     {
-        if (instance == null)
-            instance = this;
-        else if (instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        //if (instance == null)
+        //    instance = this;
+        //else if (instance != this)
+        //{
+        //    Destroy(gameObject);
+        //    return;
+        //}
     }
 
     private void Start()
@@ -148,7 +150,12 @@ public class DialogueManager : MonoBehaviour
         var line = currentSequence.dialogueLines[currentIndex];
 
         speakerText.text = line.speakerName;
-        GameInputManager.Instance.SetGameplayInputEnabled(!line.lockPlayerMovement);
+        if (portraitImage)
+        {
+            portraitImage.sprite = line.speakerPortrait;
+        }
+        else {portraitImage.color = Color.clear; }
+            GameInputManager.Instance.SetGameplayInputEnabled(!line.lockPlayerMovement);
 
         if (typingCoroutine != null)
             StopCoroutine(typingCoroutine);
