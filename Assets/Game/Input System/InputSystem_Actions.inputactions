@@ -485,7 +485,7 @@
                     "path": "<Gamepad>/dpad/down",
                     "interactions": "",
                     "processors": "",
-                    "groups": ";Gamepad;Keyboard&Mouse",
+                    "groups": ";Gamepad",
                     "action": "ModActivate2",
                     "isComposite": false,
                     "isPartOfComposite": false

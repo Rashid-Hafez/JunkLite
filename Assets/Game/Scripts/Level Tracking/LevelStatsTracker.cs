@@ -31,11 +31,8 @@ namespace junklite
         [Header("Level Settings")]
         [SerializeField] private bool autoStartOnAwake = true;
 
-        [Header("Performance Thresholds (seconds)")]
-        [SerializeField] private float sRankTime = 60f;
-        [SerializeField] private float aRankTime = 120f;
-        [SerializeField] private float bRankTime = 200f;
-        [SerializeField] private float cRankTime = 300f;
+        [Header("Performance Thresholds")]
+        [SerializeField] private float maxScoredTime = 300f;
 
         public LevelState State { get; private set; } = LevelState.Idle;
         public float ElapsedTime { get; private set; }
@@ -139,10 +136,19 @@ namespace junklite
 
         private PerformanceGrade CalculateGrade(float time)
         {
-            if (time <= sRankTime) return PerformanceGrade.S;
-            if (time <= aRankTime) return PerformanceGrade.A;
-            if (time <= bRankTime) return PerformanceGrade.B;
-            if (time <= cRankTime) return PerformanceGrade.C;
+            // Kill ratio score: 0.0 – 1.0
+            float killRatio = TotalEnemies > 0 ? Mathf.Clamp01((float)TotalKills / TotalEnemies) : 1f;
+
+            // Time score: S=1.0, sliding down to 0.0 at cRankTime
+            float timeScore = 1f - Mathf.Clamp01(time / maxScoredTime);
+
+            // Weighted combined score (60% kills, 40% time)
+            float score = killRatio * 0.6f + timeScore * 0.4f;
+
+            if (score >= 0.90f) return PerformanceGrade.S;
+            if (score >= 0.72f) return PerformanceGrade.A;
+            if (score >= 0.54f) return PerformanceGrade.B;
+            if (score >= 0.36f) return PerformanceGrade.C;
             return PerformanceGrade.D;
         }
 
