@@ -240,8 +240,8 @@ namespace junklite
 
         private void CleanupMaterials()
         {
-            if (boxMat != null)  { Destroy(boxMat);  boxMat  = null; }
-            if (iconMat != null) { Destroy(iconMat); iconMat = null; }
+            if (boxMat != null)  { /*Destroy(boxMat);*/  boxMat  = null; }
+            if (iconMat != null) { /*Destroy(iconMat);*/ iconMat = null; }
         }
 
         private void MarkGraphicsDirty()
