@@ -5227,14 +5227,14 @@ MonoBehaviour:
   hurt: Hurt
   death: Death
   stunLoop: Stunt
-  onParried: Hurt
+  onParried: OnParried
   parryStun: Stunt
   hurtSettings:
     resetPoseFirst: 1
     mixDuration: 0
   stunSettings:
-    resetPoseFirst: 1
-    mixDuration: 0
+    resetPoseFirst: 0
+    mixDuration: 0.423
   onParriedSettings:
     resetPoseFirst: 1
     mixDuration: 0

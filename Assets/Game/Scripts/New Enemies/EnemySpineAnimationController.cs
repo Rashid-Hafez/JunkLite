@@ -139,21 +139,16 @@ namespace junklite
                 state.SetAnimation(0, dodge, false);
             else if (to is ParriedState)
             {
-                // Hard-cut to 'onParried' one-shot, then queue the parry-stun loop.
-                string parriedAnim = string.IsNullOrEmpty(onParried) ? idle : onParried;
-                string stunAnim    = string.IsNullOrEmpty(parryStun)
-                    ? (string.IsNullOrEmpty(stunLoop) ? hurt : stunLoop)
-                    : parryStun;
-
-                var parriedEntry = PlayWithSettings(0, parriedAnim, false, onParriedSettings);
-                if (parriedEntry != null)
-                {
-                    var queuedStun = state.AddAnimation(0, stunAnim, true, 0f);
-                    if (queuedStun != null) queuedStun.MixDuration = stunSettings.mixDuration;
-                }
+                PlayOnParriedThenStunLoop();
             }
             else if (to is StunnedState)
             {
+                if (from is ParriedState)
+                {
+                    PlayOnParriedThenStunLoop();
+                    return;
+                }
+
                 // Hard-cut to hurt, then hard-cut to stun loop on completion.
                 var hurtEntry = PlayWithSettings(0, hurt, false, hurtSettings);
                 if (hurtEntry != null)
@@ -242,6 +237,25 @@ namespace junklite
             var entry = state.SetAnimation(track, animName, loop);
             if (entry != null) entry.MixDuration = settings.mixDuration;
             return entry;
+        }
+
+        private void PlayOnParriedThenStunLoop()
+        {
+            var state = skeletonAnimation.AnimationState;
+            string parriedAnim = string.IsNullOrEmpty(onParried) ? idle : onParried;
+            string stunAnim = string.IsNullOrEmpty(parryStun)
+                ? (string.IsNullOrEmpty(stunLoop) ? hurt : stunLoop)
+                : parryStun;
+
+            var parriedEntry = PlayWithSettings(0, parriedAnim, false, onParriedSettings);
+            if (parriedEntry != null)
+            {
+                var queuedStun = state.AddAnimation(0, stunAnim, true, 0f);
+                if (queuedStun != null) queuedStun.MixDuration = stunSettings.mixDuration;
+                return;
+            }
+
+            PlayWithSettings(0, stunAnim, true, stunSettings);
         }
 
         private System.Collections.IEnumerator ClearStunAfter(float duration)

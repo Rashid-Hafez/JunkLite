@@ -9,8 +9,8 @@ Material:
   m_PrefabAsset: {fileID: 0}
   m_Name: Enemy_Material
   m_Shader: {fileID: 4800000, guid: 49fca94e7da6d47f6ae2a7c8c7516b44, type: 3}
-  m_Parent: {fileID: 2100000, guid: f5a4a51ee9cfb44f9b0814e1a3982de9, type: 2}
-  m_ModifiedSerializedProperties: 8
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
   m_InvalidKeywords:
   - _ALPHATEST_ON
@@ -31,10 +31,22 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AlphaClipThreshold: 1
+    - _AmountToFlash: 1
     - _BaseAlpha: 1
-    - _FlashStrength: 1.46
-    - _GlowIntensity: 3.16
-    m_Colors: []
+    - _FlashPower: 1.71
+    - _FlashStrength: 3.55
+    - _GlowIntensity: 3.21
+    - _MaxAlpha: 1
+    - _MinAlpha: 0
+    - _PulseAmount: 0
+    - _PulseSpeed: 6
+    - _Saturation: 1
+    m_Colors:
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _FlashColor: {r: 1, g: 0.4764151, b: 0.71915317, a: 1}
+    - _GlowColor: {r: 0, g: 0.9270375, b: 1, a: 1}
+    - _TintColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!114 &4489629981306778557

@@ -1705,7 +1705,7 @@ MonoBehaviour:
   postPickupDialogue: {fileID: 11400000, guid: b13ceaf5d50f347f4b7fa067e1c8f9dc, type: 2}
   modActivationPromptDialogue: {fileID: 11400000, guid: ab0258e30eac04422b0ba19901867f85, type: 2}
   inventoryPromptDialogue: {fileID: 11400000, guid: 98f237719ea6f4372a7861b9c2761bd2, type: 2}
-  finalDialogue: {fileID: 11400000, guid: ab0258e30eac04422b0ba19901867f85, type: 2}
+  finalDialogue: {fileID: 11400000, guid: b13ceaf5d50f347f4b7fa067e1c8f9dc, type: 2}
   platformStep1: {fileID: 475989695}
   platformStep2: {fileID: 5850483783724389931}
   platformStep2Dissolver: {fileID: 1922018216355878114}
