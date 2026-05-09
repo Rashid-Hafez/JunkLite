@@ -1162,6 +1162,17 @@
                 },
                 {
                     "name": "",
+                    "id": "9c1ce90b-c2ab-48ef-81f9-1dad92a20aec",
+                    "path": "<Gamepad>/buttonSouth",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse;Gamepad;Touch;Joystick;XR",
+                    "action": "Submit",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "82627dcc-3b13-4ba9-841d-e4b746d6553e",
                     "path": "<Keyboard>/escape",
                     "interactions": "",
