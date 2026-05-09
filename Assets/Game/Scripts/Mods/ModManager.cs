@@ -234,14 +234,11 @@ namespace junklite
             return true;
         }
 
-        /// <summary>
-        /// Place a mod in the first available slot matching its type.
-        /// Active mods → active slots only. Passive mods → passive slots only.
-        /// Returns false if no compatible slot is available (mod should go to inventory).
-        /// </summary>
         public bool EquipModAny(ModInstance mod)
         {
             if (mod == null) return false;
+
+            if (FindEquippedMod(mod.Data, out _, out _)) return false;
 
             if (mod.IsActive)
             {
@@ -361,6 +358,36 @@ namespace junklite
 
             Vector3 position = playerCharacter != null ? playerCharacter.transform.position : transform.position;
             AudioManager.Instance.PlaySpatialAtPosition(active.activationSfx, position, spatialBlend: 0f);
+        }
+
+
+        public bool FindEquippedMod(ModData data, out bool isActiveSlot, out int foundIndex)
+        {
+            isActiveSlot = false;
+            foundIndex = -1;
+            if (data == null) return false;
+
+            for (int i = 0; i < unlockedActiveSlots; i++)
+            {
+                if (activeSlots[i] != null && activeSlots[i].Data == data)
+                {
+                    isActiveSlot = true;
+                    foundIndex = i;
+                    return true;
+                }
+            }
+
+            for (int i = 0; i < unlockedPassiveSlots; i++)
+            {
+                if (passiveSlots[i] != null && passiveSlots[i].Data == data)
+                {
+                    isActiveSlot = false;
+                    foundIndex = i;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         #endregion
