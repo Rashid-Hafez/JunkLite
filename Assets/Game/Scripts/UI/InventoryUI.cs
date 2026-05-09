@@ -2,6 +2,7 @@
 using UnityEngine.EventSystems;
 using System;
 using System.Collections.Generic;
+using UnityEngine.UI;
 
 namespace junklite
 {
@@ -150,6 +151,7 @@ namespace junklite
             if (missionsScreen != null) missionsScreen.SetActive(false);
 
             descriptionUI?.Clear();
+            TrySelectDefaultSlotIfGamepad();
         }
 
         private void ShowInfoTab()
@@ -225,9 +227,12 @@ namespace junklite
                 if (slot != null)
                 {
                     slot.Bind(mod, inventory, i);
+                    ConfigureSlotNavigation(slot);
                     inventorySlots.Add(slot);
                 }
             }
+
+            TrySelectDefaultSlotIfGamepad();
         }
 
         #endregion
@@ -271,6 +276,7 @@ namespace junklite
                     if (slot != null)
                     {
                         slot.Bind(modManager.GetActiveMod(i), modManager, inventory, i, true, locked);
+                        ConfigureSlotNavigation(slot);
                         activeModSlots.Add(slot);
                     }
                 }
@@ -286,10 +292,13 @@ namespace junklite
                     if (slot != null)
                     {
                         slot.Bind(modManager.GetPassiveMod(i), modManager, inventory, i, false, locked);
+                        ConfigureSlotNavigation(slot);
                         passiveModSlots.Add(slot);
                     }
                 }
             }
+
+            TrySelectDefaultSlotIfGamepad();
         }
 
         #endregion
@@ -311,6 +320,64 @@ namespace junklite
         }
 
         private void OnDestroy() => Unbind();
+
+        private void TrySelectDefaultSlotIfGamepad()
+        {
+            if (activeTab != Tab.Inventory) return;
+            if (GameInputManager.Instance == null || !GameInputManager.Instance.IsUsingGamepad) return;
+            if (EventSystem.current == null) return;
+
+            var currentSelected = EventSystem.current.currentSelectedGameObject;
+            if (currentSelected != null &&
+                currentSelected.activeInHierarchy &&
+                currentSelected.GetComponent<ModSlotUI>() != null)
+            {
+                return;
+            }
+
+            ModSlotUI defaultSlot = GetFirstSelectableModSlot();
+            if (defaultSlot == null) return;
+
+            EventSystem.current.SetSelectedGameObject(defaultSlot.gameObject);
+        }
+
+        private ModSlotUI GetFirstSelectableModSlot()
+        {
+            foreach (var slot in activeModSlots)
+            {
+                if (IsSlotSelectable(slot)) return slot;
+            }
+
+            foreach (var slot in passiveModSlots)
+            {
+                if (IsSlotSelectable(slot)) return slot;
+            }
+
+            foreach (var slot in inventorySlots)
+            {
+                if (IsSlotSelectable(slot)) return slot;
+            }
+
+            return null;
+        }
+
+        private static bool IsSlotSelectable(ModSlotUI slot)
+        {
+            if (slot == null || !slot.gameObject.activeInHierarchy) return false;
+            var selectable = slot.GetComponent<Selectable>();
+            return selectable == null || selectable.IsInteractable();
+        }
+
+        private static void ConfigureSlotNavigation(ModSlotUI slot)
+        {
+            if (slot == null) return;
+            var selectable = slot.GetComponent<Selectable>();
+            if (selectable == null) return;
+
+            var navigation = selectable.navigation;
+            navigation.mode = Navigation.Mode.Automatic;
+            selectable.navigation = navigation;
+        }
 
         #endregion
     }

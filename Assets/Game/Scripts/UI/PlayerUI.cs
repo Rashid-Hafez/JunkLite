@@ -228,7 +228,10 @@ namespace junklite
                 inventoryUI.Bind(inventory, _weaponManager);
 
             if (GameInputManager.Instance != null)
+            {
                 GameInputManager.Instance.SetGameplayInputEnabled(false);
+                GameInputManager.Instance.SwitchToUIActionMap();
+            }
         }
 
         public void CloseInventory()
@@ -245,7 +248,10 @@ namespace junklite
             if (inventoryPanel != null) inventoryPanel.SetActive(false);
 
             if (GameInputManager.Instance != null)
+            {
                 GameInputManager.Instance.SetGameplayInputEnabled(true);
+                GameInputManager.Instance.SwitchToPlayerActionMap();
+            }
         }
 
         // -----------------------------------------------------------------------

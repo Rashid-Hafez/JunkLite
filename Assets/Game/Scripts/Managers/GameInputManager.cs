@@ -47,6 +47,7 @@ namespace junklite
         /// </summary>
         public bool IsGameplayInputEnabled { get; private set; } = true;
         public bool IsParryOnlyInputEnabled { get; private set; }
+        public bool IsUsingGamepad { get; private set; }
 
   
         public string GetModActivateHint(int slotIndex)
@@ -104,6 +105,14 @@ namespace junklite
             controls.Player.Enable();
         }
 
+        private void TrackInputDevice(InputAction.CallbackContext ctx)
+        {
+            var device = ctx.control?.device;
+            if (device == null) return;
+
+            IsUsingGamepad = device is Gamepad || device is Joystick;
+        }
+
         // -----------------------------------------------------------------------
 
         void Awake()
@@ -125,12 +134,14 @@ namespace junklite
             // === MOVE ===
             controls.Player.Move.performed += ctx =>
             {
+                TrackInputDevice(ctx);
                 if (!IsGameplayInputEnabled) return;
                 MoveDirection = ctx.ReadValue<Vector2>();
                 OnMove(MoveDirection);
             };
-            controls.Player.Move.canceled += _ =>
+            controls.Player.Move.canceled += ctx =>
             {
+                TrackInputDevice(ctx);
                 if (!IsGameplayInputEnabled) return;
                 MoveDirection = Vector2.zero;
                 OnMove(MoveDirection);
@@ -213,7 +224,11 @@ namespace junklite
             };
 
             // === INVENTORY TOGGLE (Always active - UI input) ===
-            controls.Player.Inventory.performed += _ => OnInventoryToggle();
+            controls.Player.Inventory.performed += ctx =>
+            {
+                TrackInputDevice(ctx);
+                OnInventoryToggle();
+            };
 
             // === COMBAT MODE TOGGLE ===
             controls.Player.CombatMode.performed += _ =>
@@ -267,16 +282,19 @@ namespace junklite
 
             controls.UI.Navigate.performed += ctx =>
             {
+                TrackInputDevice(ctx);
                 OnUINavigate(ctx.ReadValue<Vector2>());
             };
 
-            controls.UI.Submit.performed += _ =>
+            controls.UI.Submit.performed += ctx =>
             {
+                TrackInputDevice(ctx);
                 OnUISubmit();
             };
 
-            controls.UI.Cancel.performed += _ =>
+            controls.UI.Cancel.performed += ctx =>
             {
+                TrackInputDevice(ctx);
                 OnUICancel();
             };
 

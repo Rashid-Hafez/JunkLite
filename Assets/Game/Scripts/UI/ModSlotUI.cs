@@ -8,7 +8,8 @@ namespace junklite
 {
     public class ModSlotUI : MonoBehaviour,
         IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler,
-        IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
+        IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler,
+        ISubmitHandler, ISelectHandler, IDeselectHandler
     {
         #region Fields
 
@@ -239,6 +240,29 @@ namespace junklite
         #region Click-to-Place
 
         public void OnPointerClick(PointerEventData eventData)
+        {
+            HandleSelectionConfirm();
+        }
+
+        public void OnSubmit(BaseEventData eventData)
+        {
+            HandleSelectionConfirm();
+        }
+
+        public void OnSelect(BaseEventData eventData)
+        {
+            if (hoverImage != null) hoverImage.SetActive(true);
+            if (modInstance == null) return;
+            OnModHovered?.Invoke(modInstance);
+        }
+
+        public void OnDeselect(BaseEventData eventData)
+        {
+            if (hoverImage != null) hoverImage.SetActive(false);
+            OnModHoverExit?.Invoke();
+        }
+
+        private void HandleSelectionConfirm()
         {
             if (draggedSlot != null) return;
 
