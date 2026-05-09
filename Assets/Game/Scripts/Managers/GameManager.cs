@@ -141,6 +141,8 @@ namespace junklite
         private void RefreshSceneReferences()
         {
             spawnPoints = null;
+            if (playerUIInstance != null)
+                Destroy(playerUIInstance.gameObject);
             playerUIInstance = null;
             gameplayCanvasTransform = null;
 
