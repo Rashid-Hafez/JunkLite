@@ -1702,7 +1702,7 @@ MonoBehaviour:
   combatIntroDialogue: {fileID: 11400000, guid: 391ddb2c71ea745d6a2486a694a66df4, type: 2}
   parryPromptDialogue: {fileID: 11400000, guid: bda422f675e2b41bdae15062d0096c20, type: 2}
   postEnemyDialogue: {fileID: 11400000, guid: 8d089c37da16c4c038c4eb920fcabb84, type: 2}
-  postPickupDialogue: {fileID: 11400000, guid: b13ceaf5d50f347f4b7fa067e1c8f9dc, type: 2}
+  postPickupDialogue: {fileID: 11400000, guid: 33f95c0c7d4b649aa842ba5d5be0ac31, type: 2}
   modActivationPromptDialogue: {fileID: 11400000, guid: ab0258e30eac04422b0ba19901867f85, type: 2}
   inventoryPromptDialogue: {fileID: 11400000, guid: 98f237719ea6f4372a7861b9c2761bd2, type: 2}
   finalDialogue: {fileID: 11400000, guid: b13ceaf5d50f347f4b7fa067e1c8f9dc, type: 2}

@@ -191,7 +191,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7c72c7d3ae3a408c93d119a77bdc432, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.HyenaEnemy
-  baseStats: {fileID: 11400000, guid: 9c72d1ca99bf4a341b6578b22cb2b01c, type: 2}
+  baseStats: {fileID: 11400000, guid: c49ac655d260148a1b93931cc5046595, type: 2}
   attributes: {fileID: 0}
   config: {fileID: 11400000, guid: 9e461d73387c049839e437b703c39faf, type: 2}
   soundProfile: {fileID: 11400000, guid: 8ea661e92a2b9cc48aa6bfa6c75a470e, type: 2}
