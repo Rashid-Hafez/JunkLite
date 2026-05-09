@@ -56,6 +56,8 @@ namespace junklite
             pendingPickup = pickup;
             selectedIndex = 0;
 
+            GameInputManager.Instance?.SwitchToUIActionMap();
+
             RefreshDisplay();
             SubscribeInput();
             SetupButtons();
@@ -65,6 +67,9 @@ namespace junklite
         {
             UnsubscribeInput();
             CleanupButtons();
+
+            GameInputManager.Instance?.SwitchToPlayerActionMap();
+
             weaponManager = null;
             pendingPickup = null;
         }

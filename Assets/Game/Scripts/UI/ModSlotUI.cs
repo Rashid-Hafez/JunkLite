@@ -268,6 +268,9 @@ namespace junklite
                 ClearSelection();
                 OnModSelected?.Invoke(null);
 
+                // If this mod is already equipped elsewhere, redirect the swap to that slot
+                if (TryRedirectDuplicate(source)) return;
+
                 ModInstance srcMod = source.modInstance;
                 ModInstance dstMod = this.modInstance;
 
@@ -398,6 +401,9 @@ namespace junklite
 
             source.CleanupDrag();
 
+            // If this mod is already equipped elsewhere, redirect the swap to that slot
+            if (TryRedirectDuplicate(source)) return;
+
             ModInstance srcMod = source.modInstance;
             ModInstance dstMod = this.modInstance;
 
@@ -432,6 +438,42 @@ namespace junklite
                 bool isActive = slot.slotType == SlotType.ActiveMod;
                 slot.modManager?.EquipModAt(mod, isActive, slot.slotIndex);
             }
+        }
+
+        private bool TryRedirectDuplicate(ModSlotUI source)
+        {
+            if (!this.IsModSlot) return false;
+
+            ModInstance srcMod = source.modInstance;
+            if (srcMod?.Data == null) return false;
+
+            ModManager mgr = modManager ?? source.modManager;
+            if (mgr == null) return false;
+
+            if (!mgr.FindEquippedMod(srcMod.Data, out bool existingIsActive, out int existingIndex))
+                return false;
+
+            // If the source slot IS the existing duplicate, no redirect needed
+            if (source.IsModSlot)
+            {
+                bool sourceIsTheDuplicate =
+                    source.slotType == (existingIsActive ? SlotType.ActiveMod : SlotType.PassiveMod) &&
+                    source.slotIndex == existingIndex;
+
+                if (sourceIsTheDuplicate) return false;
+            }
+
+            // Redirect: move srcMod to the conflicting slot, send the conflict back to source
+            ModInstance conflictMod = existingIsActive
+                ? mgr.GetActiveMod(existingIndex)
+                : mgr.GetPassiveMod(existingIndex);
+
+            RemoveFromSlot(source);
+            mgr.UnequipMod(existingIsActive, existingIndex);
+            mgr.EquipModAt(srcMod, existingIsActive, existingIndex);
+            PlaceInSlot(source, conflictMod);
+
+            return true;
         }
 
         #endregion
