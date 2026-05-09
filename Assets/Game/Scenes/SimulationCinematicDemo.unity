@@ -1717,7 +1717,6 @@ MonoBehaviour:
   finalObjectiveTrigger: {fileID: 0}
   enemyPrefabs:
   - {fileID: 84268223678430046, guid: 015a35f97bcbd45e5a6b0e5998f45f69, type: 3}
-  - {fileID: 84268223678430046, guid: 015a35f97bcbd45e5a6b0e5998f45f69, type: 3}
   enemySpawnPoints:
   - {fileID: 1955712852}
   tutorialWeaponPickupPrefab: {fileID: 5612364688996449167, guid: 48377b0cb212849febc8109d51345e1a, type: 3}

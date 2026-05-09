@@ -262,6 +262,30 @@ namespace junklite
             yield return WaitForAllEnemiesDead();
             yield return WaitForParryEffectsToSettle();
 
+            // If any mod pickups were spawned by enemy deaths (e.g. hyena drops),
+            // wait until the player collects them before repositioning.
+            var modPickups = FindObjectsOfType<WorldModPickup>();
+            if (modPickups != null && modPickups.Length > 0)
+            {
+                Debug.Log($"[Level0Sequence] Waiting for {modPickups.Length} mod pickup(s) to be collected before repositioning.");
+                while (true)
+                {
+                    var remaining = FindObjectsOfType<WorldModPickup>();
+                    bool anyActive = false;
+                    foreach (var mp in remaining)
+                    {
+                        if (mp != null && mp.gameObject.activeInHierarchy)
+                        {
+                            anyActive = true;
+                            break;
+                        }
+                    }
+                    if (!anyActive) break;
+                    yield return null;
+                }
+                Debug.Log("[Level0Sequence] Mod pickup(s) collected, continuing sequence.");
+            }
+
             RepositionPlayer(centerRoomSpawn);
             SetStage(Stage.PostEnemyDialogue);
             if (postEnemyDialogue != null)
