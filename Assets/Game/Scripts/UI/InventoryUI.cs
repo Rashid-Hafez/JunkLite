@@ -48,6 +48,9 @@ namespace junklite
 
         private enum Tab { Inventory, Info, Missions }
         private Tab activeTab = Tab.Inventory;
+        private const float NavigateDeadZone = 0.45f;
+        private const float NavigateRepeatDelay = 0.16f;
+        private float nextNavigateTime;
 
         #endregion
 
@@ -73,8 +76,12 @@ namespace junklite
 
             ModSlotUI.OnModHovered += HandleModHovered;
             ModSlotUI.OnModHoverExit += HandleHoverExit;
+            ModSlotUI.OnModSelected += HandleModSelected;
             InventoryWeaponSlotUI.OnWeaponHovered += HandleWeaponHovered;
             InventoryWeaponSlotUI.OnWeaponHoverExit += HandleHoverExit;
+
+            if (GameInputManager.Instance != null)
+                GameInputManager.Instance.OnUINavigate += HandleUINavigate;
 
             if (inventoryTabButton != null)
                 inventoryTabButton.OnClick += ShowInventoryTab;
@@ -102,8 +109,12 @@ namespace junklite
 
             ModSlotUI.OnModHovered -= HandleModHovered;
             ModSlotUI.OnModHoverExit -= HandleHoverExit;
+            ModSlotUI.OnModSelected -= HandleModSelected;
             InventoryWeaponSlotUI.OnWeaponHovered -= HandleWeaponHovered;
             InventoryWeaponSlotUI.OnWeaponHoverExit -= HandleHoverExit;
+
+            if (GameInputManager.Instance != null)
+                GameInputManager.Instance.OnUINavigate -= HandleUINavigate;
 
             if (inventoryTabButton != null)
                 inventoryTabButton.OnClick -= ShowInventoryTab;
@@ -204,6 +215,32 @@ namespace junklite
         private void HandleHoverExit()
         {
             descriptionUI?.Clear();
+        }
+
+        private void HandleModSelected(ModInstance selectedMod)
+        {
+            if (selectedMod == null) return;
+            if (EventSystem.current == null) return;
+
+            var preferredTarget = GetPreferredTargetSlotFor(selectedMod);
+            if (preferredTarget == null) return;
+
+            EventSystem.current.SetSelectedGameObject(preferredTarget.gameObject);
+        }
+
+        private void HandleUINavigate(Vector2 move)
+        {
+            if (activeTab != Tab.Inventory) return;
+            if (EventSystem.current == null) return;
+            if (move.sqrMagnitude < NavigateDeadZone * NavigateDeadZone) return;
+            if (Time.unscaledTime < nextNavigateTime) return;
+
+            nextNavigateTime = Time.unscaledTime + NavigateRepeatDelay;
+
+            if (TryMoveSelection(move.normalized))
+                return;
+
+            TrySelectDefaultSlotIfGamepad();
         }
 
         #endregion
@@ -359,6 +396,98 @@ namespace junklite
             }
 
             return null;
+        }
+
+        private ModSlotUI GetPreferredTargetSlotFor(ModInstance selectedMod)
+        {
+            if (selectedMod == null) return null;
+
+            foreach (var slot in activeModSlots)
+            {
+                if (IsCompatibleEquipTarget(slot, selectedMod)) return slot;
+            }
+
+            foreach (var slot in passiveModSlots)
+            {
+                if (IsCompatibleEquipTarget(slot, selectedMod)) return slot;
+            }
+
+            return null;
+        }
+
+        private static bool IsCompatibleEquipTarget(ModSlotUI slot, ModInstance mod)
+        {
+            if (!IsSlotSelectable(slot) || slot == null || !slot.IsModSlot || slot.IsLocked || mod == null)
+                return false;
+
+            if (slot.Type == ModSlotUI.SlotType.ActiveMod)
+                return mod.IsActive;
+
+            if (slot.Type == ModSlotUI.SlotType.PassiveMod)
+                return mod.IsPassive;
+
+            return false;
+        }
+
+        private bool TryMoveSelection(Vector2 direction)
+        {
+            var currentObj = EventSystem.current.currentSelectedGameObject;
+            var currentSlot = currentObj != null ? currentObj.GetComponent<ModSlotUI>() : null;
+            var allSlots = GetAllNavigableSlots();
+            if (allSlots.Count == 0) return false;
+
+            if (currentSlot == null || !IsSlotSelectable(currentSlot))
+            {
+                EventSystem.current.SetSelectedGameObject(allSlots[0].gameObject);
+                return true;
+            }
+
+            var currentPos = (Vector2)currentSlot.transform.position;
+            ModSlotUI bestCandidate = null;
+            float bestScore = float.NegativeInfinity;
+
+            foreach (var candidate in allSlots)
+            {
+                if (candidate == currentSlot) continue;
+
+                Vector2 toCandidate = (Vector2)candidate.transform.position - currentPos;
+                float distance = toCandidate.magnitude;
+                if (distance <= 0.001f) continue;
+
+                Vector2 dir = toCandidate / distance;
+                float alignment = Vector2.Dot(direction, dir);
+                if (alignment <= 0.2f) continue;
+
+                float score = (alignment * 1000f) - distance;
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestCandidate = candidate;
+                }
+            }
+
+            if (bestCandidate == null) return false;
+
+            EventSystem.current.SetSelectedGameObject(bestCandidate.gameObject);
+            return true;
+        }
+
+        private List<ModSlotUI> GetAllNavigableSlots()
+        {
+            var result = new List<ModSlotUI>(activeModSlots.Count + passiveModSlots.Count + inventorySlots.Count);
+            AddNavigableSlots(activeModSlots, result);
+            AddNavigableSlots(passiveModSlots, result);
+            AddNavigableSlots(inventorySlots, result);
+            return result;
+        }
+
+        private static void AddNavigableSlots(List<ModSlotUI> source, List<ModSlotUI> target)
+        {
+            foreach (var slot in source)
+            {
+                if (IsSlotSelectable(slot))
+                    target.Add(slot);
+            }
         }
 
         private static bool IsSlotSelectable(ModSlotUI slot)

@@ -65,6 +65,7 @@ namespace junklite
         public ModInstance ModInstance => modInstance;
         public SlotType Type => slotType;
         public int SlotIndex => slotIndex;
+        public bool IsLocked => isLocked;
         public bool IsModSlot => slotType == SlotType.ActiveMod || slotType == SlotType.PassiveMod;
 
         #endregion

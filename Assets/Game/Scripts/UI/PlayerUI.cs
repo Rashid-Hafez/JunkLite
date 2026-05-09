@@ -138,6 +138,7 @@ namespace junklite
             {
                 input.OnInventoryToggle += HandleInventoryToggle;
                 input.OnInteract += HandleInteract;
+                input.OnUICancel += HandleUICancel;
             }
 
             CloseInventory();
@@ -154,6 +155,7 @@ namespace junklite
             {
                 input.OnInventoryToggle -= HandleInventoryToggle;
                 input.OnInteract -= HandleInteract;
+                input.OnUICancel -= HandleUICancel;
             }
 
             if (isInventoryOpen && GameInputManager.Instance != null)
@@ -213,6 +215,13 @@ namespace junklite
 
             if (isInventoryOpen) CloseInventory();
             else OpenInventory();
+        }
+
+        private void HandleUICancel()
+        {
+            if (isWeaponPickupOpen) return;
+            if (!isInventoryOpen) return;
+            CloseInventory();
         }
 
         public void OpenInventory()

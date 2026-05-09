@@ -88,6 +88,9 @@ namespace junklite
         public void SwitchToUIActionMap()
         {
             controls.Player.Disable();
+            // Keep inventory toggle available while UI map is active
+            // so keyboard I / controller Select-Touchpad can close inventory.
+            controls.Player.Inventory.Enable();
             controls.UI.Enable();
 
             // Clear held states
