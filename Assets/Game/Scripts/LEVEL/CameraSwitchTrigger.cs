@@ -1,8 +1,10 @@
 using UnityEngine;
 using Unity.Cinemachine;
 using System.Collections;
+using System.Collections.Generic;
 using System;
 using System.Linq;
+using NUnit.Framework;
 
 namespace junklite
 {
@@ -43,6 +45,10 @@ namespace junklite
         [SerializeField] private Renderer[] arrowRenderers;
         [SerializeField] private Color lockColor, unlockColor;
 
+        [Header("Enemy Alive Lock")]
+        [SerializeField] private bool enableEnemyLock;
+        [SerializeField] private List<EnemyCharacter> enemies = new List<EnemyCharacter>();
+
         private void OnEnable()
         {
             if (PlayerCombatTracker.Instance != null)
@@ -70,16 +76,16 @@ namespace junklite
 
             locked = false;
 
-            combatStartHandler = OnCombatStarted;
-            combatEndHandler = OnCombatEnded;
+            combatStartHandler = Lock;
+            combatEndHandler = Unlock;
         }
 
         private void Start()
         {
             if (PlayerCombatTracker.Instance != null)
             {
-                PlayerCombatTracker.Instance.OnCombatStarted += OnCombatStarted;
-                PlayerCombatTracker.Instance.OnCombatEnded += OnCombatEnded;
+                PlayerCombatTracker.Instance.OnCombatStarted += Lock;
+                PlayerCombatTracker.Instance.OnCombatEnded += Unlock;
             }
 
             arrowRenderers = GetComponentsInChildren<Renderer>();
@@ -98,8 +104,8 @@ namespace junklite
         {
             if (PlayerCombatTracker.Instance != null)
             {
-                PlayerCombatTracker.Instance.OnCombatStarted -= OnCombatStarted;
-                PlayerCombatTracker.Instance.OnCombatEnded -= OnCombatEnded;
+                PlayerCombatTracker.Instance.OnCombatStarted -= Lock;
+                PlayerCombatTracker.Instance.OnCombatEnded -= Unlock;
             }
 
             if (GameManager.Instance != null)
@@ -124,9 +130,10 @@ namespace junklite
             }
         }
 
-        private void OnCombatStarted()
+        private void Lock()
         {
             locked = true;
+            Debug.Log("Locked");
             if (triggerCollider != null)
             {
                 triggerCollider.isTrigger = false;
@@ -135,9 +142,10 @@ namespace junklite
             }
         }
 
-        private void OnCombatEnded()
+        private void Unlock()
         {
             locked = false;
+            Debug.Log("Unlocked");
             if (triggerCollider != null)
             {
                 triggerCollider.isTrigger = true;
@@ -165,7 +173,7 @@ namespace junklite
 
                 if (oneWaySwitch && !hasSwitched)
                 {
-                    OnCombatStarted();
+                    Lock();
                     hasSwitched = true;
                 }
             }
@@ -208,6 +216,42 @@ namespace junklite
 
                     CameraManager.Instance?.SetActiveCamera(nextCam);
                 }
+            }
+        }
+
+        private void Update()
+        {
+            // Only check while enemy-lock is enabled to avoid repeated calls when unused
+            if (enableEnemyLock)
+                CheckEnemiesAlive();
+        }
+
+        private void CheckEnemiesAlive()
+        {
+            // Defensive: do nothing if not enabled
+            if (!enableEnemyLock)
+                return;
+
+            if (enemies == null)
+                enemies = new List<EnemyCharacter>();
+
+            // Remove null/destroyed or dead enemies from the tracked list.
+            // Use RemoveAll to avoid modifying the list while iterating.
+            enemies.RemoveAll(e =>
+                e == null ||
+                e.attributes?.Health == null ||
+                e.attributes.Health.Current <= 0);
+
+            // If there are no enemies left, ensure unlocked; otherwise ensure locked.
+            if (enemies.Count == 0)
+            {
+                if (locked)
+                    Unlock();
+            }
+            else
+            {
+                if (!locked)
+                    Lock();
             }
         }
 
