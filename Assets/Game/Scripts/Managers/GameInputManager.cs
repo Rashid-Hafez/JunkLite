@@ -10,6 +10,9 @@ namespace junklite
         public static GameInputManager Instance { get; private set; }
         public InputSystem_Actions controls;
 
+        [Header("Gamepad Tuning (deadzone/actuation)")]
+        [SerializeField] private float gamepadDeadzone = 0.15f;
+        [SerializeField] private float gamepadActuation = 0.6f;
         // Gameplay events (gated by IsGameplayInputEnabled)
         public event Action<Vector2> OnMove = delegate { };
         public event Action OnJump = delegate { };
@@ -140,7 +143,10 @@ namespace junklite
             {
                 TrackInputDevice(ctx);
                 if (!IsGameplayInputEnabled) return;
-                MoveDirection = ctx.ReadValue<Vector2>();
+
+                Vector2 raw = ctx.ReadValue<Vector2>();
+                // Apply hard actuation cut for gamepad/joystick devices so analogue sticks either on or off
+                MoveDirection = InputHelpers.ApplyDeadzoneAndActuation(raw, gamepadDeadzone, gamepadActuation, IsUsingGamepad);
                 OnMove(MoveDirection);
             };
             controls.Player.Move.canceled += ctx =>

@@ -178,15 +178,6 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Pause",
-                    "type": "Button",
-                    "id": "cbe1241e-a2ac-4e5d-a2ed-664bdd6d0bb6",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                },
-                {
                     "name": "SpecialAttack",
                     "type": "Button",
                     "id": "9dde2f49-01f6-42f6-b82f-1d9b757df8cb",
@@ -208,6 +199,15 @@
                     "name": "DialogueContinue",
                     "type": "Button",
                     "id": "2ac88d2d-820e-46fc-bd66-f9f49d3155d1",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Pause",
+                    "type": "Button",
+                    "id": "52f56394-454b-4ed4-8328-8dd495712983",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -482,10 +482,10 @@
                 {
                     "name": "",
                     "id": "1e50c70e-cd11-4363-bb3c-8019ea216d15",
-                    "path": "Down",
+                    "path": "<Gamepad>/dpad/down",
                     "interactions": "",
                     "processors": "",
-                    "groups": ";Gamepad",
+                    "groups": ";Gamepad;Keyboard&Mouse",
                     "action": "ModActivate2",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -723,39 +723,6 @@
                 },
                 {
                     "name": "",
-                    "id": "01bf19e0-97c7-4567-98ee-916f5e6b8028",
-                    "path": "<Keyboard>/escape",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Pause",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "c6c816b6-c82e-4f1f-9a20-3a7cb66d2054",
-                    "path": "<Gamepad>/start",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": ";Gamepad",
-                    "action": "Pause",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "7266a829-6aaa-4c10-8804-5575e7c6396b",
-                    "path": "<DualShockGamepad>/start",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": ";Gamepad;Joystick;Touch",
-                    "action": "Pause",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
                     "id": "32001f6c-d3ea-4ef3-a2fc-5bc713b72186",
                     "path": "<Keyboard>/q",
                     "interactions": "",
@@ -861,6 +828,28 @@
                     "processors": "",
                     "groups": ";Gamepad",
                     "action": "DialogueContinue",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "f3668a9e-5fb6-4616-8bc5-fbf0c9dc302d",
+                    "path": "<Gamepad>/start",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Gamepad",
+                    "action": "Pause",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "2f9be15f-6756-4d8b-acd4-eefbfd127023",
+                    "path": "<Keyboard>/escape",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Keyboard&Mouse",
+                    "action": "Pause",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }
