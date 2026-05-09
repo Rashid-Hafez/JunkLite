@@ -35,6 +35,7 @@ namespace junklite
         public event Action<Vector2> OnUINavigate = delegate { };
         public event Action OnUISubmit = delegate { };
         public event Action OnUICancel = delegate { };
+        public event Action OnPauseToggle = delegate { };
 
 
         public Vector2 MoveDirection { get; private set; }
@@ -227,11 +228,8 @@ namespace junklite
             };
 
             // === INVENTORY TOGGLE (Always active - UI input) ===
-            controls.Player.Inventory.performed += ctx =>
-            {
-                TrackInputDevice(ctx);
-                OnInventoryToggle();
-            };
+            controls.Player.Inventory.performed += _ => OnInventoryToggle();
+            controls.Player.Pause.performed += _ => OnPauseToggle();
 
             // === COMBAT MODE TOGGLE ===
             controls.Player.CombatMode.performed += _ =>

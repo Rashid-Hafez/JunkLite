@@ -67,7 +67,6 @@ namespace junklite
 
         public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt)
         {
-            // No charges - do nothing
         }
 
         protected override bool ExecuteAbility(ModInstance instance, PlayerCharacter player)
@@ -103,9 +102,7 @@ namespace junklite
             var rb = player.GetComponent<Rigidbody>();
 
             Vector3 startPos = player.transform.position;
-            float facing = Mathf.Sign(player.transform.localScale.x);
 
-            // --- LOCK EVERYTHING ---
             if (playerState != null)
             {
                 playerState.SetInputLocked(true);
@@ -127,7 +124,6 @@ namespace junklite
                 rb.linearVelocity = Vector3.zero;
             }
 
-            // --- VANISH ---
             if (teleportOutVFX != null)
                 Instantiate(teleportOutVFX, startPos, Quaternion.identity);
 
@@ -135,7 +131,6 @@ namespace junklite
 
             yield return new WaitForSeconds(vanishDuration);
 
-            // --- REAPPEAR BEHIND ENEMY ---
             if (enemy == null || !enemy.IsAlive)
             {
                 Debug.Log("[DontBlink] Enemy died during vanish, aborting.");
@@ -146,21 +141,20 @@ namespace junklite
             }
 
             Vector3 enemyPos = enemy.transform.position;
-
-            // FIX: Always use the enemy's Y (or ground beneath them) rather than
-            // the player's Y at activation time, which could be mid-air.
             float targetY = GetGroundYBeneathEnemy(enemyPos);
 
+            Vector3 facingDir = GetFacingWorldDirection(player);
             Vector3 behindPos = new Vector3(
-                enemyPos.x + (facing * behindOffset),
+                enemyPos.x + facingDir.x * behindOffset,
                 targetY,
-                enemyPos.z
+                enemyPos.z + facingDir.z * behindOffset
             );
 
             player.transform.position = behindPos;
 
             // Flip to face the enemy's back
             Vector3 scale = player.transform.localScale;
+            float facing = Mathf.Sign(player.transform.localScale.x);
             scale.x = Mathf.Abs(scale.x) * -facing;
             player.transform.localScale = scale;
 
@@ -169,13 +163,11 @@ namespace junklite
             if (teleportInVFX != null)
                 Instantiate(teleportInVFX, behindPos, Quaternion.identity);
 
-            // --- STRIKE ANIMATION ---
             if (spineAnim != null && !string.IsNullOrEmpty(strikeAnimationName))
                 spineAnim.ForcePlayOverride(strikeAnimationName, false, () => { });
 
             yield return new WaitForSeconds(strikeDelay);
 
-            // --- DEAL DAMAGE + VFX ---
             if (enemy != null && enemy.IsAlive)
             {
                 float totalDamage = strikeDamage * bonusMultiplier;
@@ -207,22 +199,21 @@ namespace junklite
                     Instantiate(strikeVFX, enemy.transform.position, Quaternion.identity);
             }
 
-            // --- RECOVERY ---
             yield return new WaitForSeconds(recoveryTime);
 
-            // --- RESTORE EVERYTHING ---
             RestorePhysics(player, playerState, controller, rb, wasKinematic);
         }
-        
+
         private float GetGroundYBeneathEnemy(Vector3 enemyPos)
         {
-            // Cast from slightly above the enemy's feet downward
-            Vector3 rayOrigin = enemyPos + Vector3.up * 0.1f;
+            const float upOffset = 1.5f;
+            Vector3 rayOrigin = enemyPos + Vector3.up * upOffset;
 
-            if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, groundSnapDistance, groundLayerMask, QueryTriggerInteraction.Ignore))
+            if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit,
+                                groundSnapDistance + upOffset, groundLayerMask,
+                                QueryTriggerInteraction.Ignore))
                 return hit.point.y;
 
-            // No ground found - use the enemy's Y so we at least match their level
             return enemyPos.y;
         }
 
@@ -272,10 +263,16 @@ namespace junklite
 
         private static readonly Collider[] searchBuffer = new Collider[16];
 
+        private Vector3 GetFacingWorldDirection(PlayerCharacter player)
+        {
+            float flip = Mathf.Sign(player.transform.localScale.x);
+            return player.transform.right * flip;
+        }
+
         private EnemyCharacter FindNearestEnemyInFacingDirection(PlayerCharacter player)
         {
             Vector3 origin = player.transform.position;
-            float facing = Mathf.Sign(player.transform.localScale.x);
+            Vector3 facingDir = GetFacingWorldDirection(player);
 
             int count = Physics.OverlapSphereNonAlloc(origin, searchRange, searchBuffer, enemyLayerMask);
 
@@ -290,10 +287,10 @@ namespace junklite
                 var enemy = col.GetComponentInParent<EnemyCharacter>();
                 if (enemy == null || !enemy.IsAlive) continue;
 
-                float xDiff = enemy.transform.position.x - origin.x;
-                if (Mathf.Sign(xDiff) != facing) continue;
+                Vector3 toEnemy = enemy.transform.position - origin;
+                if (Vector3.Dot(toEnemy, facingDir) <= 0f) continue;
 
-                float dist = xDiff * xDiff;
+                float dist = toEnemy.sqrMagnitude;
                 if (dist < closestDist)
                 {
                     closestDist = dist;
@@ -302,7 +299,7 @@ namespace junklite
             }
 
             if (closest == null)
-                Debug.Log($"[DontBlink] Search found {count} colliders but none matched (facing={facing}).");
+                Debug.Log($"[DontBlink] Search found {count} colliders but none matched (facingDir={facingDir}).");
 
             return closest;
         }

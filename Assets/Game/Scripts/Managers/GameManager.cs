@@ -82,23 +82,35 @@ namespace junklite
             DontDestroyOnLoad(gameObject);
         }
 
-        void OnEnable() => SceneManager.sceneLoaded += OnSceneLoaded;
-        void OnDisable() => SceneManager.sceneLoaded -= OnSceneLoaded;
+        void OnEnable()
+        {
+            SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+
+        void OnDisable()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
 
         void Start()
         {
+            // Subscribe here (not OnEnable) so GameInputManager.Instance is guaranteed to exist
+            if (GameInputManager.Instance != null)
+                GameInputManager.Instance.OnPauseToggle += HandlePauseToggle;
+
             InitializeGame();
             SubscribeToCombatTracker();
             PlayLevelMusic();
         }
-
-        void Update() => HandleInput();
 
         void OnDestroy()
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             UnsubscribeFromPlayer(currentPlayer);
             UnsubscribeFromCombatTracker();
+
+            if (GameInputManager.Instance != null)
+                GameInputManager.Instance.OnPauseToggle -= HandlePauseToggle;
         }
 
         #endregion
@@ -152,7 +164,7 @@ namespace junklite
             loadingScreenUIInstance?.Hide();
             HideGameOverUI();
             isLoadingScene = false;
-            
+
             currentSpawnIndex = 0;
 
             if (respawnRoutine != null)
@@ -442,6 +454,30 @@ namespace junklite
 
         #endregion
 
+        #region Input
+
+        // All pause input — both Keyboard/Escape and Gamepad/Start — is routed through
+        // the 'Pause' action in the Player action map of your Input Actions asset.
+        // Make sure both bindings are added there.
+        private void HandlePauseToggle()
+        {
+            if (isLoadingScene) return;
+
+            if (currentState == GameState.Paused)
+            {
+                ResumeGame();
+            }
+            else if (currentState == GameState.Playing)
+            {
+                if (playerUIInstance != null && playerUIInstance.IsInventoryOpen)
+                    playerUIInstance.CloseInventory();
+                else
+                    PauseGame();
+            }
+        }
+
+        #endregion
+
         #region Death & Respawn
 
         private void HandlePlayerDeath()
@@ -481,7 +517,6 @@ namespace junklite
         public void KillPlayer()
         {
             if (currentPlayer == null || !currentPlayer.IsAlive) return;
-
             currentPlayer.Health?.SetToZero();
         }
 
@@ -495,6 +530,7 @@ namespace junklite
         private IEnumerator SoftRespawnAfterDelay(float delaySeconds)
         {
             float end = Time.realtimeSinceStartup + Mathf.Max(0f, delaySeconds);
+
             while (Time.realtimeSinceStartup < end)
                 yield return null;
 
@@ -543,48 +579,14 @@ namespace junklite
 
         #endregion
 
-        #region Input
-
-        // AFTER
-        private void HandleInput()
-        {
-            if (isLoadingScene) return;
-
-            if (Input.GetKeyDown(KeyCode.Escape))
-            {
-                if (currentState == GameState.Paused)
-                {
-                    ResumeGame();
-                }
-                else if (currentState == GameState.Playing)
-                {
-                    if (playerUIInstance != null && playerUIInstance.IsInventoryOpen)
-                        playerUIInstance.CloseInventory();
-                    else
-                        PauseGame();
-                }
-            }
-        }
-
-        #endregion
-
         #region Level Management
 
         public void RestartCurrentScene()
         {
             Debug.Log("[GameManager] Restarting current scene...");
 
-            if (respawnRoutine != null)
-            {
-                StopCoroutine(respawnRoutine);
-                respawnRoutine = null;
-            }
-
-            if (deathRoutine != null)
-            {
-                StopCoroutine(deathRoutine);
-                deathRoutine = null;
-            }
+            if (respawnRoutine != null) { StopCoroutine(respawnRoutine); respawnRoutine = null; }
+            if (deathRoutine != null) { StopCoroutine(deathRoutine); deathRoutine = null; }
 
             UnsubscribeFromPlayer(currentPlayer);
             currentPlayer = null;
@@ -731,7 +733,7 @@ namespace junklite
             GUILayout.Label($"PauseMenu:   {(pauseMenuUIInstance != null ? "Ready" : "Missing")}");
             GUILayout.Label($"LoadScreen:  {(loadingScreenUIInstance != null ? "Ready" : "Missing")}");
             GUILayout.Space(6);
-            GUILayout.Label("ESC - Pause / Resume");
+            GUILayout.Label("ESC / Start - Pause / Resume");
             GUILayout.EndArea();
         }
 

@@ -178,6 +178,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Pause",
+                    "type": "Button",
+                    "id": "cbe1241e-a2ac-4e5d-a2ed-664bdd6d0bb6",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "SpecialAttack",
                     "type": "Button",
                     "id": "9dde2f49-01f6-42f6-b82f-1d9b757df8cb",
@@ -709,6 +718,39 @@
                     "processors": "",
                     "groups": ";Touch",
                     "action": "Inventory",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "01bf19e0-97c7-4567-98ee-916f5e6b8028",
+                    "path": "<Keyboard>/escape",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Pause",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "c6c816b6-c82e-4f1f-9a20-3a7cb66d2054",
+                    "path": "<Gamepad>/start",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Gamepad",
+                    "action": "Pause",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "7266a829-6aaa-4c10-8804-5575e7c6396b",
+                    "path": "<DualShockGamepad>/start",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Gamepad;Joystick;Touch",
+                    "action": "Pause",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

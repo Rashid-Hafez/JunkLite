@@ -158,5 +158,11 @@ namespace junklite
         }
 
         #endregion
+
+        public void Click()
+        {
+            if (!interactable) return;
+            OnClick?.Invoke();
+        }
     }
 }
