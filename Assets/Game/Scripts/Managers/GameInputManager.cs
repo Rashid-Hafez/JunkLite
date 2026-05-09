@@ -53,15 +53,15 @@ namespace junklite
         public bool IsParryOnlyInputEnabled { get; private set; }
         public bool IsUsingGamepad { get; private set; }
 
-  
+
         public string GetModActivateHint(int slotIndex)
         {
             return slotIndex switch
             {
-                0 => controls.Player.ModActivate1.GetBindingDisplayString(),
-                1 => controls.Player.ModActivate2.GetBindingDisplayString(),
-                2 => controls.Player.ModActivate3.GetBindingDisplayString(),
-                3 => controls.Player.ModActivate4.GetBindingDisplayString(),
+                0 => controls.Player.ModActivate1.GetBindingDisplayString(bindingMask: InputBinding.MaskByGroup("Keyboard&Mouse")),
+                1 => controls.Player.ModActivate2.GetBindingDisplayString(bindingMask: InputBinding.MaskByGroup("Keyboard&Mouse")),
+                2 => controls.Player.ModActivate3.GetBindingDisplayString(bindingMask: InputBinding.MaskByGroup("Keyboard&Mouse")),
+                3 => controls.Player.ModActivate4.GetBindingDisplayString(bindingMask: InputBinding.MaskByGroup("Keyboard&Mouse")),
                 _ => ""
             };
         }

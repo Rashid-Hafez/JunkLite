@@ -571,7 +571,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""path"": ""<Gamepad>/dpad/down"",
                     ""interactions"": """",
                     ""processors"": """",
-                    ""groups"": "";Gamepad;Keyboard&Mouse"",
+                    ""groups"": "";Gamepad"",
                     ""action"": ""ModActivate2"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
