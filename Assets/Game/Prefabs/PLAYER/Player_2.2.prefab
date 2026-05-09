@@ -921,7 +921,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4096
   wallJumpForce: 10
-  wallJumpHorizontalForce: 7
+  wallJumpHorizontalForce: 8
   wallJumpDuration: 0.2
   wallJumpUpwardBonus: 2
   doubleJumpLockoutAfterWallJump: 0.2

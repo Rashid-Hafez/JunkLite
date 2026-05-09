@@ -545,14 +545,24 @@ namespace junklite
 
         #region Input
 
+        // AFTER
         private void HandleInput()
         {
             if (isLoadingScene) return;
 
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                if (currentState == GameState.Paused) ResumeGame();
-                else if (currentState == GameState.Playing) PauseGame();
+                if (currentState == GameState.Paused)
+                {
+                    ResumeGame();
+                }
+                else if (currentState == GameState.Playing)
+                {
+                    if (playerUIInstance != null && playerUIInstance.IsInventoryOpen)
+                        playerUIInstance.CloseInventory();
+                    else
+                        PauseGame();
+                }
             }
         }
 
