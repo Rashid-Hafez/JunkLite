@@ -1,4 +1,5 @@
 using System.Collections;
+using System;
 using System.IO;
 using System.Text;
 using UnityEngine;
@@ -84,6 +85,10 @@ namespace junklite
         // Damage flash state
         private Coroutine damageFlashCoroutine;
         private Coroutine attackNotifyCoroutine;
+        private bool tutorialFrozen;
+        private bool tutorialPreviousKinematic;
+        private Rigidbody tutorialFrozenRigidbody;
+        private EnemySpineAnimationController spineAnimationController;
 
         // Components
         protected StateMachine stateMachine;
@@ -125,6 +130,9 @@ namespace junklite
         public Vector3 DirectionToTarget => HasTarget ? (target.position - transform.position).normalized : Vector3.zero;
         public EnemyType EnemyType => enemyType;
         public EnemySoundProfile SoundProfile => soundProfile;
+        public bool IsTutorialFrozen => tutorialFrozen;
+
+        public event Action<EnemyCharacter> OnAttackNotifyShown;
 
         protected override void Awake()
         {
@@ -138,6 +146,8 @@ namespace junklite
 
             if (damageFlashUniversal == null)
                 damageFlashUniversal = GetComponentInChildren<DamageFlashUniversal>(true);
+            if (spineAnimationController == null)
+                spineAnimationController = GetComponentInChildren<EnemySpineAnimationController>(true);
 
             if (movement != null)
             {
@@ -199,6 +209,44 @@ namespace junklite
             if (attackWarningVfx != null)
                 attackWarningVfx.SetActive(true);
             GetComponentInChildren<EnemyAudioHandler>()?.PlayAttackNotify();
+            OnAttackNotifyShown?.Invoke(this);
+        }
+
+        public void SetTutorialFrozen(bool frozen)
+        {
+            if (tutorialFrozen == frozen)
+                return;
+
+            tutorialFrozen = frozen;
+
+            if (frozen)
+            {
+                stateMachine?.Pause();
+                movement?.Stop();
+
+                tutorialFrozenRigidbody = GetComponent<Rigidbody>();
+                if (tutorialFrozenRigidbody != null)
+                {
+                    tutorialPreviousKinematic = tutorialFrozenRigidbody.isKinematic;
+                    tutorialFrozenRigidbody.linearVelocity = Vector3.zero;
+                    tutorialFrozenRigidbody.angularVelocity = Vector3.zero;
+                    tutorialFrozenRigidbody.isKinematic = true;
+                }
+
+                spineAnimationController?.SetPlaybackPaused(true);
+            }
+            else
+            {
+                spineAnimationController?.SetPlaybackPaused(false);
+
+                if (tutorialFrozenRigidbody != null)
+                {
+                    tutorialFrozenRigidbody.isKinematic = tutorialPreviousKinematic;
+                    tutorialFrozenRigidbody = null;
+                }
+
+                stateMachine?.Resume();
+            }
         }
 
         public void ShowAttackWarningImmediate()

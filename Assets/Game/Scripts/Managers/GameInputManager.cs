@@ -46,6 +46,7 @@ namespace junklite
         /// UI inputs like inventory toggle remain active.
         /// </summary>
         public bool IsGameplayInputEnabled { get; private set; } = true;
+        public bool IsParryOnlyInputEnabled { get; private set; }
 
   
         public string GetModActivateHint(int slotIndex)
@@ -73,6 +74,13 @@ namespace junklite
                 // Notify listeners that movement stopped
                 OnMove(Vector2.zero);
             }
+        }
+
+        public void SetParryOnlyInputEnabled(bool enabled)
+        {
+            IsParryOnlyInputEnabled = enabled;
+            if (enabled)
+                SetGameplayInputEnabled(false);
         }
 
 
@@ -184,8 +192,8 @@ namespace junklite
                 Debug.Log("[Input] Parry action found and bound");
                 parryAction.performed += ctx =>
                 {
-                    Debug.Log("[Input] Parry performed, gameplay enabled? " + IsGameplayInputEnabled);
-                    if (!IsGameplayInputEnabled) return;
+                    Debug.Log("[Input] Parry performed, gameplay enabled? " + IsGameplayInputEnabled + ", parry only? " + IsParryOnlyInputEnabled);
+                    if (!IsGameplayInputEnabled && !IsParryOnlyInputEnabled) return;
                     OnParry();
                 };
             }

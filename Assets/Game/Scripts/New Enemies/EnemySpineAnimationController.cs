@@ -60,6 +60,7 @@ namespace junklite
         private StateMachine stateMachine;
         private EnemyCharacter enemyCharacter;
         private bool isDead;
+        private float previousTimeScale = 1f;
 
         private void Awake()
         {
@@ -171,6 +172,21 @@ namespace junklite
         }
 
         #region Public API
+
+        public void SetPlaybackPaused(bool paused)
+        {
+            if (skeletonAnimation == null) return;
+
+            if (paused)
+            {
+                previousTimeScale = skeletonAnimation.timeScale;
+                skeletonAnimation.timeScale = 0f;
+            }
+            else
+            {
+                skeletonAnimation.timeScale = previousTimeScale;
+            }
+        }
 
         public void PlayWindUpAnimation()
         {

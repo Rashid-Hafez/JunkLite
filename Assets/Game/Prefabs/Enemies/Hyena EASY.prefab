@@ -199,7 +199,7 @@ MonoBehaviour:
   attackRange: 2
   targetLayer:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 65537
   canBeKnockedBack: 1
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
@@ -209,7 +209,7 @@ MonoBehaviour:
   deathParticlePrefab: {fileID: 0}
   deathParticleLifetime: 2
   enemyVisual: {fileID: 0}
-  customDropTable: {fileID: 11400000, guid: fb56195b90a642d4cb499c818a9aeb3c, type: 2}
+  customDropTable: {fileID: 11400000, guid: 345e4d06679fd498dab8832465d57f3b, type: 2}
   dropChance: 1
   spineController: {fileID: 6885050171418826779}
   patrol:

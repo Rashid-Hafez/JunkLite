@@ -45,8 +45,11 @@ namespace junklite
         [SerializeField] private DialogueSequence secondPlatformDialogue;
         [SerializeField] private DialogueSequence thirdPlatformDialogue;
         [SerializeField] private DialogueSequence combatIntroDialogue;
+        [SerializeField] private DialogueSequence parryPromptDialogue;
         [SerializeField] private DialogueSequence postEnemyDialogue;
         [SerializeField] private DialogueSequence postPickupDialogue;
+        [SerializeField] private DialogueSequence modActivationPromptDialogue;
+        [SerializeField] private DialogueSequence inventoryPromptDialogue;
         [SerializeField] private DialogueSequence finalDialogue;
 
         [Header("Platform Steps")]
@@ -89,13 +92,17 @@ namespace junklite
             ObjectiveTwo, PlatformTwoComplete, ThirdPlatformDialogue,
             ObjectiveThree, PlatformThreeComplete, CombatIntroDialogue,
             EnemyWave, PostEnemyDialogue, WeaponPickup, PostPickupDialogue,
-            FinalEnemyWave, FinalDialogue, WaitCombatMode, LoadNextScene, Done
+            WaitCombatMode, ModActivationPrompt, WaitModActivation,
+            InventoryPrompt, WaitInventoryOpen, WaitInventoryClose,
+            FinalEnemyWave, FinalDialogue, LoadNextScene, Done
         }
 
         private Stage currentStage;
         private PlayerCharacter currentPlayer;
         private Light playerLight;
         private WeaponManager currentWeaponManager;
+        private ModManager currentModManager;
+        private SpineAnimationController currentSpineAnimationController;
         private Coroutine revealFadeRoutine;
         private bool platformCompleteBeatRunning;
 
@@ -108,7 +115,12 @@ namespace junklite
         private bool objectiveHit;
         private bool combatModeToggled;
         private bool inventoryOpened;
+        private bool inventoryClosed;
+        private bool modActivated;
         private bool weaponPickedUp;
+        private bool parryTutorialPromptUsed;
+        private bool parryTutorialPressed;
+        private Coroutine parryTutorialRoutine;
 
         #endregion
 
@@ -146,13 +158,17 @@ namespace junklite
             if (platformCompleteDirector != null) platformCompleteDirector.stopped -= OnTimelineStopped;
             if (completionAnimation != null) completionAnimation.Stop();
             if (currentWeaponManager != null) currentWeaponManager.OnWeaponChanged -= OnWeaponPickedUp;
+            if (currentModManager != null) currentModManager.OnActiveModActivated -= OnActiveModActivated;
             if (activeTutorialPickup != null) Destroy(activeTutorialPickup.gameObject);
+            if (parryTutorialRoutine != null) StopCoroutine(parryTutorialRoutine);
             if (revealFadeRoutine != null) StopCoroutine(revealFadeRoutine);
 
             if (GameInputManager.Instance != null)
             {
                 GameInputManager.Instance.OnCombatModeToggle -= OnCombatModeToggled;
                 GameInputManager.Instance.OnInventoryToggle -= OnInventoryToggled;
+                GameInputManager.Instance.OnParry -= OnTutorialParryPressed;
+                GameInputManager.Instance.SetParryOnlyInputEnabled(false);
             }
         }
 
@@ -262,10 +278,23 @@ namespace junklite
             SetStage(Stage.WaitCombatMode);
             yield return WaitForCombatModeToggle();
 
-            SetStage(Stage.FinalEnemyWave);
-            SpawnPostPickupEnemy();
-            yield return WaitForAllEnemiesDead();
-            yield return WaitForParryEffectsToSettle();
+            SetStage(Stage.ModActivationPrompt);
+            if (modActivationPromptDialogue != null)
+                yield return RunDialogue(modActivationPromptDialogue);
+
+            SetStage(Stage.WaitModActivation);
+            yield return WaitForActiveModActivation();
+            yield return WaitForModActivationAnimationComplete();
+
+            SetStage(Stage.InventoryPrompt);
+            if (inventoryPromptDialogue != null)
+                yield return RunDialogue(inventoryPromptDialogue);
+
+            SetStage(Stage.WaitInventoryOpen);
+            yield return WaitForInventoryOpen();
+
+            SetStage(Stage.WaitInventoryClose);
+            yield return WaitForInventoryClose();
 
             SetStage(Stage.FinalDialogue);
             if (finalDialogue != null)
@@ -373,7 +402,11 @@ namespace junklite
                 currentPlayer = GameManager.Instance.Player;
 
             if (currentPlayer != null)
+            {
                 currentWeaponManager = currentPlayer.GetComponentInChildren<WeaponManager>(true);
+                currentModManager = currentPlayer.GetComponentInChildren<ModManager>(true);
+                currentSpineAnimationController = currentPlayer.GetComponentInChildren<SpineAnimationController>(true);
+            }
         }
 
         private void PlayCinematicSfx(SoundEntry entry, Transform point = null)
@@ -553,6 +586,7 @@ namespace junklite
             UnsubscribeEnemyCallbacks();
             spawnedEnemies.Clear();
             enemiesAlive = 0;
+            parryTutorialPromptUsed = false;
 
             if (enemyPrefabs == null || enemyPrefabs.Length == 0)
             {
@@ -580,6 +614,7 @@ namespace junklite
 
                 spawnedEnemies.Add(enemy);
                 enemiesAlive++;
+                enemy.OnAttackNotifyShown += OnTutorialEnemyAttackNotifyShown;
 
                 var sm = enemy.GetComponent<StateMachine>();
                 if (sm != null) sm.OnStateChanged += OnWaveEnemyStateChanged;
@@ -617,10 +652,55 @@ namespace junklite
 
             spawnedEnemies.Add(enemy);
             enemiesAlive++;
+            enemy.OnAttackNotifyShown += OnTutorialEnemyAttackNotifyShown;
 
             var sm = enemy.GetComponent<StateMachine>();
             if (sm != null) sm.OnStateChanged += OnWaveEnemyStateChanged;
         }
+
+        private void OnTutorialEnemyAttackNotifyShown(EnemyCharacter enemy)
+        {
+            if (currentStage != Stage.EnemyWave || parryTutorialPromptUsed || enemy == null)
+                return;
+
+            parryTutorialPromptUsed = true;
+            parryTutorialRoutine = StartCoroutine(RunParryTutorialPrompt(enemy));
+        }
+
+        private IEnumerator RunParryTutorialPrompt(EnemyCharacter enemy)
+        {
+            enemy.SetTutorialFrozen(true);
+
+            if (GameInputManager.Instance != null)
+                GameInputManager.Instance.SetGameplayInputEnabled(false);
+
+            if (parryPromptDialogue != null)
+                yield return RunDialogue(parryPromptDialogue);
+
+            parryTutorialPressed = false;
+            if (GameInputManager.Instance != null)
+            {
+                GameInputManager.Instance.SetParryOnlyInputEnabled(true);
+                GameInputManager.Instance.OnParry += OnTutorialParryPressed;
+            }
+
+            while (!parryTutorialPressed)
+                yield return null;
+
+            if (GameInputManager.Instance != null)
+            {
+                GameInputManager.Instance.OnParry -= OnTutorialParryPressed;
+                GameInputManager.Instance.SetParryOnlyInputEnabled(false);
+                GameInputManager.Instance.SetGameplayInputEnabled(true);
+            }
+
+            if (enemy != null)
+                enemy.SetTutorialFrozen(false);
+
+            parryTutorialRoutine = null;
+        }
+
+        private void OnTutorialParryPressed() => parryTutorialPressed = true;
 
         private void OnWaveEnemyStateChanged(IState from, IState to)
         {
@@ -645,6 +725,8 @@ namespace junklite
             foreach (var enemy in spawnedEnemies)
             {
                 if (enemy == null) continue;
+                enemy.OnAttackNotifyShown -= OnTutorialEnemyAttackNotifyShown;
+                enemy.SetTutorialFrozen(false);
                 var sm = enemy.GetComponent<StateMachine>();
                 if (sm != null) sm.OnStateChanged -= OnWaveEnemyStateChanged;
             }
@@ -724,6 +806,53 @@ namespace junklite
         }
 
         private void OnInventoryToggled() => inventoryOpened = true;
+
+        private IEnumerator WaitForInventoryClose()
+        {
+            inventoryClosed = false;
+            GameInputManager.Instance.OnInventoryToggle += OnInventoryClosedToggled;
+
+            while (!inventoryClosed)
+                yield return null;
+
+            GameInputManager.Instance.OnInventoryToggle -= OnInventoryClosedToggled;
+        }
+
+        private void OnInventoryClosedToggled() => inventoryClosed = true;
+
+        private IEnumerator WaitForActiveModActivation()
+        {
+            RefreshPlayerRef();
+
+            if (currentModManager == null)
+            {
+                Debug.LogWarning("[Level0Sequence] No ModManager found on current player.");
+                yield break;
+            }
+
+            modActivated = false;
+            currentModManager.OnActiveModActivated += OnActiveModActivated;
+
+            while (!modActivated)
+                yield return null;
+
+            currentModManager.OnActiveModActivated -= OnActiveModActivated;
+        }
+
+        private void OnActiveModActivated(int _) => modActivated = true;
+
+        private IEnumerator WaitForModActivationAnimationComplete()
+        {
+            RefreshPlayerRef();
+
+            if (currentSpineAnimationController == null)
+                yield break;
+
+            yield return null;
+
+            while (currentSpineAnimationController.IsForceOverrideActive)
+                yield return null;
+        }
 
         #endregion
 
