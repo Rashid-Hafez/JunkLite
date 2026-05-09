@@ -78,6 +78,11 @@ namespace junklite
         public WeaponSocketOffset socketOffset;
 
         // =====================================================================
+        [Header("Audio")]
+        public SoundEntry attackSfx;
+        public SoundEntryGroup attackVariants;
+        
+        // =====================================================================
         // ABSTRACT INTERFACE
         // =====================================================================
 

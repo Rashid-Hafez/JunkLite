@@ -319,6 +319,19 @@ namespace junklite
             AudioManager.Instance.PlaySpatialAtPosition(entry, position, spatialBlend: 0f);
         }
 
+        private void PlayWeaponAttackSfx(WeaponData data)
+        {
+            if (data == null) return;
+
+            SoundEntry entry = null;
+            if (data.attackVariants != null && data.attackVariants.HasEntries)
+                entry = data.attackVariants.GetRandomEntry();
+            else
+                entry = data.attackSfx;
+
+            PlaySfxAtPlayer(entry);
+        }
+
         #endregion
 
         #region Public API
@@ -536,6 +549,9 @@ namespace junklite
 
             if (playerState != null)
                 playerState.SetAttacking(true);
+
+            // Play weapon-specific attack sound (if assigned on the WeaponData)
+            PlayWeaponAttackSfx(data);
 
             ApplyAttackInputLock();
 
