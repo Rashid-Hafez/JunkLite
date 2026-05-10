@@ -1870,7 +1870,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 15c38f6fa1940124db1ab7f6fe7268d1, type: 3}
   m_Name: Signal Emitter
   m_EditorClassIdentifier: Unity.Timeline::UnityEngine.Timeline.SignalEmitter
-  m_Time: 5.5
+  m_Time: 5.06666666666667
   m_Retroactive: 0
   m_EmitOnce: 0
   m_Asset: {fileID: 11400000, guid: 2affc7c66a6782745a43bd147a27d94d, type: 2}
@@ -2468,6 +2468,22 @@ MonoBehaviour:
   VirtualCamera:
     exposedName: 8580bab6200320945b0a9e421001a780
     defaultValue: {fileID: 0}
+--- !u!114 &3536854918727393527
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 15c38f6fa1940124db1ab7f6fe7268d1, type: 3}
+  m_Name: Signal Emitter
+  m_EditorClassIdentifier: Unity.Timeline::UnityEngine.Timeline.SignalEmitter
+  m_Time: 0.48333333333333334
+  m_Retroactive: 0
+  m_EmitOnce: 0
+  m_Asset: {fileID: 11400000, guid: 136d90aaa1c7c4943a51b4200483353d, type: 2}
 --- !u!114 &3653871142314713890
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -2510,6 +2526,7 @@ MonoBehaviour:
     - {fileID: -546694245280789476}
     - {fileID: 7602483544568729220}
     - {fileID: -3214860430984221517}
+    - {fileID: 3536854918727393527}
 --- !u!114 &4430590172601317725
 MonoBehaviour:
   m_ObjectHideFlags: 1

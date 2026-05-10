@@ -9,6 +9,7 @@ namespace junklite
     {
         [Header("Trigger")]
         [SerializeField] private string playerTag = "Player";
+        [SerializeField, Min(0f)] private float armTriggerAfterSeconds = 1f;
 
         [Header("Timeline")]
         [SerializeField] private PlayableDirector director;
@@ -28,16 +29,26 @@ namespace junklite
 
         private bool sequenceStarted;
         private bool directorStopped;
+        private float triggerArmedAt;
 
         private void Awake()
         {
             if (director == null)
-                director = GetComponentInParent<PlayableDirector>();
+            {
+                Debug.LogError("[EndGameSequenceController] PlayableDirector is not assigned. Disable this component to avoid cross-wired timelines.", this);
+                enabled = false;
+                return;
+            }
+
+            if (cinematic == null)
+                Debug.LogWarning("[EndGameSequenceController] No cinematic asset assigned. Director default playableAsset will be used.", this);
 
             ResolveFadeTarget();
 
             if (resetFadeOnAwake)
                 SetFadeAlpha(0f);
+
+            triggerArmedAt = Time.unscaledTime + armTriggerAfterSeconds;
         }
 
         private void OnDestroy()
@@ -48,6 +59,9 @@ namespace junklite
 
         private void OnTriggerEnter(Collider other)
         {
+            if (Time.unscaledTime < triggerArmedAt)
+                return;
+
             if (!string.IsNullOrEmpty(playerTag) && !other.CompareTag(playerTag))
                 return;
 

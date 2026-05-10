@@ -141,6 +141,8 @@ namespace junklite
         private void RefreshSceneReferences()
         {
             spawnPoints = null;
+            if (playerUIInstance != null)
+                Destroy(playerUIInstance.gameObject);
             playerUIInstance = null;
             gameplayCanvasTransform = null;
 
@@ -187,6 +189,8 @@ namespace junklite
             EnsureGameOverUI();
             SpawnPlayer();
             SetGameState(GameState.Playing);
+            PlayerCombatTracker.Instance?.ClearCombatState();
+            PlayLevelMusic();
         }
 
         #endregion
