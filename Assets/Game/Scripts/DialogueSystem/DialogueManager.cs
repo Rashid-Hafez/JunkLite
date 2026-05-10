@@ -29,6 +29,8 @@ public class DialogueManager : MonoBehaviour
     private Coroutine typingCoroutine;
     private bool isTyping;
     private bool waitingForInput;
+    private bool revealedCurrentLine;
+    private int lastShownIndex = -1;
 
     public event Action OnDialogueContinue = delegate { };
     public event Action OnDialogueEnded = delegate { };
@@ -52,31 +54,20 @@ public class DialogueManager : MonoBehaviour
 
         private void Start()
     {
-        OnDialogueContinue += NextLine;
+        // Do not subscribe NextLine to the OnDialogueContinue event to avoid
+        // re-entrancy/duplicate calls when input triggers the event. Input is
+        // handled explicitly by ProcessContinueInput which calls NextLine()
+        // directly.
 
         dialogueBox.SetActive(false);
         if (continueIndicator) continueIndicator.SetActive(false);
-
-            // Only invoke continue when the current line allows skipping and global suppression is off.
-            playerContinueCallback = _ =>
-            {
-                if (IsContinueInputSuppressed) return;
-                if (currentSequence == null) return;
-                if (currentIndex < 0 || currentIndex >= currentSequence.dialogueLines.Length) return;
-                var line = currentSequence.dialogueLines[currentIndex];
-                if (!line.canSkip) return;
-                OnDialogueContinue();
-            };
-
-            uiContinueCallback = _ =>
-            {
-                if (IsContinueInputSuppressed) return;
-                if (currentSequence == null) return;
-                if (currentIndex < 0 || currentIndex >= currentSequence.dialogueLines.Length) return;
-                var line = currentSequence.dialogueLines[currentIndex];
-                if (!line.canSkip) return;
-                OnDialogueContinue();
-            };
+            // Route continue input through a single handler that:
+            // - ignores input when globally suppressed
+            // - ignores input for unskippable lines
+            // - when typing, reveals the full line on first press
+            // - only advances when the line is revealed and ready to advance
+            playerContinueCallback = _ => ProcessContinueInput();
+            uiContinueCallback = _ => ProcessContinueInput();
 
             GameInputManager.Instance.controls.Player.DialogueContinue.performed += playerContinueCallback;
             GameInputManager.Instance.controls.UI.DialogueContinue.performed += uiContinueCallback;
@@ -87,7 +78,6 @@ public class DialogueManager : MonoBehaviour
         if (instance == this)
             instance = null;
 
-        OnDialogueContinue -= NextLine;
 
         //if (GameInputManager.Instance == null) return;
         GameInputManager.Instance.controls.Player.DialogueContinue.performed -= playerContinueCallback;
@@ -166,6 +156,10 @@ public class DialogueManager : MonoBehaviour
 
     private void ShowLine()
     {
+        // Prevent restarting the same line if it's already being shown/typed.
+        if (lastShownIndex == currentIndex && (isTyping || revealedCurrentLine))
+            return;
+
         var line = currentSequence.dialogueLines[currentIndex];
 
         speakerText.text = line.speakerName;
@@ -179,6 +173,9 @@ public class DialogueManager : MonoBehaviour
         if (typingCoroutine != null)
             StopCoroutine(typingCoroutine);
 
+        // reset reveal state for the new line
+        revealedCurrentLine = false;
+        lastShownIndex = currentIndex;
         typingCoroutine = StartCoroutine(TypeLine(line));
     }
 
@@ -195,6 +192,7 @@ public class DialogueManager : MonoBehaviour
         }
 
         isTyping = false;
+        revealedCurrentLine = true;
 
         if (line.requiresPlayerInput)
         {
@@ -206,6 +204,45 @@ public class DialogueManager : MonoBehaviour
             yield return new WaitForSeconds(line.autoAdvanceDelay);
             NextLine();
         }
+    }
+
+    private void ProcessContinueInput()
+    {
+        if (IsContinueInputSuppressed) return;
+        if (currentSequence == null) return;
+        if (currentIndex < 0 || currentIndex >= currentSequence.dialogueLines.Length) return;
+
+        var line = currentSequence.dialogueLines[currentIndex];
+
+        // absolutely ignore input for unskippable lines
+        if (!line.canSkip) return;
+
+        // If we're still typing, reveal the rest of the line on first press
+        if (isTyping && !revealedCurrentLine)
+        {
+            if (typingCoroutine != null)
+                StopCoroutine(typingCoroutine);
+            dialogueText.text = line.dialogueText;
+            isTyping = false;
+            revealedCurrentLine = true;
+
+            if (line.requiresPlayerInput)
+            {
+                waitingForInput = true;
+                if (continueIndicator) continueIndicator.SetActive(true);
+            }
+
+            return;
+        }
+
+        // If this line requires player input, don't advance until the player is expected to continue
+        if (line.requiresPlayerInput && !waitingForInput) return;
+
+        // Safe to advance: call NextLine directly to avoid event-based re-entrancy.
+        NextLine();
+        // Notify external subscribers that a continue occurred (do not subscribe
+        // NextLine to this event to avoid duplicate calls).
+        OnDialogueContinue?.Invoke();
     }
 
     private void EndDialogue()
