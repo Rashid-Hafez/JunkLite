@@ -508,13 +508,21 @@ namespace junklite
                 Time.timeScale = 1f;
                 if (!string.IsNullOrWhiteSpace(continueSceneName))
                 {
-                    SceneManager.LoadScene(continueSceneName);
+                    if (GameManager.Instance != null)
+                        GameManager.Instance.LoadLevel(continueSceneName);
+                    else
+                        SceneManager.LoadScene(continueSceneName);
                 }
                 else
                 {
                     int next = SceneManager.GetActiveScene().buildIndex + 1;
                     if (next < SceneManager.sceneCountInBuildSettings)
-                        SceneManager.LoadScene(next);
+                    {
+                        if (GameManager.Instance != null)
+                            GameManager.Instance.LoadLevel(next);
+                        else
+                            SceneManager.LoadScene(next);
+                    }
                     else
                         Debug.LogWarning("[LevelResultsScreen] No next scene. Assign continueSceneName.");
                 }

@@ -23,6 +23,7 @@ namespace junklite
         [Header("Director / Timeline")]
         [SerializeField] private PlayableDirector director;
         [SerializeField] private PlayableDirector platformCompleteDirector;
+        [SerializeField] private PlayableDirector endCinematicDirector;
 
         [Header("Completion Animation")]
         [SerializeField] private PngSequencePlayer completionAnimation;
@@ -75,6 +76,7 @@ namespace junklite
 
         [Header("Scene Transition")]
         [SerializeField] private string nextSceneName;
+        [SerializeField] private int nextSceneBuildIndex = -1;
 
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
@@ -156,6 +158,7 @@ namespace junklite
 
             if (director != null) director.stopped -= OnTimelineStopped;
             if (platformCompleteDirector != null) platformCompleteDirector.stopped -= OnTimelineStopped;
+            if (endCinematicDirector != null) endCinematicDirector.stopped -= OnTimelineStopped;
             if (completionAnimation != null) completionAnimation.Stop();
             if (currentWeaponManager != null) currentWeaponManager.OnWeaponChanged -= OnWeaponPickedUp;
             if (currentModManager != null) currentModManager.OnActiveModActivated -= OnActiveModActivated;
@@ -323,6 +326,9 @@ namespace junklite
             SetStage(Stage.FinalDialogue);
             if (finalDialogue != null)
                 yield return RunDialogue(finalDialogue);
+
+            if (endCinematicDirector != null)
+                yield return RunDirector(endCinematicDirector, rewindToStart: true);
 
             SetStage(Stage.LoadNextScene);
             LoadConfiguredScene();
@@ -969,13 +975,35 @@ namespace junklite
         {
             SetStage(Stage.Done);
 
-            if (string.IsNullOrEmpty(nextSceneName))
+            if (GameManager.Instance == null)
             {
-                Debug.LogWarning("[Level0Sequence] No next scene configured.");
+                Debug.LogError("[Level0Sequence] GameManager missing. Cannot load next scene.");
                 return;
             }
 
-            GameManager.Instance.LoadLevel(nextSceneName);
+            if (nextSceneBuildIndex >= 0)
+            {
+                Debug.Log($"[Level0Sequence] Loading next scene by build index: {nextSceneBuildIndex}");
+                GameManager.Instance.LoadLevel(nextSceneBuildIndex);
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(nextSceneName))
+            {
+                Debug.Log($"[Level0Sequence] Loading next scene by name: {nextSceneName}");
+                GameManager.Instance.LoadLevel(nextSceneName);
+                return;
+            }
+
+            int fallbackIndex = SceneManager.GetActiveScene().buildIndex + 1;
+            if (fallbackIndex >= 0 && fallbackIndex < SceneManager.sceneCountInBuildSettings)
+            {
+                Debug.LogWarning($"[Level0Sequence] Next scene not configured. Falling back to next build index: {fallbackIndex}");
+                GameManager.Instance.LoadLevel(fallbackIndex);
+                return;
+            }
+
+            Debug.LogWarning("[Level0Sequence] No next scene configured and no valid fallback index.");
         }
 
         #endregion

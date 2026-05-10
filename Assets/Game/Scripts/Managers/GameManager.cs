@@ -189,6 +189,8 @@ namespace junklite
             EnsureGameOverUI();
             SpawnPlayer();
             SetGameState(GameState.Playing);
+            PlayerCombatTracker.Instance?.ClearCombatState();
+            PlayLevelMusic();
         }
 
         #endregion
