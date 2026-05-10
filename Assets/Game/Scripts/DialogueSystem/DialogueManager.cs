@@ -50,18 +50,36 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
-    private void Start()
+        private void Start()
     {
         OnDialogueContinue += NextLine;
 
         dialogueBox.SetActive(false);
         if (continueIndicator) continueIndicator.SetActive(false);
 
-        playerContinueCallback = _ => { if (!IsContinueInputSuppressed) OnDialogueContinue(); };
-        uiContinueCallback = _ => { if (!IsContinueInputSuppressed) OnDialogueContinue(); };
+            // Only invoke continue when the current line allows skipping and global suppression is off.
+            playerContinueCallback = _ =>
+            {
+                if (IsContinueInputSuppressed) return;
+                if (currentSequence == null) return;
+                if (currentIndex < 0 || currentIndex >= currentSequence.dialogueLines.Length) return;
+                var line = currentSequence.dialogueLines[currentIndex];
+                if (!line.canSkip) return;
+                OnDialogueContinue();
+            };
 
-        GameInputManager.Instance.controls.Player.DialogueContinue.performed += playerContinueCallback;
-        GameInputManager.Instance.controls.UI.DialogueContinue.performed += uiContinueCallback;
+            uiContinueCallback = _ =>
+            {
+                if (IsContinueInputSuppressed) return;
+                if (currentSequence == null) return;
+                if (currentIndex < 0 || currentIndex >= currentSequence.dialogueLines.Length) return;
+                var line = currentSequence.dialogueLines[currentIndex];
+                if (!line.canSkip) return;
+                OnDialogueContinue();
+            };
+
+            GameInputManager.Instance.controls.Player.DialogueContinue.performed += playerContinueCallback;
+            GameInputManager.Instance.controls.UI.DialogueContinue.performed += uiContinueCallback;
     }
 
     private void OnDestroy()
@@ -112,6 +130,7 @@ public class DialogueManager : MonoBehaviour
         {
             IsContinueInputSuppressed = true;
         }
+
         // Skip typing — reveal full line immediately
         if (isTyping)
         {
