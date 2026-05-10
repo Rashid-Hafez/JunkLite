@@ -31,6 +31,9 @@ public class DialogueManager : MonoBehaviour
     private bool waitingForInput;
     private bool revealedCurrentLine;
     private int lastShownIndex = -1;
+    private float lastContinueTime = -10f;
+    private float continueDebounce = 0.12f; // seconds, uses unscaled time so it works during freezes
+
 
     public event Action OnDialogueContinue = delegate { };
     public event Action OnDialogueEnded = delegate { };
@@ -38,6 +41,7 @@ public class DialogueManager : MonoBehaviour
     // Stored so we can unsubscribe on destroy
     private Action<InputAction.CallbackContext> playerContinueCallback;
     private Action<InputAction.CallbackContext> uiContinueCallback;
+    private Action parryCallback;
 
     #region Lifecycle
 
@@ -71,6 +75,14 @@ public class DialogueManager : MonoBehaviour
 
             GameInputManager.Instance.controls.Player.DialogueContinue.performed += playerContinueCallback;
             GameInputManager.Instance.controls.UI.DialogueContinue.performed += uiContinueCallback;
+
+            // Listen for parry input so that when the player parries during a
+            // freeze (timeScale == 0) we can advance dialogue appropriately.
+            if (GameInputManager.Instance != null)
+            {
+                parryCallback = () => { if (IsInDialogue) ParryAdvance(); };
+                GameInputManager.Instance.OnParry += parryCallback;
+            }
     }
 
     private void OnDestroy()
@@ -82,6 +94,8 @@ public class DialogueManager : MonoBehaviour
         //if (GameInputManager.Instance == null) return;
         GameInputManager.Instance.controls.Player.DialogueContinue.performed -= playerContinueCallback;
         GameInputManager.Instance.controls.UI.DialogueContinue.performed -= uiContinueCallback;
+        if (GameInputManager.Instance != null && parryCallback != null)
+            GameInputManager.Instance.OnParry -= parryCallback;
     }
 
     #endregion
@@ -90,9 +104,27 @@ public class DialogueManager : MonoBehaviour
 
     public void StartDialogue(DialogueSequence sequence)
     {
+        // Ignore duplicate requests to start the same sequence while it's
+        // already active to avoid restarting the currently shown line.
+        if (currentSequence != null && currentSequence == sequence)
+        {
+            Debug.Log("DialogueManager: StartDialogue called for already-active sequence; ignoring duplicate.");
+            return;
+        }
+
         currentSequence = sequence;
         currentIndex = 0;
         dialogueBox.SetActive(true);
+        // Reset per-line guards/state so re-starting a sequence shows lines cleanly.
+        if (typingCoroutine != null)
+        {
+            StopCoroutine(typingCoroutine);
+            typingCoroutine = null;
+        }
+        isTyping = false;
+        revealedCurrentLine = false;
+        lastShownIndex = -1;
+
         ShowLine();
 
     }
@@ -159,6 +191,7 @@ public class DialogueManager : MonoBehaviour
         // Prevent restarting the same line if it's already being shown/typed.
         if (lastShownIndex == currentIndex && (isTyping || revealedCurrentLine))
             return;
+        
 
         var line = currentSequence.dialogueLines[currentIndex];
 
@@ -208,6 +241,9 @@ public class DialogueManager : MonoBehaviour
 
     private void ProcessContinueInput()
     {
+        // debounce rapid/duplicate input (use unscaled time so it works during pausing/freezes)
+        if (Time.unscaledTime - lastContinueTime < continueDebounce) return;
+
         if (IsContinueInputSuppressed) return;
         if (currentSequence == null) return;
         if (currentIndex < 0 || currentIndex >= currentSequence.dialogueLines.Length) return;
@@ -239,10 +275,55 @@ public class DialogueManager : MonoBehaviour
         if (line.requiresPlayerInput && !waitingForInput) return;
 
         // Safe to advance: call NextLine directly to avoid event-based re-entrancy.
+        lastContinueTime = Time.unscaledTime;
         NextLine();
         // Notify external subscribers that a continue occurred (do not subscribe
         // NextLine to this event to avoid duplicate calls).
         OnDialogueContinue?.Invoke();
+    }
+
+    /// <summary>
+    /// Advance dialogue in response to a parry input. This bypasses normal
+    /// input suppression and debouncing so it will work while the game is
+    /// frozen (timeScale == 0). It will reveal the current line if typing
+    /// and then advance.
+    /// </summary>
+    public void ParryAdvance()
+    {
+        if (currentSequence == null) return;
+
+        var line = currentSequence.dialogueLines[currentIndex];
+
+        // Reveal if still typing
+        if (isTyping)
+        {
+            if (typingCoroutine != null)
+                StopCoroutine(typingCoroutine);
+            dialogueText.text = line.dialogueText;
+            isTyping = false;
+            revealedCurrentLine = true;
+            // If this line requires explicit player input, mark it satisfied so NextLine can proceed.
+            if (line.requiresPlayerInput)
+                waitingForInput = true;
+        }
+
+        // Force advancement regardless of canSkip or suppression
+        lastContinueTime = Time.unscaledTime;
+        NextLine();
+        OnDialogueContinue?.Invoke();
+        // If the game is frozen, coroutines using scaled time won't progress.
+        // Reveal the newly shown line immediately so the player sees it during the freeze.
+        if (currentSequence != null && currentIndex >= 0 && currentIndex < currentSequence.dialogueLines.Length && Time.timeScale == 0f)
+        {
+            var newLine = currentSequence.dialogueLines[currentIndex];
+            if (typingCoroutine != null)
+                StopCoroutine(typingCoroutine);
+            dialogueText.text = newLine.dialogueText;
+            isTyping = false;
+            revealedCurrentLine = true;
+            waitingForInput = newLine.requiresPlayerInput;
+            if (waitingForInput && continueIndicator) continueIndicator.SetActive(true);
+        }
     }
 
     private void EndDialogue()
