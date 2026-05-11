@@ -210,18 +210,18 @@ MonoBehaviour:
   deathParticleLifetime: 2
   enemyVisual: {fileID: 0}
   customDropTable: {fileID: 11400000, guid: 345e4d06679fd498dab8832465d57f3b, type: 2}
-  dropChance: 1
+  dropChance: 0
   spineController: {fileID: 6885050171418826779}
   patrol:
     patrolDistance: 6.05
-    patrolSpeed: 5
+    patrolSpeed: 7
     wallCheckDistance: 0.5
     wallLayer:
       serializedVersion: 2
       m_Bits: 6144
     wallCheckPoint: {fileID: 5151501263871442441}
   chase:
-    chaseSpeed: 7
+    chaseSpeed: 10
     chaseStopDistance: 2
   pursuitRadius: 15
   melee:
@@ -244,7 +244,7 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 0
     wallCheckBuffer: 0.3
-    forwardDodgeChance: 0.5
+    forwardDodgeChance: 0
   dodgeChance: 0
   dodgeCheckRange: 4
   dodgeCooldown: 0.5

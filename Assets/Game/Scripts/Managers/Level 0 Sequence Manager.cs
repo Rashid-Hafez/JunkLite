@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -74,6 +75,11 @@ namespace junklite
         [SerializeField] private GameObject postPickupEnemyPrefab;
         [SerializeField] private Transform postPickupEnemySpawnPoint;
 
+        [Header("Mod pickup (after hyena)")]
+        [Tooltip("Prefab from Project, or an inactive pickup already in the scene.")]
+        [SerializeField] private GameObject tutorialModPickup;
+        [SerializeField] private Transform tutorialModPickupSpawnPoint;
+
         [Header("Scene Transition")]
         [SerializeField] private string nextSceneName;
         [SerializeField] private int nextSceneBuildIndex = -1;
@@ -109,8 +115,10 @@ namespace junklite
         private bool platformCompleteBeatRunning;
 
         private readonly List<EnemyCharacter> spawnedEnemies = new();
+        private readonly List<(EnemyCharacter enemy, Action<IState, IState> handler)> waveEnemyStateHandlers = new();
         private int enemiesAlive;
         private WorldWeaponPickup activeTutorialPickup;
+        private bool tutorialModHyenaSpawnHandled;
 
         private bool dialogueFinished;
         private bool timelineFinished;
@@ -615,8 +623,10 @@ namespace junklite
         {
             UnsubscribeEnemyCallbacks();
             spawnedEnemies.Clear();
+            waveEnemyStateHandlers.Clear();
             enemiesAlive = 0;
             parryTutorialPromptUsed = false;
+            tutorialModHyenaSpawnHandled = false;
 
             if (enemyPrefabs == null || enemyPrefabs.Length == 0)
             {
@@ -644,10 +654,7 @@ namespace junklite
 
                 spawnedEnemies.Add(enemy);
                 enemiesAlive++;
-                enemy.OnAttackNotifyShown += OnTutorialEnemyAttackNotifyShown;
-
-                var sm = enemy.GetComponent<StateMachine>();
-                if (sm != null) sm.OnStateChanged += OnWaveEnemyStateChanged;
+                SubscribeTrackedWaveEnemy(enemy);
             }
 
             Debug.Log($"[Level0Sequence] Spawned {enemiesAlive} enemies");
@@ -657,6 +664,7 @@ namespace junklite
         {
             UnsubscribeEnemyCallbacks();
             spawnedEnemies.Clear();
+            waveEnemyStateHandlers.Clear();
             enemiesAlive = 0;
 
             if (postPickupEnemyPrefab == null)
@@ -682,10 +690,20 @@ namespace junklite
 
             spawnedEnemies.Add(enemy);
             enemiesAlive++;
+            SubscribeTrackedWaveEnemy(enemy);
+        }
+
+        private void SubscribeTrackedWaveEnemy(EnemyCharacter enemy)
+        {
             enemy.OnAttackNotifyShown += OnTutorialEnemyAttackNotifyShown;
 
             var sm = enemy.GetComponent<StateMachine>();
-            if (sm != null) sm.OnStateChanged += OnWaveEnemyStateChanged;
+            if (sm == null) return;
+
+            EnemyCharacter captured = enemy;
+            Action<IState, IState> handler = (from, to) => OnWaveEnemyStateChanged(captured, from, to);
+            waveEnemyStateHandlers.Add((enemy, handler));
+            sm.OnStateChanged += handler;
         }
 
         private void OnTutorialEnemyAttackNotifyShown(EnemyCharacter enemy)
@@ -732,13 +750,42 @@ namespace junklite
 
         private void OnTutorialParryPressed() => parryTutorialPressed = true;
 
-        private void OnWaveEnemyStateChanged(IState from, IState to)
+        private void OnWaveEnemyStateChanged(EnemyCharacter enemy, IState from, IState to)
         {
-            if (to is DeadState)
+            if (to is not DeadState)
+                return;
+
+            enemiesAlive = Mathf.Max(0, enemiesAlive - 1);
+            Debug.Log($"[Level0Sequence] Enemy died — {enemiesAlive} remaining");
+
+            if (enemy != null && enemy.EnemyType == EnemyType.Hyena)
+                SpawnOrActivateTutorialModAfterHyenaDeath();
+        }
+
+        private void SpawnOrActivateTutorialModAfterHyenaDeath()
+        {
+            if (tutorialModHyenaSpawnHandled)
+                return;
+            if (tutorialModPickup == null)
+                return;
+            if (tutorialModPickupSpawnPoint == null)
             {
-                enemiesAlive = Mathf.Max(0, enemiesAlive - 1);
-                Debug.Log($"[Level0Sequence] Enemy died — {enemiesAlive} remaining");
+                Debug.LogWarning("[Level0Sequence] tutorialModPickupSpawnPoint not assigned — cannot place mod pickup.");
+                return;
             }
+
+            tutorialModHyenaSpawnHandled = true;
+
+            if (!tutorialModPickup.scene.IsValid())
+            {
+                Instantiate(tutorialModPickup, tutorialModPickupSpawnPoint.position,
+                    tutorialModPickupSpawnPoint.rotation);
+                return;
+            }
+
+            tutorialModPickup.transform.SetPositionAndRotation(tutorialModPickupSpawnPoint.position,
+                tutorialModPickupSpawnPoint.rotation);
+            tutorialModPickup.SetActive(true);
         }
 
         private IEnumerator WaitForAllEnemiesDead()
@@ -752,13 +799,20 @@ namespace junklite
 
         private void UnsubscribeEnemyCallbacks()
         {
+            foreach ((EnemyCharacter enemy, Action<IState, IState> handler) in waveEnemyStateHandlers)
+            {
+                if (enemy == null) continue;
+                var sm = enemy.GetComponent<StateMachine>();
+                if (sm != null) sm.OnStateChanged -= handler;
+            }
+
+            waveEnemyStateHandlers.Clear();
+
             foreach (var enemy in spawnedEnemies)
             {
                 if (enemy == null) continue;
                 enemy.OnAttackNotifyShown -= OnTutorialEnemyAttackNotifyShown;
                 enemy.SetTutorialFrozen(false);
-                var sm = enemy.GetComponent<StateMachine>();
-                if (sm != null) sm.OnStateChanged -= OnWaveEnemyStateChanged;
             }
         }
 
