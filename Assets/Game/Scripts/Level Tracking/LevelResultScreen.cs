@@ -92,6 +92,9 @@ namespace junklite
         // background beam objects (so we can skip rebuilding them on re-show)
         bool _uiBuilt;
 
+        // GameObject to enable/disable results screen
+        private GameObject cGO;
+
         #endregion
 
         #region Unity Lifecycle
@@ -134,6 +137,7 @@ namespace junklite
         [ContextMenu("Test Results Screen")]
         void TestShow()
         {
+            cGO.SetActive(true);
             var fakeKills = new Dictionary<EnemyType, int>
             {
                 { EnemyType.FlyingDummy, 12 },
@@ -167,6 +171,7 @@ namespace junklite
         {
             yield return new WaitForSecondsRealtime(showDelay);
             Time.timeScale = 0f;
+            cGO.SetActive(true);
             Populate(_pendingStats);
             Animate(_pendingStats);
         }
@@ -182,7 +187,7 @@ namespace junklite
             _uiBuilt = true;
 
             // ── Canvas ──────────────────────────────────────────────────────
-            var cGO = new GameObject("ResultsCanvas");
+            cGO = new GameObject("ResultsCanvas");
             cGO.transform.SetParent(transform, false);
 
             var canvas = cGO.AddComponent<Canvas>();
@@ -222,6 +227,8 @@ namespace junklite
             BuildGradePanel(ct);
             BuildKillsPanel(ct);
             BuildButtonBar(ct);
+
+            cGO.SetActive(false);
         }
 
         // ── Background ───────────────────────────────────────────────────────
