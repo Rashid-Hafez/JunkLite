@@ -78,6 +78,7 @@
   <Project Path="Unity.RenderPipelines.Universal.2D.Editor.Overrides.csproj" />
   <Project Path="com.cqf.urpvolumetricfog.editor.csproj" />
   <Project Path="com.cqf.urpvolumetricfog.runtime.csproj" />
+  <Project Path="URPGlitch.csproj" />
   <Project Path="Unity.2D.Sprite.Editor.csproj" />
   <Project Path="Unity.2D.PixelPerfect.Editor.csproj" />
   <Project Path="Unity.Recorder.csproj" />

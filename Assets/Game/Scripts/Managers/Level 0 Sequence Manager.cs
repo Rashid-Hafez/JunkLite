@@ -1,9 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.Playables;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+using UnityEngine.Video;
 
 namespace junklite
 {
@@ -84,6 +87,22 @@ namespace junklite
         [SerializeField] private string nextSceneName;
         [SerializeField] private int nextSceneBuildIndex = -1;
 
+        [Header("End beat — glitch (Cinemachine Volume Settings)")]
+        [Tooltip("Cinematic vcam extension that holds the Volume Profile with Analog/Digital Glitch.")]
+        [SerializeField] private CinemachineVolumeSettings endSequenceVolumeSettings;
+        [SerializeField] private float endGlitchRampInSeconds = 2f;
+        [SerializeField] private float endGlitchHoldSeconds = 0.35f;
+        [SerializeField] private float endGlitchRampOutSeconds = 1.25f;
+        [Range(0f, 1f)] [SerializeField] private float endGlitchAnalogPeak = 0.5f;
+        [Range(0f, 1f)] [SerializeField] private float endGlitchDigitalPeak = 0.4f;
+
+        [Header("End beat — outro video (then load next scene)")]
+        [SerializeField] private GameObject playerUI;
+        [SerializeField] private VideoPlayer endOutroVideoPlayer;
+        [SerializeField] private VideoClip endOutroVideoClip;
+        [Tooltip("Optional UI root shown while the outro clip plays (e.g. full-screen RawImage parent).")]
+        [SerializeField] private GameObject endOutroVideoScreenRoot;
+
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
         [SerializeField] private float postParryRespawnDelay = 0.6f;
@@ -102,7 +121,7 @@ namespace junklite
             EnemyWave, PostEnemyDialogue, WeaponPickup, PostPickupDialogue,
             WaitCombatMode, ModActivationPrompt, WaitModActivation,
             InventoryPrompt, WaitInventoryOpen, WaitInventoryClose,
-            FinalEnemyWave, FinalDialogue, LoadNextScene, Done
+            FinalGlitchRamp, FinalDialogue, OutroVideo, LoadNextScene, Done
         }
 
         private Stage currentStage;
@@ -331,12 +350,18 @@ namespace junklite
             SetStage(Stage.WaitInventoryClose);
             yield return WaitForInventoryClose();
 
+            SetStage(Stage.FinalGlitchRamp);
+            yield return RunEndGlitchRampIfConfigured();
+
             SetStage(Stage.FinalDialogue);
             if (finalDialogue != null)
                 yield return RunDialogue(finalDialogue);
 
             if (endCinematicDirector != null)
                 yield return RunDirector(endCinematicDirector, rewindToStart: true);
+
+            SetStage(Stage.OutroVideo);
+            yield return PlayEndOutroVideoIfConfigured();
 
             SetStage(Stage.LoadNextScene);
             LoadConfiguredScene();
@@ -1019,6 +1044,245 @@ namespace junklite
             }
 
             revealFadeRoutine = null;
+        }
+
+        #endregion
+
+        #region End cinematic (glitch + outro video)
+
+        private struct EndGlitchSnapshot
+        {
+            private readonly bool _hasAnalog;
+            private readonly bool _analogActive;
+            private readonly float _as, _av, _ah, _ac;
+            private readonly bool _osS, _osV, _osH, _osC;
+
+            private readonly bool _hasDigital;
+            private readonly bool _digitalActive;
+            private readonly float _di;
+            private readonly bool _osI;
+
+            public EndGlitchSnapshot(URPGlitch.AnalogGlitchVolume a, URPGlitch.DigitalGlitchVolume d)
+            {
+                _hasAnalog = a != null;
+                _analogActive = false;
+                _as = _av = _ah = _ac = 0f;
+                _osS = _osV = _osH = _osC = false;
+                _hasDigital = d != null;
+                _digitalActive = false;
+                _di = 0f;
+                _osI = false;
+
+                if (_hasAnalog)
+                {
+                    _analogActive = a.active;
+                    _as = a.scanLineJitter.value;
+                    _av = a.verticalJump.value;
+                    _ah = a.horizontalShake.value;
+                    _ac = a.colorDrift.value;
+                    _osS = a.scanLineJitter.overrideState;
+                    _osV = a.verticalJump.overrideState;
+                    _osH = a.horizontalShake.overrideState;
+                    _osC = a.colorDrift.overrideState;
+                }
+
+                if (_hasDigital)
+                {
+                    _digitalActive = d.active;
+                    _di = d.intensity.value;
+                    _osI = d.intensity.overrideState;
+                }
+            }
+
+            public void Restore(URPGlitch.AnalogGlitchVolume a, URPGlitch.DigitalGlitchVolume d)
+            {
+                if (_hasAnalog && a != null)
+                {
+                    a.active = _analogActive;
+                    a.scanLineJitter.value = _as;
+                    a.verticalJump.value = _av;
+                    a.horizontalShake.value = _ah;
+                    a.colorDrift.value = _ac;
+                    a.scanLineJitter.overrideState = _osS;
+                    a.verticalJump.overrideState = _osV;
+                    a.horizontalShake.overrideState = _osH;
+                    a.colorDrift.overrideState = _osC;
+                }
+
+                if (_hasDigital && d != null)
+                {
+                    d.active = _digitalActive;
+                    d.intensity.value = _di;
+                    d.intensity.overrideState = _osI;
+                }
+            }
+        }
+
+        private IEnumerator RunEndGlitchRampIfConfigured()
+        {
+            if (endSequenceVolumeSettings == null || !endSequenceVolumeSettings.IsValid)
+                yield break;
+
+            VolumeProfile profile = endSequenceVolumeSettings.Profile;
+            profile.TryGet(out URPGlitch.AnalogGlitchVolume analog);
+            profile.TryGet(out URPGlitch.DigitalGlitchVolume digital);
+
+            if (analog == null && digital == null)
+            {
+                Debug.LogWarning(
+                    "[Level0Sequence] Volume profile has no AnalogGlitchVolume or DigitalGlitchVolume — skip end glitch ramp.");
+                yield break;
+            }
+
+            var snapshot = new EndGlitchSnapshot(analog, digital);
+
+            try
+            {
+                if (analog != null)
+                {
+                    analog.active = true;
+                    analog.scanLineJitter.overrideState = true;
+                    analog.verticalJump.overrideState = true;
+                    analog.horizontalShake.overrideState = true;
+                    analog.colorDrift.overrideState = true;
+                }
+
+                if (digital != null)
+                {
+                    digital.active = true;
+                    digital.intensity.overrideState = true;
+                }
+
+                float inDur = Mathf.Max(0.01f, endGlitchRampInSeconds);
+                float hold = Mathf.Max(0f, endGlitchHoldSeconds);
+                float outDur = Mathf.Max(0.01f, endGlitchRampOutSeconds);
+
+                float elapsed = 0f;
+                while (elapsed < inDur)
+                {
+                    elapsed += Time.deltaTime;
+                    float k = Mathf.Clamp01(elapsed / inDur);
+                    ApplyEndGlitchStrength(analog, digital, k);
+                    yield return null;
+                }
+
+                ApplyEndGlitchStrength(analog, digital, 1f);
+
+                elapsed = 0f;
+                while (elapsed < hold)
+                {
+                    elapsed += Time.deltaTime;
+                    yield return null;
+                }
+
+                elapsed = 0f;
+                while (elapsed < outDur)
+                {
+                    elapsed += Time.deltaTime;
+                    float k = 1f - Mathf.Clamp01(elapsed / outDur);
+                    ApplyEndGlitchStrength(analog, digital, k);
+                    yield return null;
+                }
+
+                ApplyEndGlitchStrength(analog, digital, 0f);
+            }
+            finally
+            {
+                snapshot.Restore(analog, digital);
+            }
+        }
+
+        private void ApplyEndGlitchStrength(URPGlitch.AnalogGlitchVolume analog, URPGlitch.DigitalGlitchVolume digital, float strength01)
+        {
+            float ap = Mathf.Clamp01(endGlitchAnalogPeak);
+            float dp = Mathf.Clamp01(endGlitchDigitalPeak);
+            strength01 = Mathf.Clamp01(strength01);
+
+            if (analog != null)
+            {
+                float v = strength01 * ap;
+                analog.scanLineJitter.value = v;
+                analog.verticalJump.value = v;
+                analog.horizontalShake.value = v;
+                analog.colorDrift.value = v;
+            }
+
+            if (digital != null)
+                digital.intensity.value = strength01 * dp;
+        }
+
+        private IEnumerator PlayEndOutroVideoIfConfigured()
+        {
+            if (endOutroVideoClip == null || endOutroVideoPlayer == null)
+            {
+                Debug.LogWarning("[Level0Sequence] End outro video clip or VideoPlayer not assigned — skipping outro.");
+                yield break;
+            }
+
+            endOutroVideoScreenRoot?.SetActive(true);
+
+            endOutroVideoPlayer.playOnAwake = false;
+            endOutroVideoPlayer.isLooping = false;
+            endOutroVideoPlayer.clip = endOutroVideoClip;
+
+            var audioSource = endOutroVideoPlayer.GetComponent<AudioSource>();
+            if (audioSource == null)
+                audioSource = endOutroVideoPlayer.gameObject.AddComponent<AudioSource>();
+
+            endOutroVideoPlayer.audioOutputMode = VideoAudioOutputMode.AudioSource;
+            endOutroVideoPlayer.EnableAudioTrack(0, true);
+            endOutroVideoPlayer.SetTargetAudioSource(0, audioSource);
+
+            bool finished = false;
+            bool prepared = false;
+            bool failed = false;
+
+            void OnLoopPointReached(VideoPlayer _) => finished = true;
+
+            void OnError(VideoPlayer _, string message)
+            {
+                Debug.LogWarning($"[Level0Sequence] End outro video error: {message}");
+                failed = true;
+                prepared = true;
+                finished = true;
+            }
+
+            void OnPrepared(VideoPlayer _) => prepared = true;
+
+            endOutroVideoPlayer.loopPointReached += OnLoopPointReached;
+            endOutroVideoPlayer.errorReceived += OnError;
+            endOutroVideoPlayer.prepareCompleted += OnPrepared;
+
+            endOutroVideoPlayer.Stop();
+            endOutroVideoPlayer.time = 0;
+            endOutroVideoPlayer.frame = 0;
+            endOutroVideoPlayer.Prepare();
+
+            while (!prepared)
+                yield return null;
+
+            endOutroVideoPlayer.prepareCompleted -= OnPrepared;
+
+            if (!failed)
+            {
+                if (playerUI != null)
+                playerUI.SetActive(false);
+                Cursor.visible = false;
+
+                endOutroVideoPlayer.Play();
+
+                while (!finished && endOutroVideoPlayer.isPlaying)
+                    yield return null;
+            }
+
+            endOutroVideoPlayer.loopPointReached -= OnLoopPointReached;
+            endOutroVideoPlayer.errorReceived -= OnError;
+
+            endOutroVideoPlayer.Stop();
+            endOutroVideoScreenRoot?.SetActive(false);
+            if (playerUI != null)
+                playerUI.SetActive(true);
+            Cursor.visible = true;
         }
 
         #endregion

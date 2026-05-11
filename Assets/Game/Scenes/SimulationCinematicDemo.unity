@@ -1740,6 +1740,16 @@ MonoBehaviour:
   tutorialModPickupSpawnPoint: {fileID: 1888561153}
   nextSceneName: Backup 01Level1Whitebox 2
   nextSceneBuildIndex: -1
+  endSequenceVolumeSettings: {fileID: 4869428690134821267}
+  endGlitchRampInSeconds: 2
+  endGlitchHoldSeconds: 0.35
+  endGlitchRampOutSeconds: 1.25
+  endGlitchAnalogPeak: 0.5
+  endGlitchDigitalPeak: 0.4
+  playerUI: {fileID: 5190343885620683711}
+  endOutroVideoPlayer: {fileID: 188130105}
+  endOutroVideoClip: {fileID: 32900000, guid: 8f75e060e789442deb4285612ec9c4d3, type: 3}
+  endOutroVideoScreenRoot: {fileID: 2120730653}
   showDebugInfo: 0
   postParryRespawnDelay: 0.6
   objectiveRepositionPasses: 3
@@ -13208,6 +13218,17 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &4869428690134821267 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2818552784543051262, guid: 2069f3dafcd475642918b287ff7bbd3c, type: 3}
+  m_PrefabInstance: {fileID: 2531413013809385470}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 785838143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 449ef5ebbe24720439ec31d15f7b6f3d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &4955098752590306517 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8932305731669592776, guid: 637cf4693c5da4dddae88c224a4f6225, type: 3}
