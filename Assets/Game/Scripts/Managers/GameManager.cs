@@ -56,6 +56,9 @@ namespace junklite
         private bool gameInitialized = false;
         private bool isLoadingScene = false;
 
+        // --- Scene-specific settings (read from a SceneSettings component in the active scene) ---
+        private SceneSettings currentSceneSettings;
+
         // Events
         public event Action<GameState> OnGameStateChanged;
         public event Action<PlayerCharacter> OnPlayerSpawned;
@@ -141,6 +144,8 @@ namespace junklite
         private void RefreshSceneReferences()
         {
             spawnPoints = null;
+            currentSceneSettings = null;
+
             if (playerUIInstance != null)
                 Destroy(playerUIInstance.gameObject);
             playerUIInstance = null;
@@ -148,6 +153,7 @@ namespace junklite
 
             FindSpawnPoints();
             FindGameplayCanvas();
+            FindSceneSettings();
         }
 
         private void FindGameplayCanvas()
@@ -161,11 +167,35 @@ namespace junklite
             Debug.LogWarning("[GameManager] No GameObject tagged 'GameplayCanvas' found in scene.");
         }
 
+        /// <summary>
+        /// Reads the optional SceneSettings component from the newly loaded scene.
+        /// If none is present, all settings fall back to their defaults.
+        /// </summary>
+        private void FindSceneSettings()
+        {
+            currentSceneSettings = FindObjectOfType<SceneSettings>();
+
+            if (currentSceneSettings != null)
+                Debug.Log($"[GameManager] SceneSettings found — spawnPlayer: {currentSceneSettings.SpawnPlayer}");
+            else
+                Debug.Log("[GameManager] No SceneSettings in scene — using defaults (player spawns).");
+        }
+
+        /// <summary>
+        /// Returns true if the player and Player HUD should be created in the current scene.
+        /// Defaults to true when no SceneSettings component is present.
+        /// </summary>
+        private bool ShouldSpawnPlayerInScene() =>
+            currentSceneSettings == null || currentSceneSettings.SpawnPlayer;
+
         private void InitializeForNewScene()
         {
             loadingScreenUIInstance?.Hide();
             HideGameOverUI();
             isLoadingScene = false;
+
+            // Re-enable gameplay input now that the scene is ready.
+            GameInputManager.Instance?.SetGameplayInputEnabled(true);
 
             currentSpawnIndex = 0;
 
@@ -184,10 +214,21 @@ namespace junklite
             UnsubscribeFromPlayer(currentPlayer);
             currentPlayer = null;
 
-            EnsurePlayerUI();
+            // Pause menu and game-over UI are always created (they handle their own visibility).
             EnsurePauseMenuUI();
             EnsureGameOverUI();
-            SpawnPlayer();
+
+            // Player and Player HUD are conditional on this scene's settings.
+            if (ShouldSpawnPlayerInScene())
+            {
+                EnsurePlayerUI();
+                SpawnPlayer();
+            }
+            else
+            {
+                Debug.Log("[GameManager] Player spawn skipped for this scene (SceneSettings.spawnPlayer = false).");
+            }
+
             SetGameState(GameState.Playing);
             PlayerCombatTracker.Instance?.ClearCombatState();
             PlayLevelMusic();
@@ -203,12 +244,21 @@ namespace junklite
                 FindSpawnPoints();
 
             FindGameplayCanvas();
+            FindSceneSettings();
             EnsureLoadingScreenUI();
             EnsurePauseMenuUI();
             EnsureGameOverUI();
-            EnsurePlayerUI();
 
-            SpawnPlayer();
+            if (ShouldSpawnPlayerInScene())
+            {
+                EnsurePlayerUI();
+                SpawnPlayer();
+            }
+            else
+            {
+                Debug.Log("[GameManager] Player spawn skipped for initial scene (SceneSettings.spawnPlayer = false).");
+            }
+
             SetGameState(GameState.Playing);
             gameInitialized = true;
         }
@@ -621,6 +671,10 @@ namespace junklite
             if (isLoadingScene) yield break;
             isLoadingScene = true;
 
+            // Lock all gameplay input for the duration of the transition.
+            // Input is restored in InitializeForNewScene() once the new scene is ready.
+            GameInputManager.Instance?.SetGameplayInputEnabled(false);
+
             if (currentState != GameState.Playing) SetGameState(GameState.Playing);
             HideGameOverUI();
 
@@ -639,6 +693,8 @@ namespace junklite
                 Debug.LogError($"[GameManager] Failed to load scene — is it added to Build Settings?");
                 loadingScreenUIInstance?.Hide();
                 isLoadingScene = false;
+                // Restore input on the abort path so the player isn't permanently locked.
+                GameInputManager.Instance?.SetGameplayInputEnabled(true);
                 yield break;
             }
 
@@ -727,10 +783,12 @@ namespace junklite
         {
             if (!showDebugInfo) return;
 
-            GUILayout.BeginArea(new Rect(Screen.width - 210, 10, 200, 210));
+            GUILayout.BeginArea(new Rect(Screen.width - 210, 10, 200, 230));
             GUILayout.Label("=== GAME MANAGER ===");
             GUILayout.Label($"State:       {currentState}");
             GUILayout.Label($"Loading:     {isLoadingScene}");
+            GUILayout.Label($"Input:       {(GameInputManager.Instance != null ? (GameInputManager.Instance.IsGameplayInputEnabled ? "Enabled" : "LOCKED") : "N/A")}");
+            GUILayout.Label($"SpawnPlayer: {ShouldSpawnPlayerInScene()}");
             GUILayout.Label($"Player:      {(currentPlayer != null ? "Alive" : "None")}");
             GUILayout.Label($"Spawn Index: {currentSpawnIndex}");
             GUILayout.Label($"HUD:         {(playerUIInstance != null ? "Ready" : "Missing")}");
