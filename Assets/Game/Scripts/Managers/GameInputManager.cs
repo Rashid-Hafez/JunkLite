@@ -130,7 +130,7 @@ namespace junklite
                 return;
             }
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            // DontDestroyOnLoad(gameObject);
 
             controls = new InputSystem_Actions();
 

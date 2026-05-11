@@ -245,7 +245,7 @@ MonoBehaviour:
       m_Bits: 0
     wallCheckBuffer: 0.3
     forwardDodgeChance: 0.5
-  dodgeChance: 0.583
+  dodgeChance: 0
   dodgeCheckRange: 4
   dodgeCooldown: 0.5
   charge:
