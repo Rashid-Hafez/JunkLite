@@ -56,6 +56,9 @@ namespace junklite
         private bool gameInitialized = false;
         private bool isLoadingScene = false;
 
+        /// <summary>Scene-local <see cref="GameInputManager"/> we subscribed to for pause; cleared on load / rebound after init.</summary>
+        private GameInputManager pauseInputSubscriber;
+
         // --- Scene-specific settings (read from a SceneSettings component in the active scene) ---
         private SceneSettings currentSceneSettings;
 
@@ -97,9 +100,8 @@ namespace junklite
 
         void Start()
         {
-            // Subscribe here (not OnEnable) so GameInputManager.Instance is guaranteed to exist
-            if (GameInputManager.Instance != null)
-                GameInputManager.Instance.OnPauseToggle += HandlePauseToggle;
+            // GameInputManager is scene-local; re-subscribe after each load in InitializeForNewScene.
+            RebindPauseInputSubscription();
 
             InitializeGame();
             SubscribeToCombatTracker();
@@ -112,8 +114,30 @@ namespace junklite
             UnsubscribeFromPlayer(currentPlayer);
             UnsubscribeFromCombatTracker();
 
-            if (GameInputManager.Instance != null)
-                GameInputManager.Instance.OnPauseToggle -= HandlePauseToggle;
+            UnsubscribePauseInput();
+        }
+
+        #endregion
+
+        #region Pause input (scene-local GameInputManager)
+
+        private void RebindPauseInputSubscription()
+        {
+            var input = GameInputManager.Instance;
+            if (pauseInputSubscriber == input) return;
+
+            UnsubscribePauseInput();
+
+            pauseInputSubscriber = input;
+            if (pauseInputSubscriber != null)
+                pauseInputSubscriber.OnPauseToggle += HandlePauseToggle;
+        }
+
+        private void UnsubscribePauseInput()
+        {
+            if (pauseInputSubscriber == null) return;
+            pauseInputSubscriber.OnPauseToggle -= HandlePauseToggle;
+            pauseInputSubscriber = null;
         }
 
         #endregion
@@ -196,6 +220,8 @@ namespace junklite
 
             // Re-enable gameplay input now that the scene is ready.
             GameInputManager.Instance?.SetGameplayInputEnabled(true);
+
+            RebindPauseInputSubscription();
 
             currentSpawnIndex = 0;
 
@@ -670,6 +696,9 @@ namespace junklite
         {
             if (isLoadingScene) yield break;
             isLoadingScene = true;
+
+            // Detach before the scene unloads so we are not left subscribed to a destroyed GameInputManager.
+            UnsubscribePauseInput();
 
             // Lock all gameplay input for the duration of the transition.
             // Input is restored in InitializeForNewScene() once the new scene is ready.
