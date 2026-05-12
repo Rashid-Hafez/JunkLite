@@ -35,6 +35,7 @@ namespace junklite
         [SerializeField] private bool showDebugInfo = true;
         [SerializeField] private bool reloadSceneOnDeathTemp = false;
         [SerializeField] private float debugLoadDelay = 2f;
+        [SerializeField] private GameObject gameInputManagerPrefab;
 
         // Found at runtime via 'GameplayCanvas' tag
         private Transform gameplayCanvasTransform;
@@ -100,6 +101,7 @@ namespace junklite
 
         void Start()
         {
+            EnsureGameInputManager();
             // GameInputManager is scene-local; re-subscribe after each load in InitializeForNewScene.
             RebindPauseInputSubscription();
 
@@ -123,6 +125,7 @@ namespace junklite
 
         private void RebindPauseInputSubscription()
         {
+            EnsureGameInputManager();
             var input = GameInputManager.Instance;
             if (pauseInputSubscriber == input) return;
 
@@ -143,6 +146,20 @@ namespace junklite
         #endregion
 
         #region Scene Loading
+
+        private void EnsureGameInputManager()
+        {
+            if (GameInputManager.Instance != null) return;
+
+            if (gameInputManagerPrefab != null)
+            {
+                Instantiate(gameInputManagerPrefab);
+                return;
+            }
+
+            var inputGO = new GameObject("GameInputManager");
+            inputGO.AddComponent<GameInputManager>();
+        }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
