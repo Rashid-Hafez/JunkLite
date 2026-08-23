@@ -1,6 +1,5 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.EventSystems;
 
 namespace junklite
 {
@@ -399,10 +398,7 @@ namespace junklite
                 wasDashOnCooldown = true;
                 dashCooldownTimer = Mathf.Max(0f, dashCooldownTimer - Time.deltaTime);
 
-                if (dashCooldownTimer <= 0.3f)
-                {
-                    SpawnDashReadyVFX();
-                }
+                // Dash-ready VFX invocation removed; use SkeletonGhost for dash visuals.
 
                 wasDashOnCooldown = false;
             }
@@ -956,19 +952,7 @@ namespace junklite
             OnDashEnded?.Invoke();
         }
 
-        private void SpawnDashReadyVFX()
-        {
-            if (dashReadyVFXPrefab == null) return;
-
-            Vector3 spawnPos = dashReadyVFXSpawnPoint != null
-                ? dashReadyVFXSpawnPoint.position
-                : transform.position;
-
-            GameObject dashReadyVFX = Instantiate(dashReadyVFXPrefab, spawnPos, Quaternion.identity);
-            dashReadyVFX.transform.localScale = Vector3.one * 2f;
-            dashReadyVFX.transform.parent = transform;
-            Destroy(dashReadyVFX, 0.3f);
-        }
+        // SpawnDashReadyVFX removed. SkeletonGhost handles dash visuals.
 
         private void ApplyGravityFixed()
         {
