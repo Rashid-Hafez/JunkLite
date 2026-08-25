@@ -28,7 +28,7 @@ namespace junklite
         [SerializeField] private WeaponPickupUI weaponPickupUI;
 
         // Runtime
-        private CharacterBase player;
+        private PlayerCharacter player;
         private AttributeManager attributes;
         private WeaponManager _weaponManager;
         private ModManager _modManager;
@@ -43,7 +43,7 @@ namespace junklite
 
         // -----------------------------------------------------------------------
 
-        public void BindToPlayer(CharacterBase target)
+        public void BindToPlayer(PlayerCharacter target)
         {
             Unbind();
 

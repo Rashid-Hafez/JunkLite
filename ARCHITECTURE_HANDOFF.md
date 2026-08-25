@@ -19,11 +19,17 @@ The long-term objective is to make the project easier to extend, test, and maint
 
 ## Current Status
 
-- Architectural analysis and planning have started.
-- No implementation from this refactor plan has been applied yet.
-- No scenes, prefabs, ScriptableObjects, or regular assets have been changed.
-- No build was run for this planning work.
-- The first agreed implementation slice is **Player Separation + Damage Result Foundation**.
+- The first implementation slice, **Player Separation + Damage Result Foundation**, has been applied to first-party scripts.
+- `PlayerCharacter` is now a composition-based player orchestrator rather than a `CharacterBase` subclass.
+- The request/result damage contracts and legacy compatibility bridge are in place.
+- Active Grunt, Hyena, and Robot player-hit paths use the result-based receiver boundary.
+- The **Enemy Foundation** slice is implemented: `EnemyCharacter` now derives from a small enemy-specific `EnemyBase`, not `CharacterBase`.
+- Enemy FSM/AI classes are unchanged; enemy damage, knockback, interruption, VFX, and hurt audio now consume the result-based pipeline.
+- `DummyEnemy` is the representative specialized receiver, returning `Invulnerable` explicitly when configured as invincible.
+- Edit-mode tests cover damage amounts/outcomes, defensive immunity, death/revive, and idempotent attribute initialization. The runtime and editor-test assemblies compile; the tests still need to be run from Unity Test Runner.
+- Unity completed a full script compilation successfully on 2026-08-25.
+- No scenes, prefabs, ScriptableObjects, or regular assets were intentionally changed by the refactor.
+- Inspector and gameplay verification from the verification plan still remain.
 
 ## Refactor Principles
 
@@ -40,7 +46,7 @@ The long-term objective is to make the project easier to extend, test, and maint
 
 The player and enemies can share capabilities without sharing a character base class.
 
-The current hierarchy makes `PlayerCharacter` inherit from `CharacterBase`, while `CharacterBase` also coordinates attributes, damage, character state, animation, death, activation, and deactivation. That inheritance implies that player and enemy actors share one behavioral model, but they have different sources of intent and different state machines:
+The original hierarchy made `PlayerCharacter` and `EnemyCharacter` inherit from `CharacterBase`, while `CharacterBase` also coordinated attributes, damage, character state, animation, death, activation, and deactivation. That inheritance implied that player and enemy actors shared one behavioral model, but they have different sources of intent and different state machines:
 
 - The player is driven by input, player movement, equipment, abilities, camera feedback, and respawn flow.
 - Enemies are driven by AI, perception, navigation, encounter ownership, and enemy-specific decisions.
@@ -51,23 +57,27 @@ The agreed direction is:
 
 - `PlayerCharacter` becomes an independent player-only orchestrator.
 - `PlayerState` remains player-specific.
-- Enemies receive a small enemy-specific base class only when implementation reaches the enemy slice.
+- Enemies use the small enemy-specific `EnemyBase` lifecycle/damage boundary.
 - Enemy FSMs remain separate from the player FSM.
 - Player and enemies share contracts and components such as damage receiving, attributes, teams, and status handling.
-- `CharacterBase` is retired gradually after remaining consumers are migrated; it is not deleted during the first slice.
+- `CharacterBase` now has no first-party subclasses and is retained temporarily until the remaining compatibility consumers are migrated and verified.
 
 ## Relevant Current Scripts
 
 - `Assets/Game/Scripts/Base Classes/CharacterBase.cs`
-  - Currently requires and binds `AttributeManager` and `Damageable`.
-  - Implements `IDamageable` and owns shared death/activation helpers.
+  - Has no remaining first-party subclasses and is retained temporarily for safe retirement after verification.
 - `Assets/Game/Scripts/Player/PlayerCharacter.cs`
-  - Currently inherits `CharacterBase`.
+  - Is an independent player-only orchestrator implementing `IDamageReceiver` plus the legacy adapter.
   - Coordinates input, movement, player state, damage responses, feedback, grabbing, death, activation, and respawn behavior.
+- `Assets/Game/Scripts/New Enemies/EnemyBase.cs`
+  - Owns only enemy attribute binding, damage reception, death subscription, and activation lifecycle.
+- `Assets/Game/Scripts/New Enemies/EnemyCharacter.cs`
+  - Owns enemy targeting, FSM coordination, interruption, knockback, death presentation, and encounter reactions.
+- `Assets/Game/Scripts/Character/DamageContracts.cs`
+  - Defines the request/outcome/result boundary, `IDamageReceiver`, and the temporary compatibility resolver.
 - `Assets/Game/Scripts/Character/Damageable.cs`
-  - Currently defines `IDamageable`, `DamageInfo`, `DamageType`, `IGrabbable`, and `GrabInfo` as well as the `Damageable` component.
-  - Returns only `bool`, which loses the reason a hit was accepted or rejected.
-  - Currently combines validation, hostility checks, mitigation, health mutation, event emission, and hit-stun.
+  - Retains the old `IDamageable`, `DamageInfo`, `DamageType`, `IGrabbable`, and `GrabInfo` compatibility types.
+  - Resolves validation, hostility, mitigation, authoritative health mutation, actual applied values, and result events.
 - `Assets/Game/Scripts/Character/AttributesManager.cs`
   - Owns runtime attributes and health mutation.
   - Must remain the authoritative health owner during the first migration.
@@ -272,13 +282,38 @@ After implementation, perform focused verification:
    - Lethal hit and exactly one death event.
    - Revive followed by receiving damage and dying again.
    - Knockback and feedback only for valid outcomes.
-5. Do not edit scenes automatically; report any Inspector or scene wiring the user must perform.
+5. Verify representative enemy behavior in Unity:
+   - Normal and armor-mitigated hits report the actual applied value.
+   - Dummy invincibility and dodge-state immunity do not mutate health or trigger applied-hit reactions.
+   - Uninterruptible enemy states can take health damage without unintended knockback/hit-stun.
+   - Tick damage does not cause hit-stun.
+   - Lethal damage triggers the enemy death FSM, VFX/audio, drop, and encounter cleanup once.
+   - Parry retaliation and lethal `DeathTrigger` damage use the new receiver boundary.
+6. Do not edit scenes automatically; report any Inspector or scene wiring the user must perform.
+
+## Reusable Game Root and Training Level
+
+The first game/level-flow foundation is now implemented:
+
+- `Assets/Game/Prefabs/Manager/Game Root.prefab` is the reusable prefab for gameplay scenes.
+- Its persistent root owns `GameManager`, `GameInputManager`, `PlayerCombatTracker`, the runtime HUD canvas, and the runtime event system.
+- Its bundled `LevelContext` and `Player Spawn Point` detach at runtime, so level-specific spawn data remains in the loaded scene while the service root persists.
+- Duplicate roots are safe: entering another scene detaches that scene's context, then destroys the duplicate persistent root.
+- `GameManager` prefers explicit `LevelContext` spawn configuration, retains legacy `SceneSettings`/tag fallback during migration, and keeps player HUD/pause/game-over UI alive between scenes.
+- `V2.5.unity` is the first training-level migration. It uses the new root, has no scene-placed player or legacy spawn hierarchy, and retains the active `DummyEnemy` target.
+
+New gameplay-level workflow:
+
+1. Drag `Game Root.prefab` into the scene.
+2. Move its bundled `Player Spawn Point` to the desired start position.
+3. Set the bundled `LevelContext` identity/training flags if needed.
+4. Add scene cameras, enemies, and environment content; player, input, HUD, and respawn wiring are automatic.
 
 ## Planned Order After the First Slice
 
 Reassess after the player slice rather than committing to a large rewrite. The likely order is:
 
-1. **Enemy foundation**
+1. **Enemy foundation — implemented; gameplay verification pending**
    - Introduce a minimal enemy lifecycle/base boundary.
    - Keep enemy decision logic in enemy FSM/AI components.
    - Migrate one representative enemy to the new damage receiver pipeline before migrating all types.
@@ -296,11 +331,23 @@ Reassess after the player slice rather than committing to a large rewrite. The l
 
 Each stage should migrate one real vertical slice, verify it, and only then expand to other content.
 
+## Remaining Legacy Damage Consumers
+
+The compatibility path is still intentionally used by producer systems outside the completed player/enemy foundation slices:
+
+- `EnemyBase` and `PlayerCharacter` retain `IDamageable.TakeDamage(DamageInfo)` only as adapters. `CharacterBase` has no remaining first-party subclasses.
+- `WeaponManager` still uses the legacy API for melee, ranged, combo, and direct weapon hits against enemies.
+- `StatusEffectHandler`, `EnergyWavePulse`, `DontBlinkMod`, `SocialDistanceMod`, and `PhantomStrikeTracker` still damage enemies through the legacy API.
+- `ParryHandler` retaliation and `DeathTrigger` enemy kills now use `DamageRequest`; active Grunt, Hyena, and Robot player attacks also use the new boundary.
+- The legacy `Damageable.OnDamaged` event remains for `PhantomStrikeTracker`; enemy VFX and audio use `OnDamageResolved`.
+
+These consumers must continue routing through `Damageable` and should be migrated only in the later enemy/damage-producer slices.
+
 ## Guidance for the Next Codex Task
 
 Open the synchronized repository on the other computer and use this prompt:
 
-> Read `ARCHITECTURE_HANDOFF.md` completely. Inspect the current first-party scripts under `Assets/Game/Scripts/` and compare them with the document because the code may have changed since it was written. Then implement only the first slice, **Player Separation + Damage Result Foundation**, in small compatibility-preserving steps. Do not redesign enemies, abilities, managers, scenes, or networking in the same change. Preserve serialized prefab compatibility, report any Unity Inspector work I must do, and compile after the major type migration.
+> Read `ARCHITECTURE_HANDOFF.md` completely. Inspect the implemented player and enemy foundation slices under `Assets/Game/Scripts/`. Run the edit-mode `DamagePipelineTests` plus the remaining player/enemy Inspector and gameplay checks, and fix only regressions within these slices. Do not begin broad weapon/mod/status producer migration until the foundations are verified; after verification, the next slice is **Damage producers and abilities**.
 
 ## Synchronization Checklist
 

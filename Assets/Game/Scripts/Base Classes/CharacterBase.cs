@@ -76,7 +76,12 @@ namespace junklite
         protected void InstantDeath()
         {
             if (!IsAlive || attributes?.Health == null) return;
-            attributes.Health.Remove(attributes.Health.Current); // triggers OnDeath
+
+            if (damageable != null)
+                damageable.ReceiveDamage(DamageRequest.Forced(attributes.Health.Current));
+            else
+                attributes.ApplyDamage(attributes.Health.Current);
+
             Debug.Log($"{gameObject.name} died instantly!");
         }
 

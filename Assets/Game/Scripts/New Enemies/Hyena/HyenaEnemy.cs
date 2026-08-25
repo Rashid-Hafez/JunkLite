@@ -470,10 +470,7 @@ namespace junklite
 
         private bool IsTargetAlive()
         {
-            if (Target == null) return false;
-            var damageable = Target.GetComponent<IDamageable>()
-                          ?? Target.GetComponentInParent<IDamageable>();
-            return damageable != null && damageable.IsAlive;
+            return DamageReceiverUtility.IsAlive(Target);
         }
 
         #endregion
@@ -482,18 +479,26 @@ namespace junklite
 
         private void OnMeleeHitboxHit(Collider other, Hitbox hitbox)
         {
-            var dmg = other.GetComponent<IDamageable>() ?? other.GetComponentInParent<IDamageable>();
-            if (dmg == null || !dmg.IsAlive) return;
-            dmg.TakeDamage(new DamageInfo(melee.MeleeDamage, gameObject, DamageType.Physical, melee.MeleeKnockback));
+            if (!DamageReceiverUtility.IsAlive(other)) return;
+
+            DamageReceiverUtility.Receive(other, new DamageRequest(
+                melee.MeleeDamage,
+                gameObject,
+                DamageType.Physical,
+                melee.MeleeKnockback));
         }
 
         private void OnDashHitboxHit(Collider other, Hitbox hitbox)
         {
             hitbox?.Deactivate();
-            var dmg = other.GetComponent<IDamageable>() ?? other.GetComponentInParent<IDamageable>();
-            if (dmg == null || !dmg.IsAlive) return;
-            bool dealt = dmg.TakeDamage(new DamageInfo(dash.DashDamage, gameObject, DamageType.Physical, dash.DashKnockback));
-            if (dealt)
+            if (!DamageReceiverUtility.IsAlive(other)) return;
+
+            DamageResult result = DamageReceiverUtility.Receive(other, new DamageRequest(
+                dash.DashDamage,
+                gameObject,
+                DamageType.Physical,
+                dash.DashKnockback));
+            if (result.WasApplied)
                 dashHitConnected = true;
         }
 

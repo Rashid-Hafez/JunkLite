@@ -50,7 +50,7 @@ namespace junklite
         void OnEnable()
         {
             if (damageable != null)
-                damageable.OnDamaged += OnDamaged;
+                damageable.OnDamageResolved += OnDamageResolved;
 
             if (attributes != null)
                 attributes.OnDeath += OnDeath;
@@ -59,14 +59,14 @@ namespace junklite
         void OnDisable()
         {
             if (damageable != null)
-                damageable.OnDamaged -= OnDamaged;
+                damageable.OnDamageResolved -= OnDamageResolved;
 
             if (attributes != null)
                 attributes.OnDeath -= OnDeath;
         }
 
         // Auto-wired via events
-        private void OnDamaged(float damage, GameObject src) => Play(sounds?.hurt);
+        private void OnDamageResolved(DamageResult result, DamageRequest request) => Play(sounds?.hurt);
         private void OnDeath() => Play(sounds?.death);
 
         // Public — called by FSM states

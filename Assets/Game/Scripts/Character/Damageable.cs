@@ -65,9 +65,8 @@ namespace junklite
     }
 
     /// <summary>
-    /// Single entry point for damage. Computes final damage using Stats,
-    /// subtracts from Health via AttributeManager, and can trigger stun via CharacterState.
-    /// Returns true if damage was actually dealt.
+    /// Neutral damage resolver. It validates requests, applies mitigation, asks
+    /// AttributeManager to mutate health, and returns the actual outcome.
     /// </summary>
     public sealed class Damageable : MonoBehaviour
     {
@@ -76,6 +75,9 @@ namespace junklite
         CharacterState state;
         TeamMember myTeam;
 
+        public event System.Action<DamageResult, DamageRequest> OnDamageResolved;
+
+        // Compatibility event for existing enemy presentation listeners.
         public event System.Action<float, GameObject> OnDamaged;
 
         public void Bind(CharacterStats s, AttributeManager a, CharacterState st)
@@ -84,35 +86,81 @@ namespace junklite
             if (myTeam == null) myTeam = GetComponent<TeamMember>();
         }
 
+        public bool TryValidateRequest(
+            DamageRequest request,
+            out DamageResult rejection,
+            bool checkDefensiveState = true)
+        {
+            if (float.IsNaN(request.Amount) || float.IsInfinity(request.Amount) || request.Amount <= 0f)
+            {
+                rejection = DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
+                return false;
+            }
+
+            if (attributes == null || attributes.Health == null)
+            {
+                rejection = DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
+                return false;
+            }
+
+            if (!attributes.IsAlive)
+            {
+                rejection = DamageResult.Rejected(DamageOutcome.Dead, request.Amount);
+                return false;
+            }
+
+            if (request.Source == gameObject)
+            {
+                rejection = DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
+                return false;
+            }
+
+            if (!IsHostile(request.Source))
+            {
+                rejection = DamageResult.Rejected(DamageOutcome.FriendlyFire, request.Amount);
+                return false;
+            }
+
+            if (!request.BypassesDefenses && checkDefensiveState && state != null && !state.CanTakeDamage)
+            {
+                rejection = DamageResult.Rejected(DamageOutcome.Invulnerable, request.Amount);
+                return false;
+            }
+
+            rejection = default;
+            return true;
+        }
+
+        public DamageResult ReceiveDamage(DamageRequest request)
+        {
+            if (!TryValidateRequest(request, out var rejection))
+                return rejection;
+
+            float armor = stats != null ? stats.armor : 0f;
+            float finalDamage = request.BypassesMitigation
+                ? request.Amount
+                : Mathf.Max(1f, request.Amount - armor);
+
+            float appliedDamage = attributes.ApplyDamage(finalDamage);
+            if (appliedDamage <= 0f)
+                return DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
+
+            var result = DamageResult.Applied(request.Amount, appliedDamage);
+            OnDamageResolved?.Invoke(result, request);
+            OnDamaged?.Invoke(appliedDamage, request.Source);
+
+            if (!request.IsTickDamage)
+                state?.ApplyStun(0.1f);
+
+            return result;
+        }
+
         /// <summary>
-        /// Attempt to deal damage. Returns true if damage was actually dealt.
+        /// Legacy adapter. All old callers now route into the request/result pipeline.
         /// </summary>
         public bool TakeDamage(DamageInfo info)
         {
-            // 1) must be alive
-            if (attributes == null || attributes.Health == null || !attributes.IsAlive)
-                return false;
-
-            // 2) no self-hits
-            if (info.Source == gameObject)
-                return false;
-
-            // 3) team check
-            if (!IsHostile(info.Source))
-                return false;
-
-            // 4) compute final damage
-            float armor = stats != null ? stats.armor : 0f;
-            float finalDamage = Mathf.Max(1f, info.Amount - armor);
-
-            // 5) apply
-            attributes.Health.Remove(finalDamage);
-            OnDamaged?.Invoke(finalDamage, info.Source);
-
-            // 6) optional brief hit-stun
-            state?.ApplyStun(0.1f);
-
-            return true; // Damage was dealt
+            return ReceiveDamage(DamageRequest.FromLegacy(info)).WasApplied;
         }
 
         bool IsHostile(GameObject source)

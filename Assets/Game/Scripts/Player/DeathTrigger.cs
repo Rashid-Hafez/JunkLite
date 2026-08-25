@@ -21,7 +21,9 @@ namespace junklite
 
             var enemy = other.GetComponentInParent<EnemyCharacter>();
             if (enemy != null && enemy.IsAlive)
-                enemy.TakeDamage(new DamageInfo(99999f, gameObject));
+                DamageReceiverUtility.Receive(
+                    enemy,
+                    DamageRequest.Forced(99999f, gameObject));
         }
     }
 }

@@ -225,10 +225,7 @@ namespace junklite
         {
             hitbox?.Deactivate();
 
-            var damageable = other.GetComponent<IDamageable>()
-                          ?? other.GetComponentInParent<IDamageable>();
-
-            if (damageable == null || !damageable.IsAlive)
+            if (!DamageReceiverUtility.IsAlive(other))
                 return;
 
             int throwDir = Movement != null ? Movement.FacingDirection : 1;
@@ -240,8 +237,10 @@ namespace junklite
 
                 if (grabbable != null && grabbable.CanBeGrabbed)
                 {
-                    var damageInfo = new DamageInfo(dash.DashDamage, gameObject, DamageType.Physical);
-                    damageable.TakeDamage(damageInfo);
+                    DamageReceiverUtility.Receive(other, new DamageRequest(
+                        dash.DashDamage,
+                        gameObject,
+                        DamageType.Physical));
 
                     var grabInfo = new GrabInfo(
                         gameObject,
@@ -258,8 +257,11 @@ namespace junklite
                 }
             }
 
-            var info = new DamageInfo(dash.DashDamage, gameObject, DamageType.Physical, dash.DashKnockback);
-            damageable.TakeDamage(info);
+            DamageReceiverUtility.Receive(other, new DamageRequest(
+                dash.DashDamage,
+                gameObject,
+                DamageType.Physical,
+                dash.DashKnockback));
         }
 
         #endregion

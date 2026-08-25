@@ -16,6 +16,8 @@ namespace junklite
         [Header("Runtime Attributes (read-only)")]
         [SerializeField] private List<Attribute> allRuntimeAttributes = new List<Attribute>(); // for inspector/UI
         private readonly Dictionary<AttributeType, Attribute> map = new Dictionary<AttributeType, Attribute>();
+        private CharacterStats initializedSource;
+        private bool isInitialized;
 
         // ---- Events ----
         public event Action OnDeath;
@@ -32,6 +34,7 @@ namespace junklite
         }
 
         public Attribute Health => Get(AttributeType.Health);
+        public bool IsInitialized => isInitialized;
 
         private void Start()
         {
@@ -43,9 +46,12 @@ namespace junklite
         /// <summary>Builds runtime attributes from a CharacterStats ScriptableObject.</summary>
         public void Initialize(CharacterStats source)
         {
+            if (isInitialized && initializedSource == source)
+                return;
+
+            UnhookHealthDeath();
             map.Clear();
             allRuntimeAttributes.Clear();
-            UnhookHealthDeath(); // safety in case of re-init
 
             if (source?.attributes != null)
             {
@@ -70,6 +76,8 @@ namespace junklite
                 }
             }
 
+            initializedSource = source;
+            isInitialized = true;
             HookHealthDeath();
         }
 
@@ -106,6 +114,18 @@ namespace junklite
         {
             if (amount <= 0f) return;
             Health?.Add(amount);
+        }
+
+        /// <summary>Applies clamped health damage and returns the amount actually removed.</summary>
+        public float ApplyDamage(float amount)
+        {
+            var health = Health;
+            if (health == null || amount <= 0f || float.IsNaN(amount) || float.IsInfinity(amount))
+                return 0f;
+
+            float before = health.Current;
+            health.Remove(amount);
+            return Mathf.Max(0f, before - health.Current);
         }
 
         public void RestoreAllToMax()

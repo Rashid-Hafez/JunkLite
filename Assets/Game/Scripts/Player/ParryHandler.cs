@@ -231,7 +231,10 @@ namespace junklite
                     // Retaliatory parry damage — use isTickDamage to skip hitstun
                     // so the FSM doesn't bounce through HurtState and double-trigger
                     // the Hurt animation while the enemy should be parry-stunned.
-                    enemyChar.TakeDamage(new DamageInfo(5f, gameObject, isTickDamage: true));
+                    DamageReceiverUtility.Receive(enemyChar, new DamageRequest(
+                        5f,
+                        gameObject,
+                        isTickDamage: true));
                     enemyChar.OnParryStunned(parryStunDuration);
                 }
                 // Bystanders in radius: half duration stun

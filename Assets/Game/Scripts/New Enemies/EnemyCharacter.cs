@@ -38,7 +38,7 @@ namespace junklite
     [RequireComponent(typeof(StateMachine))]
     [RequireComponent(typeof(EnemyMovement))]
     [RequireComponent(typeof(StatusEffectHandler))]
-    public class EnemyCharacter : CharacterBase
+    public class EnemyCharacter : EnemyBase
     {
         [Header("Enemy Config")]
         [SerializeField] protected EnemyConfig config;
@@ -106,7 +106,7 @@ namespace junklite
         protected bool isInCombat = false;
 
         // Current state reference for quick access
-        protected new EnemyStateBase state => stateMachine?.CurrentState as EnemyStateBase;
+        protected EnemyStateBase state => stateMachine?.CurrentState as EnemyStateBase;
 
         public bool IsInCombat => isInCombat;
 
@@ -162,7 +162,7 @@ namespace junklite
             }
 
             if (damageable != null)
-                damageable.OnDamaged += OnDamagedVFX;
+                damageable.OnDamageResolved += OnDamageResolvedVFX;
         }
 
         protected override void Start()
@@ -452,27 +452,27 @@ namespace junklite
         /// StunnedState.Enter() runs — StunnedState skips Stop() while knockback
         /// is in flight, preserving the push.
         /// </summary>
-        public override bool TakeDamage(DamageInfo info)
+        public override DamageResult ReceiveDamage(DamageRequest request)
         {
             if (state != null && !state.CanTakeDamage)
-                return false;
+                return DamageResult.Rejected(DamageOutcome.Invulnerable, request.Amount);
 
-            bool damageDealt = base.TakeDamage(info);
+            DamageResult result = base.ReceiveDamage(request);
 
-            if (damageDealt)
+            if (result.WasApplied)
             {
                 if (state == null || state.CanBeInterrupted)
                 {
                     // 1. Knockback FIRST — starts the push immediately
-                    ApplyKnockback(info);
+                    ApplyKnockback(request);
 
                     // 2. Stagger SECOND — enters StunnedState (which preserves active knockback)
-                    if (!info.IsTickDamage)
+                    if (!request.IsTickDamage)
                         ApplyHitstun();
                 }
             }
 
-            return damageDealt;
+            return result;
         }
 
         public virtual void ApplyStun(float duration)
@@ -513,15 +513,15 @@ namespace junklite
             OnStunComplete();
         }
 
-        protected virtual void ApplyKnockback(DamageInfo info)
+        protected virtual void ApplyKnockback(DamageRequest request)
         {
             if (!canBeKnockedBack) return;
-            if (info.KnockbackForce.sqrMagnitude <= 0f) return;
+            if (request.KnockbackForce.sqrMagnitude <= 0f) return;
 
             Vector3 knockbackDir = Vector3.right;
-            if (info.Source != null)
+            if (request.Source != null)
             {
-                knockbackDir = (transform.position - info.Source.transform.position);
+                knockbackDir = (transform.position - request.Source.transform.position);
                 knockbackDir.y = 0f;
                 if (knockbackDir.sqrMagnitude > 0.001f)
                     knockbackDir.Normalize();
@@ -529,8 +529,8 @@ namespace junklite
                     knockbackDir = Vector3.right;
             }
 
-            Vector3 knockback = knockbackDir * info.KnockbackForce.x
-                              + Vector3.up * info.KnockbackForce.y;
+            Vector3 knockback = knockbackDir * request.KnockbackForce.x
+                              + Vector3.up * request.KnockbackForce.y;
 
             if (movement != null)
                 movement.ApplyKnockback(knockback);
@@ -605,10 +605,10 @@ namespace junklite
 
         #region VFX - Universal
 
-        protected virtual void OnDamagedVFX(float damage, GameObject source)
+        protected virtual void OnDamageResolvedVFX(DamageResult result, DamageRequest request)
         {
             if (DamagePopupManager.Instance != null)
-                DamagePopupManager.Instance.SpawnPopup(transform.position, damage);
+                DamagePopupManager.Instance.SpawnPopup(transform.position, result.AppliedDamage);
 
             if (damageFlashUniversal != null)
             {
@@ -667,7 +667,7 @@ namespace junklite
             }
 
             if (damageable != null)
-                damageable.OnDamaged -= OnDamagedVFX;
+                damageable.OnDamageResolved -= OnDamageResolvedVFX;
 
             if (movement != null)
                 movement.OnKnockbackEnd -= HandleKnockbackEnd;

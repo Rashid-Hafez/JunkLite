@@ -8,7 +8,10 @@ public class HealPickUp : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            CharacterBase player = other.GetComponent<CharacterBase>();
+            PlayerCharacter player = other.GetComponent<PlayerCharacter>()
+                                  ?? other.GetComponentInParent<PlayerCharacter>();
+            if (player == null) return;
+
             player.Heal(healAmount);
             Destroy(gameObject);
         }

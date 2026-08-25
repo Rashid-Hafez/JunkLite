@@ -280,10 +280,7 @@ namespace junklite
 
         private bool IsTargetAlive()
         {
-            if (Target == null) return false;
-            var damageable = Target.GetComponent<IDamageable>()
-                          ?? Target.GetComponentInParent<IDamageable>();
-            return damageable != null && damageable.IsAlive;
+            return DamageReceiverUtility.IsAlive(Target);
         }
 
         #endregion
@@ -293,9 +290,13 @@ namespace junklite
         private void OnMeleeHitboxHit(Collider other, Hitbox hitbox)
         {
             //Debug.Log($"{name}: hitbox hit {other.name}");
-            var dmg = other.GetComponent<IDamageable>() ?? other.GetComponentInParent<IDamageable>();
-            if (dmg == null || !dmg.IsAlive) return;
-            dmg.TakeDamage(new DamageInfo(melee.MeleeDamage, gameObject, DamageType.Physical, melee.MeleeKnockback));
+            if (!DamageReceiverUtility.IsAlive(other)) return;
+
+            DamageReceiverUtility.Receive(other, new DamageRequest(
+                melee.MeleeDamage,
+                gameObject,
+                DamageType.Physical,
+                melee.MeleeKnockback));
         }
 
         #endregion

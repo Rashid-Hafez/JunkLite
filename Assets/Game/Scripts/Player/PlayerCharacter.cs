@@ -9,10 +9,15 @@ namespace junklite
 {
     [RequireComponent(typeof(Character2D5Controller))]
     [RequireComponent(typeof(PlayerState))]
+    [RequireComponent(typeof(AttributeManager))]
+    [RequireComponent(typeof(Damageable))]
     [DefaultExecutionOrder(5)]
     [RequireComponent(typeof(CinemachineImpulseSource))]
-    public class PlayerCharacter : CharacterBase, IGrabbable
+    public class PlayerCharacter : MonoBehaviour, IDamageReceiver, IDamageable, IGrabbable
     {
+        [Header("Config")]
+        [SerializeField] protected CharacterStats baseStats;
+
         [Header("Audio")]
         [SerializeField] private PlayerSoundProfile soundProfile;
 
@@ -54,6 +59,8 @@ namespace junklite
         private SpriteRenderer[] _spriteRenderers;
         Rigidbody _rb;
         GameInputManager inputManager;
+        [HideInInspector] public AttributeManager attributes;
+        protected Damageable damageable;
 
         // Controller
         protected Character2D5Controller controller;
@@ -62,6 +69,10 @@ namespace junklite
         // Player State
         protected PlayerState playerState;
         public PlayerState PlayerState => playerState;
+        public PlayerState State => playerState;
+        public CharacterStats Stats => baseStats;
+        public Attribute Health => attributes ? attributes.Health : null;
+        public bool IsAlive => attributes ? attributes.IsAlive : true;
 
         // Grab state
         private bool isGrabbed = false;
@@ -80,13 +91,22 @@ namespace junklite
 
 
         public Vector3 VFXCenter => transform.position + damageVFXOffset;
-        protected override void Awake()
+        protected virtual void Awake()
         {
-            base.Awake();
-
             controller = GetComponent<Character2D5Controller>();
             playerState = GetComponent<PlayerState>();
             parryHandler = GetComponent<ParryHandler>();
+            attributes = GetComponent<AttributeManager>();
+            damageable = GetComponent<Damageable>();
+
+            if (attributes != null && baseStats != null)
+                attributes.Initialize(baseStats);
+
+            if (damageable != null)
+                damageable.Bind(baseStats, attributes, playerState);
+
+            if (attributes != null)
+                attributes.OnDeath += HandleDeath;
 
             skeletonGhost = GetComponentInChildren<SkeletonGhost>();
             if (skeletonGhost == null)
@@ -107,10 +127,8 @@ namespace junklite
         }
 
 
-        protected override void Start()
+        protected virtual void Start()
         {
-            base.Start();
-
             // Pipe controller events into CharacterState flags
             ConnectController();
 
@@ -136,9 +154,10 @@ namespace junklite
             }
         }
 
-        protected override void OnDestroy()
+        protected virtual void OnDestroy()
         {
-            base.OnDestroy();
+            if (attributes != null)
+                attributes.OnDeath -= HandleDeath;
 
             if (controller != null && playerState != null)
             {
@@ -195,6 +214,28 @@ namespace junklite
             SetControllerProperty("DashDuration", baseStats.dashDuration);
         }
 
+        public Attribute GetAttribute(AttributeType type) => attributes ? attributes.Get(type) : null;
+
+        public void Heal(float amount)
+        {
+            attributes?.Heal(amount);
+        }
+
+        public DamageResult Kill()
+        {
+            if (!IsAlive || attributes?.Health == null)
+                return DamageResult.Rejected(DamageOutcome.Dead, 0f);
+
+            return ReceiveDamage(DamageRequest.Forced(attributes.Health.Current));
+        }
+
+        protected void InstantDeath()
+        {
+            var result = Kill();
+            if (result.WasApplied)
+                Debug.Log($"{gameObject.name} died instantly!");
+        }
+
         private void SetControllerProperty(string prop, object value)
         {
             var p = controller.GetType().GetProperty(prop);
@@ -205,7 +246,7 @@ namespace junklite
         // DEACTIVATE & ACTIVATE
         // ====================================================================
 
-        public override void Deactivate()
+        public virtual void Deactivate()
         {
             UnsubscribeFromInput();
 
@@ -230,7 +271,7 @@ namespace junklite
             }
         }
 
-        public override void Activate()
+        public virtual void Activate()
         {
             if (_cachedColliders != null)
                 foreach (var c in _cachedColliders)
@@ -288,7 +329,7 @@ namespace junklite
 
             //Temp Debug keys 
             if (Keyboard.current?.hKey.wasPressedThisFrame == true) Heal(20f);
-            if (Keyboard.current?.tKey.wasPressedThisFrame == true) TakeDamage(new DamageInfo(15f, null));
+            if (Keyboard.current?.tKey.wasPressedThisFrame == true) ReceiveDamage(new DamageRequest(15f));
             if (Keyboard.current?.yKey.wasPressedThisFrame == true) InstantDeath();
         }
 
@@ -678,39 +719,49 @@ namespace junklite
         // ====================================================================
 
         #region Damage
-        public override bool TakeDamage(DamageInfo info)
+        public bool TakeDamage(DamageInfo info)
         {
-            // parry check comes first
-            if (parryHandler != null && parryHandler.HandleIncomingHit(info.Source))
-                return false;
+            return ReceiveDamage(DamageRequest.FromLegacy(info)).WasApplied;
+        }
 
-            if (playerState != null && !playerState.CanTakeDamage)
-                return false;
+        public DamageResult ReceiveDamage(DamageRequest request)
+        {
+            float originallyRequested = request.Amount;
 
-            var shield = GetComponent<DamageShield>();
-            if (shield != null && shield.IsActive)
+            if (damageable == null)
+                return DamageResult.Rejected(DamageOutcome.Invalid, originallyRequested);
+
+            // Validate the target/source/team before player-specific defenses.
+            if (!damageable.TryValidateRequest(request, out var rejection, checkDefensiveState: false))
+                return rejection;
+
+            if (!request.BypassesDefenses)
             {
-                float remainder = shield.Absorb(info.Amount);
-                if (remainder <= 0f) return false; // fully absorbed
-                info.Amount = remainder; // partial, pass remainder through
+                if (parryHandler != null && parryHandler.HandleIncomingHit(request.Source))
+                    return DamageResult.Rejected(DamageOutcome.Parried, originallyRequested);
+
+                if (playerState != null && (!playerState.CanTakeDamage || playerState.IsInvincible))
+                    return DamageResult.Rejected(DamageOutcome.Invulnerable, originallyRequested);
+
+                var shield = GetComponent<DamageShield>();
+                if (shield != null && shield.IsActive)
+                {
+                    float remainder = shield.Absorb(request.Amount);
+                    if (remainder <= 0f)
+                        return DamageResult.Rejected(DamageOutcome.Blocked, originallyRequested);
+
+                    request = request.WithAmount(remainder);
+                }
             }
 
-            // Invincible: skip health reduction but still do all reactions
-            bool damageDealt;
-            if (playerState != null && playerState.IsInvincible)
-                damageDealt = true; // Pretend damage was dealt
-            else
-            {
-                damageDealt = base.TakeDamage(info);
-                if (!damageDealt)
-                    return false;
-            }
+            DamageResult result = damageable.ReceiveDamage(request)
+                .WithRequestedDamage(originallyRequested);
+            if (!result.WasApplied)
+                return result;
 
             if (!IsAlive)
-                return true;
+                return result;
 
-            // Everything below still runs when invincible:
-            // i-frames, VFX, camera shake, knockback, stun
             if (playerState != null && damageInvulnerability > 0f)
                 playerState.ApplyInvulnerability(damageInvulnerability);
 
@@ -725,21 +776,21 @@ namespace junklite
             if (feedbackManager != null)
                 feedbackManager.DoCameraShake(damageImpulseSource, cameraShakeOnHit);
 
-            if (info.Source != null && Controller != null && info.KnockbackForce.sqrMagnitude > 0f)
+            if (request.Source != null && Controller != null && request.KnockbackForce.sqrMagnitude > 0f)
             {
-                Vector3 dir = (transform.position - info.Source.transform.position).normalized;
+                Vector3 dir = (transform.position - request.Source.transform.position).normalized;
                 Vector3 knockback = new Vector3(
-                    dir.x * info.KnockbackForce.x,
-                    info.KnockbackForce.y,
-                    dir.z * info.KnockbackForce.x
+                    dir.x * request.KnockbackForce.x,
+                    request.KnockbackForce.y,
+                    dir.z * request.KnockbackForce.x
                 );
                 Controller.AddForce(knockback, ForceMode.VelocityChange);
             }
 
-            if (playerState != null)
+            if (playerState != null && !request.IsTickDamage)
                 playerState.ApplyStun(0.25f);
 
-            return true;
+            return result;
         }
         #endregion
 
@@ -807,8 +858,8 @@ namespace junklite
             }
 
             // Apply throw damage
-            if (info.ThrowDamage > 0f && attributes != null)
-                attributes.Health.Remove(info.ThrowDamage);
+            if (info.ThrowDamage > 0f)
+                ReceiveDamage(DamageRequest.Forced(info.ThrowDamage, info.Source));
 
             // Apply throw force
             if (Controller != null && info.ThrowForce.sqrMagnitude > 0f)
@@ -836,7 +887,7 @@ namespace junklite
 
         #region Death Handling
 
-        protected override void HandleDeath()
+        protected virtual void HandleDeath()
         {
             // Stop all movement and velocity on death
             if (controller != null)
@@ -847,7 +898,7 @@ namespace junklite
 
             isGrabbed = false;
 
-            base.HandleDeath();
+            Debug.Log($"{gameObject.name} has died!");
             UnsubscribeFromInput();
         }
 

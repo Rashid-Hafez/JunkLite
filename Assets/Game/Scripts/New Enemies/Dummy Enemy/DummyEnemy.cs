@@ -40,17 +40,17 @@ namespace junklite
 
         // BEFORE: 15+ lines of knockback code
         // AFTER: Just invincibility check + health reset
-        public override bool TakeDamage(DamageInfo info)
+        public override DamageResult ReceiveDamage(DamageRequest request)
         {
             if (invincible)
-                return false;
+                return DamageResult.Rejected(DamageOutcome.Invulnerable, request.Amount);
 
-            bool damageDealt = base.TakeDamage(info);  // Base handles knockback!
+            DamageResult result = base.ReceiveDamage(request);  // Base handles knockback!
 
-            if (damageDealt && resetHealthOnHit && IsAlive && attributes?.Health != null)
+            if (result.WasApplied && resetHealthOnHit && IsAlive && attributes?.Health != null)
                 attributes.RestoreHealthToMax();
 
-            return damageDealt;
+            return result;
         }
 
         // Dummy does nothing - disable all behavior responses

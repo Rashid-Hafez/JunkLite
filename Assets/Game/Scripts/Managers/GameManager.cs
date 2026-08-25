@@ -37,7 +37,7 @@ namespace junklite
         [SerializeField] private float debugLoadDelay = 2f;
         [SerializeField] private GameObject gameInputManagerPrefab;
 
-        // Found at runtime via 'GameplayCanvas' tag
+        // Supplied by GameRoot, with a tagged-scene fallback for legacy levels.
         private Transform gameplayCanvasTransform;
 
         // UI instances
@@ -57,10 +57,11 @@ namespace junklite
         private bool gameInitialized = false;
         private bool isLoadingScene = false;
 
-        /// <summary>Scene-local <see cref="GameInputManager"/> we subscribed to for pause; cleared on load / rebound after init.</summary>
+        /// <summary>The active <see cref="GameInputManager"/> subscribed for pause input.</summary>
         private GameInputManager pauseInputSubscriber;
 
-        // --- Scene-specific settings (read from a SceneSettings component in the active scene) ---
+        // Scene-local configuration. SceneSettings remains as a legacy fallback.
+        private LevelContext currentLevelContext;
         private SceneSettings currentSceneSettings;
 
         // Events
@@ -102,7 +103,7 @@ namespace junklite
         void Start()
         {
             EnsureGameInputManager();
-            // GameInputManager is scene-local; re-subscribe after each load in InitializeForNewScene.
+            // Rebinding is duplicate-safe and also supports legacy scene-local input managers.
             RebindPauseInputSubscription();
 
             InitializeGame();
@@ -121,7 +122,7 @@ namespace junklite
 
         #endregion
 
-        #region Pause input (scene-local GameInputManager)
+        #region Pause input
 
         private void RebindPauseInputSubscription()
         {
@@ -153,11 +154,13 @@ namespace junklite
 
             if (gameInputManagerPrefab != null)
             {
-                Instantiate(gameInputManagerPrefab);
+                var inputObject = Instantiate(gameInputManagerPrefab, transform);
+                inputObject.name = "Game Input Manager";
                 return;
             }
 
             var inputGO = new GameObject("GameInputManager");
+            inputGO.transform.SetParent(transform, false);
             inputGO.AddComponent<GameInputManager>();
         }
 
@@ -185,49 +188,108 @@ namespace junklite
         private void RefreshSceneReferences()
         {
             spawnPoints = null;
+            currentLevelContext = null;
             currentSceneSettings = null;
 
-            if (playerUIInstance != null)
-                Destroy(playerUIInstance.gameObject);
-            playerUIInstance = null;
-            gameplayCanvasTransform = null;
-
-            FindSpawnPoints();
             FindGameplayCanvas();
-            FindSceneSettings();
+            FindLevelConfiguration();
+            FindSpawnPoints();
         }
 
         private void FindGameplayCanvas()
         {
-            var canvas = GameObject.FindWithTag("GameplayCanvas");
+            if (GameRoot.Instance != null && GameRoot.Instance.GameplayUIRoot != null)
+            {
+                gameplayCanvasTransform = GameRoot.Instance.GameplayUIRoot;
+                return;
+            }
+
+            if (gameplayCanvasTransform != null)
+                return;
+
+            GameObject canvas = null;
+            try
+            {
+                canvas = GameObject.FindWithTag("GameplayCanvas");
+            }
+            catch (UnityException)
+            {
+                // Older projects may not define the tag. The fallback canvas below is sufficient.
+            }
+
             if (canvas != null)
             {
                 gameplayCanvasTransform = canvas.transform;
                 return;
             }
-            Debug.LogWarning("[GameManager] No GameObject tagged 'GameplayCanvas' found in scene.");
+
+            var canvasObject = new GameObject(
+                "Persistent Gameplay UI",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster));
+
+            canvasObject.layer = LayerMask.NameToLayer("UI");
+            canvasObject.transform.SetParent(transform, false);
+
+            var runtimeCanvas = canvasObject.GetComponent<Canvas>();
+            runtimeCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            runtimeCanvas.sortingOrder = 10;
+
+            var scaler = canvasObject.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            gameplayCanvasTransform = canvasObject.transform;
         }
 
         /// <summary>
-        /// Reads the optional SceneSettings component from the newly loaded scene.
-        /// If none is present, all settings fall back to their defaults.
+        /// Reads the active scene's LevelContext. SceneSettings is supported while
+        /// older levels are migrated to the reusable GameRoot workflow.
         /// </summary>
-        private void FindSceneSettings()
+        private void FindLevelConfiguration()
         {
-            currentSceneSettings = FindObjectOfType<SceneSettings>();
+            Scene activeScene = SceneManager.GetActiveScene();
+            var contexts = FindObjectsByType<LevelContext>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None);
 
-            if (currentSceneSettings != null)
+            foreach (LevelContext context in contexts)
+            {
+                if (context.gameObject.scene != activeScene) continue;
+                currentLevelContext = context;
+                break;
+            }
+
+            currentSceneSettings = FindFirstObjectByType<SceneSettings>();
+
+            if (currentLevelContext != null)
+            {
+                Debug.Log(
+                    $"[GameManager] LevelContext '{currentLevelContext.DisplayName}' found " +
+                    $"(id: {currentLevelContext.LevelId}, training: {currentLevelContext.IsTrainingLevel}, " +
+                    $"spawnPlayer: {currentLevelContext.SpawnPlayer}).");
+            }
+            else if (currentSceneSettings != null)
                 Debug.Log($"[GameManager] SceneSettings found — spawnPlayer: {currentSceneSettings.SpawnPlayer}");
             else
-                Debug.Log("[GameManager] No SceneSettings in scene — using defaults (player spawns).");
+                Debug.Log("[GameManager] No LevelContext in scene — using legacy defaults (player spawns).");
         }
 
         /// <summary>
         /// Returns true if the player and Player HUD should be created in the current scene.
         /// Defaults to true when no SceneSettings component is present.
         /// </summary>
-        private bool ShouldSpawnPlayerInScene() =>
-            currentSceneSettings == null || currentSceneSettings.SpawnPlayer;
+        private bool ShouldSpawnPlayerInScene()
+        {
+            if (currentLevelContext != null)
+                return currentLevelContext.SpawnPlayer;
+
+            return currentSceneSettings == null || currentSceneSettings.SpawnPlayer;
+        }
 
         private void InitializeForNewScene()
         {
@@ -269,7 +331,7 @@ namespace junklite
             }
             else
             {
-                Debug.Log("[GameManager] Player spawn skipped for this scene (SceneSettings.spawnPlayer = false).");
+                Debug.Log("[GameManager] Player spawn skipped by the active level configuration.");
             }
 
             SetGameState(GameState.Playing);
@@ -283,11 +345,9 @@ namespace junklite
 
         private void InitializeGame()
         {
-            if (spawnPoints == null || spawnPoints.Length == 0)
-                FindSpawnPoints();
-
             FindGameplayCanvas();
-            FindSceneSettings();
+            FindLevelConfiguration();
+            FindSpawnPoints();
             EnsureLoadingScreenUI();
             EnsurePauseMenuUI();
             EnsureGameOverUI();
@@ -299,7 +359,7 @@ namespace junklite
             }
             else
             {
-                Debug.Log("[GameManager] Player spawn skipped for initial scene (SceneSettings.spawnPlayer = false).");
+                Debug.Log("[GameManager] Player spawn skipped by the initial level configuration.");
             }
 
             SetGameState(GameState.Playing);
@@ -338,7 +398,7 @@ namespace junklite
             }
 
             if (pauseMenuUIInstance != null)
-                Destroy(pauseMenuUIInstance.gameObject);
+                return;
 
             var go = Instantiate(pauseMenuUIPrefab, gameplayCanvasTransform);
             go.name = "Pause Menu UI";
@@ -356,7 +416,7 @@ namespace junklite
             }
 
             if (gameOverUIInstance != null)
-                Destroy(gameOverUIInstance);
+                return;
 
             gameOverUIInstance = Instantiate(gameOverUIPrefab, gameplayCanvasTransform);
             gameOverUIInstance.name = "Game Over UI";
@@ -406,20 +466,76 @@ namespace junklite
 
         private void FindSpawnPoints()
         {
-            var spawnObjects = GameObject.FindGameObjectsWithTag("SpawnPoint");
-            if (spawnObjects != null && spawnObjects.Length > 0)
+            if (currentLevelContext != null)
             {
-                Array.Sort(spawnObjects, (a, b) => string.CompareOrdinal(a.name, b.name));
-                spawnPoints = new Transform[spawnObjects.Length];
-                for (int i = 0; i < spawnObjects.Length; i++)
-                    spawnPoints[i] = spawnObjects[i].transform;
+                var configuredSpawns = currentLevelContext.GetPlayerSpawns();
+                if (configuredSpawns.Count > 0)
+                {
+                    spawnPoints = new Transform[configuredSpawns.Count];
+                    for (int i = 0; i < configuredSpawns.Count; i++)
+                        spawnPoints[i] = configuredSpawns[i];
 
-                Debug.Log($"[GameManager] Found {spawnPoints.Length} spawn points.");
+                    Debug.Log($"[GameManager] Using {spawnPoints.Length} LevelContext spawn point(s).");
+                    return;
+                }
+
+                Debug.LogWarning(
+                    $"[GameManager] LevelContext '{currentLevelContext.DisplayName}' has no player spawn assigned.");
+            }
+
+            Scene activeScene = SceneManager.GetActiveScene();
+            var markers = FindObjectsByType<SpawnPoint>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None);
+            var sceneMarkers = new System.Collections.Generic.List<SpawnPoint>();
+
+            foreach (SpawnPoint marker in markers)
+            {
+                if (marker.gameObject.scene == activeScene)
+                    sceneMarkers.Add(marker);
+            }
+
+            if (sceneMarkers.Count > 0)
+            {
+                sceneMarkers.Sort((a, b) =>
+                {
+                    int orderComparison = a.Priority.CompareTo(b.Priority);
+                    return orderComparison != 0
+                        ? orderComparison
+                        : string.CompareOrdinal(a.name, b.name);
+                });
+
+                spawnPoints = new Transform[sceneMarkers.Count];
+                for (int i = 0; i < sceneMarkers.Count; i++)
+                    spawnPoints[i] = sceneMarkers[i].transform;
+
+                Debug.Log($"[GameManager] Found {spawnPoints.Length} typed spawn point(s).");
+                return;
+            }
+
+            GameObject[] taggedSpawns = Array.Empty<GameObject>();
+            try
+            {
+                taggedSpawns = GameObject.FindGameObjectsWithTag("SpawnPoint");
+            }
+            catch (UnityException)
+            {
+                // Typed SpawnPoint components replace the legacy tag.
+            }
+
+            if (taggedSpawns.Length > 0)
+            {
+                Array.Sort(taggedSpawns, (a, b) => string.CompareOrdinal(a.name, b.name));
+                spawnPoints = new Transform[taggedSpawns.Length];
+                for (int i = 0; i < taggedSpawns.Length; i++)
+                    spawnPoints[i] = taggedSpawns[i].transform;
+
+                Debug.Log($"[GameManager] Found {spawnPoints.Length} legacy tagged spawn point(s).");
                 return;
             }
 
             spawnPoints = Array.Empty<Transform>();
-            Debug.LogWarning("[GameManager] No spawn points found! Tag at least one object as 'SpawnPoint'.");
+            Debug.LogWarning("[GameManager] No spawn points found; player will spawn at world origin.");
         }
 
         #endregion
@@ -614,7 +730,7 @@ namespace junklite
         public void KillPlayer()
         {
             if (currentPlayer == null || !currentPlayer.IsAlive) return;
-            currentPlayer.Health?.SetToZero();
+            currentPlayer.Kill();
         }
 
         private bool ShouldReloadSceneOnDeath()
