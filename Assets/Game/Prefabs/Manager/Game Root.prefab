@@ -10,6 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 7724700367755847198}
   - component: {fileID: 6708160109121364283}
+  - component: {fileID: 7123456789012345678}
+  - component: {fileID: 6123456789012345678}
   - component: {fileID: 498257921127036517}
   - component: {fileID: 7433742776496313932}
   - component: {fileID: 2285350135026878017}
@@ -48,18 +50,39 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f8d24f6039bfbc46b0207edfadf554a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  showDebugInfo: 0
+  gameInputManagerPrefab: {fileID: 0}
+--- !u!114 &7123456789012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8053377969660216567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc1e7c8a97594e84a0d2451f730ef260, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerLifecycle
   playerPrefab: {fileID: 7038683931279381878, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
-  spawnPoints:
-  - {fileID: 0}
   respawnDelay: 2
-  deathScreenFallbackDelay: 1.25
+  deathPresentationFallbackDelay: 1.25
+--- !u!114 &6123456789012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8053377969660216567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4e97c68d3124ff5a8f10339c5ec2be6, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.GameUIManager
   playerUIPrefab: {fileID: 1946179015980326645, guid: 6776eb6b105fcbc4ea90b3bf2157c168, type: 3}
   pauseMenuUIPrefab: {fileID: 4187855846369575803, guid: 002fe864f03bd544688a821473d81a8a, type: 3}
   gameOverUIPrefab: {fileID: 1946179015980326645, guid: 3a8bdce014eef4e3581d0b59d3f98008, type: 3}
   loadingScreenUIPrefab: {fileID: 2795285001243938836, guid: 4832e793bc519b040b39d948d43a0b8b, type: 3}
-  showDebugInfo: 0
-  reloadSceneOnDeathTemp: 1
-  gameInputManagerPrefab: {fileID: 0}
 --- !u!82 &498257921127036517
 AudioSource:
   m_ObjectHideFlags: 0

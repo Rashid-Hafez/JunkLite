@@ -424,7 +424,7 @@ namespace junklite
         {
             var player = targetCharacter != null
                 ? targetCharacter
-                : FindObjectOfType<PlayerCharacter>(true);
+                : PlayerLifecycle.Instance?.Player;
             if (player == null) return;
 
             var enemyCols = GetComponentsInChildren<Collider>(includeInactive: true);

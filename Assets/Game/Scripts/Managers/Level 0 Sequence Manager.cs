@@ -388,23 +388,29 @@ namespace junklite
 
         private IEnumerator WaitForPlayer()
         {
-            if (GameManager.Instance?.Player != null)
+            while (PlayerLifecycle.Instance == null)
+                yield return null;
+
+            PlayerLifecycle lifecycle = PlayerLifecycle.Instance;
+            if (lifecycle.Player != null)
             {
-                currentPlayer = GameManager.Instance.Player;
+                currentPlayer = lifecycle.Player;
                 yield break;
             }
 
             bool received = false;
             void OnSpawned(PlayerCharacter p) { currentPlayer = p; received = true; }
 
-            if (GameManager.Instance != null)
-                GameManager.Instance.OnPlayerSpawned += OnSpawned;
+            lifecycle.PlayerSpawned += OnSpawned;
 
-            while (!received)
+            // Close the subscribe/read race if a spawn happened this frame.
+            if (lifecycle.Player != null)
+                OnSpawned(lifecycle.Player);
+
+            while (!received && PlayerLifecycle.Instance == lifecycle)
                 yield return null;
 
-            if (GameManager.Instance != null)
-                GameManager.Instance.OnPlayerSpawned -= OnSpawned;
+            lifecycle.PlayerSpawned -= OnSpawned;
         }
 
         private void RepositionPlayer(Transform spawnPoint)
@@ -461,8 +467,8 @@ namespace junklite
 
         private void RefreshPlayerRef()
         {
-            if (GameManager.Instance?.Player != null)
-                currentPlayer = GameManager.Instance.Player;
+            if (PlayerLifecycle.Instance?.Player != null)
+                currentPlayer = PlayerLifecycle.Instance.Player;
 
             if (currentPlayer != null)
             {

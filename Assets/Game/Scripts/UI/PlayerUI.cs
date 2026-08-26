@@ -38,6 +38,7 @@ namespace junklite
         private bool isInventoryOpen;
         private bool isWeaponPickupOpen;
         private WeaponPickupInteractable activeInteractable;
+        private PlayerLifecycle subscribedPlayerLifecycle;
 
         // -----------------------------------------------------------------------
 
@@ -127,13 +128,7 @@ namespace junklite
 
         private void OnEnable()
         {
-            if (autoBindToPlayerLifecycle && PlayerLifecycle.Instance != null)
-            {
-                if (PlayerLifecycle.Instance.Player != null)
-                    BindToPlayer(PlayerLifecycle.Instance.Player);
-
-                PlayerLifecycle.Instance.PlayerSpawned += HandlePlayerSpawned;
-            }
+            RebindPlayerLifecycle();
 
             var input = GameInputManager.Instance;
             if (input != null)
@@ -147,10 +142,15 @@ namespace junklite
             CloseWeaponPickup(false);
         }
 
+        private void Start()
+        {
+            // Covers scene-authored HUDs that enabled before the persistent root awoke.
+            RebindPlayerLifecycle();
+        }
+
         private void OnDisable()
         {
-            if (autoBindToPlayerLifecycle && PlayerLifecycle.Instance != null)
-                PlayerLifecycle.Instance.PlayerSpawned -= HandlePlayerSpawned;
+            UnsubscribeFromPlayerLifecycle();
 
             var input = GameInputManager.Instance;
             if (input != null)
@@ -171,6 +171,8 @@ namespace junklite
 
         private void OnDestroy()
         {
+            UnsubscribeFromPlayerLifecycle();
+
             if (isInventoryOpen && GameInputManager.Instance != null)
                 GameInputManager.Instance.SetGameplayInputEnabled(true);
 
@@ -181,6 +183,36 @@ namespace junklite
         }
 
         // -----------------------------------------------------------------------
+
+        private void RebindPlayerLifecycle()
+        {
+            PlayerLifecycle lifecycle = autoBindToPlayerLifecycle
+                ? PlayerLifecycle.Instance
+                : null;
+
+            if (subscribedPlayerLifecycle == lifecycle)
+                return;
+
+            UnsubscribeFromPlayerLifecycle();
+            subscribedPlayerLifecycle = lifecycle;
+
+            if (subscribedPlayerLifecycle == null)
+                return;
+
+            subscribedPlayerLifecycle.PlayerSpawned += HandlePlayerSpawned;
+
+            if (subscribedPlayerLifecycle.Player != null)
+                BindToPlayer(subscribedPlayerLifecycle.Player);
+        }
+
+        private void UnsubscribeFromPlayerLifecycle()
+        {
+            if (subscribedPlayerLifecycle == null)
+                return;
+
+            subscribedPlayerLifecycle.PlayerSpawned -= HandlePlayerSpawned;
+            subscribedPlayerLifecycle = null;
+        }
 
         private void HandlePlayerSpawned(PlayerCharacter newPlayer) => BindToPlayer(newPlayer);
 

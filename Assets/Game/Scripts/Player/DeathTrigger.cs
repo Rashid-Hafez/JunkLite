@@ -13,9 +13,10 @@ namespace junklite
         {
             if (other.GetComponentInParent<PlayerCharacter>() != null)
             {
-                var gm = GameManager.Instance;
-                if (gm == null || !gm.IsPlaying) return;
-                gm.KillPlayer();
+                if (GameManager.Instance != null && !GameManager.Instance.IsPlaying)
+                    return;
+
+                PlayerLifecycle.Instance?.KillPlayer();
                 return;
             }
 

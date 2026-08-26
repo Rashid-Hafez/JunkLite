@@ -74,7 +74,7 @@ namespace junklite
         {
             CinemachineImpulseSource src = null;
             // try player character first
-            var player = GameObject.FindObjectOfType<PlayerCharacter>();
+            var player = PlayerLifecycle.Instance?.Player;
             if (player != null)
                 src = player.GetComponent<CinemachineImpulseSource>()
                       ?? player.GetComponentInChildren<CinemachineImpulseSource>();

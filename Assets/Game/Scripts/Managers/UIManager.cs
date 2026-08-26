@@ -41,10 +41,6 @@ namespace junklite
                 GameManager.Instance.OnGameStateChanged += OnGameStateChanged;
             }
 
-            // Player identity/lifecycle is owned separately.
-            if (PlayerLifecycle.Instance != null)
-                PlayerLifecycle.Instance.PlayerSpawned += OnPlayerSpawned;
-
             // Initialize UI
             ShowHUD();
         }
@@ -68,12 +64,6 @@ namespace junklite
                     ShowGameOver();
                     break;
             }
-        }
-
-        private void OnPlayerSpawned(PlayerCharacter player)
-        {
-            // Connect HUD to new player
-           
         }
 
         public void ShowHUD()
@@ -111,8 +101,6 @@ namespace junklite
             if (GameManager.Instance != null)
                 GameManager.Instance.OnGameStateChanged -= OnGameStateChanged;
 
-            if (PlayerLifecycle.Instance != null)
-                PlayerLifecycle.Instance.PlayerSpawned -= OnPlayerSpawned;
         }
     }
 }

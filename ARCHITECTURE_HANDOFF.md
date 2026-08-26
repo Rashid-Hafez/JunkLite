@@ -1,12 +1,12 @@
 # JunkLite Architecture Refactor Handoff
 
-Last reviewed: 2026-08-26
+Last reviewed: 2026-08-27
 
 Reviewed branch: `4.7`
 
 Baseline code commit: `46f3c34e` (`changes to player, enemies and base services`)
 
-The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` migration, focused mod-runtime cleanup, and the explicit `V2.5` infrastructure migration described below.
+The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` migration, focused mod-runtime cleanup, the explicit `V2.5` infrastructure migration, and the focused player/UI lifecycle extractions described below.
 
 ## Purpose
 
@@ -44,10 +44,12 @@ The goal is better modularity and easier feature development without building a 
 | Weapon damage migration | Implemented, gameplay verification pending | All `WeaponManager` damage paths publish actual applied damage. |
 | Ability/mod runtime architecture | Implemented, gameplay verification pending | Per-slot executions, cancellation cleanup, lifecycle separation, and composable player ability locks are in place. |
 | Damage/lock EditMode tests | Passing | Unity 6000.3.22f1 passes all 7 focused tests. |
-| Game root / level context | Runtime fix and explicit migration implemented; scene run pending | The duplicate-singleton spawn failure is fixed in code. The Unity menu command must still be run to rewrite `V2.5` and rebuild the prefab. |
+| Game root / level context | Migration implemented and validator passing; Play Mode verification pending | `V2.5` contains the reusable root and standalone level context without removing authored environment content. |
 | Scene-local camera binding | Implemented, Play Mode verification pending | Core and trigger cameras use one cached registry and rebind to every spawned/respawned player. |
 | Restart/loading transition | Timing fix implemented, Play Mode verification pending | Loading video and async scene loading now overlap; the obsolete serialized six-second activation delay is removed. |
-| Full game/level manager cleanup | Not started | `GameManager` still owns several unrelated responsibilities. |
+| Player lifecycle extraction | Implemented, Play Mode verification pending | `PlayerLifecycle` owns player creation, identity, spawn selection, death, and soft respawn. Direct consumers no longer use player APIs on `GameManager`. |
+| Game UI lifecycle extraction | Implemented, Play Mode verification pending | `GameUIManager` owns HUD, pause, game-over, loading UI, prefab configuration, instances, and state-driven visibility. |
+| Full game/level manager cleanup | In progress | Player and UI lifecycle are extracted; `GameManager` retains global state, pause coordination, scene transitions, and music. |
 
 ## Implemented Architecture
 
@@ -180,7 +182,7 @@ Important behavior corrections included in the migration:
 
 The redesigned scene boundary is two roots with different lifetimes:
 
-- `Game Root` is the duplicate-safe persistent root. It owns `GameManager`, `GameInputManager`, `PlayerCombatTracker`, the runtime gameplay canvas, and the event system.
+- `Game Root` is the duplicate-safe persistent root. It owns `GameManager`, `PlayerLifecycle`, `GameUIManager`, `GameInputManager`, `PlayerCombatTracker`, the runtime gameplay canvas, and the event system.
 - `Level Context` is a standalone scene-local root. It owns the level identity, whether a player should spawn, and explicit typed player spawn points.
 
 `LevelContext` must not be nested under the persistent prefab. `GameRoot` temporarily detaches contexts found in an older prefab so unmigrated scenes remain usable, while the rebuild command removes that legacy nesting from the prefab entirely.
@@ -200,7 +202,7 @@ does the following in one reviewed operation:
 5. Preserves level geometry, cameras, enemies, pickups, and required supporting services such as audio, combat effects, projectiles, drops, and feedback.
 6. Saves and validates the resulting scene.
 
-The scene and prefab have deliberately not been rewritten from outside Unity. Run the command in the open Editor, inspect the hierarchy, then use `Tools > JunkLite > V2.5 > Validate Redesigned Setup`. This is a foundation, not a completed manager refactor: `GameManager` still owns scene loading, player lifecycle, respawn, UI lifecycles, pause state, spawn resolution, music selection, and game-state transitions.
+`PlayerLifecycle` is now serialized on the reusable `Game Root` and owns the player prefab, current-player reference, typed spawn selection, death observation, lifecycle events, and delayed soft respawn. `GameUIManager` is also serialized on the root and owns all runtime UI prefab references, creation, instances, canvas discovery, loading presentation, and state-driven visibility. `GameManager` coordinates scene initialization but retains only global game state, pause coordination, scene transitions, and music. Hidden player and UI fields remain solely as compatibility bridges for old scenes that have not yet been rebuilt with the reusable prefab.
 
 ### 9. Scene-local camera ownership and player binding
 
@@ -210,14 +212,14 @@ The original V2.5 camera failure was caused by a split configuration: the scene 
 
 The corrected flow is:
 
-1. `GameManager` spawns or revives the player and publishes `OnPlayerSpawned` once.
-2. The scene-local `CameraManager` subscribes to that event and owns all camera response.
+1. `PlayerLifecycle` spawns or revives the player and publishes `PlayerSpawned` once.
+2. The scene-local `CameraManager` subscribes directly to that event and owns all camera response.
 3. Main, spawn, death, and explicitly configured level cameras enter one cached, deduplicated registry.
 4. Every registered camera is rebound to the current player on spawn and respawn.
 5. A camera selected later by `CameraSwitchTrigger` registers and binds on demand.
 6. Respawn prioritizes the configured spawn camera, falling back to main and then the first registered camera.
 
-This uses explicit serialized references and small cached collections rather than repeated scene-wide camera searches. Follow-freeze state is retained when switching cameras, singleton duplicates remove only the duplicate component, and the manager cleans up both player and `GameManager` event subscriptions when disabled.
+This uses explicit serialized references and small cached collections rather than repeated scene-wide camera searches. Follow-freeze state is retained when switching cameras, singleton duplicates remove only the duplicate component, and the manager cleans up both player and `PlayerLifecycle` event subscriptions when disabled.
 
 The V2.5 validation command now requires exactly one scene-local `CameraManager`, exactly one `CinemachineBrain`, and a main camera reference belonging to the scene camera rig.
 
@@ -227,13 +229,23 @@ The original scene-restart coroutine played the entire loading video before it e
 
 `GameManager.LoadLevelWithScreen` now starts the video and asynchronous scene load together. Scene activation waits until the scene is ready and the video is finished, so the two real operations overlap instead of accumulating. The debug delay field and its stale values were removed from both manager prefabs. Input remains disabled until `InitializeForNewScene` has refreshed level references and spawned the player.
 
+### 11. Focused game UI lifecycle
+
+`GameUIManager` owns the runtime HUD, pause menu, game-over screen, and loading screen without introducing a service locator or event bus. It subscribes directly to `GameManager.OnGameStateChanged` and `PlayerLifecycle.PlayerSpawned`, activates the HUD only for a live player in a player-enabled level, presents game over from global state, and restores HUD binding after soft respawn.
+
+The reusable `Game Root` and legacy `Game Manager` prefabs both serialize the four UI prefabs on `GameUIManager`. The V2.5 rebuild command adds and migrates this component when necessary, and validation rejects a root with missing or incompatible UI prefabs. `GameManager` delegates scene UI initialization, loading begin/cancel, loading-video completion, and inventory-first pause handling through the focused UI owner.
+
+The load-failure path now preserves the current player until Unity confirms the scene request is valid and restores the pause subscription if loading cannot start.
+
 ## Verification Recorded
 
 On 2026-08-26 with Unity 6000.3.22f1:
 
 - Runtime and editor assemblies compiled successfully after the mod cleanup.
-- Runtime and editor assemblies compile with 0 errors after the `V2.5` spawn, camera-binding, and migration-tool changes. The wider project still reports pre-existing analyzer, obsolete-API, and unused-field warnings.
+- Runtime and editor assemblies compile with 0 errors after the `V2.5` spawn, camera-binding, lifecycle, UI-lifecycle, and migration-tool changes. The wider project still reports pre-existing analyzer, obsolete-API, and unused-field warnings.
 - `DamagePipelineTests` passed 7/7 in EditMode.
+- `PlayerLifecycleConfigurationTests` passed 3/3 in EditMode before the UI extraction; one additional reusable-root UI configuration test is implemented and awaits an in-Editor rerun because Unity was open during the change.
+- `Tools > JunkLite > V2.5 > Validate Redesigned Setup` passes with one configured `PlayerLifecycle` hosted by `Game Root`.
 - The tests cover requested versus applied damage, rejection outcomes, defensive immunity, death/revive, idempotent attribute initialization, composable input locks, and composable damage-immunity locks.
 - A source search found no `IDamageable`, `DamageInfo`, `TakeDamage`, `FromLegacy`, `ToLegacy`, or `OnDamaged` references in first-party gameplay scripts.
 
@@ -258,7 +270,9 @@ For the scene-local camera slice, verify initial spawn follow, death-camera swit
 
 For the restart transition, verify that restart begins loading immediately, the video does not sit frozen for the former six-second delay, the scene activates cleanly, and player input/camera/UI are restored once.
 
-The broader foundation still needs representative player/enemy/weapon gameplay verification. The explicit `V2.5` migration must be run in Unity and then visually and functionally approved.
+For the focused UI lifecycle, verify that exactly one HUD, pause menu, game-over screen, and loading screen are created; pause/resume visibility is correct; an open inventory closes before the game pauses; death hides the HUD and shows game over; the game-over restart button revives at the primary spawn; HUD data rebinds; and a failed/invalid scene request restores UI and pause input.
+
+The broader foundation still needs representative player/enemy/weapon gameplay verification. The migrated `V2.5` scene still needs visual and functional Play Mode approval.
 
 ## What Should Be Done Next
 
@@ -268,19 +282,21 @@ Fix only regressions inside the implemented boundaries. Do not add another abstr
 
 ### Gate 2: Harden the game-root migration workflow
 
-1. In Unity, run `Tools > JunkLite > V2.5 > Strip Legacy Systems and Rebuild` and approve the confirmation dialog.
+1. Re-run `Tools > JunkLite > V2.5 > Strip Legacy Systems and Rebuild` only when the training scene infrastructure needs to be regenerated.
 2. Inspect the preserved authored content, enter Play Mode, and verify the player spawns at `Level Context/Player Spawn Point` and the main Cinemachine camera immediately follows it.
-3. Run `Tools > JunkLite > V2.5 > Validate Redesigned Setup`.
+3. Run `Tools > JunkLite > V2.5 > Validate Redesigned Setup` after infrastructure changes.
 4. Migrate one additional gameplay scene and one menu/non-gameplay scene with user review.
 5. Retire legacy spawn/UI fallbacks only after all scenes use the new workflow.
 
-### Gate 3: Extract one concrete GameManager responsibility
+### Gate 3: Verify the extracted player and UI lifecycles
 
-After the scene foundation is verified:
+The player lifecycle boundary has been extracted. In Play Mode, verify:
 
-1. First candidate: player spawn/death/respawn lifecycle.
-2. Second candidate: gameplay HUD/pause/game-over UI lifecycle.
-3. Keep global game state and scene transitions in `GameManager` until those extractions prove stable.
+1. Player spawn at the `LevelContext` primary typed spawn and immediate camera/HUD binding.
+2. Death presentation, `PlayerDied`, game-over state, and delayed soft respawn from the game-over button.
+3. Camera, HUD, combat tracking, trigger state, enemies, and debug UI all rebind to the revived player.
+4. Confirm the pause menu, game-over screen, and loading presentation are created once by `GameUIManager` and remain correct across restart and scene transitions.
+5. Confirm a gameplay scene with `LevelContext.SpawnPlayer` disabled creates no player HUD while retaining pause/loading UI.
 
 ### Gate 4: Review WeaponManager responsibilities
 
@@ -318,7 +334,7 @@ Still required before calling the slice gameplay-closed:
 
 ## Continuation Prompt for a New Codex Task
 
-> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. Player/enemy separation, the result-based damage pipeline, all first-party damage-producer migrations, the `WeaponManager` result migration, composable player ability locks, explicit mod lifecycle, per-instance mod execution/cancellation, scene-local camera rebinding, concurrent restart loading, and the manual-only `V2.5` infrastructure migration are implemented. Unity 6000.3.22f1 compiles and all 7 focused EditMode tests pass. If `V2.5` has not yet been rewritten, run `Tools > JunkLite > V2.5 > Strip Legacy Systems and Rebuild`, verify player spawning, camera follow, and restart timing, then run the validation command. Do not add networking architecture, a universal ability graph, a service locator, or a broad manager rewrite. After the listed Play Mode checks, extract only one concrete `GameManager` responsibility at a time.
+> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. Player/enemy separation, the result-based damage pipeline, all first-party damage-producer migrations, the `WeaponManager` result migration, composable player ability locks, explicit mod lifecycle, per-instance mod execution/cancellation, scene-local camera rebinding, concurrent restart loading, the manual-only `V2.5` infrastructure migration, and the focused `PlayerLifecycle` and `GameUIManager` extractions are implemented. Unity 6000.3.22f1 compiles and the last full EditMode run plus V2.5 redesigned-setup validator passed; rerun the added UI configuration test when Unity is available. Verify player spawn, camera/HUD binding, pause, death, game-over, loading, and soft respawn in Play Mode. Do not add networking architecture, a universal ability graph, a service locator, or a broad manager rewrite.
 
 ## Synchronization Checklist
 

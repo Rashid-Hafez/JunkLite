@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace junklite
@@ -17,7 +18,8 @@ namespace junklite
         }
 
         [Header("Auto-Bind")]
-        [SerializeField] private bool autoBindToGameManager = true;
+        [FormerlySerializedAs("autoBindToGameManager")]
+        [SerializeField] private bool autoBindToPlayerLifecycle = true;
 
         [Header("Panel")]
         [SerializeField] private GameObject panel;
@@ -35,6 +37,7 @@ namespace junklite
         private PlayerCharacter player;
         private WeaponManager weaponManager;
         private ModManager modManager;
+        private PlayerLifecycle subscribedPlayerLifecycle;
 
         private ModSlotReference[] modSlots;
 
@@ -45,13 +48,7 @@ namespace junklite
 
         private void OnEnable()
         {
-            if (autoBindToGameManager && GameManager.Instance != null)
-            {
-                if (GameManager.Instance.Player != null)
-                    BindToPlayer(GameManager.Instance.Player);
-
-                GameManager.Instance.OnPlayerSpawned += HandlePlayerSpawned;
-            }
+            RebindPlayerLifecycle();
 
             if (GameInputManager.Instance != null)
             {
@@ -62,10 +59,14 @@ namespace junklite
             Refresh();
         }
 
+        private void Start()
+        {
+            RebindPlayerLifecycle();
+        }
+
         private void OnDisable()
         {
-            if (autoBindToGameManager && GameManager.Instance != null)
-                GameManager.Instance.OnPlayerSpawned -= HandlePlayerSpawned;
+            UnsubscribeFromPlayerLifecycle();
 
             if (GameInputManager.Instance != null)
             {
@@ -74,6 +75,36 @@ namespace junklite
             }
 
             Unbind();
+        }
+
+        private void RebindPlayerLifecycle()
+        {
+            PlayerLifecycle lifecycle = autoBindToPlayerLifecycle
+                ? PlayerLifecycle.Instance
+                : null;
+
+            if (subscribedPlayerLifecycle == lifecycle)
+                return;
+
+            UnsubscribeFromPlayerLifecycle();
+            subscribedPlayerLifecycle = lifecycle;
+
+            if (subscribedPlayerLifecycle == null)
+                return;
+
+            subscribedPlayerLifecycle.PlayerSpawned += HandlePlayerSpawned;
+
+            if (subscribedPlayerLifecycle.Player != null)
+                BindToPlayer(subscribedPlayerLifecycle.Player);
+        }
+
+        private void UnsubscribeFromPlayerLifecycle()
+        {
+            if (subscribedPlayerLifecycle == null)
+                return;
+
+            subscribedPlayerLifecycle.PlayerSpawned -= HandlePlayerSpawned;
+            subscribedPlayerLifecycle = null;
         }
 
         public void BindToPlayer(PlayerCharacter target)

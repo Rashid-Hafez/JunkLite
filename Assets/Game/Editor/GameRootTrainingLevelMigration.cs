@@ -95,6 +95,30 @@ namespace junklite.Editor
                 if (root.GetComponent<GameRoot>() == null)
                     root.AddComponent<GameRoot>();
 
+                PlayerLifecycle lifecycle = root.GetComponent<PlayerLifecycle>();
+                if (lifecycle == null)
+                    lifecycle = root.AddComponent<PlayerLifecycle>();
+
+                GameUIManager uiManager = root.GetComponent<GameUIManager>();
+                if (uiManager == null)
+                    uiManager = root.AddComponent<GameUIManager>();
+
+                GameManager manager = root.GetComponent<GameManager>();
+                if (manager != null)
+                {
+                    var serializedManager = new SerializedObject(manager);
+                    lifecycle.ApplyDefaultsIfMissing(
+                        serializedManager.FindProperty("playerPrefab").objectReferenceValue as GameObject,
+                        serializedManager.FindProperty("respawnDelay").floatValue,
+                        serializedManager.FindProperty("deathScreenFallbackDelay").floatValue);
+
+                    uiManager.ApplyDefaultsIfMissing(
+                        serializedManager.FindProperty("playerUIPrefab").objectReferenceValue as GameObject,
+                        serializedManager.FindProperty("pauseMenuUIPrefab").objectReferenceValue as GameObject,
+                        serializedManager.FindProperty("gameOverUIPrefab").objectReferenceValue as GameObject,
+                        serializedManager.FindProperty("loadingScreenUIPrefab").objectReferenceValue as GameObject);
+                }
+
                 if (root.GetComponent<GameInputManager>() == null)
                     root.AddComponent<GameInputManager>();
 
@@ -203,6 +227,8 @@ namespace junklite.Editor
 
             CollectOutermostRoots<GameRoot>(scene, rootsToRemove);
             CollectOutermostRoots<GameManager>(scene, rootsToRemove);
+            CollectOutermostRoots<PlayerLifecycle>(scene, rootsToRemove);
+            CollectOutermostRoots<GameUIManager>(scene, rootsToRemove);
             CollectOutermostRoots<GameInputManager>(scene, rootsToRemove);
             CollectOutermostRoots<PlayerCombatTracker>(scene, rootsToRemove);
             CollectOutermostRoots<PlayerCharacter>(scene, rootsToRemove);
@@ -317,6 +343,8 @@ namespace junklite.Editor
         {
             GameRoot[] gameRoots = FindSceneComponents<GameRoot>(scene).ToArray();
             GameManager[] gameManagers = FindSceneComponents<GameManager>(scene).ToArray();
+            PlayerLifecycle[] playerLifecycles = FindSceneComponents<PlayerLifecycle>(scene).ToArray();
+            GameUIManager[] uiManagers = FindSceneComponents<GameUIManager>(scene).ToArray();
             GameInputManager[] inputManagers = FindSceneComponents<GameInputManager>(scene).ToArray();
             PlayerCombatTracker[] combatTrackers = FindSceneComponents<PlayerCombatTracker>(scene).ToArray();
             LevelContext[] contexts = FindSceneComponents<LevelContext>(scene).ToArray();
@@ -328,6 +356,12 @@ namespace junklite.Editor
                 throw new System.InvalidOperationException($"Expected one GameRoot, found {gameRoots.Length}.");
             if (gameManagers.Length != 1)
                 throw new System.InvalidOperationException($"Expected one GameManager, found {gameManagers.Length}.");
+            if (playerLifecycles.Length != 1)
+                throw new System.InvalidOperationException(
+                    $"Expected one PlayerLifecycle, found {playerLifecycles.Length}.");
+            if (uiManagers.Length != 1)
+                throw new System.InvalidOperationException(
+                    $"Expected one GameUIManager, found {uiManagers.Length}.");
             if (inputManagers.Length != 1)
                 throw new System.InvalidOperationException($"Expected one GameInputManager, found {inputManagers.Length}.");
             if (combatTrackers.Length != 1)
@@ -355,10 +389,14 @@ namespace junklite.Editor
             if (!context.SpawnPlayer || context.GetPlayerSpawns().Count == 0)
                 throw new System.InvalidOperationException("LevelContext is not configured to spawn the player.");
 
-            var serializedManager = new SerializedObject(gameManagers[0]);
-            var playerPrefab = serializedManager.FindProperty("playerPrefab").objectReferenceValue as GameObject;
+            if (playerLifecycles[0].gameObject != gameRoots[0].gameObject)
+                throw new System.InvalidOperationException("PlayerLifecycle must be hosted by Game Root.");
+            if (uiManagers[0].gameObject != gameRoots[0].gameObject)
+                throw new System.InvalidOperationException("GameUIManager must be hosted by Game Root.");
+
+            GameObject playerPrefab = playerLifecycles[0].PlayerPrefab;
             if (playerPrefab == null)
-                throw new MissingReferenceException("GameManager has no player prefab assigned.");
+                throw new MissingReferenceException("PlayerLifecycle has no player prefab assigned.");
             if (playerPrefab.GetComponent<PlayerCharacter>() == null ||
                 playerPrefab.GetComponent<Damageable>() == null ||
                 playerPrefab.GetComponent<ModManager>() == null)
@@ -367,14 +405,47 @@ namespace junklite.Editor
                     "The configured player prefab is missing PlayerCharacter, Damageable, or ModManager.");
             }
 
+            ValidateGameUIPrefabs(uiManagers[0]);
+
             if (FindSceneComponents<EventSystem>(scene).Any())
                 throw new System.InvalidOperationException("A legacy scene EventSystem remains; GameRoot creates it at runtime.");
 
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(GameRootPrefabPath);
             if (prefab == null)
                 throw new MissingReferenceException("Game Root prefab is missing.");
+            if (prefab.GetComponent<PlayerLifecycle>() == null)
+                throw new MissingReferenceException("Game Root prefab has no PlayerLifecycle component.");
+            if (prefab.GetComponent<GameUIManager>() == null)
+                throw new MissingReferenceException("Game Root prefab has no GameUIManager component.");
             if (prefab.GetComponentInChildren<LevelContext>(true) != null)
                 throw new System.InvalidOperationException("Game Root prefab still contains scene-local LevelContext data.");
+        }
+
+        private static void ValidateGameUIPrefabs(GameUIManager uiManager)
+        {
+            if (uiManager.PlayerUIPrefab == null ||
+                uiManager.PlayerUIPrefab.GetComponent<PlayerUI>() == null)
+            {
+                throw new MissingReferenceException(
+                    "GameUIManager needs a player UI prefab with PlayerUI.");
+            }
+
+            if (uiManager.PauseMenuUIPrefab == null ||
+                uiManager.PauseMenuUIPrefab.GetComponent<PauseMenuUI>() == null)
+            {
+                throw new MissingReferenceException(
+                    "GameUIManager needs a pause menu prefab with PauseMenuUI.");
+            }
+
+            if (uiManager.GameOverUIPrefab == null)
+                throw new MissingReferenceException("GameUIManager has no game-over prefab assigned.");
+
+            if (uiManager.LoadingScreenUIPrefab == null ||
+                uiManager.LoadingScreenUIPrefab.GetComponent<LoadingScreenUI>() == null)
+            {
+                throw new MissingReferenceException(
+                    "GameUIManager needs a loading-screen prefab with LoadingScreenUI.");
+            }
         }
     }
 }

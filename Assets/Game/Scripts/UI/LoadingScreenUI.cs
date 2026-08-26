@@ -14,7 +14,7 @@ namespace junklite
         private bool videoFinished;
         private bool prepareComplete;
 
-        // Polled by GameManager each frame to decide when to activate the incoming scene.
+        // Exposed through GameUIManager so scene activation can wait for presentation.
         public bool IsVideoFinished => videoFinished || videoPlayer == null;
 
         #endregion

@@ -2,9 +2,7 @@ using UnityEngine;
 using Unity.Cinemachine;
 using System.Collections;
 using System.Collections.Generic;
-using System;
 using System.Linq;
-using NUnit.Framework;
 
 namespace junklite
 {
@@ -34,8 +32,8 @@ namespace junklite
         [Header("Lock Settings")]
         [SerializeField] private bool locked = false;
         [SerializeField] private BoxCollider triggerCollider;
-        private Action combatStartHandler;
-        private Action combatEndHandler;
+        private PlayerCombatTracker subscribedCombatTracker;
+        private PlayerLifecycle subscribedPlayerLifecycle;
 
         [Header("Culling Objects")]
         private bool hidden = false;
@@ -51,20 +49,14 @@ namespace junklite
 
         private void OnEnable()
         {
-            if (PlayerCombatTracker.Instance != null)
-            {
-                PlayerCombatTracker.Instance.OnCombatStarted += combatStartHandler;
-                PlayerCombatTracker.Instance.OnCombatEnded += combatEndHandler;
-            }
+            RebindCombatTracker();
+            RebindPlayerLifecycle();
         }
 
         private void OnDisable()
         {
-            if (PlayerCombatTracker.Instance != null)
-            {
-                PlayerCombatTracker.Instance.OnCombatStarted -= combatStartHandler;
-                PlayerCombatTracker.Instance.OnCombatEnded -= combatEndHandler;
-            }
+            UnsubscribeFromCombatTracker();
+            UnsubscribeFromPlayerLifecycle();
         }
 
         private void Awake()
@@ -76,17 +68,13 @@ namespace junklite
 
             locked = false;
 
-            combatStartHandler = Lock;
-            combatEndHandler = Unlock;
         }
 
         private void Start()
         {
-            if (PlayerCombatTracker.Instance != null)
-            {
-                PlayerCombatTracker.Instance.OnCombatStarted += Lock;
-                PlayerCombatTracker.Instance.OnCombatEnded += Unlock;
-            }
+            // Persistent services may finish Awake after this scene object enables.
+            RebindCombatTracker();
+            RebindPlayerLifecycle();
 
             arrowRenderers = GetComponentsInChildren<Renderer>();
             foreach (Renderer renderer in arrowRenderers)
@@ -94,22 +82,65 @@ namespace junklite
                 renderer.material.SetFloat("_ZWrite", 1f);
             }
 
-            // Reset this trigger's state whenever the player dies so it's
-            // fresh for the next run. Camera snap is handled by CameraManager.
-            if (GameManager.Instance != null)
-                GameManager.Instance.OnPlayerDied += ResetToDefaultState;
         }
 
         private void OnDestroy()
         {
-            if (PlayerCombatTracker.Instance != null)
-            {
-                PlayerCombatTracker.Instance.OnCombatStarted -= Lock;
-                PlayerCombatTracker.Instance.OnCombatEnded -= Unlock;
-            }
+            UnsubscribeFromCombatTracker();
+            UnsubscribeFromPlayerLifecycle();
+        }
 
-            if (GameManager.Instance != null)
-                GameManager.Instance.OnPlayerDied -= ResetToDefaultState;
+        private void RebindCombatTracker()
+        {
+            PlayerCombatTracker tracker = PlayerCombatTracker.Instance;
+            if (subscribedCombatTracker == tracker)
+                return;
+
+            UnsubscribeFromCombatTracker();
+            subscribedCombatTracker = tracker;
+
+            if (subscribedCombatTracker == null)
+                return;
+
+            subscribedCombatTracker.OnCombatStarted += Lock;
+            subscribedCombatTracker.OnCombatEnded += Unlock;
+        }
+
+        private void UnsubscribeFromCombatTracker()
+        {
+            if (subscribedCombatTracker == null)
+                return;
+
+            subscribedCombatTracker.OnCombatStarted -= Lock;
+            subscribedCombatTracker.OnCombatEnded -= Unlock;
+            subscribedCombatTracker = null;
+        }
+
+        private void RebindPlayerLifecycle()
+        {
+            PlayerLifecycle lifecycle = PlayerLifecycle.Instance;
+            if (subscribedPlayerLifecycle == lifecycle)
+                return;
+
+            UnsubscribeFromPlayerLifecycle();
+            subscribedPlayerLifecycle = lifecycle;
+
+            if (subscribedPlayerLifecycle != null)
+                subscribedPlayerLifecycle.PlayerDied += HandlePlayerDied;
+        }
+
+        private void UnsubscribeFromPlayerLifecycle()
+        {
+            if (subscribedPlayerLifecycle == null)
+                return;
+
+            subscribedPlayerLifecycle.PlayerDied -= HandlePlayerDied;
+            subscribedPlayerLifecycle = null;
+        }
+
+        private void HandlePlayerDied(PlayerCharacter player)
+        {
+            ResetToDefaultState();
         }
 
         /// <summary>
@@ -121,7 +152,7 @@ namespace junklite
             usingFirstState = false;
 
             // Restore any objects that were hidden mid-run
-            if (objectsToHide.Length > 0 && hidden)
+            if (objectsToHide != null && objectsToHide.Length > 0 && hidden)
             {
                 foreach (var obj in objectsToHide)
                     obj.SetActive(true);

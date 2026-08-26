@@ -2,11 +2,12 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 namespace junklite
 {
     [DefaultExecutionOrder(1)]
+    [RequireComponent(typeof(PlayerLifecycle))]
+    [RequireComponent(typeof(GameUIManager))]
     public class GameManager : MonoBehaviour
     {
         public static GameManager Instance { get; private set; }
@@ -19,31 +20,16 @@ namespace junklite
         [SerializeField, HideInInspector] private float respawnDelay = 3f;
         [SerializeField, HideInInspector, Min(0f)] private float deathScreenFallbackDelay = 1.25f;
 
-        [Header("UI - Player HUD")]
-        [SerializeField] private GameObject playerUIPrefab;
-
-        [Header("UI - Pause Menu")]
-        [SerializeField] private GameObject pauseMenuUIPrefab;
-
-        [Header("UI - Game Over")]
-        [SerializeField] private GameObject gameOverUIPrefab;
-
-        [Header("UI - Loading Screen")]
-        [SerializeField] private GameObject loadingScreenUIPrefab;
+        [Header("Legacy UI Lifecycle Migration")]
+        [Tooltip("Temporary serialized fallbacks for scenes not yet rebuilt with GameUIManager.")]
+        [SerializeField, HideInInspector] private GameObject playerUIPrefab;
+        [SerializeField, HideInInspector] private GameObject pauseMenuUIPrefab;
+        [SerializeField, HideInInspector] private GameObject gameOverUIPrefab;
+        [SerializeField, HideInInspector] private GameObject loadingScreenUIPrefab;
 
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
         [SerializeField] private GameObject gameInputManagerPrefab;
-
-        // Supplied by GameRoot, with a tagged-scene fallback for legacy levels.
-        private Transform gameplayCanvasTransform;
-
-        // UI instances
-        private PlayerUI playerUIInstance;
-        private PauseMenuUI pauseMenuUIInstance;
-        private GameObject gameOverUIInstance;
-        private Button gameOverRestartButton;
-        private LoadingScreenUI loadingScreenUIInstance;
 
         // Game state
         private GameState currentState = GameState.Playing;
@@ -51,6 +37,7 @@ namespace junklite
         private bool gameInitialized = false;
         private bool isLoadingScene = false;
         private PlayerLifecycle playerLifecycle;
+        private GameUIManager gameUIManager;
 
         /// <summary>The active <see cref="GameInputManager"/> subscribed for pause input.</summary>
         private GameInputManager pauseInputSubscriber;
@@ -91,6 +78,14 @@ namespace junklite
                 respawnDelay,
                 deathScreenFallbackDelay,
                 lifecycleAdded);
+
+            gameUIManager = GetComponent<GameUIManager>() ?? gameObject.AddComponent<GameUIManager>();
+            gameUIManager.ApplyDefaultsIfMissing(
+                playerUIPrefab,
+                pauseMenuUIPrefab,
+                gameOverUIPrefab,
+                loadingScreenUIPrefab);
+
             SubscribeToPlayerLifecycle();
         }
 
@@ -129,7 +124,6 @@ namespace junklite
             if (playerLifecycle == null)
                 return;
 
-            playerLifecycle.PlayerSpawned += HandleLifecyclePlayerSpawned;
             playerLifecycle.PlayerDied += HandleLifecyclePlayerDied;
             playerLifecycle.PlayerDeathPresentationCompleted += HandlePlayerDeathPresentationCompleted;
         }
@@ -139,15 +133,8 @@ namespace junklite
             if (playerLifecycle == null)
                 return;
 
-            playerLifecycle.PlayerSpawned -= HandleLifecyclePlayerSpawned;
             playerLifecycle.PlayerDied -= HandleLifecyclePlayerDied;
             playerLifecycle.PlayerDeathPresentationCompleted -= HandlePlayerDeathPresentationCompleted;
-        }
-
-        private void HandleLifecyclePlayerSpawned(PlayerCharacter player)
-        {
-            EnsurePlayerUI();
-            playerUIInstance?.BindToPlayer(player);
         }
 
         private void HandleLifecyclePlayerDied(PlayerCharacter player)
@@ -161,7 +148,6 @@ namespace junklite
                 return;
 
             SetGameState(GameState.GameOver);
-            ShowGameOverUI();
         }
 
         #endregion
@@ -234,59 +220,8 @@ namespace junklite
             currentLevelContext = null;
             currentSceneSettings = null;
 
-            FindGameplayCanvas();
             FindLevelConfiguration();
             playerLifecycle?.ConfigureScene(currentLevelContext, currentSceneSettings);
-        }
-
-        private void FindGameplayCanvas()
-        {
-            if (GameRoot.Instance != null && GameRoot.Instance.GameplayUIRoot != null)
-            {
-                gameplayCanvasTransform = GameRoot.Instance.GameplayUIRoot;
-                return;
-            }
-
-            if (gameplayCanvasTransform != null)
-                return;
-
-            GameObject canvas = null;
-            try
-            {
-                canvas = GameObject.FindWithTag("GameplayCanvas");
-            }
-            catch (UnityException)
-            {
-                // Older projects may not define the tag. The fallback canvas below is sufficient.
-            }
-
-            if (canvas != null)
-            {
-                gameplayCanvasTransform = canvas.transform;
-                return;
-            }
-
-            var canvasObject = new GameObject(
-                "Persistent Gameplay UI",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(CanvasScaler),
-                typeof(GraphicRaycaster));
-
-            canvasObject.layer = LayerMask.NameToLayer("UI");
-            canvasObject.transform.SetParent(transform, false);
-
-            var runtimeCanvas = canvasObject.GetComponent<Canvas>();
-            runtimeCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            runtimeCanvas.sortingOrder = 10;
-
-            var scaler = canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
-
-            gameplayCanvasTransform = canvasObject.transform;
         }
 
         /// <summary>
@@ -333,8 +268,6 @@ namespace junklite
 
         private void InitializeForNewScene()
         {
-            loadingScreenUIInstance?.Hide();
-            HideGameOverUI();
             isLoadingScene = false;
 
             // Re-enable gameplay input now that the scene is ready.
@@ -342,14 +275,11 @@ namespace junklite
 
             RebindPauseInputSubscription();
 
-            // Pause menu and game-over UI are always created (they handle their own visibility).
-            EnsurePauseMenuUI();
-            EnsureGameOverUI();
+            bool shouldSpawnPlayer = ShouldSpawnPlayerInScene();
+            gameUIManager?.InitializeForScene(shouldSpawnPlayer);
 
-            // Player and Player HUD are conditional on this scene's settings.
-            if (ShouldSpawnPlayerInScene())
+            if (shouldSpawnPlayer)
             {
-                EnsurePlayerUI();
                 playerLifecycle?.SpawnPlayer();
             }
             else
@@ -367,16 +297,14 @@ namespace junklite
 
         private void InitializeGame()
         {
-            FindGameplayCanvas();
             FindLevelConfiguration();
             playerLifecycle?.ConfigureScene(currentLevelContext, currentSceneSettings);
-            EnsureLoadingScreenUI();
-            EnsurePauseMenuUI();
-            EnsureGameOverUI();
 
-            if (ShouldSpawnPlayerInScene())
+            bool shouldSpawnPlayer = ShouldSpawnPlayerInScene();
+            gameUIManager?.InitializeForScene(shouldSpawnPlayer);
+
+            if (shouldSpawnPlayer)
             {
-                EnsurePlayerUI();
                 playerLifecycle?.SpawnPlayer();
             }
             else
@@ -386,104 +314,6 @@ namespace junklite
 
             SetGameState(GameState.Playing);
             gameInitialized = true;
-        }
-
-        private void EnsurePlayerUI()
-        {
-            if (playerUIInstance != null) return;
-
-            if (gameplayCanvasTransform == null)
-            {
-                Debug.LogError("[GameManager] GameplayCanvas not found — cannot create Player UI.");
-                return;
-            }
-
-            if (playerUIPrefab == null)
-            {
-                Debug.LogError("[GameManager] playerUIPrefab is not assigned.");
-                return;
-            }
-
-            var uiGO = Instantiate(playerUIPrefab, gameplayCanvasTransform);
-            uiGO.name = "Player UI";
-            playerUIInstance = uiGO.GetComponent<PlayerUI>();
-            if (playerUIInstance == null)
-                Debug.LogError("[GameManager] Player UI prefab is missing a PlayerUI component.");
-        }
-
-        private void EnsurePauseMenuUI()
-        {
-            if (pauseMenuUIPrefab == null)
-            {
-                Debug.LogWarning("[GameManager] No PauseMenuUI prefab assigned.");
-                return;
-            }
-
-            if (pauseMenuUIInstance != null)
-                return;
-
-            var go = Instantiate(pauseMenuUIPrefab, gameplayCanvasTransform);
-            go.name = "Pause Menu UI";
-            pauseMenuUIInstance = go.GetComponent<PauseMenuUI>();
-            if (pauseMenuUIInstance == null)
-                Debug.LogError("[GameManager] PauseMenuUI prefab is missing a PauseMenuUI component.");
-        }
-
-        private void EnsureGameOverUI()
-        {
-            if (gameOverUIPrefab == null)
-            {
-                Debug.LogWarning("[GameManager] No GameOverUI prefab assigned.");
-                return;
-            }
-
-            if (gameOverUIInstance != null)
-                return;
-
-            gameOverUIInstance = Instantiate(gameOverUIPrefab, gameplayCanvasTransform);
-            gameOverUIInstance.name = "Game Over UI";
-            gameOverRestartButton = gameOverUIInstance.GetComponentInChildren<Button>(true);
-            if (gameOverRestartButton != null)
-                gameOverRestartButton.onClick.AddListener(RestartCurrentScene);
-            else
-                Debug.LogWarning("[GameManager] GameOverUI prefab has no Button child for restart.");
-
-            HideGameOverUI();
-        }
-
-        private void ShowGameOverUI()
-        {
-            if (gameOverUIInstance != null)
-                gameOverUIInstance.SetActive(true);
-        }
-
-        private void HideGameOverUI()
-        {
-            if (gameOverUIInstance != null)
-                gameOverUIInstance.SetActive(false);
-            else
-            {
-                gameOverUIInstance = null;
-                gameOverRestartButton = null;
-            }
-        }
-
-        private void EnsureLoadingScreenUI()
-        {
-            if (loadingScreenUIInstance != null) return;
-
-            if (loadingScreenUIPrefab == null)
-            {
-                Debug.LogWarning("[GameManager] No LoadingScreenUI prefab assigned.");
-                return;
-            }
-
-            var go = Instantiate(loadingScreenUIPrefab);
-            go.name = "Loading Screen UI";
-            DontDestroyOnLoad(go);
-            loadingScreenUIInstance = go.GetComponent<LoadingScreenUI>();
-            if (loadingScreenUIInstance == null)
-                Debug.LogError("[GameManager] LoadingScreenUI prefab is missing a LoadingScreenUI component.");
         }
 
         #endregion
@@ -528,9 +358,8 @@ namespace junklite
             }
             else if (currentState == GameState.Playing)
             {
-                if (playerUIInstance != null && playerUIInstance.IsInventoryOpen)
-                    playerUIInstance.CloseInventory();
-                else
+                bool closedInventory = gameUIManager != null && gameUIManager.TryClosePlayerInventory();
+                if (!closedInventory)
                     PauseGame();
             }
         }
@@ -567,7 +396,6 @@ namespace junklite
         {
             if (isLoadingScene) yield break;
             isLoadingScene = true;
-            playerLifecycle?.PrepareForSceneChange();
 
             // Detach before the scene unloads so we are not left subscribed to a destroyed GameInputManager.
             UnsubscribePauseInput();
@@ -577,9 +405,7 @@ namespace junklite
             GameInputManager.Instance?.SetGameplayInputEnabled(false);
 
             if (currentState != GameState.Playing) SetGameState(GameState.Playing);
-            HideGameOverUI();
-
-            loadingScreenUIInstance?.Show();
+            gameUIManager?.BeginSceneTransition();
 
             // Start loading immediately so disk/scene work overlaps the transition video.
             // Activation waits for both, rather than adding video time and load time together.
@@ -590,17 +416,21 @@ namespace junklite
             if (asyncOp == null)
             {
                 Debug.LogError($"[GameManager] Failed to load scene — is it added to Build Settings?");
-                loadingScreenUIInstance?.Hide();
+                gameUIManager?.CancelSceneTransition();
                 isLoadingScene = false;
                 // Restore input on the abort path so the player isn't permanently locked.
                 GameInputManager.Instance?.SetGameplayInputEnabled(true);
+                RebindPauseInputSubscription();
                 yield break;
             }
 
+            // Preserve the current player on the abort path. Once Unity confirms
+            // the request is valid, detach lifecycle state before activation.
+            playerLifecycle?.PrepareForSceneChange();
             asyncOp.allowSceneActivation = false;
 
             while (asyncOp.progress < 0.9f ||
-                   (loadingScreenUIInstance != null && !loadingScreenUIInstance.IsVideoFinished))
+                   (gameUIManager != null && !gameUIManager.IsLoadingPresentationFinished))
                 yield return null;
 
             asyncOp.allowSceneActivation = true;
@@ -609,7 +439,6 @@ namespace junklite
         // Soft-respawn without reloading.
         public void RestartLevel()
         {
-            HideGameOverUI();
             SetGameState(GameState.Playing);
             playerLifecycle?.RestartAtPrimarySpawn();
         }
@@ -684,9 +513,9 @@ namespace junklite
             GUILayout.Label($"SpawnPlayer: {ShouldSpawnPlayerInScene()}");
             GUILayout.Label($"Player:      {(playerLifecycle?.Player != null ? "Alive" : "None")}");
             GUILayout.Label($"Spawn Index: {playerLifecycle?.CurrentSpawnIndex ?? 0}");
-            GUILayout.Label($"HUD:         {(playerUIInstance != null ? "Ready" : "Missing")}");
-            GUILayout.Label($"PauseMenu:   {(pauseMenuUIInstance != null ? "Ready" : "Missing")}");
-            GUILayout.Label($"LoadScreen:  {(loadingScreenUIInstance != null ? "Ready" : "Missing")}");
+            GUILayout.Label($"HUD:         {(gameUIManager?.IsPlayerHUDReady == true ? "Ready" : "Missing")}");
+            GUILayout.Label($"PauseMenu:   {(gameUIManager?.IsPauseMenuReady == true ? "Ready" : "Missing")}");
+            GUILayout.Label($"LoadScreen:  {(gameUIManager?.IsLoadingScreenReady == true ? "Ready" : "Missing")}");
             GUILayout.Space(6);
             GUILayout.Label("ESC / Start - Pause / Resume");
             GUILayout.EndArea();
