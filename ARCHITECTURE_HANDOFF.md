@@ -46,6 +46,7 @@ The goal is better modularity and easier feature development without building a 
 | Damage/lock EditMode tests | Passing | Unity 6000.3.22f1 passes all 7 focused tests. |
 | Game root / level context | Runtime fix and explicit migration implemented; scene run pending | The duplicate-singleton spawn failure is fixed in code. The Unity menu command must still be run to rewrite `V2.5` and rebuild the prefab. |
 | Scene-local camera binding | Implemented, Play Mode verification pending | Core and trigger cameras use one cached registry and rebind to every spawned/respawned player. |
+| Restart/loading transition | Timing fix implemented, Play Mode verification pending | Loading video and async scene loading now overlap; the obsolete serialized six-second activation delay is removed. |
 | Full game/level manager cleanup | Not started | `GameManager` still owns several unrelated responsibilities. |
 
 ## Implemented Architecture
@@ -220,6 +221,12 @@ This uses explicit serialized references and small cached collections rather tha
 
 The V2.5 validation command now requires exactly one scene-local `CameraManager`, exactly one `CinemachineBrain`, and a main camera reference belonging to the scene camera rig.
 
+### 10. Restart and loading-transition timing
+
+The original scene-restart coroutine played the entire loading video before it even called `LoadSceneAsync`, then held the loaded scene behind a serialized `debugLoadDelay` of six seconds. Restart duration was therefore video duration plus scene-loading duration plus an artificial delay, producing a visibly frozen loading frame before the player returned.
+
+`GameManager.LoadLevelWithScreen` now starts the video and asynchronous scene load together. Scene activation waits until the scene is ready and the video is finished, so the two real operations overlap instead of accumulating. The debug delay field and its stale values were removed from both manager prefabs. Input remains disabled until `InitializeForNewScene` has refreshed level references and spawned the player.
+
 ## Verification Recorded
 
 On 2026-08-26 with Unity 6000.3.22f1:
@@ -248,6 +255,8 @@ Automated tests cover contracts and lock composition, not animation/physics/VFX 
 10. Fire, Electric, Lifesteal, and Pogo behavior after actual-applied-damage migration.
 
 For the scene-local camera slice, verify initial spawn follow, death-camera switching, respawn snap, camera-switch triggers, follow freeze/unfreeze, zoom effects, and loading V2.5 repeatedly from another scene.
+
+For the restart transition, verify that restart begins loading immediately, the video does not sit frozen for the former six-second delay, the scene activates cleanly, and player input/camera/UI are restored once.
 
 The broader foundation still needs representative player/enemy/weapon gameplay verification. The explicit `V2.5` migration must be run in Unity and then visually and functionally approved.
 
@@ -309,7 +318,7 @@ Still required before calling the slice gameplay-closed:
 
 ## Continuation Prompt for a New Codex Task
 
-> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. Player/enemy separation, the result-based damage pipeline, all first-party damage-producer migrations, the `WeaponManager` result migration, composable player ability locks, explicit mod lifecycle, per-instance mod execution/cancellation, scene-local camera rebinding, and the manual-only `V2.5` infrastructure migration are implemented. Unity 6000.3.22f1 compiles and all 7 focused EditMode tests pass. If `V2.5` has not yet been rewritten, run `Tools > JunkLite > V2.5 > Strip Legacy Systems and Rebuild`, verify player spawning and camera follow, then run the validation command. Do not add networking architecture, a universal ability graph, a service locator, or a broad manager rewrite. After the listed Play Mode checks, extract only one concrete `GameManager` responsibility at a time.
+> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. Player/enemy separation, the result-based damage pipeline, all first-party damage-producer migrations, the `WeaponManager` result migration, composable player ability locks, explicit mod lifecycle, per-instance mod execution/cancellation, scene-local camera rebinding, concurrent restart loading, and the manual-only `V2.5` infrastructure migration are implemented. Unity 6000.3.22f1 compiles and all 7 focused EditMode tests pass. If `V2.5` has not yet been rewritten, run `Tools > JunkLite > V2.5 > Strip Legacy Systems and Rebuild`, verify player spawning, camera follow, and restart timing, then run the validation command. Do not add networking architecture, a universal ability graph, a service locator, or a broad manager rewrite. After the listed Play Mode checks, extract only one concrete `GameManager` responsibility at a time.
 
 ## Synchronization Checklist
 

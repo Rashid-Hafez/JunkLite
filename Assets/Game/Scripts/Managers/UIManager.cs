@@ -35,12 +35,15 @@ namespace junklite
 
         private void Start()
         {
-            // Subscribe to game manager events
+            // Global game state stays on GameManager.
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.OnPlayerSpawned += OnPlayerSpawned;
                 GameManager.Instance.OnGameStateChanged += OnGameStateChanged;
             }
+
+            // Player identity/lifecycle is owned separately.
+            if (PlayerLifecycle.Instance != null)
+                PlayerLifecycle.Instance.PlayerSpawned += OnPlayerSpawned;
 
             // Initialize UI
             ShowHUD();
@@ -106,10 +109,10 @@ namespace junklite
         private void OnDestroy()
         {
             if (GameManager.Instance != null)
-            {
                 GameManager.Instance.OnGameStateChanged -= OnGameStateChanged;
-                GameManager.Instance.OnPlayerSpawned -= OnPlayerSpawned;
-            }
+
+            if (PlayerLifecycle.Instance != null)
+                PlayerLifecycle.Instance.PlayerSpawned -= OnPlayerSpawned;
         }
     }
 }

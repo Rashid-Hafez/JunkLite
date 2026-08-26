@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using UnityEngine.Serialization;
 
 namespace junklite
 {
@@ -7,7 +8,8 @@ namespace junklite
     public class PlayerUI : MonoBehaviour
     {
         [Header("Auto-Bind")]
-        [SerializeField] private bool autoBindToGameManager = true;
+        [FormerlySerializedAs("autoBindToGameManager")]
+        [SerializeField] private bool autoBindToPlayerLifecycle = true;
         [SerializeField] private bool hideOnDeath = false;
 
         [Header("References")]
@@ -125,12 +127,12 @@ namespace junklite
 
         private void OnEnable()
         {
-            if (autoBindToGameManager && GameManager.Instance != null)
+            if (autoBindToPlayerLifecycle && PlayerLifecycle.Instance != null)
             {
-                if (GameManager.Instance.Player != null)
-                    BindToPlayer(GameManager.Instance.Player);
+                if (PlayerLifecycle.Instance.Player != null)
+                    BindToPlayer(PlayerLifecycle.Instance.Player);
 
-                GameManager.Instance.OnPlayerSpawned += HandlePlayerSpawned;
+                PlayerLifecycle.Instance.PlayerSpawned += HandlePlayerSpawned;
             }
 
             var input = GameInputManager.Instance;
@@ -147,8 +149,8 @@ namespace junklite
 
         private void OnDisable()
         {
-            if (autoBindToGameManager && GameManager.Instance != null)
-                GameManager.Instance.OnPlayerSpawned -= HandlePlayerSpawned;
+            if (autoBindToPlayerLifecycle && PlayerLifecycle.Instance != null)
+                PlayerLifecycle.Instance.PlayerSpawned -= HandlePlayerSpawned;
 
             var input = GameInputManager.Instance;
             if (input != null)

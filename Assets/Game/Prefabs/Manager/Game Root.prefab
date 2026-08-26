@@ -1,104 +1,5 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &2902400703377617601
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 377758666152706199}
-  - component: {fileID: 8196522587614768529}
-  m_Layer: 0
-  m_Name: Level Context (Scene Local)
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &377758666152706199
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2902400703377617601}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 686714545840461177}
-  m_Father: {fileID: 7724700367755847198}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &8196522587614768529
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2902400703377617601}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9c82b0f56a874dec9c8ca87f526e6dd4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.LevelContext
-  levelId: new_level
-  displayName: Gameplay Level
-  trainingLevel: 0
-  spawnPlayer: 1
-  primaryPlayerSpawn: {fileID: 4726714197751008887}
-  additionalPlayerSpawns: []
---- !u!1 &4177615930468609822
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 686714545840461177}
-  - component: {fileID: 4726714197751008887}
-  m_Layer: 0
-  m_Name: Player Spawn Point
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &686714545840461177
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4177615930468609822}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 377758666152706199}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &4726714197751008887
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4177615930468609822}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 45d9a51e9db914c97be1c6c75412a122, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.SpawnPoint
-  spawnPointName: 
-  priority: 0
-  gizmoColor: {r: 0, g: 1, b: 0, a: 1}
-  gizmoRadius: 0.5
 --- !u!1 &8053377969660216567
 GameObject:
   m_ObjectHideFlags: 0
@@ -111,8 +12,8 @@ GameObject:
   - component: {fileID: 6708160109121364283}
   - component: {fileID: 498257921127036517}
   - component: {fileID: 7433742776496313932}
-  - component: {fileID: 1711369471719648314}
-  - component: {fileID: 7152234156617569074}
+  - component: {fileID: 2285350135026878017}
+  - component: {fileID: 5581934797705725186}
   m_Layer: 0
   m_Name: Game Root
   m_TagString: Untagged
@@ -129,11 +30,10 @@ Transform:
   m_GameObject: {fileID: 8053377969660216567}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.69944, y: -0, z: -3.12494}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 377758666152706199}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &6708160109121364283
@@ -159,7 +59,6 @@ MonoBehaviour:
   loadingScreenUIPrefab: {fileID: 2795285001243938836, guid: 4832e793bc519b040b39d948d43a0b8b, type: 3}
   showDebugInfo: 0
   reloadSceneOnDeathTemp: 1
-  debugLoadDelay: 6
   gameInputManagerPrefab: {fileID: 0}
 --- !u!82 &498257921127036517
 AudioSource:
@@ -270,7 +169,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 49190fde7ff62447899d10d48e8c8415, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerCombatTracker
---- !u!114 &1711369471719648314
+--- !u!114 &2285350135026878017
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -282,11 +181,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 43ecab8429814ce185b66899ec0aeb7d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.GameRoot
-  bundledLevelContext: {fileID: 8196522587614768529}
   referenceResolution: {x: 1920, y: 1080}
   screenMatch: 0.5
   uiSortingOrder: 10
---- !u!114 &7152234156617569074
+--- !u!114 &5581934797705725186
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

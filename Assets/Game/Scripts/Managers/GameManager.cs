@@ -13,11 +13,11 @@ namespace junklite
 
         #region Fields
 
-        [Header("Game Settings")]
-        [SerializeField] private GameObject playerPrefab;
-        [SerializeField] private Transform[] spawnPoints;
-        [SerializeField] private float respawnDelay = 3f;
-        [SerializeField, Min(0f)] private float deathScreenFallbackDelay = 1.25f;
+        [Header("Legacy Player Lifecycle Migration")]
+        [Tooltip("Temporary serialized fallback for scenes not yet rebuilt with PlayerLifecycle.")]
+        [SerializeField, HideInInspector] private GameObject playerPrefab;
+        [SerializeField, HideInInspector] private float respawnDelay = 3f;
+        [SerializeField, HideInInspector, Min(0f)] private float deathScreenFallbackDelay = 1.25f;
 
         [Header("UI - Player HUD")]
         [SerializeField] private GameObject playerUIPrefab;
@@ -33,8 +33,6 @@ namespace junklite
 
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
-        [SerializeField] private bool reloadSceneOnDeathTemp = false;
-        [SerializeField] private float debugLoadDelay = 2f;
         [SerializeField] private GameObject gameInputManagerPrefab;
 
         // Supplied by GameRoot, with a tagged-scene fallback for legacy levels.
@@ -49,13 +47,10 @@ namespace junklite
 
         // Game state
         private GameState currentState = GameState.Playing;
-        private PlayerCharacter currentPlayer;
-        private int currentSpawnIndex = 0;
-        private Coroutine respawnRoutine;
-        private Coroutine deathRoutine;
         private Coroutine sceneInitializationRoutine;
         private bool gameInitialized = false;
         private bool isLoadingScene = false;
+        private PlayerLifecycle playerLifecycle;
 
         /// <summary>The active <see cref="GameInputManager"/> subscribed for pause input.</summary>
         private GameInputManager pauseInputSubscriber;
@@ -66,13 +61,10 @@ namespace junklite
 
         // Events
         public event Action<GameState> OnGameStateChanged;
-        public event Action<PlayerCharacter> OnPlayerSpawned;
-        public event Action OnPlayerDied;
 
         public enum GameState { Playing, Paused, GameOver }
 
         public GameState CurrentState => currentState;
-        public PlayerCharacter Player => currentPlayer;
         public bool IsPlaying => currentState == GameState.Playing;
 
         #endregion
@@ -91,6 +83,15 @@ namespace junklite
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
+
+            bool lifecycleAdded = GetComponent<PlayerLifecycle>() == null;
+            playerLifecycle = GetComponent<PlayerLifecycle>() ?? gameObject.AddComponent<PlayerLifecycle>();
+            playerLifecycle.ApplyDefaultsIfMissing(
+                playerPrefab,
+                respawnDelay,
+                deathScreenFallbackDelay,
+                lifecycleAdded);
+            SubscribeToPlayerLifecycle();
         }
 
         void OnEnable()
@@ -117,10 +118,50 @@ namespace junklite
         void OnDestroy()
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
-            UnsubscribeFromPlayer(currentPlayer);
+            UnsubscribeFromPlayerLifecycle();
             UnsubscribeFromCombatTracker();
 
             UnsubscribePauseInput();
+        }
+
+        private void SubscribeToPlayerLifecycle()
+        {
+            if (playerLifecycle == null)
+                return;
+
+            playerLifecycle.PlayerSpawned += HandleLifecyclePlayerSpawned;
+            playerLifecycle.PlayerDied += HandleLifecyclePlayerDied;
+            playerLifecycle.PlayerDeathPresentationCompleted += HandlePlayerDeathPresentationCompleted;
+        }
+
+        private void UnsubscribeFromPlayerLifecycle()
+        {
+            if (playerLifecycle == null)
+                return;
+
+            playerLifecycle.PlayerSpawned -= HandleLifecyclePlayerSpawned;
+            playerLifecycle.PlayerDied -= HandleLifecyclePlayerDied;
+            playerLifecycle.PlayerDeathPresentationCompleted -= HandlePlayerDeathPresentationCompleted;
+        }
+
+        private void HandleLifecyclePlayerSpawned(PlayerCharacter player)
+        {
+            EnsurePlayerUI();
+            playerUIInstance?.BindToPlayer(player);
+        }
+
+        private void HandleLifecyclePlayerDied(PlayerCharacter player)
+        {
+            Debug.Log("[GameManager] Player lifecycle reported death.");
+        }
+
+        private void HandlePlayerDeathPresentationCompleted(PlayerCharacter player)
+        {
+            if (isLoadingScene)
+                return;
+
+            SetGameState(GameState.GameOver);
+            ShowGameOverUI();
         }
 
         #endregion
@@ -190,13 +231,12 @@ namespace junklite
 
         private void RefreshSceneReferences()
         {
-            spawnPoints = null;
             currentLevelContext = null;
             currentSceneSettings = null;
 
             FindGameplayCanvas();
             FindLevelConfiguration();
-            FindSpawnPoints();
+            playerLifecycle?.ConfigureScene(currentLevelContext, currentSceneSettings);
         }
 
         private void FindGameplayCanvas()
@@ -288,10 +328,7 @@ namespace junklite
         /// </summary>
         private bool ShouldSpawnPlayerInScene()
         {
-            if (currentLevelContext != null)
-                return currentLevelContext.SpawnPlayer;
-
-            return currentSceneSettings == null || currentSceneSettings.SpawnPlayer;
+            return playerLifecycle != null && playerLifecycle.ShouldSpawnPlayer;
         }
 
         private void InitializeForNewScene()
@@ -305,23 +342,6 @@ namespace junklite
 
             RebindPauseInputSubscription();
 
-            currentSpawnIndex = 0;
-
-            if (respawnRoutine != null)
-            {
-                StopCoroutine(respawnRoutine);
-                respawnRoutine = null;
-            }
-
-            if (deathRoutine != null)
-            {
-                StopCoroutine(deathRoutine);
-                deathRoutine = null;
-            }
-
-            UnsubscribeFromPlayer(currentPlayer);
-            currentPlayer = null;
-
             // Pause menu and game-over UI are always created (they handle their own visibility).
             EnsurePauseMenuUI();
             EnsureGameOverUI();
@@ -330,7 +350,7 @@ namespace junklite
             if (ShouldSpawnPlayerInScene())
             {
                 EnsurePlayerUI();
-                SpawnPlayer();
+                playerLifecycle?.SpawnPlayer();
             }
             else
             {
@@ -338,7 +358,6 @@ namespace junklite
             }
 
             SetGameState(GameState.Playing);
-            PlayerCombatTracker.Instance?.ClearCombatState();
             PlayLevelMusic();
         }
 
@@ -350,7 +369,7 @@ namespace junklite
         {
             FindGameplayCanvas();
             FindLevelConfiguration();
-            FindSpawnPoints();
+            playerLifecycle?.ConfigureScene(currentLevelContext, currentSceneSettings);
             EnsureLoadingScreenUI();
             EnsurePauseMenuUI();
             EnsureGameOverUI();
@@ -358,7 +377,7 @@ namespace junklite
             if (ShouldSpawnPlayerInScene())
             {
                 EnsurePlayerUI();
-                SpawnPlayer();
+                playerLifecycle?.SpawnPlayer();
             }
             else
             {
@@ -467,180 +486,6 @@ namespace junklite
                 Debug.LogError("[GameManager] LoadingScreenUI prefab is missing a LoadingScreenUI component.");
         }
 
-        private void FindSpawnPoints()
-        {
-            if (currentLevelContext != null)
-            {
-                var configuredSpawns = currentLevelContext.GetPlayerSpawns();
-                if (configuredSpawns.Count > 0)
-                {
-                    spawnPoints = new Transform[configuredSpawns.Count];
-                    for (int i = 0; i < configuredSpawns.Count; i++)
-                        spawnPoints[i] = configuredSpawns[i];
-
-                    Debug.Log($"[GameManager] Using {spawnPoints.Length} LevelContext spawn point(s).");
-                    return;
-                }
-
-                Debug.LogWarning(
-                    $"[GameManager] LevelContext '{currentLevelContext.DisplayName}' has no player spawn assigned.");
-            }
-
-            Scene activeScene = SceneManager.GetActiveScene();
-            var markers = FindObjectsByType<SpawnPoint>(
-                FindObjectsInactive.Exclude,
-                FindObjectsSortMode.None);
-            var sceneMarkers = new System.Collections.Generic.List<SpawnPoint>();
-
-            foreach (SpawnPoint marker in markers)
-            {
-                if (marker.gameObject.scene == activeScene)
-                    sceneMarkers.Add(marker);
-            }
-
-            if (sceneMarkers.Count > 0)
-            {
-                sceneMarkers.Sort((a, b) =>
-                {
-                    int orderComparison = a.Priority.CompareTo(b.Priority);
-                    return orderComparison != 0
-                        ? orderComparison
-                        : string.CompareOrdinal(a.name, b.name);
-                });
-
-                spawnPoints = new Transform[sceneMarkers.Count];
-                for (int i = 0; i < sceneMarkers.Count; i++)
-                    spawnPoints[i] = sceneMarkers[i].transform;
-
-                Debug.Log($"[GameManager] Found {spawnPoints.Length} typed spawn point(s).");
-                return;
-            }
-
-            GameObject[] taggedSpawns = Array.Empty<GameObject>();
-            try
-            {
-                taggedSpawns = GameObject.FindGameObjectsWithTag("SpawnPoint");
-            }
-            catch (UnityException)
-            {
-                // Typed SpawnPoint components replace the legacy tag.
-            }
-
-            if (taggedSpawns.Length > 0)
-            {
-                Array.Sort(taggedSpawns, (a, b) => string.CompareOrdinal(a.name, b.name));
-                spawnPoints = new Transform[taggedSpawns.Length];
-                for (int i = 0; i < taggedSpawns.Length; i++)
-                    spawnPoints[i] = taggedSpawns[i].transform;
-
-                Debug.Log($"[GameManager] Found {spawnPoints.Length} legacy tagged spawn point(s).");
-                return;
-            }
-
-            spawnPoints = Array.Empty<Transform>();
-            Debug.LogWarning("[GameManager] No spawn points found; player will spawn at world origin.");
-        }
-
-        #endregion
-
-        #region Player
-
-        public void SpawnPlayer()
-        {
-            Vector3 spawnPosition = GetSpawnPosition();
-
-            if (currentPlayer == null)
-            {
-                if (playerPrefab == null)
-                {
-                    Debug.LogError("[GameManager] No player prefab assigned!");
-                    return;
-                }
-
-                var playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
-                currentPlayer = playerObject.GetComponent<PlayerCharacter>();
-                if (currentPlayer == null)
-                {
-                    Debug.LogError("[GameManager] Player prefab missing PlayerCharacter component!");
-                    return;
-                }
-
-                SubscribeToPlayer(currentPlayer);
-                EnsurePlayerUI();
-                playerUIInstance?.BindToPlayer(currentPlayer);
-            }
-
-            currentPlayer.ReviveAt(spawnPosition);
-            currentPlayer.Activate();
-
-            // Reset movement axis to match the spawn point's orientation.
-            // This ensures XY/ZY config is always correct regardless of where the player died.
-            ResetPlayerMovementAxis();
-
-            // Scene-local systems such as CameraManager bind through this event.
-            OnPlayerSpawned?.Invoke(currentPlayer);
-
-            if (currentPlayer.Stats != null)
-                currentPlayer.PlayerState.HasDrone = currentPlayer.Stats.HasDrone;
-
-            Debug.Log($"[GameManager] Player spawned at {spawnPosition}");
-        }
-
-        private void SubscribeToPlayer(PlayerCharacter player)
-        {
-            if (player?.State != null)
-                player.State.OnDeath += HandlePlayerDeath;
-        }
-
-        private void UnsubscribeFromPlayer(PlayerCharacter player)
-        {
-            if (player?.State != null)
-                player.State.OnDeath -= HandlePlayerDeath;
-        }
-
-        private Vector3 GetSpawnPosition()
-        {
-            if (spawnPoints != null && spawnPoints.Length > 0)
-            {
-                currentSpawnIndex = Mathf.Clamp(currentSpawnIndex, 0, spawnPoints.Length - 1);
-                return spawnPoints[currentSpawnIndex].position;
-            }
-            Debug.LogWarning("[GameManager] No spawn points available, spawning at origin!");
-            return Vector3.zero;
-        }
-
-        /// <summary>
-        /// Returns the Y rotation of the active spawn point.
-        /// This is the source of truth for which movement axis the player should start on.
-        /// Rotate your SpawnPoint GameObject in the Inspector to set the correct initial facing.
-        /// </summary>
-        private float GetSpawnRotation()
-        {
-            if (spawnPoints != null && spawnPoints.Length > 0)
-            {
-                currentSpawnIndex = Mathf.Clamp(currentSpawnIndex, 0, spawnPoints.Length - 1);
-                return spawnPoints[currentSpawnIndex].eulerAngles.y;
-            }
-            return 0f; // default: XY plane (FreezePositionZ)
-        }
-
-        /// <summary>
-        /// Resets the player's movement axis and rotation to match the current spawn point.
-        /// Fixes the bug where dying in a ZY section respawns the player with ZY config.
-        /// </summary>
-        private void ResetPlayerMovementAxis()
-        {
-            if (currentPlayer?.Controller == null) return;
-            currentPlayer.Controller.ResetToSpawnOrientation(GetSpawnRotation());
-            Debug.Log($"[GameManager] Player movement axis reset to spawn rotation: {GetSpawnRotation()}°");
-        }
-
-        public void SetSpawnPoint(int index)
-        {
-            if (spawnPoints != null && index >= 0 && index < spawnPoints.Length)
-                currentSpawnIndex = index;
-        }
-
         #endregion
 
         #region Game State
@@ -692,119 +537,11 @@ namespace junklite
 
         #endregion
 
-        #region Death & Respawn
-
-        private void HandlePlayerDeath()
-        {
-            if (deathRoutine != null) return;
-
-            Debug.Log("[GameManager] Player died!");
-            OnPlayerDied?.Invoke();
-
-            deathRoutine = StartCoroutine(PlayerDeathSequence(currentPlayer));
-        }
-
-        private IEnumerator PlayerDeathSequence(PlayerCharacter deadPlayer)
-        {
-            float delay = deathScreenFallbackDelay;
-
-            // Let all PlayerState.OnDeath subscribers, including animation, react this frame first.
-            yield return null;
-
-            var spineAnimation = deadPlayer != null
-                ? deadPlayer.GetComponentInChildren<SpineAnimationController>(true)
-                : null;
-
-            if (spineAnimation != null && spineAnimation.TryGetDeathAnimationDuration(out float animationDuration))
-                delay = animationDuration;
-
-            float endTime = Time.unscaledTime + delay;
-            while (Time.unscaledTime < endTime)
-                yield return null;
-
-            deadPlayer?.Deactivate();
-            SetGameState(GameState.GameOver);
-            ShowGameOverUI();
-            deathRoutine = null;
-        }
-
-        public void KillPlayer()
-        {
-            if (currentPlayer == null || !currentPlayer.IsAlive) return;
-            currentPlayer.Kill();
-        }
-
-        private bool ShouldReloadSceneOnDeath()
-        {
-            if (reloadSceneOnDeathTemp) return true;
-            if (currentPlayer != null && currentPlayer.ReloadSceneOnDeathTemp) return true;
-            return false;
-        }
-
-        private IEnumerator SoftRespawnAfterDelay(float delaySeconds)
-        {
-            float end = Time.realtimeSinceStartup + Mathf.Max(0f, delaySeconds);
-
-            while (Time.realtimeSinceStartup < end)
-                yield return null;
-
-            if (currentState != GameState.Playing)
-            {
-                respawnRoutine = null;
-                yield break;
-            }
-
-            Vector3 spawnPosition = GetSpawnPosition();
-
-            if (currentPlayer == null)
-            {
-                if (playerPrefab == null)
-                {
-                    Debug.LogError("[GameManager] No player prefab assigned!");
-                    respawnRoutine = null;
-                    yield break;
-                }
-
-                var playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
-                currentPlayer = playerObject.GetComponent<PlayerCharacter>();
-                if (currentPlayer == null)
-                {
-                    Debug.LogError("[GameManager] Player prefab missing PlayerCharacter component!");
-                    respawnRoutine = null;
-                    yield break;
-                }
-
-                SubscribeToPlayer(currentPlayer);
-                EnsurePlayerUI();
-                playerUIInstance?.BindToPlayer(currentPlayer);
-            }
-
-            currentPlayer.ReviveAt(spawnPosition);
-            currentPlayer.Activate();
-
-            // Reset movement axis to match the spawn point's orientation.
-            // This fixes respawning in ZY config after dying in a ZY camera section.
-            ResetPlayerMovementAxis();
-
-            OnPlayerSpawned?.Invoke(currentPlayer);
-            Debug.Log($"[GameManager] Player respawned at {spawnPosition}");
-            respawnRoutine = null;
-        }
-
-        #endregion
-
         #region Level Management
 
         public void RestartCurrentScene()
         {
             Debug.Log("[GameManager] Restarting current scene...");
-
-            if (respawnRoutine != null) { StopCoroutine(respawnRoutine); respawnRoutine = null; }
-            if (deathRoutine != null) { StopCoroutine(deathRoutine); deathRoutine = null; }
-
-            UnsubscribeFromPlayer(currentPlayer);
-            currentPlayer = null;
-
             LoadLevel(SceneManager.GetActiveScene().buildIndex);
         }
 
@@ -830,6 +567,7 @@ namespace junklite
         {
             if (isLoadingScene) yield break;
             isLoadingScene = true;
+            playerLifecycle?.PrepareForSceneChange();
 
             // Detach before the scene unloads so we are not left subscribed to a destroyed GameInputManager.
             UnsubscribePauseInput();
@@ -843,10 +581,8 @@ namespace junklite
 
             loadingScreenUIInstance?.Show();
 
-            // Wait for the video to finish before starting the scene load
-            while (loadingScreenUIInstance != null && !loadingScreenUIInstance.IsVideoFinished)
-                yield return null;
-
+            // Start loading immediately so disk/scene work overlaps the transition video.
+            // Activation waits for both, rather than adding video time and load time together.
             var asyncOp = string.IsNullOrEmpty(sceneName)
                 ? SceneManager.LoadSceneAsync(sceneIndex)
                 : SceneManager.LoadSceneAsync(sceneName);
@@ -863,12 +599,9 @@ namespace junklite
 
             asyncOp.allowSceneActivation = false;
 
-            float elapsed = 0f;
-            while (!(asyncOp.progress >= 0.9f && elapsed >= debugLoadDelay))
-            {
-                elapsed += Time.unscaledDeltaTime;
+            while (asyncOp.progress < 0.9f ||
+                   (loadingScreenUIInstance != null && !loadingScreenUIInstance.IsVideoFinished))
                 yield return null;
-            }
 
             asyncOp.allowSceneActivation = true;
         }
@@ -876,12 +609,9 @@ namespace junklite
         // Soft-respawn without reloading.
         public void RestartLevel()
         {
-            currentSpawnIndex = 0;
-            currentPlayer?.Deactivate();
-
-            if (respawnRoutine != null) StopCoroutine(respawnRoutine);
-            respawnRoutine = StartCoroutine(SoftRespawnAfterDelay(respawnDelay));
+            HideGameOverUI();
             SetGameState(GameState.Playing);
+            playerLifecycle?.RestartAtPrimarySpawn();
         }
 
         public void QuitGame()
@@ -952,8 +682,8 @@ namespace junklite
             GUILayout.Label($"Loading:     {isLoadingScene}");
             GUILayout.Label($"Input:       {(GameInputManager.Instance != null ? (GameInputManager.Instance.IsGameplayInputEnabled ? "Enabled" : "LOCKED") : "N/A")}");
             GUILayout.Label($"SpawnPlayer: {ShouldSpawnPlayerInScene()}");
-            GUILayout.Label($"Player:      {(currentPlayer != null ? "Alive" : "None")}");
-            GUILayout.Label($"Spawn Index: {currentSpawnIndex}");
+            GUILayout.Label($"Player:      {(playerLifecycle?.Player != null ? "Alive" : "None")}");
+            GUILayout.Label($"Spawn Index: {playerLifecycle?.CurrentSpawnIndex ?? 0}");
             GUILayout.Label($"HUD:         {(playerUIInstance != null ? "Ready" : "Missing")}");
             GUILayout.Label($"PauseMenu:   {(pauseMenuUIInstance != null ? "Ready" : "Missing")}");
             GUILayout.Label($"LoadScreen:  {(loadingScreenUIInstance != null ? "Ready" : "Missing")}");

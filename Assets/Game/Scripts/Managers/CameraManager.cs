@@ -55,7 +55,7 @@ namespace junklite
 
         // Current player reference for event subscription
         private PlayerCharacter currentPlayer;
-        private GameManager subscribedGameManager;
+        private PlayerLifecycle subscribedPlayerLifecycle;
 
         // Cached tracking target
         private Transform cachedTrackingTarget;
@@ -92,20 +92,20 @@ namespace junklite
 
         private void OnEnable()
         {
-            SubscribeToGameManager();
+            SubscribeToPlayerLifecycle();
 
-            PlayerCharacter player = GameManager.Instance?.Player;
+            PlayerCharacter player = PlayerLifecycle.Instance?.Player;
             if (player != null)
                 ConnectToPlayer(player);
         }
 
         private void Start()
         {
-            SubscribeToGameManager();
+            SubscribeToPlayerLifecycle();
 
-            if (currentPlayer == null && GameManager.Instance?.Player != null)
+            if (currentPlayer == null && PlayerLifecycle.Instance?.Player != null)
             {
-                ConnectToPlayer(GameManager.Instance.Player);
+                ConnectToPlayer(PlayerLifecycle.Instance.Player);
                 return;
             }
 
@@ -119,7 +119,7 @@ namespace junklite
 
         private void OnDisable()
         {
-            UnsubscribeFromGameManager();
+            UnsubscribeFromPlayerLifecycle();
             UnsubscribeFromPlayer();
         }
 
@@ -129,26 +129,26 @@ namespace junklite
                 Instance = null;
         }
 
-        private void SubscribeToGameManager()
+        private void SubscribeToPlayerLifecycle()
         {
-            GameManager manager = GameManager.Instance;
-            if (subscribedGameManager == manager)
+            PlayerLifecycle lifecycle = PlayerLifecycle.Instance;
+            if (subscribedPlayerLifecycle == lifecycle)
                 return;
 
-            UnsubscribeFromGameManager();
-            subscribedGameManager = manager;
+            UnsubscribeFromPlayerLifecycle();
+            subscribedPlayerLifecycle = lifecycle;
 
-            if (subscribedGameManager != null)
-                subscribedGameManager.OnPlayerSpawned += ConnectToPlayer;
+            if (subscribedPlayerLifecycle != null)
+                subscribedPlayerLifecycle.PlayerSpawned += ConnectToPlayer;
         }
 
-        private void UnsubscribeFromGameManager()
+        private void UnsubscribeFromPlayerLifecycle()
         {
-            if (subscribedGameManager == null)
+            if (subscribedPlayerLifecycle == null)
                 return;
 
-            subscribedGameManager.OnPlayerSpawned -= ConnectToPlayer;
-            subscribedGameManager = null;
+            subscribedPlayerLifecycle.PlayerSpawned -= ConnectToPlayer;
+            subscribedPlayerLifecycle = null;
         }
 
         public void ConnectToPlayer(PlayerCharacter character)

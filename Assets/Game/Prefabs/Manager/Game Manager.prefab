@@ -58,7 +58,6 @@ MonoBehaviour:
   loadingScreenUIPrefab: {fileID: 2795285001243938836, guid: 4832e793bc519b040b39d948d43a0b8b, type: 3}
   showDebugInfo: 0
   reloadSceneOnDeathTemp: 1
-  debugLoadDelay: 6
 --- !u!82 &498257921127036517
 AudioSource:
   m_ObjectHideFlags: 0
