@@ -23,7 +23,7 @@ namespace junklite
         private LayerMask environmentLayer;
 
         // Called by WeaponManager when an enemy is hit.
-        // Passes the hit collider so WeaponManager can resolve IDamageable,
+        // Passes the hit collider so WeaponManager can resolve IDamageReceiver,
         // spawn VFX, fire events, etc.
         private Action<Collider> onEnemyHit;
 
@@ -90,7 +90,7 @@ namespace junklite
 
                 if ((hitMask & enemyLayer) != 0)
                 {
-                    // Enemy hit — let WeaponManager handle damage/VFX/events via callback
+                    // Enemy hit; let WeaponManager handle damage/VFX/events via callback.
                     onEnemyHit?.Invoke(hit.collider);
 
                     // Spawn hit VFX at contact point
@@ -103,7 +103,7 @@ namespace junklite
                 }
                 else if ((hitMask & environmentLayer) != 0)
                 {
-                    // Environment hit — spawn impact VFX directly, no game logic needed
+                    // Environment hit; spawn impact VFX directly, with no game logic needed.
                     if (CombatEffectsManager.Instance != null)
                     {
                         CombatEffectsManager.Instance.SpawnEnvHitParticle(hit.point, hit.normal);
@@ -115,11 +115,11 @@ namespace junklite
                 return;
             }
 
-            // No hit this frame — advance position
+            // No hit this frame; advance position.
             transform.position += config.direction * distanceThisFrame;
             lastPosition = transform.position;
 
-            // Screen boundary check — return to pool when bullet leaves the camera view
+            // Screen boundary check; return to the pool when the bullet leaves the camera view.
             if (Camera.main != null)
             {
                 Vector3 viewport = Camera.main.WorldToViewportPoint(transform.position);

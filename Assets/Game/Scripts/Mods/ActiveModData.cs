@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace junklite
 {
@@ -6,7 +6,7 @@ namespace junklite
     /// Base class for active mods. Requires manual activation via dedicated input combo.
     /// Builds charges on enemy hits, activates when ready.
     /// 
-    /// Subclasses override ExecuteAbility() � cooldown is handled automatically by TryActivate().
+    /// Subclasses override ExecuteAbility(); cooldown is handled automatically by TryActivate().
     /// </summary>
     public abstract class ActiveModData : ModData
     {
@@ -33,6 +33,7 @@ namespace junklite
         /// <summary>Whether the mod can be activated right now.</summary>
         public virtual bool CanActivate(ModInstance instance, PlayerCharacter player)
         {
+            if (instance == null || instance.IsExecuting) return false;
             if (instance.IsOnCooldown) return false;
             if (chargesRequired <= 0) return true;
             return instance.CurrentCharges >= chargesRequired;
@@ -40,13 +41,14 @@ namespace junklite
 
         /// <summary>
         /// Public entry point called by the mod system. Handles cooldown automatically.
-        /// Do NOT override this � override ExecuteAbility instead.
+        /// Do NOT override this; override ExecuteAbility instead.
         /// </summary>
-        public bool TryActivate(ModInstance instance, PlayerCharacter player)
+        public bool TryActivate(ModInstance instance, PlayerCharacter player, ModExecutionRunner executionRunner)
         {
+            if (executionRunner == null) return false;
             if (!CanActivate(instance, player)) return false;
 
-            bool used = ExecuteAbility(instance, player);
+            bool used = ExecuteAbility(instance, player, executionRunner);
 
             if (used && cooldown > 0f)
                 instance.StartCooldown(cooldown);
@@ -56,14 +58,11 @@ namespace junklite
 
         /// <summary>
         /// Execute the mod effect. Return true if effect was used (consumes durability).
-        /// Cooldown is handled automatically by TryActivate � do NOT call StartCooldown here.
+        /// Cooldown is handled automatically by TryActivate; do NOT call StartCooldown here.
         /// </summary>
-        protected abstract bool ExecuteAbility(ModInstance instance, PlayerCharacter player);
-
-        /// <summary>Called when mod is equipped to a slot.</summary>
-        public virtual void OnEquip(PlayerCharacter player) { }
-
-        /// <summary>Called when mod is removed or breaks.</summary>
-        public virtual void OnUnequip(PlayerCharacter player) { }
+        protected abstract bool ExecuteAbility(
+            ModInstance instance,
+            PlayerCharacter player,
+            ModExecutionRunner executionRunner);
     }
 }

@@ -32,112 +32,79 @@ namespace junklite
 
         #endregion
 
-        private bool isShieldActive;
-        private GameObject activeActivateVFX;
-        private GameObject activeLoopVFX;
-        private PlayerCharacter cachedPlayer;
-
         #region Overrides
-
-        public override bool CanActivate(ModInstance instance, PlayerCharacter player)
-        {
-            return base.CanActivate(instance, player) && !isShieldActive;
-        }
 
         public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt)
         {
             // No charges - do nothing
         }
 
-        protected override bool ExecuteAbility(ModInstance instance, PlayerCharacter player)
+        protected override bool ExecuteAbility(
+            ModInstance instance,
+            PlayerCharacter player,
+            ModExecutionRunner executionRunner)
         {
-            if (isShieldActive) return false;
-
-            cachedPlayer = player;
-
             var shield = GetOrCreateShield(player);
+            if (shield.IsActive)
+                return false;
 
-            // Subscribe before activating so we catch immediate breaks
-            shield.OnShieldDamaged += OnShieldDamaged;
-            shield.OnShieldBroken += OnShieldBroken;
-
-            shield.Activate(shieldHP, shieldDuration);
-            isShieldActive = true;
-
-            activeActivateVFX = SpawnVFX(shieldActivateVFX, player);
-            activeLoopVFX = SpawnVFX(shieldLoopVFXPrefab, player);
-
-            Debug.Log($"[PulseBarrier] Shield activated: {shieldHP} HP, {shieldDuration}s duration.");
-            return true;
-        }
-
-        public override void OnEquip(PlayerCharacter player)
-        {
-            isShieldActive = false;
-            activeActivateVFX = null;
-            activeLoopVFX = null;
-            cachedPlayer = null;
-        }
-
-        public override void OnUnequip(PlayerCharacter player)
-        {
-            if (isShieldActive)
-            {
-                var shield = player.GetComponent<DamageShield>();
-                if (shield != null)
-                {
-                    shield.OnShieldDamaged -= OnShieldDamaged;
-                    shield.OnShieldBroken -= OnShieldBroken;
-                    shield.Deactivate();
-                }
-                CleanupShield();
-            }
+            return executionRunner.TryStart(
+                instance,
+                context => MaintainShield(context, player, shield));
         }
 
         #endregion
 
-        #region Shield Events
+        #region Shield Execution
 
-        private void OnShieldDamaged(float currentHP, float maxHP)
+        private System.Collections.IEnumerator MaintainShield(
+            ModExecutionContext context,
+            PlayerCharacter player,
+            DamageShield shield)
         {
-            Debug.Log($"[PulseBarrier] Shield hit! Remaining: {currentHP}/{maxHP}");
-            SpawnVFX(shieldAbsorbVFX, cachedPlayer);
-        }
+            bool shieldEnded = false;
+            GameObject activateVFX = null;
+            GameObject loopVFX = null;
 
-        private void OnShieldBroken()
-        {
-            Debug.Log("[PulseBarrier] Shield broken/expired.");
-
-            if (cachedPlayer != null)
+            System.Action<float, float> onShieldDamaged = (currentHP, maxHP) =>
             {
-                var shield = cachedPlayer.GetComponent<DamageShield>();
+                Debug.Log($"[PulseBarrier] Shield hit! Remaining: {currentHP}/{maxHP}");
+                SpawnVFX(shieldAbsorbVFX, player);
+            };
+            System.Action onShieldBroken = () =>
+            {
+                shieldEnded = true;
+                Debug.Log("[PulseBarrier] Shield broken/expired.");
+            };
+
+            shield.OnShieldDamaged += onShieldDamaged;
+            shield.OnShieldBroken += onShieldBroken;
+
+            context.AddCleanup(() =>
+            {
                 if (shield != null)
                 {
-                    shield.OnShieldDamaged -= OnShieldDamaged;
-                    shield.OnShieldBroken -= OnShieldBroken;
+                    shield.OnShieldDamaged -= onShieldDamaged;
+                    shield.OnShieldBroken -= onShieldBroken;
+
+                    if (shield.IsActive)
+                        shield.Deactivate();
                 }
-            }
 
-            CleanupShield();
-        }
+                if (activateVFX != null)
+                    Destroy(activateVFX);
+                if (loopVFX != null)
+                    Destroy(loopVFX);
+            });
 
-        private void CleanupShield()
-        {
-            isShieldActive = false;
+            shield.Activate(shieldHP, shieldDuration);
+            activateVFX = SpawnVFX(shieldActivateVFX, player);
+            loopVFX = SpawnVFX(shieldLoopVFXPrefab, player);
 
-            if (activeActivateVFX != null)
-            {
-                Destroy(activeActivateVFX);
-                activeActivateVFX = null;
-            }
+            Debug.Log($"[PulseBarrier] Shield activated: {shieldHP} HP, {shieldDuration}s duration.");
 
-            if (activeLoopVFX != null)
-            {
-                Destroy(activeLoopVFX);
-                activeLoopVFX = null;
-            }
-
-            cachedPlayer = null;
+            while (!shieldEnded && shield.IsActive && player != null && player.IsAlive)
+                yield return null;
         }
 
         #endregion

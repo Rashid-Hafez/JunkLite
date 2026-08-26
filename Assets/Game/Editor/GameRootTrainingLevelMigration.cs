@@ -2,111 +2,77 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using Unity.Cinemachine;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 
 namespace junklite.Editor
 {
     /// <summary>
-    /// One-time authoring migration for the first reusable GameRoot and the V2.5 training level.
-    /// Kept as a menu command so the setup can be rebuilt deterministically if needed.
+    /// Explicit authoring tools for the reusable GameRoot and V2.5 training scene.
+    /// Nothing runs automatically when the project or scene opens.
     /// </summary>
-    [InitializeOnLoad]
     public static class GameRootTrainingLevelMigration
     {
         private const string SourcePrefabPath = "Assets/Game/Prefabs/Manager/Game Manager.prefab";
         private const string GameRootPrefabPath = "Assets/Game/Prefabs/Manager/Game Root.prefab";
         private const string TrainingScenePath = "Assets/Game/Scenes/V2.5.unity";
-        private const string AutoRunSessionKey = "JunkLite.GameRootTrainingMigration.2026-08-25";
 
-        static GameRootTrainingLevelMigration()
+        [MenuItem("Tools/JunkLite/V2.5/Strip Legacy Systems and Rebuild")]
+        public static void Run()
         {
-            EditorApplication.delayCall += TryRunInOpenTrainingScene;
+            bool confirmed = EditorUtility.DisplayDialog(
+                "Rebuild V2.5 Infrastructure",
+                "This removes obsolete player, input, UI, GameRoot, LevelContext, and prototype-test " +
+                "objects from V2.5, then installs one Game Root and one standalone Level Context. " +
+                "Level geometry, lighting, cameras, enemies, pickups, and required presentation services are preserved.",
+                "Rebuild V2.5",
+                "Cancel");
+
+            if (!confirmed) return;
+            RebuildTrainingSetup();
         }
 
-        [MenuItem("Tools/JunkLite/Rebuild Game Root and Training Level")]
-        public static void Run()
+        /// <summary>Command-line entry point. Intentionally explicit; never called on editor load.</summary>
+        public static void RunBatch()
+        {
+            RebuildTrainingSetup();
+        }
+
+        [MenuItem("Tools/JunkLite/V2.5/Rebuild Game Root Prefab Only")]
+        public static void RebuildGameRootPrefabOnly()
+        {
+            BuildGameRootPrefab();
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[GameRootMigration] Rebuilt the Game Root prefab without scene-local data.");
+        }
+
+        /// <summary>Command-line entry point for the small prefab-only rebuild.</summary>
+        public static void RebuildGameRootPrefabBatch()
+        {
+            RebuildGameRootPrefabOnly();
+        }
+
+        [MenuItem("Tools/JunkLite/V2.5/Validate Redesigned Setup")]
+        public static void Validate()
+        {
+            Scene scene = OpenTrainingScene();
+            ValidateTrainingScene(scene);
+            Debug.Log("[GameRootMigration] V2.5 redesigned infrastructure validation passed.");
+        }
+
+        private static void RebuildTrainingSetup()
         {
             GameObject gameRootPrefab = BuildGameRootPrefab();
             MigrateTrainingScene(gameRootPrefab);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log("[GameRootMigration] Game Root prefab and V2.5 training level are ready.");
-        }
-
-        // Entry point used by command-line validation.
-        public static void RunBatch()
-        {
-            Run();
-        }
-
-        private static void TryRunInOpenTrainingScene()
-        {
-            if (SessionState.GetBool(AutoRunSessionKey, false)) return;
-            if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling)
-            {
-                EditorApplication.delayCall += TryRunInOpenTrainingScene;
-                return;
-            }
-
-            Scene activeScene = SceneManager.GetActiveScene();
-            if (activeScene.path != TrainingScenePath)
-            {
-                Debug.Log(
-                    "[GameRootMigration] V2.5 is not the active scene. " +
-                    "Use Tools/JunkLite/Rebuild Game Root and Training Level when ready.");
-                return;
-            }
-
-            SessionState.SetBool(AutoRunSessionKey, true);
-            if (IsTrainingSceneFullyMigrated(activeScene))
-                return;
-
-            try
-            {
-                Run();
-            }
-            catch (System.Exception exception)
-            {
-                Debug.LogException(exception);
-            }
-        }
-
-        private static bool IsTrainingSceneFullyMigrated(Scene scene)
-        {
-            if (AssetDatabase.LoadAssetAtPath<GameObject>(GameRootPrefabPath) == null)
-                return false;
-
-            if (FindSceneComponents<GameRoot>(scene).Count() != 1)
-                return false;
-            if (FindSceneComponents<PlayerCharacter>(scene).Any())
-                return false;
-
-            string[] obsoleteRoots =
-            {
-                "Spawn Points",
-                "patrol dummy",
-                "UI Manager",
-                "EventSystem",
-                "--Managers--",
-                "Legacy Gameplay Canvas (Disabled)"
-            };
-
-            foreach (GameObject root in scene.GetRootGameObjects())
-            {
-                if (obsoleteRoots.Contains(root.name))
-                    return false;
-
-                if (root.GetComponent<Canvas>() != null &&
-                    (FindDescendant(root.transform, "Gameplay  UI") != null ||
-                     FindDescendant(root.transform, "Gameplay UI") != null))
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            Debug.Log(
+                "[GameRootMigration] V2.5 now has one persistent Game Root and one standalone " +
+                "scene-local Level Context. Legacy player/input/UI/bootstrap objects were removed.");
         }
 
         private static GameObject BuildGameRootPrefab()
@@ -119,37 +85,23 @@ namespace junklite.Editor
             try
             {
                 root.name = "Game Root";
+                root.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+                root.transform.localScale = Vector3.one;
 
                 ActivateTestManager obsoleteTrigger = root.GetComponent<ActivateTestManager>();
                 if (obsoleteTrigger != null)
                     Object.DestroyImmediate(obsoleteTrigger);
 
-                GameRoot gameRoot = root.GetComponent<GameRoot>();
-                if (gameRoot == null)
-                    gameRoot = root.AddComponent<GameRoot>();
+                if (root.GetComponent<GameRoot>() == null)
+                    root.AddComponent<GameRoot>();
 
                 if (root.GetComponent<GameInputManager>() == null)
                     root.AddComponent<GameInputManager>();
 
-                Transform existingContext = root.transform.Find("Level Context (Scene Local)");
-                if (existingContext != null)
-                    Object.DestroyImmediate(existingContext.gameObject);
-
-                var contextObject = new GameObject("Level Context (Scene Local)");
-                contextObject.transform.SetParent(root.transform, false);
-                LevelContext context = contextObject.AddComponent<LevelContext>();
-
-                var spawnObject = new GameObject("Player Spawn Point");
-                spawnObject.transform.SetParent(contextObject.transform, false);
-                SpawnPoint spawnPoint = spawnObject.AddComponent<SpawnPoint>();
-
-                SetSerializedReference(gameRoot, "bundledLevelContext", context);
-                SetLevelContextValues(
-                    context,
-                    "new_level",
-                    "Gameplay Level",
-                    false,
-                    spawnPoint);
+                // LevelContext is scene data. It must never be saved beneath a
+                // DontDestroyOnLoad root or depend on Awake-time detachment.
+                foreach (LevelContext context in root.GetComponentsInChildren<LevelContext>(true))
+                    Object.DestroyImmediate(context.gameObject);
 
                 GameObject savedPrefab = PrefabUtility.SaveAsPrefabAsset(root, GameRootPrefabPath);
                 if (savedPrefab == null)
@@ -165,49 +117,29 @@ namespace junklite.Editor
 
         private static void MigrateTrainingScene(GameObject gameRootPrefab)
         {
-            Scene activeScene = SceneManager.GetActiveScene();
-            Scene scene = activeScene.path == TrainingScenePath
-                ? activeScene
-                : EditorSceneManager.OpenScene(TrainingScenePath, OpenSceneMode.Single);
+            Scene scene = OpenTrainingScene();
+            ResolveSpawnPose(scene, out Vector3 spawnPosition, out Quaternion spawnRotation);
 
-            Vector3 spawnPosition = new(-58.400005f, 0.2f, -0.279f);
-            Quaternion spawnRotation = Quaternion.identity;
+            RemoveLegacyInfrastructure(scene);
 
-            SpawnPoint existingSpawn = FindSceneComponents<SpawnPoint>(scene)
-                .FirstOrDefault(point => point.name == "Basic Spawn Point");
-            if (existingSpawn == null)
-            {
-                existingSpawn = FindSceneComponents<SpawnPoint>(scene)
-                    .OrderBy(point => point.Priority)
-                    .FirstOrDefault();
-            }
-            if (existingSpawn != null)
-            {
-                spawnPosition = existingSpawn.transform.position;
-                spawnRotation = existingSpawn.transform.rotation;
-            }
-
-            RemoveExistingGameRoots(scene);
-            RemoveScenePlayers(scene);
-
-            RemoveRootByExactName(scene, "Spawn Points");
-            RemoveRootByExactName(scene, "patrol dummy");
-            RemoveRootByExactName(scene, "UI Manager");
-            RemoveRootByExactName(scene, "EventSystem");
-            RemoveRootByExactName(scene, "--Managers--");
-            RemoveLegacyGameplayCanvas(scene);
-
-            GameObject instance = PrefabUtility.InstantiatePrefab(gameRootPrefab, scene) as GameObject;
-            if (instance == null)
+            GameObject gameRootInstance = PrefabUtility.InstantiatePrefab(gameRootPrefab, scene) as GameObject;
+            if (gameRootInstance == null)
                 throw new System.InvalidOperationException("Failed to instantiate Game Root in V2.5.");
 
-            instance.name = "Game Root";
-            instance.transform.SetPositionAndRotation(spawnPosition, spawnRotation);
+            gameRootInstance.name = "Game Root";
+            gameRootInstance.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            gameRootInstance.transform.localScale = Vector3.one;
 
-            LevelContext context = instance.GetComponentInChildren<LevelContext>(true);
-            SpawnPoint spawn = instance.GetComponentInChildren<SpawnPoint>(true);
-            if (context == null || spawn == null)
-                throw new MissingReferenceException("Game Root prefab is missing its bundled level setup.");
+            var contextObject = new GameObject("Level Context");
+            SceneManager.MoveGameObjectToScene(contextObject, scene);
+            contextObject.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+
+            LevelContext context = contextObject.AddComponent<LevelContext>();
+
+            var spawnObject = new GameObject("Player Spawn Point");
+            spawnObject.transform.SetParent(contextObject.transform, false);
+            spawnObject.transform.SetPositionAndRotation(spawnPosition, spawnRotation);
+            SpawnPoint spawn = spawnObject.AddComponent<SpawnPoint>();
 
             SetLevelContextValues(
                 context,
@@ -216,10 +148,10 @@ namespace junklite.Editor
                 true,
                 spawn);
 
-            EditorUtility.SetDirty(instance);
+            EditorUtility.SetDirty(gameRootInstance);
+            EditorUtility.SetDirty(contextObject);
             EditorUtility.SetDirty(context);
-            PrefabUtility.RecordPrefabInstancePropertyModifications(instance.transform);
-            PrefabUtility.RecordPrefabInstancePropertyModifications(context);
+            EditorUtility.SetDirty(spawnObject);
 
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene))
@@ -228,21 +160,95 @@ namespace junklite.Editor
             ValidateTrainingScene(scene);
         }
 
-        private static void RemoveExistingGameRoots(Scene scene)
+        private static Scene OpenTrainingScene()
         {
-            foreach (GameManager manager in FindSceneComponents<GameManager>(scene).ToArray())
-                DestroyOutermostObject(manager.gameObject);
+            Scene activeScene = SceneManager.GetActiveScene();
+            return activeScene.path == TrainingScenePath
+                ? activeScene
+                : EditorSceneManager.OpenScene(TrainingScenePath, OpenSceneMode.Single);
         }
 
-        private static void RemoveScenePlayers(Scene scene)
+        private static void ResolveSpawnPose(
+            Scene scene,
+            out Vector3 spawnPosition,
+            out Quaternion spawnRotation)
         {
-            foreach (PlayerCharacter player in FindSceneComponents<PlayerCharacter>(scene).ToArray())
-                DestroyOutermostObject(player.gameObject);
+            spawnPosition = new Vector3(-58.400005f, 0.2f, -0.279f);
+            spawnRotation = Quaternion.identity;
+
+            LevelContext existingContext = FindSceneComponents<LevelContext>(scene).FirstOrDefault();
+            Transform configuredSpawn = existingContext?.GetPlayerSpawns().FirstOrDefault();
+
+            SpawnPoint existingSpawn = configuredSpawn != null
+                ? configuredSpawn.GetComponent<SpawnPoint>()
+                : FindSceneComponents<SpawnPoint>(scene)
+                    .FirstOrDefault(point => point.name == "Basic Spawn Point");
+
+            if (existingSpawn == null)
+            {
+                existingSpawn = FindSceneComponents<SpawnPoint>(scene)
+                    .OrderBy(point => point.Priority)
+                    .FirstOrDefault();
+            }
+
+            if (existingSpawn == null) return;
+
+            spawnPosition = existingSpawn.transform.position;
+            spawnRotation = existingSpawn.transform.rotation;
+        }
+
+        private static void RemoveLegacyInfrastructure(Scene scene)
+        {
+            var rootsToRemove = new HashSet<GameObject>();
+
+            CollectOutermostRoots<GameRoot>(scene, rootsToRemove);
+            CollectOutermostRoots<GameManager>(scene, rootsToRemove);
+            CollectOutermostRoots<GameInputManager>(scene, rootsToRemove);
+            CollectOutermostRoots<PlayerCombatTracker>(scene, rootsToRemove);
+            CollectOutermostRoots<PlayerCharacter>(scene, rootsToRemove);
+            CollectOutermostRoots<LevelContext>(scene, rootsToRemove);
+            CollectOutermostRoots<EventSystem>(scene, rootsToRemove);
+            CollectOutermostRoots<UIManager>(scene, rootsToRemove);
+            CollectOutermostRoots<PlayerUI>(scene, rootsToRemove);
+            CollectOutermostRoots<PauseMenuUI>(scene, rootsToRemove);
+            CollectOutermostRoots<LoadingScreenUI>(scene, rootsToRemove);
+
+            foreach (GameObject root in rootsToRemove)
+            {
+                if (root != null)
+                    Object.DestroyImmediate(root);
+            }
+
+            foreach (SceneSettings settings in FindSceneComponents<SceneSettings>(scene).ToArray())
+            {
+                if (settings != null)
+                    Object.DestroyImmediate(settings);
+            }
+
+            RemoveRootByExactName(scene, "Spawn Points");
+            RemoveRootByExactName(scene, "UI Manager");
+            RemoveRootByExactName(scene, "EventSystem");
+            RemoveRootByExactName(scene, "Prototype Test Manager");
+            RemoveRootByExactName(scene, "Legacy Gameplay Canvas (Disabled)");
+            RemoveLegacyGameplayCanvas(scene);
+        }
+
+        private static void CollectOutermostRoots<T>(
+            Scene scene,
+            HashSet<GameObject> roots) where T : Component
+        {
+            foreach (T component in FindSceneComponents<T>(scene))
+            {
+                if (component == null) continue;
+
+                GameObject outermost = PrefabUtility.GetOutermostPrefabInstanceRoot(component.gameObject);
+                roots.Add(outermost != null ? outermost : component.transform.root.gameObject);
+            }
         }
 
         private static void RemoveLegacyGameplayCanvas(Scene scene)
         {
-            foreach (GameObject root in scene.GetRootGameObjects())
+            foreach (GameObject root in scene.GetRootGameObjects().ToArray())
             {
                 Canvas canvas = root.GetComponent<Canvas>();
                 if (canvas == null) continue;
@@ -251,23 +257,19 @@ namespace junklite.Editor
                 if (gameplayPanel == null)
                     gameplayPanel = FindDescendant(root.transform, "Gameplay UI");
 
-                if (gameplayPanel == null) continue;
-                Object.DestroyImmediate(root);
+                if (gameplayPanel != null)
+                    Object.DestroyImmediate(root);
             }
         }
 
         private static void RemoveRootByExactName(Scene scene, string objectName)
         {
-            GameObject root = scene.GetRootGameObjects()
-                .FirstOrDefault(candidate => candidate.name == objectName);
-            if (root != null)
+            foreach (GameObject root in scene.GetRootGameObjects()
+                         .Where(candidate => candidate.name == objectName)
+                         .ToArray())
+            {
                 Object.DestroyImmediate(root);
-        }
-
-        private static void DestroyOutermostObject(GameObject target)
-        {
-            GameObject outermost = PrefabUtility.GetOutermostPrefabInstanceRoot(target);
-            Object.DestroyImmediate(outermost != null ? outermost : target.transform.root.gameObject);
+            }
         }
 
         private static IEnumerable<T> FindSceneComponents<T>(Scene scene) where T : Component
@@ -307,31 +309,72 @@ namespace junklite.Editor
             serializedContext.FindProperty("trainingLevel").boolValue = trainingLevel;
             serializedContext.FindProperty("spawnPlayer").boolValue = true;
             serializedContext.FindProperty("primaryPlayerSpawn").objectReferenceValue = primarySpawn;
+            serializedContext.FindProperty("additionalPlayerSpawns").arraySize = 0;
             serializedContext.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        private static void SetSerializedReference(
-            Object target,
-            string propertyName,
-            Object value)
-        {
-            var serializedObject = new SerializedObject(target);
-            serializedObject.FindProperty(propertyName).objectReferenceValue = value;
-            serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void ValidateTrainingScene(Scene scene)
         {
-            int gameRootCount = FindSceneComponents<GameRoot>(scene).Count();
-            int playerCount = FindSceneComponents<PlayerCharacter>(scene).Count();
-            int dummyCount = FindSceneComponents<DummyEnemy>(scene).Count();
+            GameRoot[] gameRoots = FindSceneComponents<GameRoot>(scene).ToArray();
+            GameManager[] gameManagers = FindSceneComponents<GameManager>(scene).ToArray();
+            GameInputManager[] inputManagers = FindSceneComponents<GameInputManager>(scene).ToArray();
+            PlayerCombatTracker[] combatTrackers = FindSceneComponents<PlayerCombatTracker>(scene).ToArray();
+            LevelContext[] contexts = FindSceneComponents<LevelContext>(scene).ToArray();
+            PlayerCharacter[] players = FindSceneComponents<PlayerCharacter>(scene).ToArray();
+            CameraManager[] cameraManagers = FindSceneComponents<CameraManager>(scene).ToArray();
+            CinemachineBrain[] cameraBrains = FindSceneComponents<CinemachineBrain>(scene).ToArray();
 
-            if (gameRootCount != 1)
-                throw new System.InvalidOperationException($"Expected one GameRoot, found {gameRootCount}.");
-            if (playerCount != 0)
-                throw new System.InvalidOperationException($"Expected no scene-placed player, found {playerCount}.");
-            if (dummyCount < 1)
-                throw new System.InvalidOperationException("Training level has no DummyEnemy target.");
+            if (gameRoots.Length != 1)
+                throw new System.InvalidOperationException($"Expected one GameRoot, found {gameRoots.Length}.");
+            if (gameManagers.Length != 1)
+                throw new System.InvalidOperationException($"Expected one GameManager, found {gameManagers.Length}.");
+            if (inputManagers.Length != 1)
+                throw new System.InvalidOperationException($"Expected one GameInputManager, found {inputManagers.Length}.");
+            if (combatTrackers.Length != 1)
+                throw new System.InvalidOperationException($"Expected one PlayerCombatTracker, found {combatTrackers.Length}.");
+            if (contexts.Length != 1)
+                throw new System.InvalidOperationException($"Expected one LevelContext, found {contexts.Length}.");
+            if (players.Length != 0)
+                throw new System.InvalidOperationException($"Expected no scene-placed player, found {players.Length}.");
+            if (cameraManagers.Length != 1)
+                throw new System.InvalidOperationException($"Expected one scene-local CameraManager, found {cameraManagers.Length}.");
+            if (cameraBrains.Length != 1)
+                throw new System.InvalidOperationException($"Expected one CinemachineBrain, found {cameraBrains.Length}.");
+
+            CameraManager cameraManager = cameraManagers[0];
+            if (cameraManager.transform.IsChildOf(gameRoots[0].transform))
+                throw new System.InvalidOperationException("CameraManager must remain scene-local, not beneath GameRoot.");
+            if (cameraManager.MainCamera == null)
+                throw new MissingReferenceException("CameraManager has no main Cinemachine camera assigned.");
+            if (cameraManager.MainCamera.gameObject.scene != scene)
+                throw new System.InvalidOperationException("CameraManager main camera must belong to the V2.5 scene camera rig.");
+
+            LevelContext context = contexts[0];
+            if (context.transform.parent != null)
+                throw new System.InvalidOperationException("LevelContext must be a standalone scene root.");
+            if (!context.SpawnPlayer || context.GetPlayerSpawns().Count == 0)
+                throw new System.InvalidOperationException("LevelContext is not configured to spawn the player.");
+
+            var serializedManager = new SerializedObject(gameManagers[0]);
+            var playerPrefab = serializedManager.FindProperty("playerPrefab").objectReferenceValue as GameObject;
+            if (playerPrefab == null)
+                throw new MissingReferenceException("GameManager has no player prefab assigned.");
+            if (playerPrefab.GetComponent<PlayerCharacter>() == null ||
+                playerPrefab.GetComponent<Damageable>() == null ||
+                playerPrefab.GetComponent<ModManager>() == null)
+            {
+                throw new MissingReferenceException(
+                    "The configured player prefab is missing PlayerCharacter, Damageable, or ModManager.");
+            }
+
+            if (FindSceneComponents<EventSystem>(scene).Any())
+                throw new System.InvalidOperationException("A legacy scene EventSystem remains; GameRoot creates it at runtime.");
+
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(GameRootPrefabPath);
+            if (prefab == null)
+                throw new MissingReferenceException("Game Root prefab is missing.");
+            if (prefab.GetComponentInChildren<LevelContext>(true) != null)
+                throw new System.InvalidOperationException("Game Root prefab still contains scene-local LevelContext data.");
         }
     }
 }

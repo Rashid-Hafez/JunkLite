@@ -35,43 +35,32 @@ namespace junklite
 
         #endregion
 
-        private static readonly Collider[] pushBuffer = new Collider[32];
-        private bool isExecuting;
-
         #region Overrides
-
-        public override bool CanActivate(ModInstance instance, PlayerCharacter player)
-        {
-            return base.CanActivate(instance, player) && !isExecuting;
-        }
 
         public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt)
         {
             // No charges - do nothing
         }
 
-        protected override bool ExecuteAbility(ModInstance instance, PlayerCharacter player)
+        protected override bool ExecuteAbility(
+            ModInstance instance,
+            PlayerCharacter player,
+            ModExecutionRunner executionRunner)
         {
-            if (isExecuting) return false;
-
-            isExecuting = true;
-            player.StartCoroutine(CoExecutePulse(player));
-            return true;
-        }
-
-        public override void OnEquip(PlayerCharacter player)
-        {
-            isExecuting = false;
+            return executionRunner.TryStart(
+                instance,
+                context => CoExecutePulse(context, player));
         }
 
         #endregion
 
         #region Pulse
 
-        private IEnumerator CoExecutePulse(PlayerCharacter player)
+        private IEnumerator CoExecutePulse(ModExecutionContext context, PlayerCharacter player)
         {
             Vector3 origin = player.transform.position;
             var hitEnemies = new HashSet<EnemyCharacter>();
+            var pushBuffer = new Collider[32];
 
             // Camera shake at start of pulse
             if (cameraShakeIntensity > 0f && FeedbackManager.Instance != null)
@@ -85,6 +74,12 @@ namespace junklite
             GameObject vfxInstance = null;
             if (pushVFX != null)
                 vfxInstance = Instantiate(pushVFX, origin, Quaternion.identity);
+
+            context.AddCleanup(() =>
+            {
+                if (vfxInstance != null)
+                    Destroy(vfxInstance);
+            });
 
             float elapsed = 0f;
 
@@ -112,9 +107,6 @@ namespace junklite
                     var enemy = col.GetComponentInParent<EnemyCharacter>();
                     if (enemy == null || !enemy.IsAlive || hitEnemies.Contains(enemy)) continue;
 
-                    var damageable = enemy.GetComponentInParent<IDamageable>();
-                    if (damageable == null) continue;
-
                     hitEnemies.Add(enemy);
 
                     float dist = Vector3.Distance(origin, enemy.transform.position);
@@ -134,20 +126,20 @@ namespace junklite
                     // world-space inside ApplyKnockback and naturally handles both planes.
                     Vector2 knockback = new Vector2(pushForce * falloff, pushUpForce * falloff);
 
-                    damageable.TakeDamage(new DamageInfo(
-                        pushDamage,
-                        player.gameObject,
-                        DamageType.Physical,
-                        knockback
-                    ));
+                    DamageResult result = DamageReceiverUtility.Receive(
+                        enemy,
+                        new DamageRequest(
+                            pushDamage,
+                            player.gameObject,
+                            DamageType.Physical,
+                            knockback));
 
-                    SpawnHitEffects(origin, enemy);
+                    if (result.WasApplied)
+                        SpawnHitEffects(origin, enemy);
                 }
 
                 yield return null;
             }
-
-            isExecuting = false;
         }
 
         #endregion

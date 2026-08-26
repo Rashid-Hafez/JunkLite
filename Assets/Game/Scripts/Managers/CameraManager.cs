@@ -16,6 +16,8 @@ namespace junklite
         [SerializeField] private CinemachineCamera deathCamera;
         [SerializeField, Tooltip("The camera to snap back to on respawn. If unassigned, falls back to mainCamera.")]
         private CinemachineCamera spawnCamera;
+        [SerializeField, Tooltip("Optional explicit brain. If unassigned, it is resolved once when this scene-local rig initializes.")]
+        private CinemachineBrain cameraBrain;
 
         [Header("Settings")]
         [SerializeField] private Transform playerTransform;
@@ -41,15 +43,23 @@ namespace junklite
         [SerializeField] private float zoomOutDuration = 0.25f;
         [SerializeField] private float zoomInDuration = 0.35f;
 
-        // Camera dictionary for easy access
-        [SerializeField] private List<CinemachineCamera> cameraList = new List<CinemachineCamera>();
+        [Header("Additional Level Cameras")]
+        [SerializeField, Tooltip("Optional cameras used by level triggers. Core cameras are registered automatically.")]
+        private List<CinemachineCamera> cameraList = new List<CinemachineCamera>();
+
+        // Configured once and reused when a player spawns or respawns. This keeps
+        // player binding explicit without performing scene-wide camera searches.
+        private readonly List<CinemachineCamera> managedCameras = new List<CinemachineCamera>();
+        private readonly HashSet<CinemachineCamera> managedCameraSet = new HashSet<CinemachineCamera>();
         private Dictionary<string, CinemachineCamera> cameras;
 
         // Current player reference for event subscription
         private PlayerCharacter currentPlayer;
+        private GameManager subscribedGameManager;
 
         // Cached tracking target
         private Transform cachedTrackingTarget;
+        private bool followEnabled = true;
 
         // The camera that zoom/follow operations target (updated when CameraSwitchTrigger fires)
         private CinemachineCamera activeCamera;
@@ -59,65 +69,118 @@ namespace junklite
         private bool defaultIsOrthographic;
         private Coroutine zoomCoroutine;
 
+        public CinemachineCamera MainCamera => mainCamera;
+
 
         private void Awake()
         {
             if (Instance != null && Instance != this)
             {
-                Destroy(gameObject);
+                enabled = false;
+                Destroy(this);
                 return;
             }
+
             Instance = this;
-            activeCamera = mainCamera;
-
+            RebuildManagedCameraCache();
             InitializeCameras();
+            activeCamera = mainCamera != null ? mainCamera : GetFirstManagedCamera();
 
-            if (GameManager.Instance != null)
-                GameManager.Instance.OnPlayerSpawned += ConnectToPlayer;
+            if (cameraBrain == null)
+                cameraBrain = FindAnyObjectByType<CinemachineBrain>();
+        }
+
+        private void OnEnable()
+        {
+            SubscribeToGameManager();
+
+            PlayerCharacter player = GameManager.Instance?.Player;
+            if (player != null)
+                ConnectToPlayer(player);
         }
 
         private void Start()
         {
-            if (GameManager.Instance?.Player != null)
+            SubscribeToGameManager();
+
+            if (currentPlayer == null && GameManager.Instance?.Player != null)
             {
                 ConnectToPlayer(GameManager.Instance.Player);
                 return;
             }
 
-            if (mainCamera != null && playerTransform != null)
+            if (playerTransform != null)
             {
-                mainCamera.Target.TrackingTarget = playerTransform;
-                SwitchToMainCamera();
+                cachedTrackingTarget = playerTransform;
+                BindManagedCameras(playerTransform);
+                ResetToSpawnCamera();
             }
+        }
+
+        private void OnDisable()
+        {
+            UnsubscribeFromGameManager();
+            UnsubscribeFromPlayer();
         }
 
         private void OnDestroy()
         {
-            if (GameManager.Instance != null)
-                GameManager.Instance.OnPlayerSpawned -= ConnectToPlayer;
+            if (Instance == this)
+                Instance = null;
+        }
 
-            UnsubscribeFromPlayer();
+        private void SubscribeToGameManager()
+        {
+            GameManager manager = GameManager.Instance;
+            if (subscribedGameManager == manager)
+                return;
+
+            UnsubscribeFromGameManager();
+            subscribedGameManager = manager;
+
+            if (subscribedGameManager != null)
+                subscribedGameManager.OnPlayerSpawned += ConnectToPlayer;
+        }
+
+        private void UnsubscribeFromGameManager()
+        {
+            if (subscribedGameManager == null)
+                return;
+
+            subscribedGameManager.OnPlayerSpawned -= ConnectToPlayer;
+            subscribedGameManager = null;
         }
 
         public void ConnectToPlayer(PlayerCharacter character)
         {
-            UnsubscribeFromPlayer();
+            if (character == null)
+            {
+                Debug.LogWarning("[CameraManager] Cannot connect cameras to a null player.");
+                return;
+            }
 
-            currentPlayer = character;
-            playerTransform = character.gameObject.transform;
+            if (currentPlayer != character)
+            {
+                UnsubscribeFromPlayer();
+                currentPlayer = character;
+                currentPlayer.OnCameraFollowRequested += HandleCameraFollowRequested;
+            }
 
-            // Set all cameras to low priority and point at the new player transform
-            foreach (CinemachineCamera camera in cameraList)
+            playerTransform = character.transform;
+            cachedTrackingTarget = playerTransform;
+            followEnabled = true;
+            EnsureConfiguredCamerasRegistered();
+
+            // Reset priorities and bind every configured/dynamically registered camera.
+            // CameraSwitchTrigger cameras join this same registry through SetActiveCamera.
+            foreach (CinemachineCamera camera in managedCameras)
             {
                 if (camera != null)
                 {
                     camera.Priority = 0;
-                    SetPlayerTarget(camera, playerTransform);
+                    BindCameraTarget(camera, playerTransform);
                 }
             }
-
-            // Subscribe to camera follow requests
-            currentPlayer.OnCameraFollowRequested += HandleCameraFollowRequested;
 
             // Snap back to the spawn camera instantly on every (re)spawn
             ResetToSpawnCamera();
@@ -138,11 +201,31 @@ namespace junklite
         /// </summary>
         public void ResetToSpawnCamera()
         {
-            CinemachineCamera target = spawnCamera != null ? spawnCamera : mainCamera;
+            CinemachineCamera target = spawnCamera != null
+                ? spawnCamera
+                : mainCamera != null
+                    ? mainCamera
+                    : GetFirstManagedCamera();
+
             if (target == null) return;
 
-            CinemachineBrain brain = FindAnyObjectByType<CinemachineBrain>();
-            if (brain == null) return;
+            RegisterCamera(target);
+            BindCameraTarget(target, followEnabled ? playerTransform : null);
+            target.gameObject.SetActive(true);
+
+            CinemachineBrain brain = cameraBrain;
+            if (brain == null)
+            {
+                brain = FindAnyObjectByType<CinemachineBrain>();
+                cameraBrain = brain;
+            }
+
+            if (brain == null)
+            {
+                target.Prioritize();
+                SetActiveCamera(target);
+                return;
+            }
 
             float previousBlend = brain.DefaultBlend.Time;
             brain.DefaultBlend.Time = 0f;
@@ -166,18 +249,22 @@ namespace junklite
         /// </summary>
         private void HandleCameraFollowRequested(bool follow)
         {
+            followEnabled = follow;
+
             if (activeCamera == null)
                 return;
 
             if (follow)
             {
-                activeCamera.Target.TrackingTarget = cachedTrackingTarget;
+                BindCameraTarget(activeCamera, cachedTrackingTarget);
                 Debug.Log("[CameraManager] Camera follow enabled");
             }
             else
             {
-                cachedTrackingTarget = activeCamera.Target.TrackingTarget;
-                activeCamera.Target.TrackingTarget = null;
+                if (activeCamera.Target.TrackingTarget != null)
+                    cachedTrackingTarget = activeCamera.Target.TrackingTarget;
+
+                BindCameraTarget(activeCamera, null);
                 Debug.Log("[CameraManager] Camera follow disabled (frozen)");
             }
         }
@@ -329,13 +416,10 @@ namespace junklite
         {
             if (cameras.ContainsKey(cameraName) && cameras[cameraName] != null)
             {
-                foreach (var camera in cameras.Values)
-                {
-                    if (camera != null)
-                        camera.gameObject.SetActive(false);
-                }
-
-                cameras[cameraName].gameObject.SetActive(true);
+                CinemachineCamera target = cameras[cameraName];
+                target.gameObject.SetActive(true);
+                target.Prioritize();
+                SetActiveCamera(target);
             }
         }
 
@@ -346,6 +430,9 @@ namespace junklite
         public void SetActiveCamera(CinemachineCamera cam)
         {
             if (cam == null) return;
+
+            RegisterCamera(cam);
+            BindCameraTarget(cam, followEnabled ? playerTransform : null);
             activeCamera = cam;
             defaultZoomValue = 0f;
         }
@@ -356,7 +443,59 @@ namespace junklite
             cachedTrackingTarget = player;
 
             if (camera != null)
-                camera.Target.TrackingTarget = playerTransform;
+            {
+                RegisterCamera(camera);
+                BindCameraTarget(camera, playerTransform);
+            }
+        }
+
+        private void RebuildManagedCameraCache()
+        {
+            managedCameras.Clear();
+            managedCameraSet.Clear();
+            EnsureConfiguredCamerasRegistered();
+        }
+
+        private void EnsureConfiguredCamerasRegistered()
+        {
+            RegisterCamera(mainCamera);
+            RegisterCamera(spawnCamera);
+            RegisterCamera(deathCamera);
+
+            foreach (CinemachineCamera camera in cameraList)
+                RegisterCamera(camera);
+        }
+
+        private void RegisterCamera(CinemachineCamera camera)
+        {
+            if (camera == null || !managedCameraSet.Add(camera))
+                return;
+
+            managedCameras.Add(camera);
+        }
+
+        private CinemachineCamera GetFirstManagedCamera()
+        {
+            foreach (CinemachineCamera camera in managedCameras)
+            {
+                if (camera != null)
+                    return camera;
+            }
+
+            return null;
+        }
+
+        private void BindManagedCameras(Transform target)
+        {
+            EnsureConfiguredCamerasRegistered();
+            foreach (CinemachineCamera camera in managedCameras)
+                BindCameraTarget(camera, target);
+        }
+
+        private static void BindCameraTarget(CinemachineCamera camera, Transform target)
+        {
+            if (camera != null)
+                camera.Target.TrackingTarget = target;
         }
     }
 }

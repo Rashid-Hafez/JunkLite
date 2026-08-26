@@ -7,7 +7,7 @@ namespace junklite
     /// <summary>
     /// Tracks how many enemies are currently in combat with the player.
     /// Fires OnCombatStarted when the first enemy locks on, OnCombatEnded when the last one releases.
-    /// Finds the player directly in the scene — no GameManager dependency.
+    /// Finds the player directly in the scene; there is no GameManager dependency.
     /// </summary>
     public class PlayerCombatTracker : MonoBehaviour
     {
@@ -29,7 +29,10 @@ namespace junklite
         {
             if (Instance != null && Instance != this)
             {
-                Destroy(gameObject);
+                // Do not destroy a composed GameRoot because one hosted service
+                // was duplicated by a legacy scene object.
+                enabled = false;
+                Destroy(this);
                 return;
             }
             Instance = this;

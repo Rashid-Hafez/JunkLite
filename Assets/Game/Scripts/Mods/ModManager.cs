@@ -22,6 +22,7 @@ namespace junklite
         // References
         private WeaponManager weaponManager;
         private PlayerCharacter playerCharacter;
+        private ModExecutionRunner executionRunner;
 
         private bool isActive;
 
@@ -47,6 +48,9 @@ namespace junklite
         {
             weaponManager = GetComponent<WeaponManager>();
             playerCharacter = GetComponent<PlayerCharacter>();
+            executionRunner = GetComponent<ModExecutionRunner>();
+            if (executionRunner == null)
+                executionRunner = gameObject.AddComponent<ModExecutionRunner>();
 
             activeSlots = new ModInstance[maxActiveSlots];
             passiveSlots = new ModInstance[maxPassiveSlots];
@@ -61,11 +65,16 @@ namespace junklite
             {
                 weaponManager.OnCombatModeChanged += OnCombatModeChanged;
                 weaponManager.OnEnemyHit += OnEnemyHit;
+
+                if (weaponManager.IsModCombat)
+                    Activate();
             }
         }
 
         private void OnDisable()
         {
+            Deactivate();
+
             if (weaponManager != null)
             {
                 weaponManager.OnCombatModeChanged -= OnCombatModeChanged;
@@ -87,20 +96,21 @@ namespace junklite
 
         private void Activate()
         {
+            if (isActive) return;
             isActive = true;
 
             for (int i = 0; i < unlockedPassiveSlots; i++)
             {
                 var mod = passiveSlots[i];
-                if (mod != null && !mod.IsBroken && mod.Data is PassiveModData passive)
-                    passive.OnEquip(playerCharacter);
+                if (mod != null && !mod.IsBroken)
+                    mod.Data.OnCombatModeEntered(mod, playerCharacter);
             }
 
             for (int i = 0; i < unlockedActiveSlots; i++)
             {
                 var mod = activeSlots[i];
-                if (mod != null && !mod.IsBroken && mod.Data is ActiveModData active)
-                    active.OnEquip(playerCharacter);
+                if (mod != null && !mod.IsBroken)
+                    mod.Data.OnCombatModeEntered(mod, playerCharacter);
             }
 
             OnModSlotsChanged?.Invoke();
@@ -108,18 +118,22 @@ namespace junklite
 
         private void Deactivate()
         {
+            if (!isActive) return;
+
+            executionRunner?.CancelAll();
+
             for (int i = 0; i < unlockedPassiveSlots; i++)
             {
                 var mod = passiveSlots[i];
-                if (mod != null && mod.Data is PassiveModData passive)
-                    passive.OnUnequip(playerCharacter);
+                if (mod != null)
+                    mod.Data.OnCombatModeExited(mod, playerCharacter);
             }
 
             for (int i = 0; i < unlockedActiveSlots; i++)
             {
                 var mod = activeSlots[i];
-                if (mod != null && mod.Data is ActiveModData active)
-                    active.OnUnequip(playerCharacter);
+                if (mod != null)
+                    mod.Data.OnCombatModeExited(mod, playerCharacter);
             }
 
             isActive = false;
@@ -144,7 +158,8 @@ namespace junklite
 
                     if (mod.IsBroken)
                     {
-                        passive.OnUnequip(playerCharacter);
+                        mod.Data.OnCombatModeExited(mod, playerCharacter);
+                        mod.Data.OnRemoved(mod, playerCharacter);
                         passiveSlots[i] = null;
                         Debug.Log($"[ModManager] Passive mod broke: {mod.Data.modName}");
                         OnModSlotsChanged?.Invoke();
@@ -183,7 +198,7 @@ namespace junklite
             if (mod == null || mod.IsBroken) return false;
             if (mod.Data is not ActiveModData active) return false;
 
-            bool used = active.TryActivate(mod, playerCharacter);
+            bool used = active.TryActivate(mod, playerCharacter, executionRunner);
             if (used)
             {
                 PlayModActivationSfx(active);
@@ -191,7 +206,11 @@ namespace junklite
                 OnActiveModActivated?.Invoke(activeSlotIndex);
                 if (mod.IsBroken)
                 {
-                    active.OnUnequip(playerCharacter);
+                    // The final use is allowed to finish even though the broken mod
+                    // immediately leaves its slot. Mode exit/removal hooks must not
+                    // hold per-execution state; the runner owns that cleanup.
+                    mod.Data.OnCombatModeExited(mod, playerCharacter);
+                    mod.Data.OnRemoved(mod, playerCharacter);
                     activeSlots[activeSlotIndex] = null;
                     Debug.Log($"[ModManager] Active mod broke: {mod.Data.modName}");
                 }
@@ -222,13 +241,11 @@ namespace junklite
             if (slots[slotIndex] != null) return false; // slot occupied
 
             slots[slotIndex] = mod;
+            mod.Data.OnInstalled(mod, playerCharacter);
 
-            // Fire equip callbacks if combat is active
+            // Enable the installed mod immediately when combat mode is already active.
             if (isActive)
-            {
-                if (mod.Data is ActiveModData active) active.OnEquip(playerCharacter);
-                else if (mod.Data is PassiveModData passive) passive.OnEquip(playerCharacter);
-            }
+                mod.Data.OnCombatModeEntered(mod, playerCharacter);
 
             OnModSlotsChanged?.Invoke();
             return true;
@@ -275,12 +292,12 @@ namespace junklite
             ModInstance mod = slots[slotIndex];
             if (mod == null) return null;
 
-            // Fire unequip callbacks if combat is active
+            executionRunner?.Cancel(mod);
+
             if (isActive)
-            {
-                if (mod.Data is ActiveModData active) active.OnUnequip(playerCharacter);
-                else if (mod.Data is PassiveModData passive) passive.OnUnequip(playerCharacter);
-            }
+                mod.Data.OnCombatModeExited(mod, playerCharacter);
+
+            mod.Data.OnRemoved(mod, playerCharacter);
 
             slots[slotIndex] = null;
             OnModSlotsChanged?.Invoke();

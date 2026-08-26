@@ -144,6 +144,7 @@ namespace junklite
         public event Action OnWeaponChanged;
         public event Action OnCombatModeChanged;
         public event Action OnCombatModeRejected;
+        /// <summary>Raised only after damage is applied. The float is the actual applied damage.</summary>
         public event Action<EnemyCharacter, float> OnEnemyHit;
         public event Action OnEnvironmentHit;
 
@@ -638,15 +639,20 @@ namespace junklite
                 if (hitResult.type == AttackHitResult.Enemy && !hasHitEnemy)
                 {
                     hasHitEnemy = true;
-                    PlayHitFeedback();
-                    StartCoroutine(CoHitstop(enemyHitHitstopDuration));
+                    bool damageApplied = false;
 
                     if (isPiercing && hitResult.allTargets != null)
-                        DealDamageToAll(hitResult.allTargets, step.damageMultiplier, knockback);
+                        damageApplied = DealDamageToAll(hitResult.allTargets, step.damageMultiplier, knockback);
                     else if (hitResult.target != null)
-                        DealDamage(hitResult.target, step.damageMultiplier, knockback);
+                        damageApplied = DealDamage(hitResult.target, step.damageMultiplier, knockback).WasApplied;
 
-                    ApplyRecoil(dir, step.hitRecoil);
+                    if (damageApplied)
+                    {
+                        PlayHitFeedback();
+                        StartCoroutine(CoHitstop(enemyHitHitstopDuration));
+                        ApplyRecoil(dir, step.hitRecoil);
+                    }
+
                     break;
                 }
 
@@ -775,26 +781,21 @@ namespace junklite
             // ENEMY DAMAGE — OverlapSphere hits ALL enemies in the blast zone
             Collider[] enemyHits = Physics.OverlapSphere(blastOrigin, blastRadius, enemyLayer, QueryTriggerInteraction.Ignore);
             bool hitAnyEnemy = false;
+            var processedReceivers = new HashSet<int>();
 
             if (enemyHits.Length > 0)
             {
-                PlayHitFeedback();
-                StartCoroutine(CoHitstop(enemyHitHitstopDuration));
-
                 foreach (var hit in enemyHits)
                 {
-                    var damageable = hit.GetComponent<IDamageable>()
-                                  ?? hit.GetComponentInParent<IDamageable>();
-                    if (damageable == null || !damageable.IsAlive) continue;
+                    DamageResult result = ApplyWeaponDamage(
+                        hit,
+                        damage,
+                        knockback,
+                        processedReceivers);
 
-                    var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
-                    bool dealt = damageable.TakeDamage(damageInfo);
-
-                    if (dealt)
+                    if (result.WasApplied)
                     {
                         hitAnyEnemy = true;
-                        var enemy = hit.GetComponent<EnemyCharacter>() ?? hit.GetComponentInParent<EnemyCharacter>();
-                        OnEnemyHit?.Invoke(enemy, damage);
 
                         if (CombatEffectsManager.Instance != null)
                         {
@@ -804,6 +805,12 @@ namespace junklite
                             CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, hitDir);
                         }
                     }
+                }
+
+                if (hitAnyEnemy)
+                {
+                    PlayHitFeedback();
+                    StartCoroutine(CoHitstop(enemyHitHitstopDuration));
                 }
             }
 
@@ -898,6 +905,7 @@ namespace junklite
                 System.Array.Sort(allHits, (a, b) => a.distance.CompareTo(b.distance));
 
                 bool hitEnv = false;
+                var processedReceivers = new HashSet<int>();
 
                 foreach (var hit in allHits)
                 {
@@ -905,27 +913,20 @@ namespace junklite
 
                     if ((hitMask & enemyLayer) != 0)
                     {
-                        var damageable = hit.collider.GetComponent<IDamageable>()
-                                      ?? hit.collider.GetComponentInParent<IDamageable>();
+                        DamageResult result = ApplyWeaponDamage(
+                            hit.collider,
+                            damage,
+                            knockback,
+                            processedReceivers);
 
-                        if (damageable != null && damageable.IsAlive)
+                        if (result.WasApplied)
                         {
-                            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
-                            bool dealt = damageable.TakeDamage(damageInfo);
+                            hitAnyEnemy = true;
 
-                            if (dealt)
+                            if (CombatEffectsManager.Instance != null)
                             {
-                                hitAnyEnemy = true;
-
-                                var enemy = hit.collider.GetComponent<EnemyCharacter>()
-                                         ?? hit.collider.GetComponentInParent<EnemyCharacter>();
-                                OnEnemyHit?.Invoke(enemy, damage);
-
-                                if (CombatEffectsManager.Instance != null)
-                                {
-                                    CombatEffectsManager.Instance.SpawnEnemyHitVFX(hit.point, -dir);
-                                    CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hit.point, -dir);
-                                }
+                                CombatEffectsManager.Instance.SpawnEnemyHitVFX(hit.point, -dir);
+                                CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hit.point, -dir);
                             }
                         }
                     }
@@ -969,29 +970,22 @@ namespace junklite
 
                     if ((hitMask & enemyLayer) != 0)
                     {
-                        var damageable = hit.collider.GetComponent<IDamageable>()
-                                      ?? hit.collider.GetComponentInParent<IDamageable>();
+                        DamageResult result = ApplyWeaponDamage(
+                            hit.collider,
+                            damage,
+                            knockback,
+                            null);
 
-                        if (damageable != null && damageable.IsAlive)
+                        if (result.WasApplied)
                         {
-                            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
-                            bool dealt = damageable.TakeDamage(damageInfo);
+                            hitAnyEnemy = true;
+                            PlayHitFeedback();
+                            StartCoroutine(CoHitstop(enemyHitHitstopDuration));
 
-                            if (dealt)
+                            if (CombatEffectsManager.Instance != null)
                             {
-                                hitAnyEnemy = true;
-                                PlayHitFeedback();
-                                StartCoroutine(CoHitstop(enemyHitHitstopDuration));
-
-                                var enemy = hit.collider.GetComponent<EnemyCharacter>()
-                                         ?? hit.collider.GetComponentInParent<EnemyCharacter>();
-                                OnEnemyHit?.Invoke(enemy, damage);
-
-                                if (CombatEffectsManager.Instance != null)
-                                {
-                                    CombatEffectsManager.Instance.SpawnEnemyHitVFX(hit.point, -dir);
-                                    CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hit.point, -dir);
-                                }
+                                CombatEffectsManager.Instance.SpawnEnemyHitVFX(hit.point, -dir);
+                                CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hit.point, -dir);
                             }
                         }
                     }
@@ -1377,54 +1371,40 @@ namespace junklite
 
         #region Damage
 
-        private void DealDamage(Collider target, float damageMultiplier, Vector2 knockback)
+        private DamageResult DealDamage(Collider target, float damageMultiplier, Vector2 knockback)
         {
-            var damageable = target.GetComponent<IDamageable>()
-                          ?? target.GetComponentInParent<IDamageable>();
+            float damage = CalculateActiveWeaponDamage(damageMultiplier);
+            DamageResult result = ApplyWeaponDamage(target, damage, knockback, null);
 
-            if (damageable == null || !damageable.IsAlive) return;
-
-            float damage = activeWeaponData != null ? activeWeaponData.baseDamage : 10f;
-            if (damageMultiplier > 0f) damage *= damageMultiplier;
-
-            var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
-            bool damageDealt = damageable.TakeDamage(damageInfo);
-
-            if (damageDealt)
+            if (result.WasApplied)
             {
-                var enemy = target.GetComponent<EnemyCharacter>() ?? target.GetComponentInParent<EnemyCharacter>();
-                OnEnemyHit?.Invoke(enemy, damage);
-
                 if (activeWeaponSlot != 0 && activeWeapon != null)
                     if (activeWeapon.ConsumeDurability())
                         HandleWeaponBroken(activeWeaponSlot);
 
                 SpawnEnemyHitVFX(target);
             }
+
+            return result;
         }
 
-        private void DealDamageToAll(Collider[] targets, float damageMultiplier, Vector2 knockback)
+        private bool DealDamageToAll(Collider[] targets, float damageMultiplier, Vector2 knockback)
         {
             bool anyHit = false;
+            float damage = CalculateActiveWeaponDamage(damageMultiplier);
+            var processedReceivers = new HashSet<int>();
 
             foreach (var target in targets)
             {
-                var damageable = target.GetComponent<IDamageable>()
-                              ?? target.GetComponentInParent<IDamageable>();
+                DamageResult result = ApplyWeaponDamage(
+                    target,
+                    damage,
+                    knockback,
+                    processedReceivers);
 
-                if (damageable == null || !damageable.IsAlive) continue;
-
-                float damage = activeWeaponData != null ? activeWeaponData.baseDamage : 10f;
-                if (damageMultiplier > 0f) damage *= damageMultiplier;
-
-                var damageInfo = new DamageInfo(damage, playerTransform.gameObject, DamageType.Physical, knockback);
-                bool damageDealt = damageable.TakeDamage(damageInfo);
-
-                if (damageDealt)
+                if (result.WasApplied)
                 {
                     anyHit = true;
-                    var enemy = target.GetComponent<EnemyCharacter>() ?? target.GetComponentInParent<EnemyCharacter>();
-                    OnEnemyHit?.Invoke(enemy, damage);
                     SpawnEnemyHitVFX(target);
                 }
             }
@@ -1432,6 +1412,55 @@ namespace junklite
             if (anyHit && activeWeaponSlot != 0 && activeWeapon != null)
                 if (activeWeapon.ConsumeDurability())
                     HandleWeaponBroken(activeWeaponSlot);
+
+            return anyHit;
+        }
+
+        private float CalculateActiveWeaponDamage(float damageMultiplier)
+        {
+            float damage = activeWeaponData != null ? activeWeaponData.baseDamage : 10f;
+            return damageMultiplier > 0f ? damage * damageMultiplier : damage;
+        }
+
+        /// <summary>
+        /// Resolves one weapon hit and publishes the actual applied amount. A shared
+        /// processed-receiver set prevents multi-collider actors from taking the same
+        /// piercing or area hit more than once.
+        /// </summary>
+        private DamageResult ApplyWeaponDamage(
+            Collider target,
+            float damage,
+            Vector2 knockback,
+            HashSet<int> processedReceivers)
+        {
+            if (!DamageReceiverUtility.TryGetReceiver(target, out var receiver))
+                return DamageResult.Rejected(DamageOutcome.Invalid, damage);
+
+            if (receiver is not Component receiverComponent)
+                return DamageResult.Rejected(DamageOutcome.Invalid, damage);
+
+            if (processedReceivers != null && !processedReceivers.Add(receiverComponent.GetInstanceID()))
+                return DamageResult.Rejected(DamageOutcome.Invalid, damage);
+
+            if (!receiver.IsAlive)
+                return DamageResult.Rejected(DamageOutcome.Dead, damage);
+
+            GameObject source = playerTransform != null ? playerTransform.gameObject : gameObject;
+            DamageResult result = receiver.ReceiveDamage(new DamageRequest(
+                damage,
+                source,
+                DamageType.Physical,
+                knockback));
+
+            if (!result.WasApplied)
+                return result;
+
+            EnemyCharacter enemy = receiverComponent.GetComponent<EnemyCharacter>()
+                                ?? receiverComponent.GetComponentInParent<EnemyCharacter>()
+                                ?? target.GetComponentInParent<EnemyCharacter>();
+
+            OnEnemyHit?.Invoke(enemy, result.AppliedDamage);
+            return result;
         }
 
         private void PlayHitFeedback()

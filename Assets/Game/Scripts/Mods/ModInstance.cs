@@ -15,6 +15,7 @@ namespace junklite
         public bool IsBroken => CurrentDurability <= 0f;
         public bool IsActive => Data is ActiveModData;
         public bool IsPassive => Data is PassiveModData;
+        public bool IsExecuting { get; private set; }
 
         // Cooldown
         private float cooldownStartTime;
@@ -38,11 +39,26 @@ namespace junklite
 
         public ModInstance(ModData data)
         {
+            if (data == null)
+                throw new System.ArgumentNullException(nameof(data));
+
             Data = data;
             CurrentDurability = data.maxDurability;
             CurrentCharges = 0;
             cooldownStartTime = 0f;
             cooldownEndTime = 0f;
+        }
+
+        internal bool TryBeginExecution()
+        {
+            if (IsExecuting) return false;
+            IsExecuting = true;
+            return true;
+        }
+
+        internal void EndExecution()
+        {
+            IsExecuting = false;
         }
 
         public void ConsumeDurability()
@@ -53,7 +69,12 @@ namespace junklite
 
         public void AddCharge(int amount)
         {
-            CurrentCharges += amount;
+            if (amount <= 0) return;
+
+            int required = Data is ActiveModData active ? active.chargesRequired : 0;
+            CurrentCharges = required > 0
+                ? Mathf.Min(CurrentCharges + amount, required)
+                : CurrentCharges + amount;
         }
 
         public void ResetCharges()
@@ -62,7 +83,7 @@ namespace junklite
         }
 
         /// <summary>
-        /// Start cooldown. Call this when the mod's effect finishes (not when it starts).
+        /// Starts the activation cooldown. ActiveModData owns when this is called.
         /// </summary>
         public void StartCooldown(float duration)
         {

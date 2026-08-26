@@ -29,7 +29,7 @@ namespace junklite
         // Enemies currently being dragged
         private readonly List<DraggedEnemy> draggedEnemies = new();
 
-        private static readonly Collider[] scanBuffer = new Collider[16];
+        private readonly Collider[] scanBuffer = new Collider[32];
 
         #endregion
 
@@ -40,6 +40,10 @@ namespace junklite
             public EnemyCharacter Enemy;
             public Vector3 Offset; // offset from pulse center when captured
             public float LastDamageTick; // Time.time of last DOT tick
+            public Rigidbody Rigidbody;
+            public bool WasKinematic;
+            public UnityEngine.AI.NavMeshAgent NavAgent;
+            public bool WasNavEnabled;
         }
 
         #endregion
@@ -143,23 +147,19 @@ namespace junklite
                 // First contact: damage + capture
                 hitEnemyIDs.Add(id);
 
-                // Deal damage
-                var damageable = enemy.GetComponentInParent<IDamageable>();
-                if (damageable != null && damageable.IsAlive)
-                {
-                    bool dealt = damageable.TakeDamage(new DamageInfo(
+                DamageResult result = DamageReceiverUtility.Receive(
+                    enemy,
+                    new DamageRequest(
                         tickDamage,
                         owner,
                         DamageType.Physical,
-                        Vector2.zero
-                    ));
+                        Vector2.zero));
 
-                    if (dealt)
-                        SpawnHitEffects(enemy);
+                if (result.WasApplied)
+                {
+                    SpawnHitEffects(enemy);
+                    CaptureEnemy(enemy);
                 }
-
-                // Capture for dragging
-                CaptureEnemy(enemy);
             }
         }
 
@@ -168,24 +168,29 @@ namespace junklite
             // Store offset so enemies don't all stack on the same point
             Vector3 offset = enemy.transform.position - transform.position;
 
+            var enemyRigidbody = enemy.GetComponent<Rigidbody>();
+            var navAgent = enemy.GetComponent<UnityEngine.AI.NavMeshAgent>();
+
             draggedEnemies.Add(new DraggedEnemy
             {
                 Enemy = enemy,
                 Offset = offset,
-                LastDamageTick = Time.time
+                LastDamageTick = Time.time,
+                Rigidbody = enemyRigidbody,
+                WasKinematic = enemyRigidbody != null && enemyRigidbody.isKinematic,
+                NavAgent = navAgent,
+                WasNavEnabled = navAgent != null && navAgent.enabled
             });
 
             // Disable enemy movement/AI so we can control their position
-            var rb = enemy.GetComponent<Rigidbody>();
-            if (rb != null)
+            if (enemyRigidbody != null)
             {
-                rb.isKinematic = true;
-                rb.linearVelocity = Vector3.zero;
+                enemyRigidbody.isKinematic = true;
+                enemyRigidbody.linearVelocity = Vector3.zero;
             }
 
-            var nav = enemy.GetComponent<UnityEngine.AI.NavMeshAgent>();
-            if (nav != null && nav.enabled)
-                nav.enabled = false;
+            if (navAgent != null && navAgent.enabled)
+                navAgent.enabled = false;
         }
 
         #endregion
@@ -214,19 +219,17 @@ namespace junklite
                     entry.LastDamageTick = Time.time;
                     draggedEnemies[i] = entry; // write back updated tick time
 
-                    var damageable = entry.Enemy.GetComponentInParent<IDamageable>();
-                    if (damageable != null && damageable.IsAlive)
-                    {
-                        bool dealt = damageable.TakeDamage(new DamageInfo(
+                    DamageResult result = DamageReceiverUtility.Receive(
+                        entry.Enemy,
+                        new DamageRequest(
                             tickDamage,
                             owner,
                             DamageType.Physical,
-                            Vector2.zero
-                        ));
+                            Vector2.zero,
+                            isTickDamage: true));
 
-                        if (dealt)
-                            SpawnHitEffects(entry.Enemy);
-                    }
+                    if (result.WasApplied)
+                        SpawnHitEffects(entry.Enemy);
                 }
             }
         }
@@ -245,21 +248,19 @@ namespace junklite
                 var entry = draggedEnemies[i];
                 if (entry.Enemy == null) continue;
 
-                ReleaseEnemy(entry.Enemy);
+                ReleaseEnemy(entry);
             }
 
             draggedEnemies.Clear();
         }
 
-        private void ReleaseEnemy(EnemyCharacter enemy)
+        private void ReleaseEnemy(DraggedEnemy entry)
         {
-            var rb = enemy.GetComponent<Rigidbody>();
-            if (rb != null)
-                rb.isKinematic = false;
+            if (entry.Rigidbody != null)
+                entry.Rigidbody.isKinematic = entry.WasKinematic;
 
-            var nav = enemy.GetComponent<UnityEngine.AI.NavMeshAgent>();
-            if (nav != null)
-                nav.enabled = true;
+            if (entry.NavAgent != null)
+                entry.NavAgent.enabled = entry.WasNavEnabled;
         }
 
         #endregion

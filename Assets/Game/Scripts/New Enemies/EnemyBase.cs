@@ -8,7 +8,7 @@ namespace junklite
     /// </summary>
     [RequireComponent(typeof(AttributeManager))]
     [RequireComponent(typeof(Damageable))]
-    public abstract class EnemyBase : MonoBehaviour, IDamageReceiver, IDamageable
+    public abstract class EnemyBase : MonoBehaviour, IDamageReceiver
     {
         [Header("Config")]
         [SerializeField] protected CharacterStats baseStats;
@@ -48,12 +48,6 @@ namespace junklite
             return damageable != null
                 ? damageable.ReceiveDamage(request)
                 : DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
-        }
-
-        /// <summary>Legacy adapter retained until all enemy damage producers migrate.</summary>
-        public virtual bool TakeDamage(DamageInfo info)
-        {
-            return ReceiveDamage(DamageRequest.FromLegacy(info)).WasApplied;
         }
 
         public void Heal(float amount)

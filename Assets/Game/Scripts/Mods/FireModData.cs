@@ -23,16 +23,12 @@ namespace junklite
                 tickInterval: tickInterval,
                 duration: burnDuration,
                 damageType: DamageType.Fire,
-                source: null
+                source: player.gameObject
             );
 
             enemy.StatusEffects.Apply(burn);
             instance.ConsumeDurability();
         }
-
-        public override void OnEquip(PlayerCharacter player) { }
-
-        public override void OnUnequip(PlayerCharacter player) { }
 
         #endregion
     }

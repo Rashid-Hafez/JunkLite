@@ -190,6 +190,7 @@ namespace junklite
         // Properties
         public bool IsGrounded => isGrounded;
         public bool CanMove { get => canMove; set => canMove = value; }
+        public bool IsPhysicsOverridden => physicsOverride;
         public Vector3 Velocity => rb.linearVelocity;
         public float MoveSpeed { get => moveSpeed; set => moveSpeed = value; }
         public float JumpForce { get => jumpForce; set => jumpForce = value; }

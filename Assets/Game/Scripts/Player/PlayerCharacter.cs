@@ -13,7 +13,7 @@ namespace junklite
     [RequireComponent(typeof(Damageable))]
     [DefaultExecutionOrder(5)]
     [RequireComponent(typeof(CinemachineImpulseSource))]
-    public class PlayerCharacter : MonoBehaviour, IDamageReceiver, IDamageable, IGrabbable
+    public class PlayerCharacter : MonoBehaviour, IDamageReceiver, IGrabbable
     {
         [Header("Config")]
         [SerializeField] protected CharacterStats baseStats;
@@ -61,6 +61,7 @@ namespace junklite
         GameInputManager inputManager;
         [HideInInspector] public AttributeManager attributes;
         protected Damageable damageable;
+        private DamageShield damageShield;
 
         // Controller
         protected Character2D5Controller controller;
@@ -98,6 +99,7 @@ namespace junklite
             parryHandler = GetComponent<ParryHandler>();
             attributes = GetComponent<AttributeManager>();
             damageable = GetComponent<Damageable>();
+            TryGetComponent(out damageShield);
 
             if (attributes != null && baseStats != null)
                 attributes.Initialize(baseStats);
@@ -719,11 +721,6 @@ namespace junklite
         // ====================================================================
 
         #region Damage
-        public bool TakeDamage(DamageInfo info)
-        {
-            return ReceiveDamage(DamageRequest.FromLegacy(info)).WasApplied;
-        }
-
         public DamageResult ReceiveDamage(DamageRequest request)
         {
             float originallyRequested = request.Amount;
@@ -743,7 +740,10 @@ namespace junklite
                 if (playerState != null && (!playerState.CanTakeDamage || playerState.IsInvincible))
                     return DamageResult.Rejected(DamageOutcome.Invulnerable, originallyRequested);
 
-                var shield = GetComponent<DamageShield>();
+                if (damageShield == null)
+                    TryGetComponent(out damageShield);
+
+                var shield = damageShield;
                 if (shield != null && shield.IsActive)
                 {
                     float remainder = shield.Absorb(request.Amount);

@@ -18,7 +18,8 @@ namespace junklite
         [SerializeField] private bool showDebugLogs = false;
 
         // Active effects - one per type (refresh stacking)
-        private Dictionary<StatusEffectType, StatusEffectInstance> activeEffects = new();
+        private readonly Dictionary<StatusEffectType, StatusEffectInstance> activeEffects = new();
+        private readonly List<StatusEffectType> effectTypeBuffer = new();
 
         // Cached references
         private EnemyCharacter enemy;
@@ -133,11 +134,13 @@ namespace junklite
         /// </summary>
         public void ClearAllEffects()
         {
-            var types = new List<StatusEffectType>(activeEffects.Keys);
-            foreach (var type in types)
+            effectTypeBuffer.Clear();
+            effectTypeBuffer.AddRange(activeEffects.Keys);
+            for (int i = 0; i < effectTypeBuffer.Count; i++)
             {
-                Remove(type);
+                Remove(effectTypeBuffer[i]);
             }
+            effectTypeBuffer.Clear();
         }
 
         /// <summary>
@@ -156,7 +159,7 @@ namespace junklite
                 return;
 
             float deltaTime = Time.deltaTime;
-            var expiredEffects = new List<StatusEffectType>();
+            effectTypeBuffer.Clear();
 
             foreach (var kvp in activeEffects)
             {
@@ -178,15 +181,15 @@ namespace junklite
                 // Check if expired
                 if (effect.IsExpired)
                 {
-                    expiredEffects.Add(kvp.Key);
+                    effectTypeBuffer.Add(kvp.Key);
                 }
             }
 
             // Remove expired effects
-            foreach (var type in expiredEffects)
-            {
-                Remove(type);
-            }
+            for (int i = 0; i < effectTypeBuffer.Count; i++)
+                Remove(effectTypeBuffer[i]);
+
+            effectTypeBuffer.Clear();
         }
 
         private void ApplyTickDamage(StatusEffectInstance effect)
@@ -194,23 +197,20 @@ namespace junklite
             if (!enemy.IsAlive)
                 return;
 
-            // Create damage info - goes through proper damage system!
-            var damageInfo = new DamageInfo(
+            DamageResult result = enemy.ReceiveDamage(new DamageRequest(
                 effect.DamagePerTick,
                 effect.Source,
                 effect.DamageType,
-                Vector2.zero, // No knockback for DoT
-                isTickDamage: true
-            );
+                Vector2.zero,
+                isTickDamage: true));
 
-            // Apply damage through the enemy's damage system
-            enemy.TakeDamage(damageInfo);
+            if (!result.WasApplied)
+                return;
 
-            // Fire tick event
-            OnEffectTick?.Invoke(effect.Type, effect.DamagePerTick);
+            OnEffectTick?.Invoke(effect.Type, result.AppliedDamage);
 
             if (showDebugLogs)
-                Debug.Log($"[StatusEffect] {effect.Type} tick: {effect.DamagePerTick} damage to {name}");
+                Debug.Log($"[StatusEffect] {effect.Type} tick: {result.AppliedDamage} damage to {name}");
         }
 
         private void ApplySpeedModifier()

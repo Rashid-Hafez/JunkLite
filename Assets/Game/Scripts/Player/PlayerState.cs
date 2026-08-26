@@ -16,11 +16,17 @@ namespace junklite
         public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsInputLocked;
         public override bool CanAttack => IsAlive && !IsStunned && !IsInputLocked && !IsWallSliding && !IsParrying; // No IsAttacking check - WeaponManager handles cooldown
         public bool CanRoll => IsAlive && !IsStunned && !IsRolling && !IsInputLocked;
+        public override bool CanTakeDamage => base.CanTakeDamage && damageImmunityLocks.Count == 0;
 
         // State flags
         public bool IsDashing { get; private set; }
         public bool IsRolling { get; private set; }
-        public bool IsInputLocked { get; private set; }
+        private bool legacyInputLocked;
+        private int nextLockId;
+        private readonly HashSet<int> inputLocks = new();
+        private readonly HashSet<int> damageImmunityLocks = new();
+
+        public bool IsInputLocked => legacyInputLocked || inputLocks.Count > 0;
 
         private bool isInvincible;
         public bool IsInvincible => isInvincible;
@@ -85,6 +91,7 @@ namespace junklite
             SetWallSliding(false);
             SetWallJumping(false);
             SetDoubleJumping(false);
+            ClearAbilityLocks();
             SetInputLocked(false);
             SetLedgeDetected(false);
             SetParrying(false);
@@ -174,9 +181,63 @@ namespace junklite
 
         public void SetInputLocked(bool locked)
         {
-            if (IsInputLocked == locked) return;
-            IsInputLocked = locked;
-            OnInputLockedChanged?.Invoke(locked);
+            bool wasLocked = IsInputLocked;
+            legacyInputLocked = locked;
+            NotifyInputLockChanged(wasLocked);
+        }
+
+        public IDisposable AcquireInputLock()
+        {
+            bool wasLocked = IsInputLocked;
+            int id = ++nextLockId;
+            inputLocks.Add(id);
+            NotifyInputLockChanged(wasLocked);
+            return new StateLock(() => ReleaseInputLock(id));
+        }
+
+        public IDisposable AcquireDamageImmunity()
+        {
+            int id = ++nextLockId;
+            damageImmunityLocks.Add(id);
+            return new StateLock(() => damageImmunityLocks.Remove(id));
+        }
+
+        private void ReleaseInputLock(int id)
+        {
+            bool wasLocked = IsInputLocked;
+            inputLocks.Remove(id);
+            NotifyInputLockChanged(wasLocked);
+        }
+
+        private void ClearAbilityLocks()
+        {
+            bool wasLocked = IsInputLocked;
+            inputLocks.Clear();
+            damageImmunityLocks.Clear();
+            NotifyInputLockChanged(wasLocked);
+        }
+
+        private void NotifyInputLockChanged(bool wasLocked)
+        {
+            if (wasLocked != IsInputLocked)
+                OnInputLockedChanged?.Invoke(IsInputLocked);
+        }
+
+        private sealed class StateLock : IDisposable
+        {
+            private Action release;
+
+            public StateLock(Action releaseAction)
+            {
+                release = releaseAction;
+            }
+
+            public void Dispose()
+            {
+                Action releaseAction = release;
+                release = null;
+                releaseAction?.Invoke();
+            }
         }
 
         public void SetWallSliding(bool sliding)

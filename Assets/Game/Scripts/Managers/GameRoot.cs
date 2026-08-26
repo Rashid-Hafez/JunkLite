@@ -8,17 +8,14 @@ namespace junklite
 {
     /// <summary>
     /// Persistent, duplicate-safe root for services shared by every gameplay level.
-    /// The prefab may be dropped into every scene. Its bundled LevelContext is
-    /// detached before this object becomes persistent, keeping level data local.
+    /// The prefab may be dropped into every scene. LevelContext is a separate
+    /// scene-local root and is never parented beneath this persistent object.
     /// </summary>
     [DefaultExecutionOrder(-10000)]
     [DisallowMultipleComponent]
     public sealed class GameRoot : MonoBehaviour
     {
         public static GameRoot Instance { get; private set; }
-
-        [Header("Bundled Level Setup")]
-        [SerializeField] private LevelContext bundledLevelContext;
 
         [Header("Persistent UI")]
         [SerializeField] private Vector2 referenceResolution = new(1920f, 1080f);
@@ -31,7 +28,7 @@ namespace junklite
 
         private void Awake()
         {
-            DetachBundledLevelContext();
+            DetachLegacyBundledLevelContexts();
 
             if (Instance != null && Instance != this)
             {
@@ -74,12 +71,19 @@ namespace junklite
             RemoveDuplicateEventSystems();
         }
 
-        private void DetachBundledLevelContext()
+        /// <summary>
+        /// Compatibility for scenes created by the first GameRoot prototype.
+        /// Newly rebuilt scenes use a standalone LevelContext and skip this path.
+        /// </summary>
+        private void DetachLegacyBundledLevelContexts()
         {
-            if (bundledLevelContext == null) return;
-            if (!bundledLevelContext.transform.IsChildOf(transform)) return;
-
-            bundledLevelContext.transform.SetParent(null, true);
+            LevelContext[] contexts = GetComponentsInChildren<LevelContext>(true);
+            for (int i = 0; i < contexts.Length; i++)
+            {
+                LevelContext context = contexts[i];
+                if (context != null && context.transform.IsChildOf(transform))
+                    context.transform.SetParent(null, true);
+            }
         }
 
         private void EnsureGameplayUIRoot()

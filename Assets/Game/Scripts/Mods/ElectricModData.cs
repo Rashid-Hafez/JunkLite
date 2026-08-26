@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace junklite
 {
@@ -24,23 +25,19 @@ namespace junklite
             if (instance.IsBroken) return;
             if (enemy == null || !enemy.IsAlive || enemy.StatusEffects == null) return;
 
-            ApplyZap(enemy, zapDamage);
+            ApplyZap(enemy, zapDamage, player.gameObject);
 
             if (zapRadius > 0f)
-                ZapNearbyEnemies(enemy);
+                ZapNearbyEnemies(enemy, player.gameObject);
 
             instance.ConsumeDurability();
         }
-
-        public override void OnEquip(PlayerCharacter player) { }
-
-        public override void OnUnequip(PlayerCharacter player) { }
 
         #endregion
 
         #region Helpers
 
-        private void ApplyZap(EnemyCharacter enemy, float damage)
+        private void ApplyZap(EnemyCharacter enemy, float damage, GameObject source)
         {
             var zap = new StatusEffectInstance(
                 type: StatusEffectType.Electric,
@@ -48,24 +45,26 @@ namespace junklite
                 tickInterval: tickInterval,
                 duration: zapDuration,
                 damageType: DamageType.Electric,
-                source: null
+                source: source
             );
 
             enemy.StatusEffects.Apply(zap);
         }
 
-        private void ZapNearbyEnemies(EnemyCharacter origin)
+        private void ZapNearbyEnemies(EnemyCharacter origin, GameObject source)
         {
             float areaDamage = zapDamage * areaDamageMultiplier;
             Collider[] hits = Physics.OverlapSphere(origin.transform.position, zapRadius);
+            var affectedEnemies = new HashSet<EnemyCharacter>();
 
             foreach (var hit in hits)
             {
-                var nearbyEnemy = hit.GetComponent<EnemyCharacter>();
+                var nearbyEnemy = hit.GetComponentInParent<EnemyCharacter>();
                 if (nearbyEnemy == null || nearbyEnemy == origin) continue;
                 if (!nearbyEnemy.IsAlive || nearbyEnemy.StatusEffects == null) continue;
+                if (!affectedEnemies.Add(nearbyEnemy)) continue;
 
-                ApplyZap(nearbyEnemy, areaDamage);
+                ApplyZap(nearbyEnemy, areaDamage, source);
             }
         }
 

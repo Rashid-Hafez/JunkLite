@@ -4,7 +4,7 @@ namespace junklite
 {
     [RequireComponent(typeof(AttributeManager))]
     [RequireComponent(typeof(Damageable))]
-    public abstract class CharacterBase : MonoBehaviour, IDamageable
+    public abstract class CharacterBase : MonoBehaviour, IDamageReceiver
     {
         [Header("Config")]
         [SerializeField] protected CharacterStats baseStats;
@@ -52,19 +52,15 @@ namespace junklite
                 attributes.OnDeath -= HandleDeath;
         }
 
-        // --- IDamageable implementation (single entry)
-        /// <summary>
-        /// Attempt to deal damage. Returns true if damage was actually dealt.
-        /// </summary>
-        public virtual bool TakeDamage(DamageInfo info)
+        public virtual DamageResult ReceiveDamage(DamageRequest request)
         {
             if (state != null && !state.CanTakeDamage)
-                return false;
+                return DamageResult.Rejected(DamageOutcome.Invulnerable, request.Amount);
 
             if (damageable != null)
-                return damageable.TakeDamage(info);
+                return damageable.ReceiveDamage(request);
 
-            return false;
+            return DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
         }
 
         // Convenience healing (health math is in AttributeManager)

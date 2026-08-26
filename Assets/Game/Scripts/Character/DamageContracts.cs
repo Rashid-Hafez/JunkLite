@@ -46,16 +46,6 @@ namespace junklite
             BypassesMitigation = bypassesMitigation;
         }
 
-        public static DamageRequest FromLegacy(DamageInfo info)
-        {
-            return new DamageRequest(
-                info.Amount,
-                info.Source,
-                info.Type,
-                info.KnockbackForce,
-                info.IsTickDamage);
-        }
-
         public static DamageRequest Forced(
             float amount,
             GameObject source = null,
@@ -76,10 +66,6 @@ namespace junklite
             return copy;
         }
 
-        public DamageInfo ToLegacy()
-        {
-            return new DamageInfo(Amount, Source, Type, KnockbackForce, IsTickDamage);
-        }
     }
 
     public struct DamageResult
@@ -119,22 +105,23 @@ namespace junklite
     }
 
     /// <summary>
-    /// Temporary bridge used while enemies and damage producers still implement
-    /// the legacy IDamageable/DamageInfo API.
+    /// Resolves the authoritative damage receiver on a collider/component hierarchy.
     /// </summary>
     public static class DamageReceiverUtility
     {
-        public static bool IsAlive(Component target)
+        public static bool TryGetReceiver(Component target, out IDamageReceiver receiver)
         {
+            receiver = null;
             if (target == null) return false;
 
-            var receiver = target.GetComponent<IDamageReceiver>()
-                         ?? target.GetComponentInParent<IDamageReceiver>();
-            if (receiver != null) return receiver.IsAlive;
+            receiver = target.GetComponent<IDamageReceiver>()
+                    ?? target.GetComponentInParent<IDamageReceiver>();
+            return receiver != null;
+        }
 
-            var legacy = target.GetComponent<IDamageable>()
-                      ?? target.GetComponentInParent<IDamageable>();
-            return legacy != null && legacy.IsAlive;
+        public static bool IsAlive(Component target)
+        {
+            return TryGetReceiver(target, out var receiver) && receiver.IsAlive;
         }
 
         public static DamageResult Receive(Component target, DamageRequest request)
@@ -142,22 +129,10 @@ namespace junklite
             if (target == null)
                 return DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
 
-            var receiver = target.GetComponent<IDamageReceiver>()
-                         ?? target.GetComponentInParent<IDamageReceiver>();
-            if (receiver != null)
+            if (TryGetReceiver(target, out var receiver))
                 return receiver.ReceiveDamage(request);
 
-            var legacy = target.GetComponent<IDamageable>()
-                      ?? target.GetComponentInParent<IDamageable>();
-            if (legacy == null)
-                return DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
-            if (!legacy.IsAlive)
-                return DamageResult.Rejected(DamageOutcome.Dead, request.Amount);
-
-            bool applied = legacy.TakeDamage(request.ToLegacy());
-            return applied
-                ? DamageResult.Applied(request.Amount, request.Amount)
-                : DamageResult.Rejected(DamageOutcome.Blocked, request.Amount);
+            return DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
         }
     }
 }

@@ -126,7 +126,10 @@ namespace junklite
         {
             if (Instance != null && Instance != this)
             {
-                Destroy(gameObject);
+                // This component may share the persistent GameRoot object with
+                // GameManager and other services. Only remove the duplicate service.
+                enabled = false;
+                Destroy(this);
                 return;
             }
             Instance = this;

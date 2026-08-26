@@ -1,366 +1,326 @@
 # JunkLite Architecture Refactor Handoff
 
-Last updated: 2026-08-25
+Last reviewed: 2026-08-26
+
+Reviewed branch: `4.7`
+
+Baseline code commit: `46f3c34e` (`changes to player, enemies and base services`)
+
+The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` migration, focused mod-runtime cleanup, and the explicit `V2.5` infrastructure migration described below.
 
 ## Purpose
 
-This document preserves the architectural analysis and decisions made before the refactor begins. It is intended to let development continue from another computer or a new Codex task without repeating the discovery and planning work.
+This document is the source of truth for the architecture refactor. It records what is implemented, what still needs gameplay verification, and the next safe work order so development can continue from another computer or Codex task.
 
-The long-term objective is to make the project easier to extend, test, and maintain while improving runtime efficiency where it matters. The architecture should remain practical for this game's current size: use clear boundaries and composition, but avoid speculative abstractions, large frameworks, and unnecessary layers.
+The goal is better modularity and easier feature development without building a framework larger than this game needs.
 
-## Project Context
+## Project Reality and Constraints
 
-- Unity 6000 with URP.
-- Mirror is used for networking.
-- First-party gameplay scripts currently live primarily under `Assets/Game/Scripts/`.
-- Refactoring should stay inside first-party scripts and small prefabs or ScriptableObject assets.
-- Third-party packages, regular art assets, and broad scene edits are outside the coding scope unless explicitly requested.
-- Unity should create `.meta` files when possible.
+- JunkLite is a **single-player game**. Do not design combat, abilities, state, or managers around multiplayer authority or replication.
+- The project uses Unity 6000 with URP.
+- First-party gameplay code currently lives primarily under `Assets/Game/Scripts/`.
+- Refactoring should remain inside first-party scripts, small prefabs, and ScriptableObject assets.
+- Avoid broad scene changes and third-party modifications. Report required Inspector work to the user.
+- Unity should create `.meta` files where possible.
 
-## Current Status
+## Architectural Principles
 
-- The first implementation slice, **Player Separation + Damage Result Foundation**, has been applied to first-party scripts.
-- `PlayerCharacter` is now a composition-based player orchestrator rather than a `CharacterBase` subclass.
-- The request/result damage contracts and legacy compatibility bridge are in place.
-- Active Grunt, Hyena, and Robot player-hit paths use the result-based receiver boundary.
-- The **Enemy Foundation** slice is implemented: `EnemyCharacter` now derives from a small enemy-specific `EnemyBase`, not `CharacterBase`.
-- Enemy FSM/AI classes are unchanged; enemy damage, knockback, interruption, VFX, and hurt audio now consume the result-based pipeline.
-- `DummyEnemy` is the representative specialized receiver, returning `Invulnerable` explicitly when configured as invincible.
-- Edit-mode tests cover damage amounts/outcomes, defensive immunity, death/revive, and idempotent attribute initialization. The runtime and editor-test assemblies compile; the tests still need to be run from Unity Test Runner.
-- Unity completed a full script compilation successfully on 2026-08-25.
-- No scenes, prefabs, ScriptableObjects, or regular assets were intentionally changed by the refactor.
-- Inspector and gameplay verification from the verification plan still remain.
+1. Prefer composition for shared capabilities such as health, damage reception, teams, status effects, and targeting.
+2. Keep player input/state and enemy AI/state separate. Their FSMs solve different problems and should remain separate.
+3. Use inheritance only for genuine specialization. A small enemy-specific base is acceptable; a universal player/enemy character base is not useful here.
+4. Use one authoritative damage entry point: producers submit `DamageRequest`, receivers return `DamageResult`, and producers react to the result.
+5. Keep ScriptableObjects as immutable runtime configuration. Mutable cooldowns, charges, durability, VFX references, subscriptions, and execution flags belong to runtime instances/components.
+6. Every long-running ability must have one owner and one cleanup path for completion, cancellation, player disable, mode exit, removal, and interruption.
+7. Split managers only at concrete responsibility boundaries. Do not replace one large manager with many empty interfaces, service locators, or global event buses.
+8. Optimize measured or obvious hotspots with caching, reusable buffers, and receiver deduplication. ECS and a universal ability graph are not currently justified.
 
-## Refactor Principles
+## Executive Status
 
-1. **Prefer composition for shared capabilities.** Health, damage reception, teams, targeting, status effects, and similar capabilities should not require player and enemies to share one large inheritance hierarchy.
-2. **Keep actor-specific orchestration separate.** Player input and player state belong to the player. Enemy AI and enemy state belong to enemies.
-3. **Use inheritance only for genuine specialization.** A small `EnemyBase` may provide lifecycle behavior common to all enemies, while concrete enemy types inherit from it only when they truly share that contract.
-4. **Create one authoritative damage entry point.** Attackers submit a damage request and receivers return a result. Attackers should not directly modify health or guess whether a hit succeeded.
-5. **Preserve working behavior during migration.** Refactor through small vertical slices with temporary adapters when required; do not rewrite every actor, ability, and manager at once.
-6. **Keep data separate from runtime behavior.** ScriptableObjects should contain configuration. Runtime components should own mutable state and behavior.
-7. **Avoid global-manager growth.** Persistent application flow, per-level configuration, player spawning, UI creation, audio, and encounter rules should not accumulate indefinitely in one `GameManager`.
-8. **Optimize measured hotspots.** Architectural clarity comes first. Avoid per-frame reflection, repeated scene searches, unnecessary allocations, and uncached component lookups, but do not introduce pooling or complex infrastructure without an actual need.
+| Area | Status | Meaning |
+|---|---|---|
+| Player separation | Implemented, gameplay verification pending | `PlayerCharacter` no longer inherits the shared character base. |
+| Enemy foundation | Implemented, gameplay verification pending | `EnemyCharacter` inherits the small enemy-only `EnemyBase`. |
+| Damage request/result pipeline | Implemented | All first-party producers use `DamageRequest`/`DamageResult`; the legacy API is removed. |
+| Weapon damage migration | Implemented, gameplay verification pending | All `WeaponManager` damage paths publish actual applied damage. |
+| Ability/mod runtime architecture | Implemented, gameplay verification pending | Per-slot executions, cancellation cleanup, lifecycle separation, and composable player ability locks are in place. |
+| Damage/lock EditMode tests | Passing | Unity 6000.3.22f1 passes all 7 focused tests. |
+| Game root / level context | Runtime fix and explicit migration implemented; scene run pending | The duplicate-singleton spawn failure is fixed in code. The Unity menu command must still be run to rewrite `V2.5` and rebuild the prefab. |
+| Scene-local camera binding | Implemented, Play Mode verification pending | Core and trigger cameras use one cached registry and rebind to every spawned/respawned player. |
+| Full game/level manager cleanup | Not started | `GameManager` still owns several unrelated responsibilities. |
 
-## Main Architectural Finding
+## Implemented Architecture
 
-The player and enemies can share capabilities without sharing a character base class.
+### 1. Damage contracts and authoritative health mutation
 
-The original hierarchy made `PlayerCharacter` and `EnemyCharacter` inherit from `CharacterBase`, while `CharacterBase` also coordinated attributes, damage, character state, animation, death, activation, and deactivation. That inheritance implied that player and enemy actors shared one behavioral model, but they have different sources of intent and different state machines:
+`Assets/Game/Scripts/Character/DamageContracts.cs` defines:
 
-- The player is driven by input, player movement, equipment, abilities, camera feedback, and respawn flow.
-- Enemies are driven by AI, perception, navigation, encounter ownership, and enemy-specific decisions.
+- `DamageRequest`: requested amount, source, type, knockback, tick flag, and explicit defense/mitigation bypasses.
+- `DamageOutcome`: `Applied`, `Blocked`, `Parried`, `Invulnerable`, `FriendlyFire`, `Dead`, and `Invalid`.
+- `DamageResult`: requested damage, actual applied damage, outcome, and `WasApplied`.
+- `IDamageReceiver`: the only first-party damage-receiver contract.
+- `DamageReceiverUtility`: hierarchy-aware receiver resolution with no legacy fallback.
 
-Separate player and enemy finite-state machines are therefore appropriate. The problem is not that there are two FSMs; the problem is forcing both actor categories through a base class that also owns unrelated capabilities.
+`Damageable` validates requests, applies armor mitigation, mutates health through `AttributeManager.ApplyDamage`, returns clamped applied damage, and emits `OnDamageResolved` only for applied damage.
 
-The agreed direction is:
+The old `IDamageable`, `DamageInfo`, boolean `TakeDamage`, conversion helpers, fallback resolution, and legacy damage event have been removed. A source search on 2026-08-26 found no remaining first-party references.
 
-- `PlayerCharacter` becomes an independent player-only orchestrator.
-- `PlayerState` remains player-specific.
-- Enemies use the small enemy-specific `EnemyBase` lifecycle/damage boundary.
-- Enemy FSMs remain separate from the player FSM.
-- Player and enemies share contracts and components such as damage receiving, attributes, teams, and status handling.
-- `CharacterBase` now has no first-party subclasses and is retained temporarily until the remaining compatibility consumers are migrated and verified.
-
-## Relevant Current Scripts
-
-- `Assets/Game/Scripts/Base Classes/CharacterBase.cs`
-  - Has no remaining first-party subclasses and is retained temporarily for safe retirement after verification.
-- `Assets/Game/Scripts/Player/PlayerCharacter.cs`
-  - Is an independent player-only orchestrator implementing `IDamageReceiver` plus the legacy adapter.
-  - Coordinates input, movement, player state, damage responses, feedback, grabbing, death, activation, and respawn behavior.
-- `Assets/Game/Scripts/New Enemies/EnemyBase.cs`
-  - Owns only enemy attribute binding, damage reception, death subscription, and activation lifecycle.
-- `Assets/Game/Scripts/New Enemies/EnemyCharacter.cs`
-  - Owns enemy targeting, FSM coordination, interruption, knockback, death presentation, and encounter reactions.
-- `Assets/Game/Scripts/Character/DamageContracts.cs`
-  - Defines the request/outcome/result boundary, `IDamageReceiver`, and the temporary compatibility resolver.
-- `Assets/Game/Scripts/Character/Damageable.cs`
-  - Retains the old `IDamageable`, `DamageInfo`, `DamageType`, `IGrabbable`, and `GrabInfo` compatibility types.
-  - Resolves validation, hostility, mitigation, authoritative health mutation, actual applied values, and result events.
-- `Assets/Game/Scripts/Character/AttributesManager.cs`
-  - Owns runtime attributes and health mutation.
-  - Must remain the authoritative health owner during the first migration.
-- `Assets/Game/Scripts/Managers/GameManager.cs`
-  - Currently contains persistent game state, scene loading, player lifecycle, spawn discovery, respawning, several UI lifecycles, pause handling, music changes, and scene-specific decisions.
-  - This is a later refactor area, not part of the first implementation slice.
-
-## First Implementation Slice
-
-### Name
-
-**Player Separation + Damage Result Foundation**
-
-### Goal
-
-Detach the player from the general character inheritance hierarchy and establish a result-based damage boundary, while preserving the current player prefab and gameplay behavior.
-
-This is deliberately a narrow vertical slice. It proves the new boundary on the player before migrating all enemies or redesigning every combat feature.
-
-### Step 1: Introduce damage contracts
-
-Create small, neutral combat types, preferably in a focused combat folder/namespace within the existing first-party script root:
-
-- `DamageRequest`
-  - Requested/base amount.
-  - Source or instigator.
-  - Damage type.
-  - Knockback data.
-  - Tick/damage-over-time flag.
-  - Only add hit point, direction, ability identifier, or network metadata when a current consumer actually needs it.
-- `DamageOutcome`
-  - A small enum representing meaningful outcomes such as `Applied`, `Blocked`, `Parried`, `Invulnerable`, `FriendlyFire`, `Dead`, and `Invalid`.
-  - Keep the set aligned with current behavior; do not add speculative states.
-- `DamageResult`
-  - Outcome.
-  - Requested damage.
-  - Final applied damage.
-  - Convenience property such as `WasApplied`.
-- `IDamageReceiver`
-  - Exposes whether the receiver is alive.
-  - Accepts a `DamageRequest` and returns a `DamageResult`.
-
-The names may be adjusted to match established conventions, but the request/result separation is the required architectural boundary.
-
-### Step 2: Evolve the existing `Damageable` component
-
-Keep `Damageable` as a neutral receiver/calculator during the first slice rather than replacing it with many services.
-
-Responsibilities for this stage:
-
-- Reject invalid, self, dead, or friendly hits.
-- Obtain the receiver's current defensive state through explicit dependencies.
-- Apply current mitigation rules.
-- Ask `AttributeManager` to mutate health.
-- Return the actual outcome and applied amount.
-- Raise one post-application event carrying the result/context.
-
-Avoid turning it into a universal combat engine. Player presentation, audio, animation, camera shake, AI reactions, loot, score, and encounter progression should react to results through their actor-specific components.
-
-Preserve serialized fields and component references wherever possible so the current prefab does not require a destructive rebuild.
-
-### Step 3: Detach `PlayerCharacter` from `CharacterBase`
-
-Change `PlayerCharacter` into a player-only `MonoBehaviour` orchestrator that implements only the interfaces it actually needs, including the new damage receiver contract and the existing grab contract if still appropriate.
-
-Move or reproduce only the small amount of functionality the player genuinely needs:
-
-- Cache and initialize `AttributeManager`.
-- Bind/configure `Damageable`.
-- Expose player health/alive state through player-facing accessors.
-- Subscribe and unsubscribe from death once.
-- Preserve healing, forced-death, activate/deactivate, respawn, and current public API used by managers or UI.
-
-Do not create a new `PlayerBase` solely to replace `CharacterBase`. There is currently only one player actor category, so another inheritance layer would add structure without value.
-
-### Step 4: Preserve the current defensive resolution order
-
-Before modifying damage behavior, trace the existing player hit flow and keep its observable order. The intended ordering is:
-
-1. Validate request, source, target, and alive state.
-2. Resolve team/friendly-fire rules.
-3. Resolve parry or explicit block behavior.
-4. Resolve invulnerability/state immunity.
-5. Resolve shields or temporary defensive resources, if currently present.
-6. Apply armor/resistance mitigation.
-7. Apply health damage.
-8. Emit the result.
-9. Trigger actor-specific reaction, knockback, hit-stun, VFX, audio, camera feedback, and death reactions as appropriate.
-
-The exact shield/parry ordering must follow current intended gameplay. If current code is inconsistent, document the conflict before changing player-facing behavior.
-
-### Step 5: Add a compatibility bridge
-
-Do not migrate every enemy in the same change.
-
-- Leave enemy classes using `CharacterBase` temporarily.
-- Keep the old `IDamageable`/`DamageInfo` entry point as a short-lived adapter if too many call sites depend on it.
-- Route the adapter into the new request/result pipeline so there is still one authoritative resolution path.
-- Mark the adapter for removal only after all first-party damage producers and receivers have migrated.
-
-Avoid maintaining two independent damage implementations.
-
-### Step 6: Migrate active player damage call sites
-
-Update first-party systems that hit the player so they consume `DamageResult` rather than treating a collision or a `bool` as proof of damage.
-
-Important rule:
-
-- Hit confirmation, on-hit effects, life steal, status application, combat tracking, hit-stop, and similar consequences should occur only for the appropriate returned outcome.
-- A blocked, parried, invulnerable, friendly, or dead-target hit must not accidentally trigger applied-hit effects.
-
-Migrate only the call sites necessary to complete and verify the player slice. Inventory all remaining legacy call sites for a later migration.
-
-### Step 7: Stabilize damage-critical attribute behavior
-
-Inspect and correct only issues in `AttributeManager` and related attribute code that directly affect damage correctness, including:
-
-- Initialization being safe and idempotent.
-- Health not being initialized twice through competing lifecycle paths.
-- Death firing once per life.
-- Revive resetting the death guard and restoring valid health.
-- Damage events reporting actual applied values.
-- No negative health or invalid maximum/current values unless explicitly intended.
-
-Do not redesign the entire statistics system in this slice.
-
-## Target Dependency Shape
+Damage flow:
 
 ```text
-Damage producer (weapon / hazard / ability / enemy attack)
-                  |
-                  v
-          IDamageReceiver.Receive(request)
-                  |
-                  v
-              Damageable
-        validation + mitigation
-                  |
-                  v
-           AttributeManager
-          authoritative health
-                  |
-                  v
-             DamageResult
-                  |
-       +----------+-----------+
-       |          |           |
-       v          v           v
- player feedback  FSM      combat tracking
- / animation      reaction  / ability effects
+weapon / hazard / ability / status / enemy attack
+                         |
+                         v
+          IDamageReceiver.ReceiveDamage(request)
+                         |
+                         v
+                    Damageable
+          validation + mitigation + health mutation
+                         |
+                         v
+                    DamageResult
+                         |
+            actor/producer-owned reactions
 ```
 
-Neither the damage producer nor `GameManager` should directly subtract health.
+`Damageable` no longer applies generic hit-stun. Player and enemy actor code own stun, knockback, animation, VFX, audio, and other presentation reactions.
 
-## Explicit Non-Goals for the First Slice
+### 2. Player and enemy separation
 
-Do not include these in the first implementation unless required to keep the project compiling:
+`PlayerCharacter` inherits directly from `MonoBehaviour` and implements `IDamageReceiver` and `IGrabbable`. It owns player-specific input orchestration, defenses, damage reactions, death/respawn, grabbing, and presentation.
 
-- Full enemy hierarchy migration.
-- A universal actor/character framework.
-- Replacing both FSMs with a shared FSM framework.
-- Ability-system redesign.
-- Status-effect framework redesign.
-- Complete stats/equipment/mod redesign.
-- `GameManager` or level-flow decomposition.
-- Scene rewrites.
-- Network authority redesign.
-- Object pooling or ECS conversion.
-- Broad namespace/folder renaming.
-- Third-party code changes.
+Player defense order is:
 
-## First-Slice Acceptance Criteria
+1. Request/source/team/alive validation.
+2. Parry.
+3. Invulnerability/capability state.
+4. Shield absorption.
+5. Armor mitigation and health mutation.
+6. Player feedback, knockback, and non-tick hit-stun after applied non-lethal damage.
 
-The change is complete only when:
+`EnemyBase` owns only enemy stats/attributes, damage binding, health/death lifecycle, healing, activation, and forced death. Enemy targeting, movement, FSM decisions, interruption, knockback, presentation, drops, and encounters remain enemy-specific.
 
-- `PlayerCharacter` no longer inherits from `CharacterBase`.
-- Player-specific state remains in `PlayerState` and no enemy AI/FSM concern is introduced into it.
-- The player accepts damage through the new request/result contract.
-- The damage caller can distinguish applied damage from parry, block, immunity, friendly fire, dead target, and invalid input where those outcomes currently exist.
-- Health is changed through one authoritative pipeline.
-- Existing armor, parry, invulnerability, shield, tick-damage, hit-stun, death, revive, knockback, and feedback behavior is preserved where currently implemented.
-- Player activation, deactivation, spawning, respawning, UI binding, and manager-facing APIs continue to work.
-- Existing enemy prefabs can remain on the compatibility path without requiring a simultaneous migration.
-- No first-party damage producer directly edits target health.
-- Event subscriptions do not duplicate across revive/reactivation.
-- The project compiles after the major slice is complete.
+`CharacterBase` has no known first-party inheritors or serialized references. It now uses `IDamageReceiver` so it does not preserve the removed damage API; the file can be deleted in a later cleanup after one final Unity reference check.
 
-## Verification Plan
+### 3. WeaponManager result-based damage migration
 
-After implementation, perform focused verification:
+`WeaponManager` uses `DamageRequest`/`DamageResult` for melee, directional blast, piercing/non-piercing hitscan, single-target, and multi-target damage.
 
-1. Search all first-party direct health mutations and classify legitimate internal calls versus bypasses.
-2. Search all uses of `DamageInfo`, `IDamageable`, and `TakeDamage` and list remaining compatibility consumers.
-3. Compile the Unity project because this slice changes core type relationships and interfaces.
-4. In Unity, the user should verify the relevant player prefab references and run these gameplay checks:
-   - Normal enemy hit.
-   - Armor mitigation.
-   - Invulnerable hit.
-   - Parried/blocked hit.
-   - Friendly/self hit rejection.
-   - Tick damage without unintended hit-stun.
-   - Lethal hit and exactly one death event.
-   - Revive followed by receiving damage and dying again.
-   - Knockback and feedback only for valid outcomes.
-5. Verify representative enemy behavior in Unity:
-   - Normal and armor-mitigated hits report the actual applied value.
-   - Dummy invincibility and dodge-state immunity do not mutate health or trigger applied-hit reactions.
-   - Uninterruptible enemy states can take health damage without unintended knockback/hit-stun.
-   - Tick damage does not cause hit-stun.
-   - Lethal damage triggers the enemy death FSM, VFX/audio, drop, and encounter cleanup once.
-   - Parry retaliation and lethal `DeathTrigger` damage use the new receiver boundary.
-6. Do not edit scenes automatically; report any Inspector or scene wiring the user must perform.
+- `OnEnemyHit` publishes `DamageResult.AppliedDamage`.
+- Hit VFX, hit-stop, recoil, melee durability, and hit events require `WasApplied`.
+- Ranged durability remains consumed when a shot is fired.
+- Piercing and area attacks deduplicate by resolved receiver instance.
+- Target resolution and result consequences use a small internal helper without redesigning weapon definitions or attack detection.
 
-## Reusable Game Root and Training Level
+### 4. Mod definitions, instances, and execution ownership
 
-The first game/level-flow foundation is now implemented:
+The mod system keeps the existing useful structure:
 
-- `Assets/Game/Prefabs/Manager/Game Root.prefab` is the reusable prefab for gameplay scenes.
-- Its persistent root owns `GameManager`, `GameInputManager`, `PlayerCombatTracker`, the runtime HUD canvas, and the runtime event system.
-- Its bundled `LevelContext` and `Player Spawn Point` detach at runtime, so level-specific spawn data remains in the loaded scene while the service root persists.
-- Duplicate roots are safe: entering another scene detaches that scene's context, then destroys the duplicate persistent root.
-- `GameManager` prefers explicit `LevelContext` spawn configuration, retains legacy `SceneSettings`/tag fallback during migration, and keeps player HUD/pause/game-over UI alive between scenes.
-- `V2.5.unity` is the first training-level migration. It uses the new root, has no scene-placed player or legacy spawn hierarchy, and retains the active `DummyEnemy` target.
+- `ModData`, `ActiveModData`, and `PassiveModData` are ScriptableObject definitions/configuration.
+- `ModInstance` owns per-slot durability, capped charges, cooldown, and execution state.
+- `ModManager` owns installed slots, activation, durability consumption, lifecycle dispatch, and combat-mode availability.
+- `ModExecutionRunner` is a player-owned runtime component added automatically by `ModManager`; no scene or prefab edit is required.
+- `ModExecutionContext` owns one activation's cleanup callbacks and player-control scope.
 
-New gameplay-level workflow:
+The runtime flow is:
 
-1. Drag `Game Root.prefab` into the scene.
-2. Move its bundled `Player Spawn Point` to the desired start position.
-3. Set the bundled `LevelContext` identity/training flags if needed.
-4. Add scene cameras, enemies, and environment content; player, input, HUD, and respawn wiring are automatic.
+```text
+player input
+    -> ModManager selects ModInstance
+    -> ActiveModData validates configuration/state
+    -> ModExecutionRunner starts per-instance execution
+    -> concrete ability performs its unique behavior
+    -> DamageRequest / DamageResult handles damage
+    -> runner restores all owned state on completion or cancellation
+```
 
-## Planned Order After the First Slice
+`PulseBarrierMod`, `DontBlinkMod`, and `SocialDistanceMod` no longer store execution flags, player references, active VFX, or shield state in shared ScriptableObject assets. `EnergyWaveMod` uses the same execution path and no longer starts cooldown twice. `PhantomStrikeTracker` remains a per-player runtime component and now delegates execution/cancellation to the runner.
 
-Reassess after the player slice rather than committing to a large rewrite. The likely order is:
+### 5. Explicit mod lifecycle
 
-1. **Enemy foundation — implemented; gameplay verification pending**
-   - Introduce a minimal enemy lifecycle/base boundary.
-   - Keep enemy decision logic in enemy FSM/AI components.
-   - Migrate one representative enemy to the new damage receiver pipeline before migrating all types.
-2. **Damage producers and abilities**
-   - Standardize how weapons, hazards, projectiles, and abilities create requests and react to results.
-   - Separate ability definition data from runtime execution and cooldown state.
-3. **Attributes and status effects**
-   - Clarify base stats, runtime stats, modifiers, resources, and temporary effects only after combat boundaries are stable.
-4. **Game and level flow**
-   - Reduce `GameManager` to persistent application/session concerns.
-   - Move per-scene spawn/configuration into a level context or level controller.
-   - Give encounter, UI, audio, and respawn flows focused owners communicating through events or explicit references.
-5. **Networking pass**
-   - Confirm server authority and replication rules across damage, abilities, spawning, death, and respawn once local ownership boundaries are clear.
+The ambiguous `OnEquip`/`OnUnequip` callbacks were replaced with:
 
-Each stage should migrate one real vertical slice, verify it, and only then expand to other content.
+- `OnInstalled`: a runtime instance entered a slot.
+- `OnRemoved`: a runtime instance left a slot.
+- `OnCombatModeEntered`: an installed mod became enabled.
+- `OnCombatModeExited`: an installed mod became disabled.
 
-## Remaining Legacy Damage Consumers
+Entering or leaving Mod Combat no longer pretends to install or remove an item. Leaving combat mode, disabling the player, or explicitly removing a mod cancels its active execution through `ModExecutionRunner` before lifecycle teardown.
 
-The compatibility path is still intentionally used by producer systems outside the completed player/enemy foundation slices:
+If an activation consumes the final durability point, the broken mod leaves its slot but that final successfully-started ability is allowed to finish. The runner still owns and cleans up that execution.
 
-- `EnemyBase` and `PlayerCharacter` retain `IDamageable.TakeDamage(DamageInfo)` only as adapters. `CharacterBase` has no remaining first-party subclasses.
-- `WeaponManager` still uses the legacy API for melee, ranged, combo, and direct weapon hits against enemies.
-- `StatusEffectHandler`, `EnergyWavePulse`, `DontBlinkMod`, `SocialDistanceMod`, and `PhantomStrikeTracker` still damage enemies through the legacy API.
-- `ParryHandler` retaliation and `DeathTrigger` enemy kills now use `DamageRequest`; active Grunt, Hyena, and Robot player attacks also use the new boundary.
-- The legacy `Damageable.OnDamaged` event remains for `PhantomStrikeTracker`; enemy VFX and audio use `OnDamageResolved`.
+### 6. Composable player ability locks
 
-These consumers must continue routing through `Damageable` and should be migrated only in the later enemy/damage-producer slices.
+`PlayerState` now provides disposable, owner-independent input-lock and damage-immunity leases. Multiple abilities can hold locks concurrently; releasing one lease cannot unlock the player while another lease is still active.
 
-## Guidance for the Next Codex Task
+`ModExecutionContext.LockPlayerControl` composes these leases with reference-counted movement, physics-override, and rigidbody-kinematic ownership. It captures the previous controller/rigidbody state and restores it when the final ability scope releases.
 
-Open the synchronized repository on the other computer and use this prompt:
+This removes direct `SetInputLocked(false)`, `SetVulnerable(true)`, and hard-coded physics restoration from active mods. Existing non-mod systems can continue using the original state setters until they are reviewed separately.
 
-> Read `ARCHITECTURE_HANDOFF.md` completely. Inspect the implemented player and enemy foundation slices under `Assets/Game/Scripts/`. Run the edit-mode `DamagePipelineTests` plus the remaining player/enemy Inspector and gameplay checks, and fix only regressions within these slices. Do not begin broad weapon/mod/status producer migration until the foundations are verified; after verification, the next slice is **Damage producers and abilities**.
+### 7. Remaining damage producers migrated
+
+These producers now use `DamageRequest`/`DamageResult`:
+
+- `StatusEffectHandler` damage-over-time ticks.
+- `EnergyWavePulse` initial and repeated damage.
+- `DontBlinkMod` strike damage.
+- `SocialDistanceMod` pulse damage.
+- `PhantomStrikeTracker` slam damage.
+
+Important behavior corrections included in the migration:
+
+- Status tick events publish actual applied damage and reuse an expiry buffer instead of allocating a new list every frame.
+- Social Distance and Phantom Strike deduplicate multi-collider targets and only spawn hit feedback for applied results.
+- Energy Wave captures an enemy only after applied damage and restores the rigidbody/NavMeshAgent states that enemy had before capture.
+- Fire and Electric status effects retain the player as their damage source; chained Electric application deduplicates multi-collider enemies.
+- Phantom Strike resets charges from `OnDamageResolved` instead of the removed legacy event.
+- `PlayerCharacter` caches `DamageShield` after it is first found instead of resolving it on every shielded hit.
+
+### 8. Explicit game-root and level-context foundation
+
+The redesigned scene boundary is two roots with different lifetimes:
+
+- `Game Root` is the duplicate-safe persistent root. It owns `GameManager`, `GameInputManager`, `PlayerCombatTracker`, the runtime gameplay canvas, and the event system.
+- `Level Context` is a standalone scene-local root. It owns the level identity, whether a player should spawn, and explicit typed player spawn points.
+
+`LevelContext` must not be nested under the persistent prefab. `GameRoot` temporarily detaches contexts found in an older prefab so unmigrated scenes remain usable, while the rebuild command removes that legacy nesting from the prefab entirely.
+
+The `V2.5` spawn failure was traced to a duplicate-singleton race. The scene had a standalone `GameInputManager` while the composed `Game Root` also contained one. The duplicate path called `Destroy(gameObject)`, so depending on `Awake` order it could destroy the complete `Game Root`, including `GameManager`, before player spawning. Duplicate `GameInputManager`, `GameManager`, and `PlayerCombatTracker` instances now disable and remove only their own duplicate component, never the shared host object.
+
+`Assets/Game/Editor/GameRootTrainingLevelMigration.cs` is now manual-only. It no longer uses `[InitializeOnLoad]` or silently edits a scene. The command:
+
+`Tools > JunkLite > V2.5 > Strip Legacy Systems and Rebuild`
+
+does the following in one reviewed operation:
+
+1. Rebuilds `Assets/Game/Prefabs/Manager/Game Root.prefab` without scene-local `LevelContext` data.
+2. Removes obsolete player/bootstrap/input/UI infrastructure from `Assets/Game/Scenes/V2.5.unity`.
+3. Installs exactly one persistent `Game Root` at the world origin.
+4. Creates one standalone `Level Context` and preserves the authored spawn transform.
+5. Preserves level geometry, cameras, enemies, pickups, and required supporting services such as audio, combat effects, projectiles, drops, and feedback.
+6. Saves and validates the resulting scene.
+
+The scene and prefab have deliberately not been rewritten from outside Unity. Run the command in the open Editor, inspect the hierarchy, then use `Tools > JunkLite > V2.5 > Validate Redesigned Setup`. This is a foundation, not a completed manager refactor: `GameManager` still owns scene loading, player lifecycle, respawn, UI lifecycles, pause state, spawn resolution, music selection, and game-state transitions.
+
+### 9. Scene-local camera ownership and player binding
+
+`CameraManager` remains scene-local because Cinemachine rigs, blends, and trigger cameras belong to a level. It is not part of the persistent `Game Root`.
+
+The original V2.5 camera failure was caused by a split configuration: the scene assigned `mainCamera`, but `ConnectToPlayer` only targeted the optional `cameraList`, which was empty. The main camera was prioritized without ever receiving the spawned player as its `TrackingTarget`.
+
+The corrected flow is:
+
+1. `GameManager` spawns or revives the player and publishes `OnPlayerSpawned` once.
+2. The scene-local `CameraManager` subscribes to that event and owns all camera response.
+3. Main, spawn, death, and explicitly configured level cameras enter one cached, deduplicated registry.
+4. Every registered camera is rebound to the current player on spawn and respawn.
+5. A camera selected later by `CameraSwitchTrigger` registers and binds on demand.
+6. Respawn prioritizes the configured spawn camera, falling back to main and then the first registered camera.
+
+This uses explicit serialized references and small cached collections rather than repeated scene-wide camera searches. Follow-freeze state is retained when switching cameras, singleton duplicates remove only the duplicate component, and the manager cleans up both player and `GameManager` event subscriptions when disabled.
+
+The V2.5 validation command now requires exactly one scene-local `CameraManager`, exactly one `CinemachineBrain`, and a main camera reference belonging to the scene camera rig.
+
+## Verification Recorded
+
+On 2026-08-26 with Unity 6000.3.22f1:
+
+- Runtime and editor assemblies compiled successfully after the mod cleanup.
+- Runtime and editor assemblies compile with 0 errors after the `V2.5` spawn, camera-binding, and migration-tool changes. The wider project still reports pre-existing analyzer, obsolete-API, and unused-field warnings.
+- `DamagePipelineTests` passed 7/7 in EditMode.
+- The tests cover requested versus applied damage, rejection outcomes, defensive immunity, death/revive, idempotent attribute initialization, composable input locks, and composable damage-immunity locks.
+- A source search found no `IDamageable`, `DamageInfo`, `TakeDamage`, `FromLegacy`, `ToLegacy`, or `OnDamaged` references in first-party gameplay scripts.
+
+No scene or prefab was changed for the mod-runtime or camera-binding cleanup. Unity generated only the `.meta` for the new mod runtime script.
+
+## Known Gaps and Required Gameplay Verification
+
+Automated tests cover contracts and lock composition, not animation/physics/VFX timing. Before adding more abilities, verify these paths in Play Mode:
+
+1. Enter and leave Mod Combat repeatedly with active and passive mods installed.
+2. Explicitly unequip an idle mod and a currently executing mod.
+3. Consume the last durability point and confirm the final activation completes while the slot becomes empty.
+4. Disable/kill the player during each active ability and confirm input, visibility, camera, physics, and VFX are restored.
+5. Pulse Barrier: activation, absorbed hit, partial overflow, depletion, expiry, mode exit, and removal.
+6. Don't Blink: no target, successful target, rejected damage, and target death during vanish.
+7. Social Distance: multi-collider enemy, invulnerable enemy, pulse cancellation, and VFX cleanup.
+8. Energy Wave: capture, repeated ticks, enemy death during drag, early pulse destruction, and restoration of previously disabled NavMesh/kinematic state.
+9. Phantom Strike: charge gain/reset, successful slam, multi-collider AOE, camera reset, cancellation, and UI rebinding.
+10. Fire, Electric, Lifesteal, and Pogo behavior after actual-applied-damage migration.
+
+For the scene-local camera slice, verify initial spawn follow, death-camera switching, respawn snap, camera-switch triggers, follow freeze/unfreeze, zoom effects, and loading V2.5 repeatedly from another scene.
+
+The broader foundation still needs representative player/enemy/weapon gameplay verification. The explicit `V2.5` migration must be run in Unity and then visually and functionally approved.
+
+## What Should Be Done Next
+
+### Gate 1: Play-test the completed combat/mod slice
+
+Fix only regressions inside the implemented boundaries. Do not add another abstraction layer during verification.
+
+### Gate 2: Harden the game-root migration workflow
+
+1. In Unity, run `Tools > JunkLite > V2.5 > Strip Legacy Systems and Rebuild` and approve the confirmation dialog.
+2. Inspect the preserved authored content, enter Play Mode, and verify the player spawns at `Level Context/Player Spawn Point` and the main Cinemachine camera immediately follows it.
+3. Run `Tools > JunkLite > V2.5 > Validate Redesigned Setup`.
+4. Migrate one additional gameplay scene and one menu/non-gameplay scene with user review.
+5. Retire legacy spawn/UI fallbacks only after all scenes use the new workflow.
+
+### Gate 3: Extract one concrete GameManager responsibility
+
+After the scene foundation is verified:
+
+1. First candidate: player spawn/death/respawn lifecycle.
+2. Second candidate: gameplay HUD/pause/game-over UI lifecycle.
+3. Keep global game state and scene transitions in `GameManager` until those extractions prove stable.
+
+### Gate 4: Review WeaponManager responsibilities
+
+Do not rewrite combat. Extract only a proven boundary, with equipment/loadout/pickup ownership as the first likely candidate. Attack execution/detection can be considered afterward if continued weapon additions remain difficult.
+
+## Performance Priorities
+
+The current architecture does not need ECS or a broad pooling rewrite. Useful near-term work is:
+
+- Keep AOE receiver deduplication and reusable physics buffers in frequently executed paths.
+- Profile fixed-size overlap buffers for truncation before increasing them blindly.
+- Keep scene-wide searches in initialization paths and cache the resulting references.
+- Profile VFX/projectile pooling before expanding pooling infrastructure.
+
+## Definition of Closed for the Current Combat/Mod Foundation
+
+Structurally complete now:
+
+- All first-party damage producers use `DamageRequest`/`DamageResult`.
+- Downstream weapon/mod hit consumers receive actual applied damage.
+- No damage producer directly edits health.
+- Legacy damage contracts and events are removed.
+- Damage resolution owns validation/math/state mutation; actors own reactions.
+- Mod ScriptableObjects contain configuration, not per-player execution state.
+- Executions have deterministic completion/cancellation cleanup.
+- Mod installation and combat-mode lifecycles are distinct.
+- Player ability locks compose correctly.
+- Unity compiles and all 7 focused EditMode tests pass.
+
+Still required before calling the slice gameplay-closed:
+
+- Complete the Play Mode checklist above.
+- Verify representative player, enemy, weapon, status, and mod prefabs in the Inspector.
+- Delete the unused `CharacterBase.cs` after one final serialized-reference check.
+
+## Continuation Prompt for a New Codex Task
+
+> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. Player/enemy separation, the result-based damage pipeline, all first-party damage-producer migrations, the `WeaponManager` result migration, composable player ability locks, explicit mod lifecycle, per-instance mod execution/cancellation, scene-local camera rebinding, and the manual-only `V2.5` infrastructure migration are implemented. Unity 6000.3.22f1 compiles and all 7 focused EditMode tests pass. If `V2.5` has not yet been rewritten, run `Tools > JunkLite > V2.5 > Strip Legacy Systems and Rebuild`, verify player spawning and camera follow, then run the validation command. Do not add networking architecture, a universal ability graph, a service locator, or a broad manager rewrite. After the listed Play Mode checks, extract only one concrete `GameManager` responsibility at a time.
 
 ## Synchronization Checklist
 
 Before changing computers:
 
-- Add this document to version control.
-- Commit and push the current branch.
-- Ensure any other local project changes needed for the refactor are also intentionally committed or otherwise transferred.
+- Commit and push this handoff and its associated script changes.
+- Note the active branch and Unity editor version.
 
 On the other computer:
 
-- Clone or pull the same branch.
-- Open the project with the matching Unity version.
+- Clone or pull branch `4.7` (or the branch containing this document).
+- Open the project with Unity 6000.3.22f1.
 - Open a new Codex task against the repository.
 - Use the continuation prompt above.
-

@@ -103,6 +103,46 @@ namespace junklite.Tests
         }
 
         [Test]
+        public void PlayerInputLocksReleaseOnlyAfterEveryOwnerReleases()
+        {
+            var state = target.AddComponent<PlayerState>();
+            var firstLock = state.AcquireInputLock();
+            var secondLock = state.AcquireInputLock();
+
+            Assert.That(state.IsInputLocked, Is.True);
+
+            firstLock.Dispose();
+            Assert.That(state.IsInputLocked, Is.True);
+
+            secondLock.Dispose();
+            Assert.That(state.IsInputLocked, Is.False);
+        }
+
+        [Test]
+        public void PlayerDamageImmunityLocksComposeAcrossAbilityOwners()
+        {
+            var state = target.AddComponent<PlayerState>();
+            damageable.Bind(stats, attributes, state);
+
+            var firstLock = state.AcquireDamageImmunity();
+            var secondLock = state.AcquireDamageImmunity();
+
+            Assert.That(
+                damageable.ReceiveDamage(new DamageRequest(20f, source)).Outcome,
+                Is.EqualTo(DamageOutcome.Invulnerable));
+
+            firstLock.Dispose();
+            Assert.That(
+                damageable.ReceiveDamage(new DamageRequest(20f, source)).Outcome,
+                Is.EqualTo(DamageOutcome.Invulnerable));
+
+            secondLock.Dispose();
+            Assert.That(
+                damageable.ReceiveDamage(new DamageRequest(20f, source)).Outcome,
+                Is.EqualTo(DamageOutcome.Applied));
+        }
+
+        [Test]
         public void DeathFiresOncePerLifeAndReviveResetsTheGuard()
         {
             int deathCount = 0;

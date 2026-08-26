@@ -2,15 +2,6 @@
 
 namespace junklite
 {
-    public interface IDamageable
-    {
-        /// <summary>
-        /// Attempt to deal damage. Returns true if damage was actually dealt.
-        /// </summary>
-        bool TakeDamage(DamageInfo info);
-        bool IsAlive { get; }
-    }
-
     public interface IGrabbable
     {
         void GetGrabbed(GrabInfo info);
@@ -18,28 +9,6 @@ namespace junklite
     }
 
     public enum DamageType { Physical, Fire, Magic, Electric }
-
-    /// <summary>
-    /// Damage data - kept lean and focused only on damage.
-    /// </summary>
-    public struct DamageInfo
-    {
-        public float Amount;
-        public UnityEngine.GameObject Source;
-        public DamageType Type;
-        public UnityEngine.Vector2 KnockbackForce;
-        public bool IsTickDamage; // NEW: true for DOT ticks (fire, electric, etc.) — skips hitstun
-
-        public DamageInfo(float amount, UnityEngine.GameObject source = null, DamageType type = DamageType.Physical,
-            UnityEngine.Vector2 knockback = default, bool isTickDamage = false)
-        {
-            Amount = amount;
-            Source = source;
-            Type = type;
-            KnockbackForce = knockback;
-            IsTickDamage = isTickDamage;
-        }
-    }
 
     /// <summary>
     /// Grab data - everything needed for a grab and throw interaction.
@@ -76,9 +45,6 @@ namespace junklite
         TeamMember myTeam;
 
         public event System.Action<DamageResult, DamageRequest> OnDamageResolved;
-
-        // Compatibility event for existing enemy presentation listeners.
-        public event System.Action<float, GameObject> OnDamaged;
 
         public void Bind(CharacterStats s, AttributeManager a, CharacterState st)
         {
@@ -147,20 +113,8 @@ namespace junklite
 
             var result = DamageResult.Applied(request.Amount, appliedDamage);
             OnDamageResolved?.Invoke(result, request);
-            OnDamaged?.Invoke(appliedDamage, request.Source);
-
-            if (!request.IsTickDamage)
-                state?.ApplyStun(0.1f);
 
             return result;
-        }
-
-        /// <summary>
-        /// Legacy adapter. All old callers now route into the request/result pipeline.
-        /// </summary>
-        public bool TakeDamage(DamageInfo info)
-        {
-            return ReceiveDamage(DamageRequest.FromLegacy(info)).WasApplied;
         }
 
         bool IsHostile(GameObject source)

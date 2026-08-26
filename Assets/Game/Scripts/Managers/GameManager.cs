@@ -83,7 +83,10 @@ namespace junklite
         {
             if (Instance != null && Instance != this)
             {
-                Destroy(gameObject);
+                // GameManager may be composed onto GameRoot with other services.
+                // A duplicate manager must never destroy that entire host object.
+                enabled = false;
+                Destroy(this);
                 return;
             }
             Instance = this;
@@ -574,9 +577,7 @@ namespace junklite
             // This ensures XY/ZY config is always correct regardless of where the player died.
             ResetPlayerMovementAxis();
 
-            if (CameraManager.Instance != null)
-                CameraManager.Instance.ConnectToPlayer(currentPlayer);
-
+            // Scene-local systems such as CameraManager bind through this event.
             OnPlayerSpawned?.Invoke(currentPlayer);
 
             if (currentPlayer.Stats != null)
