@@ -93,6 +93,8 @@ GameObject:
   - component: {fileID: 3310034358566085586}
   - component: {fileID: 1244779152353861747}
   - component: {fileID: 7941595554333617395}
+  - component: {fileID: 8123627017812205423}
+  - component: {fileID: 8123627017812205424}
   - component: {fileID: 1968750240354414571}
   - component: {fileID: 7268207139618732945}
   m_Layer: 14
@@ -333,6 +335,19 @@ MonoBehaviour:
   enemyVisual: {fileID: 0}
   customDropTable: {fileID: 0}
   dropChance: 1
+--- !u!114 &8123627017812205423
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7209808592452888717}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f76bde81ba841bba6b6055f606971b3, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.FlyingFollowerBrain
+  ownsSerializedConfiguration: 1
   patrol:
     patrolDistance: 5.55
     patrolSpeed: 5
@@ -344,8 +359,22 @@ MonoBehaviour:
   chase:
     chaseSpeed: 5
     chaseStopDistance: 2
+--- !u!114 &8123627017812205424
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7209808592452888717}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d91754d040d4f09a2a4996fdcb7d32d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.FlyingHoverController
+  ownsSerializedConfiguration: 1
   hoverBobAmount: 0
   hoverBobSpeed: 0
+  returnHeightSpeed: 5
 --- !u!82 &1968750240354414571
 AudioSource:
   m_ObjectHideFlags: 0

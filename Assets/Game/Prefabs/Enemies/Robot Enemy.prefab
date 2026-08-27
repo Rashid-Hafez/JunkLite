@@ -305,6 +305,7 @@ GameObject:
   - component: {fileID: 6381443775609244690}
   - component: {fileID: 2649728551312853881}
   - component: {fileID: 4580324285353963223}
+  - component: {fileID: 8123627017812205422}
   - component: {fileID: 6397509013019191404}
   - component: {fileID: 5739385205613381891}
   - component: {fileID: 1686940009611622928}
@@ -481,6 +482,19 @@ MonoBehaviour:
   enemyVisual: {fileID: 1930341714758770327}
   customDropTable: {fileID: 0}
   dropChance: 1
+--- !u!114 &8123627017812205422
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8676920073786956694}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c05f4d6c4c9f4e6aaa32666f36b8d3b1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.RobotBrain
+  ownsSerializedConfiguration: 1
   patrol:
     patrolDistance: 5
     patrolSpeed: 2
@@ -499,6 +513,10 @@ MonoBehaviour:
     dashKnockback: {x: 15, y: 5}
     dashHitbox: {fileID: 4642887769960604419}
     dashVFXPrefab: {fileID: 0}
+    canBeInterrupted: 1
+    attackStartNormalized: 0.8
+    attackActiveDuration: 0.12
+    whiffResolveDelay: 0.05
   grab:
     canGrab: 1
     grabChance: 0.3
@@ -510,7 +528,6 @@ MonoBehaviour:
   recovery:
     recoveryTime: 0.3
     recoveryVFXPrefab: {fileID: 0}
-  vfxScale: 2
 --- !u!114 &6397509013019191404
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -231,13 +231,32 @@ namespace junklite
     /// Reusable recovery implementation.
     /// </summary>
     [System.Serializable]
-    public class RecoveryBehavior
+    public class RecoveryBehavior : IRecoverer
     {
         [SerializeField] private float recoveryTime = 0.3f;
         [SerializeField] private GameObject recoveryVFXPrefab;
 
+        public event System.Action Completed;
+
         public float RecoveryTime => recoveryTime;
         public GameObject RecoveryVFXPrefab => recoveryVFXPrefab;
+
+        public void OnRecoveryComplete() => Completed?.Invoke();
+    }
+
+    /// <summary>
+    /// Interrupt completion for enemies that can be knocked back or explicitly
+    /// stunned but should not enter hit-stun from ordinary damage.
+    /// </summary>
+    public sealed class NoHitstunBehavior : IStunnable
+    {
+        public event System.Action Completed;
+
+        public float StaggerDuration => 0f;
+        public float ForcedStunDuration { get; set; }
+        public GameObject StunVFXObject => null;
+
+        public void OnStunComplete() => Completed?.Invoke();
     }
 
     /// <summary>

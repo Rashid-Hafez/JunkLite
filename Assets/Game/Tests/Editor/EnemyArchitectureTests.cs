@@ -10,6 +10,10 @@ namespace junklite.Tests
     public sealed class EnemyArchitectureTests
     {
         private const string GruntPrefabPath = "Assets/Game/Prefabs/Enemies/Grunt Enemy.prefab";
+        private const string RobotPrefabPath = "Assets/Game/Prefabs/Enemies/Robot Enemy.prefab";
+        private const string FlyingPrefabPath = "Assets/Game/Prefabs/Enemies/Flying Dummy.prefab";
+        private const string PatrolPrefabPath = "Assets/Game/Prefabs/Enemies/Patrol Dummy.prefab";
+        private const string DummyPrefabPath = "Assets/Game/Prefabs/Enemies/Dummy.prefab";
 
         private static readonly string[] HyenaPrefabPaths =
         {
@@ -70,6 +74,78 @@ namespace junklite.Tests
         }
 
         [Test]
+        public void RobotPrefabUsesFocusedBrainAndRuntimeAttackCapability()
+        {
+            GameObject prefab = LoadPrefab(RobotPrefabPath);
+            EnemyCharacter enemy = prefab.GetComponent<EnemyCharacter>();
+            RobotBrain brain = prefab.GetComponent<RobotBrain>();
+
+            Assert.That(brain, Is.Not.Null);
+            AssertCommonEnemyComposition(prefab, enemy);
+            AssertConfiguredAttack(brain, "dash", "dashHitbox");
+
+            GameObject instance = UnityEngine.Object.Instantiate(prefab);
+            try
+            {
+                EnemyCharacter runtimeEnemy = instance.GetComponent<EnemyCharacter>();
+                Assert.That(runtimeEnemy.GetCapability<IPatroller>(), Is.Not.Null);
+                Assert.That(runtimeEnemy.GetCapability<ICharger>(), Is.Not.Null);
+                Assert.That(runtimeEnemy.GetCapability<IDasher>(), Is.Not.Null);
+                Assert.That(runtimeEnemy.GetCapability<IGrabber>(), Is.Not.Null);
+                Assert.That(runtimeEnemy.GetCapability<IRecoverer>(), Is.Not.Null);
+                Assert.That(runtimeEnemy.GetCapability<IStunnable>(), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        [Test]
+        public void FlyingDummySeparatesFollowingFromHoverPhysics()
+        {
+            GameObject prefab = LoadPrefab(FlyingPrefabPath);
+            EnemyCharacter enemy = prefab.GetComponent<EnemyCharacter>();
+
+            Assert.That(prefab.GetComponent<FlyingFollowerBrain>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<FlyingHoverController>(), Is.Not.Null);
+            AssertCommonEnemyComposition(prefab, enemy);
+            AssertOwnsSerializedConfiguration(prefab.GetComponent<FlyingHoverController>());
+            Assert.That(enemy.GetCapability<IPatroller>(), Is.Not.Null);
+            Assert.That(enemy.GetCapability<IChaser>(), Is.Not.Null);
+            Assert.That(enemy.GetCapability<IStunnable>(), Is.Not.Null);
+        }
+
+        [TestCase(PatrolPrefabPath, true)]
+        [TestCase(DummyPrefabPath, false)]
+        public void PassiveDummiesUsePassiveBrain(string prefabPath, bool patrols)
+        {
+            GameObject prefab = LoadPrefab(prefabPath);
+            EnemyCharacter enemy = prefab.GetComponent<EnemyCharacter>();
+            PassiveEnemyBrain brain = prefab.GetComponent<PassiveEnemyBrain>();
+
+            Assert.That(brain, Is.Not.Null);
+            AssertCommonEnemyComposition(prefab, enemy, false);
+
+            SerializedProperty patrolFlag = new SerializedObject(brain)
+                .FindProperty("patrolWhenPassive");
+            Assert.That(patrolFlag, Is.Not.Null);
+            Assert.That(patrolFlag.boolValue, Is.EqualTo(patrols));
+            Assert.That(enemy.GetCapability<IStunnable>(), Is.Not.Null);
+        }
+
+        [TestCase("Assets/Game/Scripts/New Enemies/Robot Enemy/RobotEnemy.cs")]
+        [TestCase("Assets/Game/Scripts/New Enemies/Dummy Enemy/FlyingDummy.cs")]
+        [TestCase("Assets/Game/Scripts/New Enemies/Dummy Enemy/PatrolDummy.cs")]
+        public void MigratedEnemyIdentityClassesDoNotOwnDecisionStateMachines(string sourcePath)
+        {
+            string source = File.ReadAllText(sourcePath);
+            StringAssert.DoesNotContain("InitializeStateMachine", source);
+            StringAssert.DoesNotContain("OnPlayerSpotted", source);
+            StringAssert.DoesNotContain("ChangeState<", source);
+        }
+
+        [Test]
         public void EnemyDeathEventFiresExactlyOnce()
         {
             GameObject prefab = LoadPrefab(HyenaPrefabPaths[0]);
@@ -121,18 +197,28 @@ namespace junklite.Tests
             return prefab;
         }
 
-        private static void AssertCommonEnemyComposition(GameObject prefab, EnemyCharacter enemy)
+        private static void AssertCommonEnemyComposition(
+            GameObject prefab,
+            EnemyCharacter enemy,
+            bool requiresPerception = true)
         {
+            Assert.That(enemy, Is.Not.Null);
             Assert.That(prefab.GetComponent<StateMachine>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<EnemyMovement>(), Is.Not.Null);
-            Assert.That(enemy.Perception, Is.Not.Null);
+            if (requiresPerception)
+                Assert.That(enemy.Perception, Is.Not.Null);
             Assert.That(prefab.GetComponent<EnemyBrain>(), Is.Not.Null);
 
-            SerializedObject serializedBrain = new(prefab.GetComponent<EnemyBrain>());
+            AssertOwnsSerializedConfiguration(prefab.GetComponent<EnemyBrain>());
+        }
+
+        private static void AssertOwnsSerializedConfiguration(MonoBehaviour component)
+        {
+            SerializedObject serializedComponent = new(component);
             Assert.That(
-                serializedBrain.FindProperty("ownsSerializedConfiguration").boolValue,
+                serializedComponent.FindProperty("ownsSerializedConfiguration").boolValue,
                 Is.True,
-                $"{prefab.name} brain should own its serialized tuning.");
+                $"{component.name} should own its serialized tuning.");
         }
 
         private static void AssertConfiguredAttack(

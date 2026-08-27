@@ -31,7 +31,6 @@ namespace junklite
         {
             if (HasTarget)
             {
-                destinationReported = false;
                 chaser?.UpdateLastKnownPosition(Target.position);
 
                 float stopDistance = chaser != null && chaser.ChaseStopDistance > 0f
@@ -49,6 +48,8 @@ namespace junklite
                         return;
                     }
                 }
+
+                destinationReported = false;
 
                 movement?.MoveTo(Target.position);
                 movement?.FaceTarget(Target.position);

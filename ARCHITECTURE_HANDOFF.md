@@ -6,7 +6,7 @@ Reviewed branch: `4.7`
 
 Baseline code commit: `46f3c34e` (`changes to player, enemies and base services`)
 
-The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` damage migration, focused mod-runtime cleanup, the explicit `V2.5` infrastructure migration, the focused player/UI lifecycle extractions, the player weapon-loadout extraction, and the first composed enemy-AI vertical slice described below.
+The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` damage migration, focused mod-runtime cleanup, the explicit `V2.5` infrastructure migration, the focused player/UI lifecycle extractions, the player weapon-loadout extraction, and the composed enemy-AI migration described below.
 
 ## Purpose
 
@@ -50,7 +50,7 @@ The goal is better modularity and easier feature development without building a 
 | Player lifecycle extraction | Implemented, Play Mode verification pending | `PlayerLifecycle` owns player creation, identity, spawn selection, death, and soft respawn. Direct consumers no longer use player APIs on `GameManager`. |
 | Game UI lifecycle extraction | Implemented, Play Mode verification pending | `GameUIManager` owns HUD, pause, game-over, loading UI, prefab configuration, instances, and state-driven visibility. |
 | Player weapon loadout | Implemented, Play Mode verification pending | `PlayerWeaponLoadout` owns both equipped slots, paired world pickups, attachment, visibility, swap/drop/replace, and break removal. |
-| Composed enemy AI foundation | Implemented for Grunt + Hyena, Play Mode verification pending | Perception reports facts, brains own voluntary decisions, states execute one action, and reusable behaviors own mechanics/tuning. |
+| Composed enemy AI foundation | Implemented for all current first-party enemy prefabs, latest migrations need Play Mode verification | Grunt/Hyena are user-verified. Robot, Flying Dummy, Patrol Dummy, and Dummy now use the same composition boundary without forcing every archetype through the same brain. |
 | Full game/level manager cleanup | In progress | Player and UI lifecycle are extracted; `GameManager` retains global state, pause coordination, scene transitions, and music. |
 
 ## Implemented Architecture
@@ -273,16 +273,19 @@ Implemented details:
 - `EnemyBrain` is the decision boundary. `MeleeChaserBrain` implements the reusable passive/patrol, chase, single-melee-action, and re-evaluation loop.
 - `HyenaBrain` adds only Hyena policy: reactive dodge, optional counter-charge/dash, and whiff stun.
 - `PatrolBehavior`, `ChaseBehavior`, `MeleeAttackBehavior`, `DodgeBehavior`, `ChargeBehavior`, `DashBehavior`, and `StunBehavior` provide capabilities to states through one composed provider. Melee and dash damage remain in the behavior that owns the hitbox rather than in the brain.
-- `GruntEnemy` and `HyenaEnemy` are now thin identity/migration components. Their active prefabs serialize tuning on the brain.
-- Older embedded Grunts and older scene-embedded Hyenas retain hidden legacy fields and receive a runtime brain bridge, avoiding broad cinematic/scene edits during this slice.
-- Grunt, Hyena, Hyena EASY, Hyena Blue, and Hyena Green prefabs were migrated. No scene was edited.
-- `Tools > JunkLite > Systems > Validate Enemies` validates required components, brain type, perception reference, serialized melee/dash hitboxes, and the composed capability set.
+- `GruntEnemy`, `HyenaEnemy`, `RobotEnemy`, `FlyingDummy`, and `PatrolEnemy` are now thin identity/migration components. `DummyEnemy` additionally retains only its unique invincibility/health-reset damage options.
+- `RobotBrain` owns the charge/dash/optional-grab/recovery policy. Its focused runtime capability owns Robot-specific dash-contact damage and grab selection while reusing patrol, charge, dash, grab, recovery, and universal action states.
+- `FlyingFollowerBrain` owns only patrol/follow decisions. `FlyingHoverController` independently owns gravity, passive hover/height return, and death falling; it does not inspect the FSM.
+- `PassiveEnemyBrain` supplies either permanent patrol or idle behavior for non-combat test enemies and intentionally ignores perception.
+- Older scene-embedded enemies retain hidden legacy fields and receive a runtime brain/controller bridge, avoiding broad scene edits during migration.
+- Grunt, all four Hyena variants, Robot Enemy, Flying Dummy, Patrol Dummy, and Dummy prefabs were migrated. No scene was edited.
+- `Tools > JunkLite > Systems > Validate Enemies` validates all nine prefabs, including brain/controller type, perception where required, serialized ownership, attack hitboxes, passive settings, and reusable capabilities.
 
 Deliberately deferred until this vertical slice is gameplay-proven:
 
 - No generalized target/threat framework, service locator, AI event bus, or universal action graph was added.
 - `EnemyType`, `EnemyConfig`, and a possible identity-only `EnemyDefinition` were not redesigned.
-- Robot, flying enemies, dummies, animation-presentation cleanup, and encounter/wave architecture were not migrated yet.
+- Animation-presentation cleanup and encounter/wave architecture were not migrated yet.
 
 ## Verification Recorded
 
@@ -307,6 +310,12 @@ On 2026-08-27, after the enemy-AI vertical slice and interruption audit:
 - `Assembly-CSharp-Editor.csproj` builds with 0 errors. Existing unrelated/third-party warnings remain.
 - Five focused enemy architecture tests (eight generated cases) compile. They cover Grunt/Hyena prefab composition, composed capability resolution, exact-once death notification, and source guards preventing movement/Level 0 from depending on concrete enemy states.
 - The enemy tests could not be executed through a second Unity batch process because the project is already open in Unity; run them from the open Editor before gameplay approval.
+
+On 2026-08-27, after migrating the remaining active enemy prefabs:
+
+- Direct runtime and editor assembly builds complete with 0 warnings and 0 errors when warning output is suppressed for the focused compile check.
+- The architecture suite now contains nine focused tests producing fifteen cases. Added coverage checks Robot composition/runtime capabilities, Flying Dummy brain/hover separation, passive-dummy settings, and source guards that keep migrated identity classes free of decision FSMs.
+- Robot, Flying Dummy, Patrol Dummy, and Dummy still require the in-Editor validator, EditMode tests, and focused Play Mode checks below. Grunt and Hyena behavior was already confirmed working by the user.
 
 No scene or prefab was changed for the mod-runtime or camera-binding cleanup. Unity generated only the `.meta` for the new mod runtime script.
 
@@ -333,7 +342,7 @@ For the focused UI lifecycle, verify that exactly one HUD, pause menu, game-over
 
 For the player weapon loadout, verify pickup into either slot, replacing an occupied slot, dropping, drag/click swapping, melee and ranged holder visibility, entering/leaving Mod Combat, durability UI updates, last-hit break removal, automatic combat-mode exit when the final weapon breaks, and the Level 0 pickup tutorial.
 
-For the enemy architecture vertical slice, verify in Play Mode:
+For the enemy architecture, verify in Play Mode:
 
 1. Run `Tools > JunkLite > Systems > Validate Enemies`, then run `EnemyArchitectureTests` in EditMode.
 2. Grunt: detect the player, chase, stop at configured distance, perform one complete wind-up/swing/cooldown, and choose attack/chase again correctly.
@@ -342,6 +351,9 @@ For the enemy architecture vertical slice, verify in Play Mode:
 5. Hyena: patrol, detect/chase/melee, reactive dodge, successful counter-dash, missed-dash stun, target loss during actions, parry, and death.
 6. Repeat the Hyena check on EASY, Blue, and Green so prefab-specific tuning and hitbox references are confirmed.
 7. Confirm combat music/tracking and the Level 0 attack-warning freeze/death-wave flow still work without level code reading the enemy FSM.
+8. Robot: patrol, detect, charge, dash damage, successful and failed grab rolls, throw, recovery, target loss during each action, knockback, parry recovery, death/drop, and reacquisition.
+9. Flying Dummy: patrol at its authored height, detect/follow, stop near the player without repeatedly firing completion decisions, return to patrol height after target loss, accept knockback, and fall on death.
+10. Patrol Dummy: patrol continuously and ignore player detection. Dummy: remain idle, preserve invincibility/health-reset settings, and complete normal death when configured as mortal.
 
 The broader foundation still needs representative player/enemy/weapon gameplay verification. The migrated `V2.5` scene still needs visual and functional Play Mode approval.
 
@@ -373,13 +385,13 @@ The player lifecycle boundary has been extracted. In Play Mode, verify:
 
 Completed according to the user's current test and pickup/break report. Keep the broader replacement/drop/swap checklist above for regression passes.
 
-### Gate 5: Validate the Grunt + Hyena enemy vertical slice
+### Gate 5: Validate the composed enemy migration
 
-Run the validator, focused tests, and Play Mode checklist above. Fix regressions inside the existing character/perception/brain/state/behavior boundaries. Do not migrate another enemy or add `EnemyDefinition` until this checkpoint is approved.
+Run the validator, focused tests, and Play Mode checklist above. Fix regressions inside the existing character/perception/brain/state/behavior/controller boundaries. Do not add `EnemyDefinition` until a concrete content requirement proves it is useful.
 
-### Gate 6: Decide the next enemy migration from evidence
+### Gate 6: Reassess encounter and wave ownership
 
-After Grunt and Hyena pass, inspect whether decision logic stayed readable and reusable. If it did, migrate Robot next, followed by flying enemies/dummies. If concrete duplication appears, extract only that proven behavior. Reassess encounter/wave ownership after representative enemy types no longer expose their FSM to level code.
+After the new Robot/Flying/passive checks pass, the enemy-archetype restructure is complete enough to move on. Audit encounter spawning, wave completion, level-specific enemy configuration, and combat registration next. Keep enemy lifecycle behind `EnemyCharacter.Died`; do not introduce a global AI event bus or universal action graph.
 
 ### Deferred weapon reassessment
 
@@ -417,7 +429,7 @@ Still required before calling the slice gameplay-closed:
 
 ## Continuation Prompt for a New Codex Task
 
-> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. The player/combat/lifecycle/loadout work described here is implemented. The first composed enemy-AI vertical slice is also implemented for Grunt and Hyena: `EnemyPerception` reports facts, `EnemyBrain` owns voluntary transitions, states execute one action, behaviors own reusable mechanics, and `EnemyCharacter.Died` isolates Level 0 from enemy FSM details. Run `Tools > JunkLite > Systems > Validate Enemies`, run `EnemyArchitectureTests`, and complete the Grunt/Hyena Play Mode checklist before migrating Robot or designing `EnemyDefinition`. Do not add networking architecture, a universal AI/ability graph, a service locator, or a broad manager rewrite.
+> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. The player/combat/lifecycle/loadout work described here is implemented. The composed enemy architecture is implemented across Grunt, all Hyena variants, Robot, Flying Dummy, Patrol Dummy, and Dummy: `EnemyPerception` reports facts, archetype brains own voluntary transitions, states execute one action, behaviors own reusable mechanics, focused controllers own independent physical presentation, and `EnemyCharacter.Died` isolates Level 0 from enemy FSM details. Grunt/Hyena are user-verified; run `Tools > JunkLite > Systems > Validate Enemies`, run `EnemyArchitectureTests`, and complete the Robot/Flying/passive Play Mode checklist before changing encounter/wave ownership or designing `EnemyDefinition`. Do not add networking architecture, a universal AI/ability graph, a service locator, or a broad manager rewrite.
 
 ## Synchronization Checklist
 
