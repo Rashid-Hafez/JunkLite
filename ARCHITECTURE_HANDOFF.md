@@ -287,6 +287,184 @@ Deliberately deferred until this vertical slice is gameplay-proven:
 - `EnemyType`, `EnemyConfig`, and a possible identity-only `EnemyDefinition` were not redesigned.
 - Animation-presentation cleanup and encounter/wave architecture were not migrated yet.
 
+### 14. Planned encounter and wave architecture — approved, not implemented
+
+The next implementation should extract one concrete responsibility from level-specific code:
+
+> The sequence manager decides when a fight happens. The encounter decides which enemies belong to that fight and when the fight is finished.
+
+This plan is intentionally not a universal mission, quest, or sequencing framework. The current code already demonstrates the need for the smaller boundary:
+
+- `Level0SequenceManager` owns enemy configuration, instantiation, living counts, death subscriptions, tutorial reactions, and progression waits.
+- `LevelGoal` separately finds enemies and subscribes to attribute death events, which duplicates ownership and does not naturally cover later runtime spawns.
+- `CameraSwitchTrigger` can maintain a manual enemy list and poll health every frame while also reacting to `PlayerCombatTracker`.
+- `PlayerCombatTracker` represents current aggression against the player. Losing aggro is not the same as defeating an encounter.
+- `LevelStatsTracker` derives its expected total from the initially discovered enemies, while spawned enemies may appear later.
+
+#### Final ownership decision
+
+| Part | Owns | Must not own |
+|---|---|---|
+| `EncounterController` | Encounter state, sequential wave progression, participant registration, living-enemy tracking, completion, cancellation cleanup | Tutorial logic, dialogue, cameras, gates, music, loot, stats, enemy AI, or level victory |
+| `EncounterWave` | Ordered scene-local participant entries and optional wave delay | Runtime tracking or reactions to completion |
+| `EncounterEnemyEntry` | One explicit prefab spawn or one existing scene enemy | Both source modes at once |
+| `Level0SequenceManager` | Tutorial order, parry prompt, Hyena reward, pickups, cinematics, and deciding when to start combat | Instantiating enemies, maintaining alive counts, or deciding wave completion |
+| `LevelGoal` | Level-completion policy based on required encounters, zones, or manual objectives | Reconstructing encounter completion from enemy health/counts |
+| `LevelStatsTracker` | Time and statistical totals | Encounter progression or level-completion policy |
+| `PlayerCombatTracker` | Whether living enemies are currently engaging the player and the resulting combat presentation/music | Encounter or wave completion |
+| Gates and camera triggers | Local presentation/gameplay response to an explicitly referenced encounter | Polling enemy health or inspecting enemy FSM states |
+| `GameManager` / `LevelContext` | Their existing global-state and scene/player-configuration responsibilities | Individual encounter execution or wave state |
+
+The encounter remains a normal scene-local component. It is not a singleton and does not publish through a global event bus.
+
+#### Initial data model
+
+Use scene-local serialized data on `EncounterController`; do not introduce `ScriptableObject` wave assets yet. Scene transforms make local configuration clearer, and no proven repeated wave template currently justifies another asset layer.
+
+`EncounterState` begins with only externally meaningful states:
+
+- `Idle`
+- `Running`
+- `Completed`
+- `Cancelled`
+
+Internal spawn and between-wave delays remain coroutine details rather than additional public states.
+
+Each `EncounterWave` contains an ordered list of `EncounterEnemyEntry` objects and an optional non-negative delay before it begins. Waves run sequentially in v1; overlapping/reinforcement waves are deferred until a real encounter requires them.
+
+Each `EncounterEnemyEntry` has an explicit source mode:
+
+- `SpawnPrefab`: requires an `EnemyCharacter` prefab and a scene spawn transform.
+- `ExistingEnemy`: requires one scene enemy reference and no prefab/spawn transform.
+
+Use an enum plus validation rather than polymorphic serialization or an inheritance hierarchy. `OnValidate` and the encounter validator must reject or loudly report the following:
+
+- Both prefab and existing-enemy fields assigned.
+- The field required by the selected source mode missing.
+- A prefab entry without a spawn transform.
+- Duplicate existing enemies within or across waves.
+- Negative delays.
+- Null/invalid entries and encounters with no waves.
+
+Existing scene enemies intended for a later wave should normally begin inactive. The controller registers and subscribes them before activation. Spawned prefabs are registered immediately after `Instantiate` and before control returns to gameplay; enemy prefabs must not kill themselves during `Awake` as part of the v1 lifecycle contract.
+
+#### Runtime contract
+
+`EncounterController` exposes:
+
+- `State`
+- `CurrentWaveIndex`
+- `AliveEnemyCount`: the number of living enemies currently registered with the encounter, not a historical or configured total.
+- `StartEncounter()`
+- `CancelEncounter()`
+- `UnregisterEnemy(EnemyCharacter enemy)` for an intentional scripted despawn that should stop blocking progression without being reported as a kill.
+- A small coroutine convenience such as `WaitUntilFinished()` for sequence code. Events remain the authoritative notification mechanism for other consumers.
+
+The public event surface in v1 is deliberately limited to events with known consumers:
+
+- `EncounterStarted`
+- `EnemyRegistered` — covers both newly spawned and existing scene participants.
+- `EnemyDied`
+- `EncounterCompleted`
+
+Do not add public wave-started/completed, count-changed, preparing, paused, resumed, or cancellation events until a concrete UI/presentation consumer needs them. Callers already know when they invoke cancellation, and cancellation is not equivalent to successful completion.
+
+Living participants are stored in a `HashSet<EnemyCharacter>`, never represented only by an integer. Registration subscribes to `EnemyCharacter.Died`. Death handling must first remove from the set; if removal fails, the duplicate callback is ignored. It then unsubscribes, publishes `EnemyDied`, and evaluates wave completion. `EncounterCompleted` is guarded and fires exactly once.
+
+Runtime edge-case semantics are fixed as follows:
+
+- `StartEncounter()` is valid only from `Idle`. Calling it while running, completed, or cancelled is a no-op with a development warning; it never silently restarts.
+- Empty waves complete immediately and progression continues.
+- Invalid entries log a clear warning, are skipped, and cannot deadlock the wave.
+- An encounter containing no valid participants still publishes `EncounterStarted` followed by one `EncounterCompleted`.
+- A partially invalid wave tracks its valid participants normally.
+- A disabled enemy remains registered because temporary disabling is not death or removal.
+- An enemy intentionally removed by script must use `UnregisterEnemy`; this does not publish `EnemyDied` or award a kill.
+- The running progression loop defensively prunes actually destroyed Unity-null participants, logs a warning, and treats them as removed rather than killed so external `Destroy` cannot deadlock the encounter or inflate statistics.
+- `CancelEncounter()` stops pending spawn/delay work, unsubscribes every participant, clears runtime tracking, enters `Cancelled`, and leaves participating enemies alive and independent. It does not kill, destroy, despawn, unlock gates, or publish `EncounterCompleted`.
+- True reset/restart semantics are not part of v1. Respawning dead scene enemies, restoring health/AI, replaying callbacks, and resetting statistics require explicit product behavior and will only be added when encounter replay is needed.
+
+#### Implementation phase 1 — encounter foundation
+
+Add focused first-party scripts under `Assets/Game/Scripts/Encounters/`:
+
+1. `EncounterTypes.cs` containing the state/source enums and serializable `EncounterWave` / `EncounterEnemyEntry` data.
+2. `EncounterController.cs` containing the runtime lifecycle, sequential-wave coroutine, set-based participant tracking, exact-once completion, cancellation, and validation.
+3. `EncounterArchitectureTests.cs` and an editor validation entry for configuration and lifecycle contracts.
+
+Do not add a singleton, factory abstraction, pooling interface, wave asset, mission graph, or generic action framework in this phase. Continue using `Instantiate`; pooling would require a separate enemy reset/activation contract and should be driven by profiling.
+
+#### Implementation phase 2 — migrate the tutorial combat boundary
+
+Give `Level0SequenceManager` one explicit `EncounterController` reference. Its combat portion becomes conceptually:
+
+```text
+subscribe to encounter participant/death events
+StartEncounter()
+wait until the encounter reaches a terminal state
+continue only when it completed successfully
+unsubscribe
+```
+
+The tutorial subscribes to `EnemyRegistered` so it can listen for the first attack notification, and to `EnemyDied` so it can detect the tutorial Hyena and create/activate the mod reward. Those rules remain tutorial-owned and must never move into `EncounterController`.
+
+For the two existing tutorial scenes, retain `enemyPrefabs` and `enemySpawnPoints` only as hidden migration fields. If no native encounter configuration is assigned, the sequence manager obtains/adds a local controller and converts the legacy arrays into one runtime wave. Emit an editor/development warning whenever this bridge is used. Remove the bridge once both scenes have an explicitly authored encounter.
+
+After migration, remove the sequence manager's manual `spawnedEnemies`, `enemiesAlive`, spawn/count/wait methods, and direct death-subscription ownership. The currently unused post-pickup enemy spawning method/fields should be removed only after a serialized-reference audit confirms no authored content expects them. No scene should be bulk-edited as part of the code extraction.
+
+#### Implementation phase 3 — level goal and statistics
+
+`LevelGoal` should gain an explicit required-encounters mode and complete when every assigned required encounter publishes `EncounterCompleted`. It must not reconstruct completion from expected kills or participant health. Keep its old scene-scan Kill-All mode as a temporary compatibility path for levels not yet migrated.
+
+Do not change statistics in the first encounter slice. `EnemyCharacter.HandleDeath` currently reports kills directly to `LevelStatsTracker`; also subscribing the tracker to `EncounterController.EnemyDied` would double-count. Once representative levels use encounters, choose one kill source deliberately. The preferred eventual direction is for a scene-configured stats consumer to observe `EnemyRegistered` and `EnemyDied`, after which the direct enemy-to-stats call can be removed. Until that migration is complete, preserve the existing universal kill path and keep encounter events out of statistics.
+
+Level-goal completion and statistical enemy totals remain separate concepts. A required encounter can complete through an explicit scripted removal without that removal being counted as a kill.
+
+#### Implementation phase 4 — event-driven gates and cameras
+
+Replace `CameraSwitchTrigger`'s manual enemy-health polling only after the encounter foundation is verified. A trigger/gate may reference a specific encounter and lock on `EncounterStarted`, then unlock on `EncounterCompleted`.
+
+Cancellation must not be interpreted as successful completion. V1 gates do not automatically unlock on cancellation; the cancelling level flow decides the appropriate presentation. `PlayerCombatTracker` remains available for gates that intentionally represent global current-combat engagement instead of a bounded encounter, but one gate must have one explicit lock policy rather than combining both concepts implicitly.
+
+If two or more unrelated gate types repeat identical encounter subscription logic, extract a small `EncounterGate` adapter then. Do not create it pre-emptively.
+
+#### Validation and focused tests
+
+The implementation is not complete until tests cover:
+
+1. Multiple sequential waves advance and complete correctly.
+2. Empty waves skip safely.
+3. Null and invalid entries warn and do not block progression.
+4. Spawned and existing scene enemies register through the same runtime path.
+5. Duplicate registration is ignored.
+6. Each `EnemyCharacter.Died` affects progression once.
+7. `EncounterCompleted` fires exactly once.
+8. An enemy dying immediately after registration is handled.
+9. A destroyed-without-`Died` participant is pruned without awarding a kill or deadlocking.
+10. A disabled participant remains tracked.
+11. `UnregisterEnemy` removes a scripted participant without publishing a death.
+12. Cancellation stops pending work, unsubscribes safely, leaves enemies alive, and never publishes completion.
+13. Repeated `StartEncounter()` calls cannot duplicate waves or enemies.
+14. `Level0SequenceManager` source no longer instantiates or manually counts enemies.
+15. Tutorial parry and Hyena-reward reactions remain outside encounter code.
+16. Gates and level goals no longer inspect enemy health or concrete FSM states after their migration phases.
+
+#### Definition of complete
+
+The encounter/wave architecture is structurally complete when:
+
+- `EncounterController` alone knows which enemies participate in its fight and when its sequential waves finish.
+- Existing and spawned participants follow one exact-once registration/death path.
+- Empty, invalid, cancelled, disabled, and externally destroyed cases have the defined behavior above and cannot deadlock progression.
+- `Level0SequenceManager` starts/waits for combat but neither instantiates nor counts enemies.
+- Tutorial-specific parry, reward, pickup, dialogue, and cinematic logic remains tutorial-owned.
+- `LevelGoal` consumes encounter completion rather than reconstructing it from kills.
+- Gates react through encounter events rather than per-frame health polling.
+- Statistics have one—and only one—kill-reporting source during every migration phase.
+- The editor validator, focused EditMode tests, and tutorial/representative-level Play Mode checks pass.
+
+Only after this definition is met should the project consider reusable wave assets, overlapping waves, encounter replay/reset, enemy pooling, or a more general objective system.
+
 ## Verification Recorded
 
 On 2026-08-26 with Unity 6000.3.22f1:
@@ -391,7 +569,7 @@ Run the validator, focused tests, and Play Mode checklist above. Fix regressions
 
 ### Gate 6: Reassess encounter and wave ownership
 
-After the new Robot/Flying/passive checks pass, the enemy-archetype restructure is complete enough to move on. Audit encounter spawning, wave completion, level-specific enemy configuration, and combat registration next. Keep enemy lifecycle behind `EnemyCharacter.Died`; do not introduce a global AI event bus or universal action graph.
+After the new Robot/Flying/passive checks pass, implement the approved phased plan in section 14. Begin only with the scene-local `EncounterController`, explicit `EncounterEnemyEntry` modes, sequential waves, set-based lifecycle tracking, tests, and the Level 0 combat-boundary migration. Keep enemy lifecycle behind `EnemyCharacter.Died`; do not introduce reset/replay, reusable wave assets, pooling, a global AI event bus, or a universal action graph during the first slice.
 
 ### Deferred weapon reassessment
 
@@ -429,7 +607,7 @@ Still required before calling the slice gameplay-closed:
 
 ## Continuation Prompt for a New Codex Task
 
-> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. The player/combat/lifecycle/loadout work described here is implemented. The composed enemy architecture is implemented across Grunt, all Hyena variants, Robot, Flying Dummy, Patrol Dummy, and Dummy: `EnemyPerception` reports facts, archetype brains own voluntary transitions, states execute one action, behaviors own reusable mechanics, focused controllers own independent physical presentation, and `EnemyCharacter.Died` isolates Level 0 from enemy FSM details. Grunt/Hyena are user-verified; run `Tools > JunkLite > Systems > Validate Enemies`, run `EnemyArchitectureTests`, and complete the Robot/Flying/passive Play Mode checklist before changing encounter/wave ownership or designing `EnemyDefinition`. Do not add networking architecture, a universal AI/ability graph, a service locator, or a broad manager rewrite.
+> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. The player/combat/lifecycle/loadout work described here is implemented. The composed enemy architecture is implemented across Grunt, all Hyena variants, Robot, Flying Dummy, Patrol Dummy, and Dummy: `EnemyPerception` reports facts, archetype brains own voluntary transitions, states execute one action, behaviors own reusable mechanics, focused controllers own independent physical presentation, and `EnemyCharacter.Died` isolates Level 0 from enemy FSM details. Grunt/Hyena are user-verified; run `Tools > JunkLite > Systems > Validate Enemies`, run `EnemyArchitectureTests`, and complete the Robot/Flying/passive Play Mode checklist. Section 14 contains the approved but unimplemented encounter/wave plan. Implement it in phases, starting only with the scene-local `EncounterController`, explicit participant source modes, sequential waves, set-based tracking, tests, and the Level 0 combat-boundary migration. Do not add reset/replay, reusable wave assets, pooling, networking architecture, a universal AI/ability graph, a service locator, or a broad manager rewrite in the first slice.
 
 ## Synchronization Checklist
 
