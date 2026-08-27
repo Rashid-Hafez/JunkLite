@@ -36,6 +36,7 @@ namespace junklite
 
         private PlayerCharacter player;
         private WeaponManager weaponManager;
+        private PlayerWeaponLoadout weaponLoadout;
         private ModManager modManager;
         private PlayerLifecycle subscribedPlayerLifecycle;
 
@@ -119,13 +120,16 @@ namespace junklite
             }
 
             weaponManager = player.GetComponent<WeaponManager>();
+            weaponLoadout = weaponManager != null
+                ? weaponManager.Loadout
+                : player.GetComponent<PlayerWeaponLoadout>();
             modManager = player.GetComponent<ModManager>();
 
             if (weaponManager != null)
-            {
                 weaponManager.OnCombatModeChanged += Refresh;
-                weaponManager.OnWeaponChanged += RefreshWeapons;
-            }
+
+            if (weaponLoadout != null)
+                weaponLoadout.WeaponChanged += RefreshWeapons;
 
             if (modManager != null)
                 modManager.OnModSlotsChanged += RefreshMods;
@@ -136,16 +140,17 @@ namespace junklite
         public void Unbind()
         {
             if (weaponManager != null)
-            {
                 weaponManager.OnCombatModeChanged -= Refresh;
-                weaponManager.OnWeaponChanged -= RefreshWeapons;
-            }
+
+            if (weaponLoadout != null)
+                weaponLoadout.WeaponChanged -= RefreshWeapons;
 
             if (modManager != null)
                 modManager.OnModSlotsChanged -= RefreshMods;
 
             player = null;
             weaponManager = null;
+            weaponLoadout = null;
             modManager = null;
 
             SetVisible(false);
@@ -176,28 +181,28 @@ namespace junklite
 
         private void RefreshWeapons()
         {
-            if (weaponManager == null) return;
+            if (weaponManager == null || weaponLoadout == null) return;
 
             if (slot1 != null)
             {
-                var weapon1 = weaponManager.WeaponSlot1;
+                var weapon1 = weaponLoadout.WeaponSlot1;
                 if (weapon1 != null)
                     slot1.Bind(weapon1, true);
                 else
                     slot1.SetContentActive(false);
 
-                slot1.SetActive(weaponManager.ActiveWeapon != null && weaponManager.ActiveWeapon == weaponManager.WeaponSlot1);
+                slot1.SetActive(weaponManager.ActiveWeapon != null && weaponManager.ActiveWeapon == weaponLoadout.WeaponSlot1);
             }
 
             if (slot2 != null)
             {
-                var weapon2 = weaponManager.WeaponSlot2;
+                var weapon2 = weaponLoadout.WeaponSlot2;
                 if (weapon2 != null)
                     slot2.Bind(weapon2, true);
                 else
                     slot2.SetContentActive(false);
 
-                slot2.SetActive(weaponManager.ActiveWeapon != null && weaponManager.ActiveWeapon == weaponManager.WeaponSlot2);
+                slot2.SetActive(weaponManager.ActiveWeapon != null && weaponManager.ActiveWeapon == weaponLoadout.WeaponSlot2);
             }
         }
 

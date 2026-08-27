@@ -38,6 +38,7 @@ namespace junklite
         [SerializeField] private Color occupiedNameColor = Color.white;
 
         private WeaponManager weaponManager;
+        private PlayerWeaponLoadout weaponLoadout;
         private WorldWeaponPickup pendingPickup;
         private int selectedIndex;
 
@@ -53,6 +54,7 @@ namespace junklite
         public void Bind(WeaponManager wm, WorldWeaponPickup pickup)
         {
             weaponManager = wm;
+            weaponLoadout = wm != null ? wm.Loadout : null;
             pendingPickup = pickup;
             selectedIndex = 0;
 
@@ -71,6 +73,7 @@ namespace junklite
             GameInputManager.Instance?.SwitchToPlayerActionMap();
 
             weaponManager = null;
+            weaponLoadout = null;
             pendingPickup = null;
         }
 
@@ -86,10 +89,10 @@ namespace junklite
             SetWeaponDisplay(newWeaponIcon, newWeaponName, newWeapon.weaponData);
             SetDurabilityBar(newWeaponDurabilityFill, newWeapon);
 
-            WeaponInstance w1 = weaponManager != null ? weaponManager.WeaponSlot1 : null;
+            WeaponInstance w1 = weaponLoadout?.WeaponSlot1;
             SetSlotDisplay(slot1Icon, slot1Name, slot1EmptyText, slot1DurabilityFill, w1);
 
-            WeaponInstance w2 = weaponManager != null ? weaponManager.WeaponSlot2 : null;
+            WeaponInstance w2 = weaponLoadout?.WeaponSlot2;
             SetSlotDisplay(slot2Icon, slot2Name, slot2EmptyText, slot2DurabilityFill, w2);
 
             UpdateHighlight();

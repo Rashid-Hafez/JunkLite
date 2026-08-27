@@ -17,6 +17,7 @@ namespace junklite
         [SerializeField] private Image highlightImage;
 
         private WeaponManager weaponManager;
+        private PlayerWeaponLoadout weaponLoadout;
         private int slotIndex;
 
         // Drag state
@@ -49,6 +50,7 @@ namespace junklite
         public void Bind(WeaponManager manager, int slot)
         {
             weaponManager = manager;
+            weaponLoadout = manager != null ? manager.Loadout : null;
             slotIndex = slot;
             Refresh();
         }
@@ -59,6 +61,7 @@ namespace junklite
             if (selectedSlot == this) ClearSelection();
 
             weaponManager = null;
+            weaponLoadout = null;
             slotIndex = 0;
 
             if (iconImage != null) { iconImage.enabled = false; iconImage.sprite = null; iconImage.color = Color.white; }
@@ -94,8 +97,7 @@ namespace junklite
 
         private WeaponInstance GetWeapon()
         {
-            if (weaponManager == null) return null;
-            return slotIndex == 1 ? weaponManager.WeaponSlot1 : weaponManager.WeaponSlot2;
+            return weaponLoadout?.GetWeapon(slotIndex);
         }
 
         #endregion
@@ -108,7 +110,7 @@ namespace junklite
             {
                 bool showHighlight = selectedSlot != null
                     && selectedSlot != this
-                    && selectedSlot.weaponManager == weaponManager;
+                    && selectedSlot.weaponLoadout == weaponLoadout;
                 highlightImage.enabled = showHighlight;
             }
         }
@@ -157,7 +159,7 @@ namespace junklite
                 return;
             }
 
-            if (selectedSlot.weaponManager == weaponManager)
+            if (selectedSlot.weaponLoadout == weaponLoadout)
             {
                 ClearSelection();
                 OnWeaponSelected?.Invoke(null);
@@ -264,7 +266,7 @@ namespace junklite
         public void OnDrop(PointerEventData eventData)
         {
             if (draggedSlot == null || draggedSlot == this) return;
-            if (weaponManager == null || draggedSlot.weaponManager != weaponManager) return;
+            if (weaponManager == null || draggedSlot.weaponLoadout != weaponLoadout) return;
 
             draggedSlot.CleanupDrag();
             weaponManager.SwapWeaponSlots();

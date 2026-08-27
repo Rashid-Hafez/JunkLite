@@ -6,7 +6,7 @@ Reviewed branch: `4.7`
 
 Baseline code commit: `46f3c34e` (`changes to player, enemies and base services`)
 
-The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` migration, focused mod-runtime cleanup, the explicit `V2.5` infrastructure migration, and the focused player/UI lifecycle extractions described below.
+The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` damage migration, focused mod-runtime cleanup, the explicit `V2.5` infrastructure migration, the focused player/UI lifecycle extractions, and the player weapon-loadout extraction described below.
 
 ## Purpose
 
@@ -49,6 +49,7 @@ The goal is better modularity and easier feature development without building a 
 | Restart/loading transition | Timing fix implemented, Play Mode verification pending | Loading video and async scene loading now overlap; the obsolete serialized six-second activation delay is removed. |
 | Player lifecycle extraction | Implemented, Play Mode verification pending | `PlayerLifecycle` owns player creation, identity, spawn selection, death, and soft respawn. Direct consumers no longer use player APIs on `GameManager`. |
 | Game UI lifecycle extraction | Implemented, Play Mode verification pending | `GameUIManager` owns HUD, pause, game-over, loading UI, prefab configuration, instances, and state-driven visibility. |
+| Player weapon loadout | Implemented, Play Mode verification pending | `PlayerWeaponLoadout` owns both equipped slots, paired world pickups, attachment, visibility, swap/drop/replace, and break removal. |
 | Full game/level manager cleanup | In progress | Player and UI lifecycle are extracted; `GameManager` retains global state, pause coordination, scene transitions, and music. |
 
 ## Implemented Architecture
@@ -191,7 +192,7 @@ The `V2.5` spawn failure was traced to a duplicate-singleton race. The scene had
 
 `Assets/Game/Editor/GameRootTrainingLevelMigration.cs` is now manual-only. It no longer uses `[InitializeOnLoad]` or silently edits a scene. The command:
 
-`Tools > JunkLite > V2.5 > Strip Legacy Systems and Rebuild`
+`Tools > JunkLite > Systems > Rebuild`
 
 does the following in one reviewed operation:
 
@@ -237,6 +238,14 @@ The reusable `Game Root` and legacy `Game Manager` prefabs both serialize the fo
 
 The load-failure path now preserves the current player until Unity confirms the scene request is valid and restores the pause subscription if loading cannot start.
 
+### 12. Player weapon-loadout ownership
+
+`PlayerWeaponLoadout` is a player-owned runtime component that contains the two equipped weapon slots and their paired `WorldWeaponPickup` objects. It owns equip/replace, drop, swap, weapon-holder attachment and socket transforms, weapon visibility, and event-driven removal when durability reaches zero. Replacing a weapon is published as one atomic `WeaponChanged` notification.
+
+`WeaponManager` now consumes the loadout and retains combat-mode rules, attack input/buffering, combo timing, melee/ranged execution, hit detection, damage requests/results, recoil, hit-stop, and attack feedback. Fists remain on `WeaponManager` because they are the default attack rather than an equipped item. The manager keeps command methods for attack-sensitive swap/drop/pickup operations, but no longer exposes or stores weapon slots.
+
+Inventory, weapon-pickup UI, both weapon HUD implementations, the combined mod-combat HUD, and the Level 0 tutorial subscribe to `PlayerWeaponLoadout.WeaponChanged` and query the loadout directly. The active `Player_2.2` prefab serializes the new component and holder reference. `WeaponManager` retains a hidden holder fallback only for older player prefabs and adds/configures the loadout at runtime when necessary.
+
 ## Verification Recorded
 
 On 2026-08-26 with Unity 6000.3.22f1:
@@ -245,9 +254,13 @@ On 2026-08-26 with Unity 6000.3.22f1:
 - Runtime and editor assemblies compile with 0 errors after the `V2.5` spawn, camera-binding, lifecycle, UI-lifecycle, and migration-tool changes. The wider project still reports pre-existing analyzer, obsolete-API, and unused-field warnings.
 - `DamagePipelineTests` passed 7/7 in EditMode.
 - `PlayerLifecycleConfigurationTests` passed 3/3 in EditMode before the UI extraction; one additional reusable-root UI configuration test is implemented and awaits an in-Editor rerun because Unity was open during the change.
-- `Tools > JunkLite > V2.5 > Validate Redesigned Setup` passes with one configured `PlayerLifecycle` hosted by `Game Root`.
+- `Tools > JunkLite > Systems > Validate` passes with one configured `PlayerLifecycle` hosted by `Game Root`.
 - The tests cover requested versus applied damage, rejection outcomes, defensive immunity, death/revive, idempotent attribute initialization, composable input locks, and composable damage-immunity locks.
 - A source search found no `IDamageable`, `DamageInfo`, `TakeDamage`, `FromLegacy`, `ToLegacy`, or `OnDamaged` references in first-party gameplay scripts.
+
+On 2026-08-27, a direct build of `Assembly-CSharp.csproj` completed with 0 errors after the lifecycle/UI extraction and editor-menu rename. Existing third-party, obsolete-API, analyzer, and unused-field warnings remain.
+
+After the weapon-loadout extraction, direct runtime and editor assembly builds completed with 0 errors. Five focused `PlayerWeaponLoadoutTests` compile and cover equip, atomic replacement, swap/pickup pairing, break removal, and active-player-prefab configuration; they still require an in-Editor EditMode run.
 
 No scene or prefab was changed for the mod-runtime or camera-binding cleanup. Unity generated only the `.meta` for the new mod runtime script.
 
@@ -272,6 +285,8 @@ For the restart transition, verify that restart begins loading immediately, the 
 
 For the focused UI lifecycle, verify that exactly one HUD, pause menu, game-over screen, and loading screen are created; pause/resume visibility is correct; an open inventory closes before the game pauses; death hides the HUD and shows game over; the game-over restart button revives at the primary spawn; HUD data rebinds; and a failed/invalid scene request restores UI and pause input.
 
+For the player weapon loadout, verify pickup into either slot, replacing an occupied slot, dropping, drag/click swapping, melee and ranged holder visibility, entering/leaving Mod Combat, durability UI updates, last-hit break removal, automatic combat-mode exit when the final weapon breaks, and the Level 0 pickup tutorial.
+
 The broader foundation still needs representative player/enemy/weapon gameplay verification. The migrated `V2.5` scene still needs visual and functional Play Mode approval.
 
 ## What Should Be Done Next
@@ -282,9 +297,9 @@ Fix only regressions inside the implemented boundaries. Do not add another abstr
 
 ### Gate 2: Harden the game-root migration workflow
 
-1. Re-run `Tools > JunkLite > V2.5 > Strip Legacy Systems and Rebuild` only when the training scene infrastructure needs to be regenerated.
+1. Re-run `Tools > JunkLite > Systems > Rebuild` only when the training scene infrastructure needs to be regenerated.
 2. Inspect the preserved authored content, enter Play Mode, and verify the player spawns at `Level Context/Player Spawn Point` and the main Cinemachine camera immediately follows it.
-3. Run `Tools > JunkLite > V2.5 > Validate Redesigned Setup` after infrastructure changes.
+3. Run `Tools > JunkLite > Systems > Validate` after infrastructure changes.
 4. Migrate one additional gameplay scene and one menu/non-gameplay scene with user review.
 5. Retire legacy spawn/UI fallbacks only after all scenes use the new workflow.
 
@@ -298,9 +313,13 @@ The player lifecycle boundary has been extracted. In Play Mode, verify:
 4. Confirm the pause menu, game-over screen, and loading presentation are created once by `GameUIManager` and remain correct across restart and scene transitions.
 5. Confirm a gameplay scene with `LevelContext.SpawnPlayer` disabled creates no player HUD while retaining pause/loading UI.
 
-### Gate 4: Review WeaponManager responsibilities
+### Gate 4: Verify player weapon loadout
 
-Do not rewrite combat. Extract only a proven boundary, with equipment/loadout/pickup ownership as the first likely candidate. Attack execution/detection can be considered afterward if continued weapon additions remain difficult.
+Run the five focused EditMode tests and the loadout Play Mode checklist above. Fix only behavior regressions inside the loadout/manager boundary. Do not split attack execution during the same verification pass.
+
+### Gate 5: Reassess attack execution after verification
+
+`WeaponManager` is still large because it contains melee, directional blast, hitscan, timing, movement, and feedback behavior. Do not split it based on line count alone. After loadout verification, use the next planned weapon type to identify whether a focused attack-execution strategy or executor would make that addition materially easier. If existing data-driven melee/ranged paths already support it cleanly, leave the manager as-is and move to the next gameplay system.
 
 ## Performance Priorities
 
@@ -334,7 +353,7 @@ Still required before calling the slice gameplay-closed:
 
 ## Continuation Prompt for a New Codex Task
 
-> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. Player/enemy separation, the result-based damage pipeline, all first-party damage-producer migrations, the `WeaponManager` result migration, composable player ability locks, explicit mod lifecycle, per-instance mod execution/cancellation, scene-local camera rebinding, concurrent restart loading, the manual-only `V2.5` infrastructure migration, and the focused `PlayerLifecycle` and `GameUIManager` extractions are implemented. Unity 6000.3.22f1 compiles and the last full EditMode run plus V2.5 redesigned-setup validator passed; rerun the added UI configuration test when Unity is available. Verify player spawn, camera/HUD binding, pause, death, game-over, loading, and soft respawn in Play Mode. Do not add networking architecture, a universal ability graph, a service locator, or a broad manager rewrite.
+> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. Player/enemy separation, the result-based damage pipeline, all first-party damage-producer migrations, the `WeaponManager` result migration, composable player ability locks, explicit mod lifecycle, per-instance mod execution/cancellation, scene-local camera rebinding, concurrent restart loading, the manual-only `V2.5` infrastructure migration, the focused `PlayerLifecycle` and `GameUIManager` extractions, and `PlayerWeaponLoadout` ownership are implemented. Unity 6000.3.22f1 runtime/editor assemblies compile; rerun the added UI/loadout configuration tests in the Editor. Verify player lifecycle/UI behavior plus weapon equip, replace, drop, swap, visibility, durability break removal, and combat-mode exit in Play Mode. Do not add networking architecture, a universal ability graph, a service locator, or a broad manager rewrite.
 
 ## Synchronization Checklist
 

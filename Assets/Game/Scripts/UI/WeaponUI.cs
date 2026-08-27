@@ -12,29 +12,34 @@ namespace junklite
         [SerializeField] private WeaponSlotUI slot1;
         [SerializeField] private WeaponSlotUI slot2;
         private WeaponManager _manager;
+        private PlayerWeaponLoadout _loadout;
         #endregion
         #region Bind / Unbind
         public void Bind(WeaponManager manager)
         {
             Unbind();
             _manager = manager;
+            _loadout = manager != null ? manager.Loadout : null;
             if (_manager != null)
             {
-                _manager.OnWeaponChanged += Refresh;
                 _manager.OnCombatModeChanged += Refresh;
                 _manager.OnEnemyHit += OnEnemyHitHandler;
             }
+            if (_loadout != null)
+                _loadout.WeaponChanged += Refresh;
             Refresh();
         }
         public void Unbind()
         {
             if (_manager != null)
             {
-                _manager.OnWeaponChanged -= Refresh;
                 _manager.OnCombatModeChanged -= Refresh;
                 _manager.OnEnemyHit -= OnEnemyHitHandler;
             }
+            if (_loadout != null)
+                _loadout.WeaponChanged -= Refresh;
             _manager = null;
+            _loadout = null;
             // Reset to default state
             if (slot1 != null) slot1.SetContentActive(false);
             if (slot2 != null) slot2.gameObject.SetActive(false);
@@ -43,7 +48,7 @@ namespace junklite
         #region Refresh
         public void Refresh()
         {
-            if (_manager == null) return;
+            if (_manager == null || _loadout == null) return;
             if (_manager.IsModCombat)
                 RefreshModCombat();
             else
@@ -70,7 +75,7 @@ namespace junklite
             // Slot 1: weapon 1 with durability, or empty content if no weapon
             if (slot1 != null)
             {
-                var weapon1 = _manager.WeaponSlot1;
+                var weapon1 = _loadout.WeaponSlot1;
                 if (weapon1 != null)
                     slot1.Bind(weapon1, true);
                 else
@@ -80,7 +85,7 @@ namespace junklite
             if (slot2 != null)
             {
                 slot2.gameObject.SetActive(true);
-                var weapon2 = _manager.WeaponSlot2;
+                var weapon2 = _loadout.WeaponSlot2;
                 if (weapon2 != null)
                     slot2.Bind(weapon2, true);
                 else
@@ -90,13 +95,13 @@ namespace junklite
         private void OnEnemyHitHandler(EnemyCharacter _, float __) => UpdateActiveIndicators();
         private void UpdateActiveIndicators()
         {
-            if (_manager == null) return;
+            if (_manager == null || _loadout == null) return;
             bool inModCombat = _manager.IsModCombat;
             var active = _manager.ActiveWeapon;
             if (slot1 != null)
-                slot1.SetActive(inModCombat && active != null && active == _manager.WeaponSlot1);
+                slot1.SetActive(inModCombat && active != null && active == _loadout.WeaponSlot1);
             if (slot2 != null)
-                slot2.SetActive(inModCombat && active != null && active == _manager.WeaponSlot2);
+                slot2.SetActive(inModCombat && active != null && active == _loadout.WeaponSlot2);
         }
         #endregion
     }

@@ -803,6 +803,7 @@ GameObject:
   - component: {fileID: 3267441522425935964}
   - component: {fileID: 5058750099860732212}
   - component: {fileID: 4240971418246477782}
+  - component: {fileID: 8123627017812205419}
   - component: {fileID: 7181291251784971520}
   - component: {fileID: 458443418991649798}
   - component: {fileID: 8722355234977318539}
@@ -1059,6 +1060,19 @@ MonoBehaviour:
     effects: []
   lockMovementDuringAttack: 1
   logAttacks: 0
+--- !u!114 &8123627017812205419
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7038683931279381878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d4fe0aa64714639a0ab23f93672c433, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerWeaponLoadout
+  weaponHolder: {fileID: 4764703469501611834}
 --- !u!114 &7181291251784971520
 MonoBehaviour:
   m_ObjectHideFlags: 0

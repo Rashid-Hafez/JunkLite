@@ -6,6 +6,7 @@ using System.Collections.Generic;
 namespace junklite
 {
     [RequireComponent(typeof(Collider))]
+    [RequireComponent(typeof(PlayerWeaponLoadout))]
     public class WeaponManager : MonoBehaviour
     {
         #region Fields
@@ -15,8 +16,9 @@ namespace junklite
 
         private CombatState fistCombat;
 
-        [Header("Weapon Holder")]
-        public Transform weaponHolder;
+        [Header("Legacy Loadout Migration")]
+        [Tooltip("Temporary fallback for player prefabs not yet serialized with PlayerWeaponLoadout.")]
+        [SerializeField, HideInInspector] private Transform weaponHolder;
 
         [Header("Attack Transforms (Scene Anchors)")]
         [SerializeField] private Transform sideAttack;
@@ -82,12 +84,7 @@ namespace junklite
         private PlayerCharacter playerCharacter;
         private Character2D5Controller controller;
         private SpineAnimationController spineController;
-
-        // Weapon slots
-        private WeaponInstance weaponSlot1;
-        private WeaponInstance weaponSlot2;
-        private WorldWeaponPickup storedPickup1;
-        private WorldWeaponPickup storedPickup2;
+        private PlayerWeaponLoadout weaponLoadout;
 
         // Combat mode
         private bool isModCombat;
@@ -137,11 +134,9 @@ namespace junklite
         private Vector3 FacingAxis => controller != null ? controller.transform.right : Vector3.right;
 
         public WeaponData FistWeaponData => fistWeaponData;
-        public WeaponInstance WeaponSlot1 => weaponSlot1;
-        public WeaponInstance WeaponSlot2 => weaponSlot2;
+        public PlayerWeaponLoadout Loadout => weaponLoadout;
         public WeaponInstance ActiveWeapon => activeWeapon;
 
-        public event Action OnWeaponChanged;
         public event Action OnCombatModeChanged;
         public event Action OnCombatModeRejected;
         /// <summary>Raised only after damage is applied. The float is the actual applied damage.</summary>
@@ -161,6 +156,12 @@ namespace junklite
             controller = GetComponentInParent<Character2D5Controller>();
             spineController = GetComponentInParent<SpineAnimationController>()
                            ?? GetComponentInChildren<SpineAnimationController>();
+            weaponLoadout = GetComponent<PlayerWeaponLoadout>()
+                         ?? gameObject.AddComponent<PlayerWeaponLoadout>();
+            weaponLoadout.ApplyDefaultsIfMissing(weaponHolder);
+            weaponLoadout.Initialize(playerRb);
+            weaponLoadout.WeaponChanged += HandleLoadoutChanged;
+            weaponLoadout.WeaponBroken += HandleLoadoutWeaponBroken;
 
             if (impulseSource == null)
             {
@@ -184,6 +185,12 @@ namespace junklite
             {
                 playerState.OnAttackAnimationComplete -= OnAttackAnimationComplete;
                 playerState.OnAttackAnimationInterrupted -= OnAttackInterrupted;
+            }
+
+            if (weaponLoadout != null)
+            {
+                weaponLoadout.WeaponChanged -= HandleLoadoutChanged;
+                weaponLoadout.WeaponBroken -= HandleLoadoutWeaponBroken;
             }
 
             ReleaseAttackInputLock();
@@ -264,7 +271,7 @@ namespace junklite
 
             if (playerState != null && playerState.IsInputLocked) return false;
 
-            if (weaponSlot1 == null && weaponSlot2 == null)
+            if (weaponLoadout == null || !weaponLoadout.HasAnyWeapon)
             {
                 OnCombatModeRejected?.Invoke();
                 return false;
@@ -281,11 +288,10 @@ namespace junklite
             lastAttackedSlot = -1;
             hasBufferedInput = false;
 
-            SetWeaponVisible(weaponSlot1, true);
-            SetWeaponVisible(weaponSlot2, true);
+            weaponLoadout.SetWeaponsVisible(true);
 
-            TryPrewarmRangedPool(weaponSlot1);
-            TryPrewarmRangedPool(weaponSlot2);
+            TryPrewarmRangedPool(weaponLoadout.WeaponSlot1);
+            TryPrewarmRangedPool(weaponLoadout.WeaponSlot2);
             PlaySfxAtPlayer(modCombatEnterSfx);
 
             OnCombatModeChanged?.Invoke();
@@ -294,13 +300,12 @@ namespace junklite
         private void ExitModCombat()
         {
             isModCombat = false;
-            weaponSlot1?.ResetCombo();
-            weaponSlot2?.ResetCombo();
+            weaponLoadout?.WeaponSlot1?.ResetCombo();
+            weaponLoadout?.WeaponSlot2?.ResetCombo();
             lastAttackedSlot = -1;
             hasBufferedInput = false;
 
-            SetWeaponVisible(weaponSlot1, false);
-            SetWeaponVisible(weaponSlot2, false);
+            weaponLoadout?.SetWeaponsVisible(false);
 
             OnCombatModeChanged?.Invoke();
         }
@@ -372,14 +377,9 @@ namespace junklite
             StartAttack(weaponSlot, dir);
         }
 
-        public WeaponInstance GetWeaponForSlot(int slot)
+        private WeaponInstance GetWeaponForSlot(int slot)
         {
-            return slot switch
-            {
-                1 => weaponSlot1,
-                2 => weaponSlot2,
-                _ => null
-            };
+            return weaponLoadout?.GetWeapon(slot);
         }
 
         private CombatState GetCombatStateForSlot(int slot)
@@ -387,8 +387,8 @@ namespace junklite
             return slot switch
             {
                 0 => fistCombat,
-                1 => weaponSlot1?.Combat,
-                2 => weaponSlot2?.Combat,
+                1 => weaponLoadout?.WeaponSlot1?.Combat,
+                2 => weaponLoadout?.WeaponSlot2?.Combat,
                 _ => null
             };
         }
@@ -398,56 +398,27 @@ namespace junklite
             return slot switch
             {
                 0 => fistWeaponData,
-                1 => weaponSlot1?.weaponData,
-                2 => weaponSlot2?.weaponData,
-                _ => null
-            };
-        }
-
-        public WeaponInstance GetWeaponInSlot(int slot)
-        {
-            return slot switch
-            {
-                1 => weaponSlot1,
-                2 => weaponSlot2,
+                1 => weaponLoadout?.WeaponSlot1?.weaponData,
+                2 => weaponLoadout?.WeaponSlot2?.weaponData,
                 _ => null
             };
         }
 
         public void DropWeapon(int slot)
         {
-            var weapon = GetWeaponForSlot(slot);
-            var pickup = slot == 1 ? storedPickup1 : storedPickup2;
+            if (isAttacking || weaponLoadout == null || playerTransform == null)
+                return;
 
-            if (weapon == null || pickup == null) return;
-
-            weapon.transform.SetParent(pickup.transform, false);
-            weapon.gameObject.SetActive(false);
-
-            pickup.transform.position = playerTransform.position + FacingAxis * Facing * 1.2f;
-            pickup.gameObject.SetActive(true);
-
-            RemoveWeaponFromSlot(slot);
+            Vector3 dropPosition = playerTransform.position + FacingAxis * Facing * 1.2f;
+            weaponLoadout.TryDropWeapon(slot, dropPosition);
         }
 
         public void SwapWeaponSlots()
         {
             if (isAttacking) return;
 
-            var temp = weaponSlot1;
-            weaponSlot1 = weaponSlot2;
-            weaponSlot2 = temp;
-
-            var tempPickup = storedPickup1;
-            storedPickup1 = storedPickup2;
-            storedPickup2 = tempPickup;
-
-            weaponSlot1?.Combat?.ResetCombo();
-            weaponSlot2?.Combat?.ResetCombo();
-            lastAttackedSlot = -1;
-
-            OnWeaponChanged?.Invoke();
-            Log("Weapon slots swapped");
+            if (weaponLoadout != null && weaponLoadout.TrySwapSlots())
+                Log("Weapon slots swapped");
         }
 
         public Transform GetAttackTransform(AttackDirection dir)
@@ -462,8 +433,7 @@ namespace junklite
 
         public void SetWeaponVisible(bool visible)
         {
-            SetWeaponVisible(weaponSlot1, visible);
-            SetWeaponVisible(weaponSlot2, visible);
+            weaponLoadout?.SetWeaponsVisible(visible);
         }
 
         #endregion
@@ -579,7 +549,7 @@ namespace junklite
             else if (activeWeaponData is RangedWeaponData rangedData)
             {
                 if (rangedData.TryGetRangedStep(dir, comboIndex, isGrounded, out var step))
-                    StartCoroutine(CoRangedAttack(dir, step, rangedData, activeWeapon, activeWeaponSlot));
+                    StartCoroutine(CoRangedAttack(dir, step, rangedData, activeWeapon));
                 else
                     Log($"No ranged step for {dir} combo {comboIndex}");
             }
@@ -690,8 +660,7 @@ namespace junklite
             AttackDirection dir,
             RangedWeaponData.RangedComboStep step,
             RangedWeaponData rangedData,
-            WeaponInstance capturedWeapon,
-            int capturedWeaponSlot)
+            WeaponInstance capturedWeapon)
         {
             // HOVER
             bool useHover = step.hoverGravityMultiplier >= 0f;
@@ -724,9 +693,9 @@ namespace junklite
             bool isDirectional = (dir == AttackDirection.Down || dir == AttackDirection.Up);
 
             if (isDirectional)
-                yield return CoDirectionalBlast(dir, step, rangedData, capturedWeapon, capturedWeaponSlot);
+                yield return CoDirectionalBlast(dir, step, rangedData, capturedWeapon);
             else
-                yield return CoSideHitscan(step, rangedData, capturedWeapon, capturedWeaponSlot);
+                yield return CoSideHitscan(step, rangedData, capturedWeapon);
 
             // HOLD BULLET TIME
             if (useBulletTime && step.bulletTimeDuration > 0f)
@@ -756,8 +725,7 @@ namespace junklite
             AttackDirection dir,
             RangedWeaponData.RangedComboStep step,
             RangedWeaponData rangedData,
-            WeaponInstance capturedWeapon,
-            int capturedWeaponSlot)
+            WeaponInstance capturedWeapon)
         {
             // DURABILITY — scaled by durabilityMultiplier
             int durabilityCost = Mathf.Max(1, Mathf.RoundToInt(step.durabilityMultiplier > 0f ? step.durabilityMultiplier : 1f));
@@ -767,7 +735,6 @@ namespace junklite
                 {
                     if (capturedWeapon.ConsumeDurability())
                     {
-                        HandleWeaponBroken(capturedWeaponSlot);
                         yield break;
                     }
                 }
@@ -865,8 +832,7 @@ namespace junklite
         private IEnumerator CoSideHitscan(
             RangedWeaponData.RangedComboStep step,
             RangedWeaponData rangedData,
-            WeaponInstance capturedWeapon,
-            int capturedWeaponSlot)
+            WeaponInstance capturedWeapon)
         {
             // Durability
             int durabilityCost = Mathf.Max(1, Mathf.RoundToInt(step.durabilityMultiplier > 0f ? step.durabilityMultiplier : 1f));
@@ -876,7 +842,6 @@ namespace junklite
                 {
                     if (capturedWeapon.ConsumeDurability())
                     {
-                        HandleWeaponBroken(capturedWeaponSlot);
                         yield break;
                     }
                 }
@@ -1379,8 +1344,7 @@ namespace junklite
             if (result.WasApplied)
             {
                 if (activeWeaponSlot != 0 && activeWeapon != null)
-                    if (activeWeapon.ConsumeDurability())
-                        HandleWeaponBroken(activeWeaponSlot);
+                    activeWeapon.ConsumeDurability();
 
                 SpawnEnemyHitVFX(target);
             }
@@ -1410,8 +1374,7 @@ namespace junklite
             }
 
             if (anyHit && activeWeaponSlot != 0 && activeWeapon != null)
-                if (activeWeapon.ConsumeDurability())
-                    HandleWeaponBroken(activeWeaponSlot);
+                activeWeapon.ConsumeDurability();
 
             return anyHit;
         }
@@ -1532,86 +1495,28 @@ namespace junklite
 
         public void PickupWeaponToSlot(int slot, WorldWeaponPickup pickup)
         {
-            if (pickup == null || (slot != 1 && slot != 2)) return;
+            if (isAttacking || weaponLoadout == null || playerTransform == null)
+                return;
 
-            var existing = GetWeaponForSlot(slot);
-            if (existing != null)
-                DropWeapon(slot);
-
-            SetupWeaponInSlot(slot, pickup);
+            Vector3 displacedWeaponDropPosition =
+                playerTransform.position + FacingAxis * Facing * 1.2f;
+            weaponLoadout.TryEquipWeapon(
+                slot,
+                pickup,
+                displacedWeaponDropPosition,
+                isModCombat);
         }
 
-        public bool HasEmptyWeaponSlot()
+        private void HandleLoadoutChanged()
         {
-            return weaponSlot1 == null || weaponSlot2 == null;
+            lastAttackedSlot = -1;
         }
 
-        private void SetupWeaponInSlot(int slot, WorldWeaponPickup pickup)
+        private void HandleLoadoutWeaponBroken(int slot)
         {
-            var weapon = pickup.weaponInstance;
-            bool isRanged = weapon.weaponData is RangedWeaponData;
-            pickup.gameObject.SetActive(false);
-
-            weapon.gameObject.SetActive(true);
-            // Keep ranged weapons out of the hand socket; they attack from data/muzzle logic.
-            weapon.transform.SetParent(isRanged ? transform : weaponHolder, false);
-
-            var rootRenderer = weapon.GetComponent<SpriteRenderer>();
-            if (rootRenderer != null)
-                rootRenderer.sortingOrder = 11;
-            weapon.SetOwnerRigidbody(playerRb);
-
-            if (isRanged)
-            {
-                weapon.transform.localPosition = Vector3.zero;
-                weapon.transform.localRotation = Quaternion.identity;
-                weapon.transform.localScale = Vector3.one;
-            }
-            else if (weapon.weaponData != null)
-            {
-                var socketOffset = weapon.weaponData.socketOffset;
-                weapon.transform.localPosition = socketOffset.localPositionOffset;
-                weapon.transform.localRotation = Quaternion.Euler(0, 0, -30f) * Quaternion.Euler(socketOffset.localRotationOffsetEuler);
-                Vector3 weaponScale = Vector3.one;
-                if (socketOffset.flipLocalScaleX) weaponScale.x = -1f;
-                if (socketOffset.flipLocalScaleY) weaponScale.y = -1f;
-                weapon.transform.localScale = weaponScale;
-            }
-            else
-            {
-                weapon.transform.localPosition = Vector3.zero;
-                weapon.transform.localRotation = Quaternion.Euler(0, 0, -30f);
-                weapon.transform.localScale = Vector3.one;
-            }
-
-            if (slot == 1) { weaponSlot1 = weapon; storedPickup1 = pickup; }
-            else { weaponSlot2 = weapon; storedPickup2 = pickup; }
-
-            SetWeaponVisible(weapon, isModCombat);
-            OnWeaponChanged?.Invoke();
-        }
-
-        private void RemoveWeaponFromSlot(int slot)
-        {
-            if (slot == 1) { weaponSlot1 = null; storedPickup1 = null; }
-            else if (slot == 2) { weaponSlot2 = null; storedPickup2 = null; }
-
-            if (lastAttackedSlot == slot)
-                lastAttackedSlot = -1;
-
-            OnWeaponChanged?.Invoke();
-        }
-
-        private void HandleWeaponBroken(int slot)
-        {
-            var weapon = GetWeaponForSlot(slot);
-            if (weapon != null)
-                weapon.gameObject.SetActive(false);
-
-            RemoveWeaponFromSlot(slot);
             Log($"Weapon in slot {slot} broke");
 
-            if (isModCombat && weaponSlot1 == null && weaponSlot2 == null)
+            if (isModCombat && (weaponLoadout == null || !weaponLoadout.HasAnyWeapon))
                 ExitModCombat();
         }
 
@@ -1643,17 +1548,6 @@ namespace junklite
                 default:
                     return playerTransform.position;
             }
-        }
-
-        private void SetWeaponVisible(WeaponInstance weapon, bool visible)
-        {
-            if (weapon == null) return;
-            if (weapon.weaponData is RangedWeaponData)
-                visible = false;
-
-            var renderers = weapon.GetComponentsInChildren<SpriteRenderer>(true);
-            foreach (var sr in renderers)
-                if (sr != null) sr.enabled = visible;
         }
 
         private void CreateFistCombatState()

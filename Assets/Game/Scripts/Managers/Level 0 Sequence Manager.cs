@@ -128,6 +128,7 @@ namespace junklite
         private PlayerCharacter currentPlayer;
         private Light playerLight;
         private WeaponManager currentWeaponManager;
+        private PlayerWeaponLoadout currentWeaponLoadout;
         private ModManager currentModManager;
         private SpineAnimationController currentSpineAnimationController;
         private Coroutine revealFadeRoutine;
@@ -187,7 +188,7 @@ namespace junklite
             if (platformCompleteDirector != null) platformCompleteDirector.stopped -= OnTimelineStopped;
             if (endCinematicDirector != null) endCinematicDirector.stopped -= OnTimelineStopped;
             if (completionAnimation != null) completionAnimation.Stop();
-            if (currentWeaponManager != null) currentWeaponManager.OnWeaponChanged -= OnWeaponPickedUp;
+            if (currentWeaponLoadout != null) currentWeaponLoadout.WeaponChanged -= OnWeaponPickedUp;
             if (currentModManager != null) currentModManager.OnActiveModActivated -= OnActiveModActivated;
             if (activeTutorialPickup != null) Destroy(activeTutorialPickup.gameObject);
             if (parryTutorialRoutine != null) StopCoroutine(parryTutorialRoutine);
@@ -473,6 +474,9 @@ namespace junklite
             if (currentPlayer != null)
             {
                 currentWeaponManager = currentPlayer.GetComponentInChildren<WeaponManager>(true);
+                currentWeaponLoadout = currentWeaponManager != null
+                    ? currentWeaponManager.Loadout
+                    : currentPlayer.GetComponentInChildren<PlayerWeaponLoadout>(true);
                 currentModManager = currentPlayer.GetComponentInChildren<ModManager>(true);
                 currentSpineAnimationController = currentPlayer.GetComponentInChildren<SpineAnimationController>(true);
             }
@@ -874,19 +878,19 @@ namespace junklite
         {
             RefreshPlayerRef();
 
-            if (currentWeaponManager == null)
+            if (currentWeaponLoadout == null)
             {
-                Debug.LogWarning("[Level0Sequence] No WeaponManager found on current player.");
+                Debug.LogWarning("[Level0Sequence] No PlayerWeaponLoadout found on current player.");
                 yield break;
             }
 
             weaponPickedUp = false;
-            currentWeaponManager.OnWeaponChanged += OnWeaponPickedUp;
+            currentWeaponLoadout.WeaponChanged += OnWeaponPickedUp;
 
             while (!weaponPickedUp)
                 yield return null;
 
-            currentWeaponManager.OnWeaponChanged -= OnWeaponPickedUp;
+            currentWeaponLoadout.WeaponChanged -= OnWeaponPickedUp;
             activeTutorialPickup = null;
         }
 

@@ -40,6 +40,7 @@ namespace junklite
 
         private InventoryComponent inventory;
         private WeaponManager weaponManager;
+        private PlayerWeaponLoadout weaponLoadout;
         private ModManager modManager;
 
         private readonly List<ModSlotUI> inventorySlots = new();
@@ -63,13 +64,14 @@ namespace junklite
 
             inventory = inv;
             weaponManager = wm;
+            weaponLoadout = wm != null ? wm.Loadout : null;
             modManager = wm != null ? wm.GetComponent<ModManager>() : null;
 
             if (inventory != null)
                 inventory.OnInventoryChanged += RefreshInventory;
 
-            if (weaponManager != null)
-                weaponManager.OnWeaponChanged += RefreshWeapons;
+            if (weaponLoadout != null)
+                weaponLoadout.WeaponChanged += RefreshWeapons;
 
             if (modManager != null)
                 modManager.OnModSlotsChanged += RefreshModSlots;
@@ -101,8 +103,8 @@ namespace junklite
             if (inventory != null)
                 inventory.OnInventoryChanged -= RefreshInventory;
 
-            if (weaponManager != null)
-                weaponManager.OnWeaponChanged -= RefreshWeapons;
+            if (weaponLoadout != null)
+                weaponLoadout.WeaponChanged -= RefreshWeapons;
 
             if (modManager != null)
                 modManager.OnModSlotsChanged -= RefreshModSlots;
@@ -134,6 +136,7 @@ namespace junklite
 
             inventory = null;
             weaponManager = null;
+            weaponLoadout = null;
             modManager = null;
         }
 
@@ -279,7 +282,7 @@ namespace junklite
 
         private void RefreshWeapons()
         {
-            if (weaponManager == null) return;
+            if (weaponManager == null || weaponLoadout == null) return;
 
             weaponSlot1?.Bind(weaponManager, 1);
             weaponSlot2?.Bind(weaponManager, 2);

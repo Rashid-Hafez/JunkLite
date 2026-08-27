@@ -25,6 +25,7 @@ namespace junklite
 
         // Runtime
         private WeaponManager _weaponManager;
+        private PlayerWeaponLoadout _weaponLoadout;
         private ModManager _modManager;
         private PlayerCharacter _player;
 
@@ -42,15 +43,17 @@ namespace junklite
             Unbind();
 
             _weaponManager = weaponManager;
+            _weaponLoadout = weaponManager != null ? weaponManager.Loadout : null;
             _modManager = modManager;
             _player = _modManager != null ? _modManager.GetComponent<PlayerCharacter>() : null;
 
             if (_weaponManager != null)
             {
                 _weaponManager.OnCombatModeChanged += OnCombatModeChanged;
-                _weaponManager.OnWeaponChanged += RefreshWeapons;
                 _weaponManager.OnEnemyHit += OnEnemyHitHandler;
             }
+            if (_weaponLoadout != null)
+                _weaponLoadout.WeaponChanged += RefreshWeapons;
 
             if (_modManager != null)
                 _modManager.OnModSlotsChanged += RefreshMods;
@@ -63,14 +66,16 @@ namespace junklite
             if (_weaponManager != null)
             {
                 _weaponManager.OnCombatModeChanged -= OnCombatModeChanged;
-                _weaponManager.OnWeaponChanged -= RefreshWeapons;
                 _weaponManager.OnEnemyHit -= OnEnemyHitHandler;
             }
+            if (_weaponLoadout != null)
+                _weaponLoadout.WeaponChanged -= RefreshWeapons;
 
             if (_modManager != null)
                 _modManager.OnModSlotsChanged -= RefreshMods;
 
             _weaponManager = null;
+            _weaponLoadout = null;
             _modManager = null;
             _player = null;
 
@@ -114,18 +119,18 @@ namespace junklite
 
         private void RefreshWeapons()
         {
-            if (_weaponManager == null) return;
+            if (_weaponManager == null || _weaponLoadout == null) return;
 
             if (slot1 != null)
             {
-                var weapon1 = _weaponManager.WeaponSlot1;
+                var weapon1 = _weaponLoadout.WeaponSlot1;
                 if (weapon1 != null) slot1.Bind(weapon1, true);
                 else slot1.SetContentActive(false);
             }
 
             if (slot2 != null)
             {
-                var weapon2 = _weaponManager.WeaponSlot2;
+                var weapon2 = _weaponLoadout.WeaponSlot2;
                 if (weapon2 != null) slot2.Bind(weapon2, true);
                 else slot2.SetContentActive(false);
             }
@@ -141,10 +146,10 @@ namespace junklite
 
         private void UpdateActiveIndicators()
         {
-            if (_weaponManager == null) return;
+            if (_weaponManager == null || _weaponLoadout == null) return;
             var active = _weaponManager.ActiveWeapon;
-            slot1?.SetActive(active != null && active == _weaponManager.WeaponSlot1);
-            slot2?.SetActive(active != null && active == _weaponManager.WeaponSlot2);
+            slot1?.SetActive(active != null && active == _weaponLoadout.WeaponSlot1);
+            slot2?.SetActive(active != null && active == _weaponLoadout.WeaponSlot2);
         }
 
         private void OnEnemyHitHandler(EnemyCharacter _, float __) => UpdateActiveIndicators();

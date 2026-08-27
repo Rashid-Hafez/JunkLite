@@ -19,7 +19,7 @@ namespace junklite.Editor
         private const string GameRootPrefabPath = "Assets/Game/Prefabs/Manager/Game Root.prefab";
         private const string TrainingScenePath = "Assets/Game/Scenes/V2.5.unity";
 
-        [MenuItem("Tools/JunkLite/V2.5/Strip Legacy Systems and Rebuild")]
+        [MenuItem("Tools/JunkLite/Systems/Rebuild")]
         public static void Run()
         {
             bool confirmed = EditorUtility.DisplayDialog(
@@ -40,7 +40,7 @@ namespace junklite.Editor
             RebuildTrainingSetup();
         }
 
-        [MenuItem("Tools/JunkLite/V2.5/Rebuild Game Root Prefab Only")]
+        [MenuItem("Tools/JunkLite/Systems/Rebuild Game Root")]
         public static void RebuildGameRootPrefabOnly()
         {
             BuildGameRootPrefab();
@@ -55,7 +55,7 @@ namespace junklite.Editor
             RebuildGameRootPrefabOnly();
         }
 
-        [MenuItem("Tools/JunkLite/V2.5/Validate Redesigned Setup")]
+        [MenuItem("Tools/JunkLite/Systems/Validate")]
         public static void Validate()
         {
             Scene scene = OpenTrainingScene();
@@ -399,10 +399,20 @@ namespace junklite.Editor
                 throw new MissingReferenceException("PlayerLifecycle has no player prefab assigned.");
             if (playerPrefab.GetComponent<PlayerCharacter>() == null ||
                 playerPrefab.GetComponent<Damageable>() == null ||
-                playerPrefab.GetComponent<ModManager>() == null)
+                playerPrefab.GetComponent<ModManager>() == null ||
+                playerPrefab.GetComponent<PlayerWeaponLoadout>() == null)
             {
                 throw new MissingReferenceException(
-                    "The configured player prefab is missing PlayerCharacter, Damageable, or ModManager.");
+                    "The configured player prefab is missing PlayerCharacter, Damageable, " +
+                    "ModManager, or PlayerWeaponLoadout.");
+            }
+
+            var serializedLoadout = new SerializedObject(
+                playerPrefab.GetComponent<PlayerWeaponLoadout>());
+            if (serializedLoadout.FindProperty("weaponHolder").objectReferenceValue == null)
+            {
+                throw new MissingReferenceException(
+                    "The configured PlayerWeaponLoadout has no weapon holder assigned.");
             }
 
             ValidateGameUIPrefabs(uiManagers[0]);
