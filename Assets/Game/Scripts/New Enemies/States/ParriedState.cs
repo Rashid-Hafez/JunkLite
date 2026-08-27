@@ -25,7 +25,7 @@ namespace junklite
 
         public override void Enter()
         {
-            stunnable = enemy as IStunnable;
+            stunnable = GetCapability<IStunnable>();
 
             if (stunnable == null)
             {

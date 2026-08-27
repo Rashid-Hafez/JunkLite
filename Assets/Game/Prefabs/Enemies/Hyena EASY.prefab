@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 1845504704677704398}
   - component: {fileID: 7420164895081332977}
   - component: {fileID: 8620707696424177089}
+  - component: {fileID: 8123627017812205421}
   - component: {fileID: 6885050171418826779}
   - component: {fileID: 5511428486720858210}
   - component: {fileID: -8649487350880432651}
@@ -211,7 +212,21 @@ MonoBehaviour:
   enemyVisual: {fileID: 0}
   customDropTable: {fileID: 11400000, guid: 345e4d06679fd498dab8832465d57f3b, type: 2}
   dropChance: 0
+--- !u!114 &8123627017812205421
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 84268223678430046}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f5d8c384d96b4d218faac214376d8e4e, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.HyenaBrain
+  ownsSerializedConfiguration: 1
   spineController: {fileID: 6885050171418826779}
+  patrolWhenPassive: 1
   patrol:
     patrolDistance: 6.05
     patrolSpeed: 7
@@ -234,6 +249,9 @@ MonoBehaviour:
     vfxPrefab: {fileID: 0}
     hitStartNormalized: 0.45
     hitEndNormalized: 0.55
+  stun:
+    staggerDuration: 0.5
+    stunVFXObject: {fileID: 0}
   dodge:
     dodgeDistance: 4
     dodgeSpeed: 15
@@ -265,9 +283,6 @@ MonoBehaviour:
   dashChance: 1
   whiffStunDuration: 1.5
   maxCounterDashRange: 8
-  stun:
-    staggerDuration: 0.5
-    stunVFXObject: {fileID: 0}
 --- !u!114 &6885050171418826779
 MonoBehaviour:
   m_ObjectHideFlags: 0

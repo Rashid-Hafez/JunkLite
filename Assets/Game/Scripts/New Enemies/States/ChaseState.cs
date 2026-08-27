@@ -7,6 +7,7 @@ namespace junklite
         private IChaser chaser;
         private EnemyMovement movement;
         private EnemyConfig config;
+        private bool destinationReported;
 
         public ChaseState(EnemyCharacter enemy) : base(enemy) { }
 
@@ -15,6 +16,7 @@ namespace junklite
             movement = enemy.Movement;
             config = enemy.Config;
             chaser = GetCapability<IChaser>();
+            destinationReported = false;
 
             if (movement != null)
             {
@@ -29,23 +31,23 @@ namespace junklite
         {
             if (HasTarget)
             {
+                destinationReported = false;
                 chaser?.UpdateLastKnownPosition(Target.position);
 
-                if (chaser != null && chaser.ChaseStopDistance > 0f)
+                float stopDistance = chaser != null && chaser.ChaseStopDistance > 0f
+                    ? chaser.ChaseStopDistance
+                    : enemy.AttackRange;
+
+                if (stopDistance > 0f)
                 {
                     float distanceToTarget = movement.GetAbsAxisDistance(Transform.position, Target.position);
-                    if (distanceToTarget <= chaser.ChaseStopDistance)
+                    if (distanceToTarget <= stopDistance)
                     {
                         movement?.Stop();
                         movement?.FaceTarget(Target.position);
-                        enemy.OnPlayerInAttackRange();
+                        ReportDestinationReached();
                         return;
                     }
-                }
-                else if (IsTargetInAttackRange)
-                {
-                    enemy.OnPlayerInAttackRange();
-                    return;
                 }
 
                 movement?.MoveTo(Target.position);
@@ -57,7 +59,7 @@ namespace junklite
 
                 if (horizontalDist <= 1f)
                 {
-                    chaser.OnReachedTarget();
+                    ReportDestinationReached();
                     return;
                 }
 
@@ -66,12 +68,26 @@ namespace junklite
             }
             else
             {
-                enemy.OnPlayerLost();
+                ReportDestinationReached();
             }
+        }
+
+        private void ReportDestinationReached()
+        {
+            if (destinationReported)
+                return;
+
+            destinationReported = true;
+
+            if (chaser != null)
+                chaser.OnReachedTarget();
+            else
+                enemy.OnPlayerInAttackRange();
         }
 
         public override void Exit()
         {
+            destinationReported = false;
             movement?.Stop();
         }
     }

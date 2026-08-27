@@ -55,12 +55,7 @@ namespace junklite
 
                 case Phase.Cooldown:
                     if (timer >= meleeAttacker.MeleeAttackSpeed)
-                    {
-                        if (HasTarget && IsTargetInAttackRange)
-                            BeginWindUp();
-                        else
-                            meleeAttacker.OnMeleeComplete();
-                    }
+                        CompleteAttack();
                     break;
             }
         }
@@ -126,12 +121,19 @@ namespace junklite
                 }
                 else
                 {
-                    if (HasTarget && IsTargetInAttackRange)
-                        BeginWindUp();
-                    else
-                        meleeAttacker.OnMeleeComplete();
+                    CompleteAttack();
                 }
             }
+        }
+
+        private void CompleteAttack()
+        {
+            if (!isInitialized)
+                return;
+
+            isInitialized = false;
+            hitbox?.Deactivate();
+            meleeAttacker.OnMeleeComplete();
         }
 
         // =============================================================

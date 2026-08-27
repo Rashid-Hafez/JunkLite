@@ -6,7 +6,7 @@ Reviewed branch: `4.7`
 
 Baseline code commit: `46f3c34e` (`changes to player, enemies and base services`)
 
-The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` damage migration, focused mod-runtime cleanup, the explicit `V2.5` infrastructure migration, the focused player/UI lifecycle extractions, and the player weapon-loadout extraction described below.
+The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` damage migration, focused mod-runtime cleanup, the explicit `V2.5` infrastructure migration, the focused player/UI lifecycle extractions, the player weapon-loadout extraction, and the first composed enemy-AI vertical slice described below.
 
 ## Purpose
 
@@ -50,6 +50,7 @@ The goal is better modularity and easier feature development without building a 
 | Player lifecycle extraction | Implemented, Play Mode verification pending | `PlayerLifecycle` owns player creation, identity, spawn selection, death, and soft respawn. Direct consumers no longer use player APIs on `GameManager`. |
 | Game UI lifecycle extraction | Implemented, Play Mode verification pending | `GameUIManager` owns HUD, pause, game-over, loading UI, prefab configuration, instances, and state-driven visibility. |
 | Player weapon loadout | Implemented, Play Mode verification pending | `PlayerWeaponLoadout` owns both equipped slots, paired world pickups, attachment, visibility, swap/drop/replace, and break removal. |
+| Composed enemy AI foundation | Implemented for Grunt + Hyena, Play Mode verification pending | Perception reports facts, brains own voluntary decisions, states execute one action, and reusable behaviors own mechanics/tuning. |
 | Full game/level manager cleanup | In progress | Player and UI lifecycle are extracted; `GameManager` retains global state, pause coordination, scene transitions, and music. |
 
 ## Implemented Architecture
@@ -246,6 +247,43 @@ The load-failure path now preserves the current player until Unity confirms the 
 
 Inventory, weapon-pickup UI, both weapon HUD implementations, the combined mod-combat HUD, and the Level 0 tutorial subscribe to `PlayerWeaponLoadout.WeaponChanged` and query the loadout directly. The active `Player_2.2` prefab serializes the new component and holder reference. `WeaponManager` retains a hidden holder fallback only for older player prefabs and adds/configures the loadout at runtime when necessary.
 
+### 13. Composed enemy-AI foundation
+
+The first enemy architecture vertical slice now follows this rule:
+
+> Sensors report facts. Brains make voluntary decisions. States execute actions. Character/combat systems may force interrupts.
+
+The current ownership boundaries are:
+
+| Part | Owns | Must not own |
+|---|---|---|
+| `EnemyCharacter` | Enemy identity, damage reactions, death, lifecycle, combat participation | Normal chase/attack/dodge decisions |
+| `EnemyPerception` | Current single-player target, distance, collider tracking, LOS/reachability checks, target changes | FSM transitions or combat policy |
+| `EnemyBrain` | Voluntary behavior selection and normal FSM transitions | Hitbox damage, physical movement implementation, animation playback |
+| Enemy states | One action's enter/update/exit and completion | The next long-term behavior decision |
+| `EnemyMovement` | Movement commands, facing, physics, knockback | Knowledge of concrete FSM state types |
+| Serializable behaviors | Capability tuning and reusable mechanics such as melee/dash hitbox damage | Archetype-level decision policy |
+
+Implemented details:
+
+- `EnemyCharacter.Died` is exact-once and `Level 0 Sequence Manager` now tracks wave deaths through that lifecycle event instead of inspecting `DeadState`.
+- `EnemyPerception` replaces detection logic while `DetectionZone` remains a thin compatibility subclass, preserving existing prefab script references and serialized sensor fields.
+- The sensor safely tracks multiple colliders for the single player, rejects dead targets, retains the existing optional LOS/reachability rules, and resets expanded pursuit radius when disabled.
+- `EnemyMovement` no longer references `StateMachine` or `StunnedState`; states stop or command movement explicitly.
+- `EnemyBrain` is the decision boundary. `MeleeChaserBrain` implements the reusable passive/patrol, chase, single-melee-action, and re-evaluation loop.
+- `HyenaBrain` adds only Hyena policy: reactive dodge, optional counter-charge/dash, and whiff stun.
+- `PatrolBehavior`, `ChaseBehavior`, `MeleeAttackBehavior`, `DodgeBehavior`, `ChargeBehavior`, `DashBehavior`, and `StunBehavior` provide capabilities to states through one composed provider. Melee and dash damage remain in the behavior that owns the hitbox rather than in the brain.
+- `GruntEnemy` and `HyenaEnemy` are now thin identity/migration components. Their active prefabs serialize tuning on the brain.
+- Older embedded Grunts and older scene-embedded Hyenas retain hidden legacy fields and receive a runtime brain bridge, avoiding broad cinematic/scene edits during this slice.
+- Grunt, Hyena, Hyena EASY, Hyena Blue, and Hyena Green prefabs were migrated. No scene was edited.
+- `Tools > JunkLite > Systems > Validate Enemies` validates required components, brain type, perception reference, serialized melee/dash hitboxes, and the composed capability set.
+
+Deliberately deferred until this vertical slice is gameplay-proven:
+
+- No generalized target/threat framework, service locator, AI event bus, or universal action graph was added.
+- `EnemyType`, `EnemyConfig`, and a possible identity-only `EnemyDefinition` were not redesigned.
+- Robot, flying enemies, dummies, animation-presentation cleanup, and encounter/wave architecture were not migrated yet.
+
 ## Verification Recorded
 
 On 2026-08-26 with Unity 6000.3.22f1:
@@ -261,6 +299,14 @@ On 2026-08-26 with Unity 6000.3.22f1:
 On 2026-08-27, a direct build of `Assembly-CSharp.csproj` completed with 0 errors after the lifecycle/UI extraction and editor-menu rename. Existing third-party, obsolete-API, analyzer, and unused-field warnings remain.
 
 After the weapon-loadout extraction, direct runtime and editor assembly builds completed with 0 errors. Five focused `PlayerWeaponLoadoutTests` compile and cover equip, atomic replacement, swap/pickup pairing, break removal, and active-player-prefab configuration; they still require an in-Editor EditMode run.
+
+The user subsequently confirmed the current tests pass and weapon pickup/break behavior works in Play Mode.
+
+On 2026-08-27, after the enemy-AI vertical slice and interruption audit:
+
+- `Assembly-CSharp-Editor.csproj` builds with 0 errors. Existing unrelated/third-party warnings remain.
+- Five focused enemy architecture tests (eight generated cases) compile. They cover Grunt/Hyena prefab composition, composed capability resolution, exact-once death notification, and source guards preventing movement/Level 0 from depending on concrete enemy states.
+- The enemy tests could not be executed through a second Unity batch process because the project is already open in Unity; run them from the open Editor before gameplay approval.
 
 No scene or prefab was changed for the mod-runtime or camera-binding cleanup. Unity generated only the `.meta` for the new mod runtime script.
 
@@ -286,6 +332,16 @@ For the restart transition, verify that restart begins loading immediately, the 
 For the focused UI lifecycle, verify that exactly one HUD, pause menu, game-over screen, and loading screen are created; pause/resume visibility is correct; an open inventory closes before the game pauses; death hides the HUD and shows game over; the game-over restart button revives at the primary spawn; HUD data rebinds; and a failed/invalid scene request restores UI and pause input.
 
 For the player weapon loadout, verify pickup into either slot, replacing an occupied slot, dropping, drag/click swapping, melee and ranged holder visibility, entering/leaving Mod Combat, durability UI updates, last-hit break removal, automatic combat-mode exit when the final weapon breaks, and the Level 0 pickup tutorial.
+
+For the enemy architecture vertical slice, verify in Play Mode:
+
+1. Run `Tools > JunkLite > Systems > Validate Enemies`, then run `EnemyArchitectureTests` in EditMode.
+2. Grunt: detect the player, chase, stop at configured distance, perform one complete wind-up/swing/cooldown, and choose attack/chase again correctly.
+3. Grunt: lose the player beyond pursuit range, move to the last known position, return to idle, and reacquire correctly.
+4. Grunt: normal hitstun, knockback, parry stun, attack interruption, death VFX/drop, and exactly one death/wave decrement.
+5. Hyena: patrol, detect/chase/melee, reactive dodge, successful counter-dash, missed-dash stun, target loss during actions, parry, and death.
+6. Repeat the Hyena check on EASY, Blue, and Green so prefab-specific tuning and hitbox references are confirmed.
+7. Confirm combat music/tracking and the Level 0 attack-warning freeze/death-wave flow still work without level code reading the enemy FSM.
 
 The broader foundation still needs representative player/enemy/weapon gameplay verification. The migrated `V2.5` scene still needs visual and functional Play Mode approval.
 
@@ -315,9 +371,17 @@ The player lifecycle boundary has been extracted. In Play Mode, verify:
 
 ### Gate 4: Verify player weapon loadout
 
-Run the five focused EditMode tests and the loadout Play Mode checklist above. Fix only behavior regressions inside the loadout/manager boundary. Do not split attack execution during the same verification pass.
+Completed according to the user's current test and pickup/break report. Keep the broader replacement/drop/swap checklist above for regression passes.
 
-### Gate 5: Reassess attack execution after verification
+### Gate 5: Validate the Grunt + Hyena enemy vertical slice
+
+Run the validator, focused tests, and Play Mode checklist above. Fix regressions inside the existing character/perception/brain/state/behavior boundaries. Do not migrate another enemy or add `EnemyDefinition` until this checkpoint is approved.
+
+### Gate 6: Decide the next enemy migration from evidence
+
+After Grunt and Hyena pass, inspect whether decision logic stayed readable and reusable. If it did, migrate Robot next, followed by flying enemies/dummies. If concrete duplication appears, extract only that proven behavior. Reassess encounter/wave ownership after representative enemy types no longer expose their FSM to level code.
+
+### Deferred weapon reassessment
 
 `WeaponManager` is still large because it contains melee, directional blast, hitscan, timing, movement, and feedback behavior. Do not split it based on line count alone. After loadout verification, use the next planned weapon type to identify whether a focused attack-execution strategy or executor would make that addition materially easier. If existing data-driven melee/ranged paths already support it cleanly, leave the manager as-is and move to the next gameplay system.
 
@@ -353,7 +417,7 @@ Still required before calling the slice gameplay-closed:
 
 ## Continuation Prompt for a New Codex Task
 
-> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. Player/enemy separation, the result-based damage pipeline, all first-party damage-producer migrations, the `WeaponManager` result migration, composable player ability locks, explicit mod lifecycle, per-instance mod execution/cancellation, scene-local camera rebinding, concurrent restart loading, the manual-only `V2.5` infrastructure migration, the focused `PlayerLifecycle` and `GameUIManager` extractions, and `PlayerWeaponLoadout` ownership are implemented. Unity 6000.3.22f1 runtime/editor assemblies compile; rerun the added UI/loadout configuration tests in the Editor. Verify player lifecycle/UI behavior plus weapon equip, replace, drop, swap, visibility, durability break removal, and combat-mode exit in Play Mode. Do not add networking architecture, a universal ability graph, a service locator, or a broad manager rewrite.
+> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. The player/combat/lifecycle/loadout work described here is implemented. The first composed enemy-AI vertical slice is also implemented for Grunt and Hyena: `EnemyPerception` reports facts, `EnemyBrain` owns voluntary transitions, states execute one action, behaviors own reusable mechanics, and `EnemyCharacter.Died` isolates Level 0 from enemy FSM details. Run `Tools > JunkLite > Systems > Validate Enemies`, run `EnemyArchitectureTests`, and complete the Grunt/Hyena Play Mode checklist before migrating Robot or designing `EnemyDefinition`. Do not add networking architecture, a universal AI/ability graph, a service locator, or a broad manager rewrite.
 
 ## Synchronization Checklist
 

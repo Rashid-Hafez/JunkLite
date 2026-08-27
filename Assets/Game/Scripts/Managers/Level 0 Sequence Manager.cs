@@ -135,7 +135,6 @@ namespace junklite
         private bool platformCompleteBeatRunning;
 
         private readonly List<EnemyCharacter> spawnedEnemies = new();
-        private readonly List<(EnemyCharacter enemy, Action<IState, IState> handler)> waveEnemyStateHandlers = new();
         private int enemiesAlive;
         private WorldWeaponPickup activeTutorialPickup;
         private bool tutorialModHyenaSpawnHandled;
@@ -658,7 +657,6 @@ namespace junklite
         {
             UnsubscribeEnemyCallbacks();
             spawnedEnemies.Clear();
-            waveEnemyStateHandlers.Clear();
             enemiesAlive = 0;
             parryTutorialPromptUsed = false;
             tutorialModHyenaSpawnHandled = false;
@@ -699,7 +697,6 @@ namespace junklite
         {
             UnsubscribeEnemyCallbacks();
             spawnedEnemies.Clear();
-            waveEnemyStateHandlers.Clear();
             enemiesAlive = 0;
 
             if (postPickupEnemyPrefab == null)
@@ -731,14 +728,7 @@ namespace junklite
         private void SubscribeTrackedWaveEnemy(EnemyCharacter enemy)
         {
             enemy.OnAttackNotifyShown += OnTutorialEnemyAttackNotifyShown;
-
-            var sm = enemy.GetComponent<StateMachine>();
-            if (sm == null) return;
-
-            EnemyCharacter captured = enemy;
-            Action<IState, IState> handler = (from, to) => OnWaveEnemyStateChanged(captured, from, to);
-            waveEnemyStateHandlers.Add((enemy, handler));
-            sm.OnStateChanged += handler;
+            enemy.Died += OnWaveEnemyDied;
         }
 
         private void OnTutorialEnemyAttackNotifyShown(EnemyCharacter enemy)
@@ -785,11 +775,8 @@ namespace junklite
 
         private void OnTutorialParryPressed() => parryTutorialPressed = true;
 
-        private void OnWaveEnemyStateChanged(EnemyCharacter enemy, IState from, IState to)
+        private void OnWaveEnemyDied(EnemyCharacter enemy)
         {
-            if (to is not DeadState)
-                return;
-
             enemiesAlive = Mathf.Max(0, enemiesAlive - 1);
             Debug.Log($"[Level0Sequence] Enemy died — {enemiesAlive} remaining");
 
@@ -834,18 +821,10 @@ namespace junklite
 
         private void UnsubscribeEnemyCallbacks()
         {
-            foreach ((EnemyCharacter enemy, Action<IState, IState> handler) in waveEnemyStateHandlers)
-            {
-                if (enemy == null) continue;
-                var sm = enemy.GetComponent<StateMachine>();
-                if (sm != null) sm.OnStateChanged -= handler;
-            }
-
-            waveEnemyStateHandlers.Clear();
-
             foreach (var enemy in spawnedEnemies)
             {
                 if (enemy == null) continue;
+                enemy.Died -= OnWaveEnemyDied;
                 enemy.OnAttackNotifyShown -= OnTutorialEnemyAttackNotifyShown;
                 enemy.SetTutorialFrozen(false);
             }

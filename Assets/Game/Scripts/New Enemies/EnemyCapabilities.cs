@@ -2,9 +2,18 @@ using UnityEngine;
 
 namespace junklite
 {
+    /// <summary>
+    /// Allows a composed component to expose nested runtime capabilities without
+    /// forwarding every capability member through the component itself.
+    /// </summary>
+    public interface IEnemyCapabilityProvider
+    {
+        bool TryGetCapability<T>(out T capability) where T : class;
+    }
+
     // ============================================================
     // CAPABILITY INTERFACES
-    // Enemies implement these to declare what they can do.
+    // Enemy actors or composed providers expose these to declare what they can do.
     // States check for these interfaces to access capability-specific data.
     // ============================================================
 

@@ -1,9 +1,6 @@
 using System.Collections;
 using System;
-using System.IO;
-using System.Text;
 using UnityEngine;
-using UnityEngine.Networking;
 
 namespace junklite
 {
@@ -11,18 +8,18 @@ namespace junklite
     /// Base class for all enemy characters.
     /// 
     /// ARCHITECTURE:
-    /// - This base class contains ONLY universal enemy functionality
-    /// - Capability-specific behavior is defined via interfaces (IDasher, IGrabber, IPatroller, etc.)
-    /// - States check for interfaces to access capability-specific data
-    /// - Enemy subclasses implement interfaces to declare their capabilities
+    /// - This actor contains universal enemy identity, damage, death, and lifecycle
+    /// - EnemyPerception reports target facts without choosing behavior
+    /// - EnemyBrain owns voluntary decisions for migrated enemies
+    /// - States execute actions using capabilities supplied by actors or composed brains
     /// 
     /// UNIVERSAL (lives here):
-    /// - Detection, target tracking
+    /// - Perception reference and combat participation
     /// - Combat state management
     /// - Death handling, VFX basics
     /// - State machine reference
     /// 
-    /// CAPABILITY-SPECIFIC (lives in interfaces):
+    /// CAPABILITY-SPECIFIC (lives in composed behaviors or legacy enemy subclasses):
     /// - Patrol, Dash, Grab, Melee, Dodge, Chase, Ranged, Stun, etc.
     /// </summary>
 
@@ -46,7 +43,7 @@ namespace junklite
         [SerializeField] private EnemySoundProfile soundProfile;
 
         [Header("Detection")]
-        [SerializeField] protected DetectionZone detectionZone;
+        [SerializeField] protected EnemyPerception detectionZone;
         [SerializeField] protected float attackRange = 2f;
         [SerializeField] protected LayerMask targetLayer;
 
@@ -94,13 +91,11 @@ namespace junklite
         protected StateMachine stateMachine;
         protected EnemyMovement movement;
         protected StatusEffectHandler statusEffects;
+        private EnemyBrain brain;
         private bool isParryStunned;
+        private bool deathHandled;
 
         public bool IsParryStunned => isParryStunned;
-
-        // Target tracking
-        protected Transform target;
-        protected PlayerCharacter targetCharacter;
 
         // Combat state - prevents detection events from interrupting combat
         protected bool isInCombat = false;
@@ -114,25 +109,28 @@ namespace junklite
         public EnemyConfig Config => config;
         public StateMachine StateMachine => stateMachine;
         public EnemyMovement Movement => movement;
-        public DetectionZone DetectionZone => detectionZone;
+        public EnemyPerception Perception => detectionZone;
+        public EnemyPerception DetectionZone => detectionZone;
         public StatusEffectHandler StatusEffects => statusEffects;
+        public EnemyBrain Brain => brain != null ? brain : brain = GetComponent<EnemyBrain>();
 
         // Public accessors - Target
-        public Transform Target => target;
-        public PlayerCharacter TargetCharacter => targetCharacter;
+        public Transform Target => detectionZone != null ? detectionZone.TargetTransform : null;
+        public PlayerCharacter TargetCharacter => detectionZone != null ? detectionZone.CurrentTarget : null;
         public float AttackRange => attackRange;
         public bool CanBeKnockedBack => canBeKnockedBack;
 
         // Computed properties - Target
-        public bool HasTarget => target != null && targetCharacter != null && targetCharacter.IsAlive;
-        public float DistanceToTarget => HasTarget ? Vector3.Distance(transform.position, target.position) : float.MaxValue;
+        public bool HasTarget => detectionZone != null && detectionZone.HasTarget;
+        public float DistanceToTarget => HasTarget ? Vector3.Distance(transform.position, Target.position) : float.MaxValue;
         public bool IsTargetInAttackRange => DistanceToTarget <= attackRange;
-        public Vector3 DirectionToTarget => HasTarget ? (target.position - transform.position).normalized : Vector3.zero;
+        public Vector3 DirectionToTarget => HasTarget ? (Target.position - transform.position).normalized : Vector3.zero;
         public EnemyType EnemyType => enemyType;
         public EnemySoundProfile SoundProfile => soundProfile;
         public bool IsTutorialFrozen => tutorialFrozen;
 
         public event Action<EnemyCharacter> OnAttackNotifyShown;
+        public event Action<EnemyCharacter> Died;
 
         protected override void Awake()
         {
@@ -140,6 +138,10 @@ namespace junklite
             stateMachine = GetComponent<StateMachine>();
             movement = GetComponent<EnemyMovement>();
             statusEffects = GetComponent<StatusEffectHandler>();
+            brain = GetComponent<EnemyBrain>();
+
+            if (detectionZone == null)
+                detectionZone = GetComponentInChildren<EnemyPerception>(true);
 
             if (enemyAnimation == null)
                 enemyAnimation = GetComponentInChildren<EnemyAnimationController>(true);
@@ -156,10 +158,7 @@ namespace junklite
             }
 
             if (detectionZone != null)
-            {
-                detectionZone.OnTargetEnter += OnDetectionZoneEnter;
-                detectionZone.OnTargetExit += OnDetectionZoneExit;
-            }
+                detectionZone.TargetChanged += HandlePerceptionTargetChanged;
 
             if (damageable != null)
                 damageable.OnDamageResolved += OnDamageResolvedVFX;
@@ -284,6 +283,32 @@ namespace junklite
 
         #region Detection Zone Events
 
+        private void HandlePerceptionTargetChanged(PlayerCharacter previous, PlayerCharacter current)
+        {
+            if (!isActiveAndEnabled || !IsAlive)
+                return;
+
+            if (current != null)
+            {
+                TryIgnorePlayerBodyCollision();
+                OnTargetAcquired();
+            }
+            else if (previous != null)
+            {
+                OnTargetLost();
+            }
+
+            // Migrated enemies let their brain consume perception directly. These
+            // callbacks remain only for Robot/flying/dummy compatibility.
+            if (Brain != null)
+                return;
+
+            if (current != null)
+                OnDetectionZoneEnter(current);
+            else if (previous != null)
+                OnDetectionZoneExit(previous);
+        }
+
         protected virtual void OnDetectionZoneEnter(PlayerCharacter player)
         {
             if (!IsAlive) return;
@@ -343,7 +368,7 @@ namespace junklite
             {
                 isParryStunned = true;
 
-                var stunnable = this as IStunnable;
+                IStunnable stunnable = GetCapability<IStunnable>();
                 if (stunnable != null)
                     stunnable.ForcedStunDuration = duration;
 
@@ -358,7 +383,11 @@ namespace junklite
         /// </summary>
         public virtual void OnParryComplete()
         {
-            OnStunComplete();
+            IStunnable stunnable = GetCapability<IStunnable>();
+            if (stunnable != null)
+                stunnable.OnStunComplete();
+            else
+                OnStunComplete();
         }
 
         public void ClearParryStunFlag()
@@ -383,12 +412,18 @@ namespace junklite
 
         public virtual void EnterCombat()
         {
+            if (isInCombat)
+                return;
+
             isInCombat = true;
             PlayerCombatTracker.Instance?.NotifyEnemyEnteredCombat(this);
         }
 
         public virtual void ExitCombat()
         {
+            if (!isInCombat)
+                return;
+
             isInCombat = false;
             PlayerCombatTracker.Instance?.NotifyEnemyExitedCombat(this);
         }
@@ -399,22 +434,42 @@ namespace junklite
 
         public virtual void SetTarget(PlayerCharacter newTarget)
         {
-            targetCharacter = newTarget;
-            target = newTarget?.transform;
-            TryIgnorePlayerBodyCollision();
-            OnTargetAcquired();
+            if (newTarget == null)
+                ClearTarget();
         }
 
         public virtual void ClearTarget()
         {
-            if (target == null) return;
-            target = null;
-            targetCharacter = null;
-            OnTargetLost();
+            detectionZone?.ClearTarget();
         }
 
         protected virtual void OnTargetAcquired() { }
         protected virtual void OnTargetLost() { }
+
+        /// <summary>
+        /// Resolves a reusable capability from either the legacy enemy subclass or
+        /// a composed brain component. Lookup happens only at action boundaries.
+        /// </summary>
+        public T GetCapability<T>() where T : class
+        {
+            if (this is T legacyCapability)
+                return legacyCapability;
+
+            MonoBehaviour[] components = GetComponents<MonoBehaviour>();
+            foreach (MonoBehaviour component in components)
+            {
+                if (component is T capability)
+                    return capability;
+
+                if (component is IEnemyCapabilityProvider provider
+                    && provider.TryGetCapability(out T nestedCapability))
+                {
+                    return nestedCapability;
+                }
+            }
+
+            return null;
+        }
 
         #endregion
 
@@ -422,8 +477,8 @@ namespace junklite
 
         private void TryIgnorePlayerBodyCollision()
         {
-            var player = targetCharacter != null
-                ? targetCharacter
+            PlayerCharacter player = TargetCharacter != null
+                ? TargetCharacter
                 : PlayerLifecycle.Instance?.Player;
             if (player == null) return;
 
@@ -479,7 +534,7 @@ namespace junklite
         {
             if (stateMachine == null) return;
 
-            var stunnable = this as IStunnable;
+            IStunnable stunnable = GetCapability<IStunnable>();
             if (stunnable != null)
                 stunnable.ForcedStunDuration = duration;
 
@@ -490,7 +545,7 @@ namespace junklite
         {
             if (!IsAlive) return;
 
-            var stunnable = this as IStunnable;
+            IStunnable stunnable = GetCapability<IStunnable>();
             if (stunnable == null || stunnable.StaggerDuration <= 0f) return;
 
             // Already stunned? Reset timer for combo extension
@@ -510,7 +565,12 @@ namespace junklite
         private void HandleKnockbackEnd()
         {
             if (stateMachine.CurrentState is StunnedState) return;
-            OnStunComplete();
+
+            IStunnable stunnable = GetCapability<IStunnable>();
+            if (stunnable != null)
+                stunnable.OnStunComplete();
+            else
+                OnStunComplete();
         }
 
         protected virtual void ApplyKnockback(DamageRequest request)
@@ -544,6 +604,10 @@ namespace junklite
 
         protected override void HandleDeath()
         {
+            if (deathHandled)
+                return;
+
+            deathHandled = true;
             LevelStatsTracker.Instance?.NotifyEnemyKilled(this);
 
             SpawnDeathParticles();
@@ -571,17 +635,19 @@ namespace junklite
                 movement.Stop();
 
             if (detectionZone != null)
+            {
+                detectionZone.ClearTarget();
                 detectionZone.enabled = false;
+            }
 
             PlayerCombatTracker.Instance?.NotifyEnemyExitedCombat(this);
 
-            target = null;
-            targetCharacter = null;
             isInCombat = false;
 
             if (stateMachine != null)
                 stateMachine.ChangeState<DeadState>();
 
+            Died?.Invoke(this);
             base.HandleDeath();
             enabled = false;
         }
@@ -661,10 +727,7 @@ namespace junklite
             base.OnDestroy();
 
             if (detectionZone != null)
-            {
-                detectionZone.OnTargetEnter -= OnDetectionZoneEnter;
-                detectionZone.OnTargetExit -= OnDetectionZoneExit;
-            }
+                detectionZone.TargetChanged -= HandlePerceptionTargetChanged;
 
             if (damageable != null)
                 damageable.OnDamageResolved -= OnDamageResolvedVFX;
@@ -684,10 +747,10 @@ namespace junklite
             Gizmos.color = new Color(1f, 0f, 0f, 0.3f);
             Gizmos.DrawWireSphere(transform.position, attackRange);
 
-            if (target != null)
+            if (Target != null)
             {
                 Gizmos.color = IsTargetInAttackRange ? Color.red : Color.yellow;
-                Gizmos.DrawLine(transform.position, target.position);
+                Gizmos.DrawLine(transform.position, Target.position);
             }
         }
 

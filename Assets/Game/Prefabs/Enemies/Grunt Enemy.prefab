@@ -4972,6 +4972,7 @@ GameObject:
   - component: {fileID: 2740473186940267749}
   - component: {fileID: 1541432748867144263}
   - component: {fileID: 8602283681860911331}
+  - component: {fileID: 8123627017812205420}
   - component: {fileID: 4396021600020437199}
   - component: {fileID: 6498541874649470041}
   - component: {fileID: 5745456857200123978}
@@ -5102,7 +5103,29 @@ MonoBehaviour:
   enemyVisual: {fileID: 873555257464973405}
   customDropTable: {fileID: 0}
   dropChance: 1
+--- !u!114 &8123627017812205420
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1567325661985467383}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a80ca370b17e4480aa5b212d56d47db2, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.MeleeChaserBrain
+  ownsSerializedConfiguration: 1
   spineController: {fileID: 0}
+  patrolWhenPassive: 0
+  patrol:
+    patrolDistance: 0
+    patrolSpeed: 2
+    wallCheckDistance: 0.5
+    wallLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    wallCheckPoint: {fileID: 0}
   chase:
     chaseSpeed: 4
     chaseStopDistance: 1

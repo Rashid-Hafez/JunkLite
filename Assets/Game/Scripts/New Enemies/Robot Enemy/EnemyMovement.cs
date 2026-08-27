@@ -47,7 +47,6 @@ namespace junklite
 
         // Components
         private Rigidbody rb;
-        private StateMachine stateMachine;
 
         // State
         private Vector3 targetPosition;
@@ -103,7 +102,6 @@ namespace junklite
         private void Awake()
         {
             rb = GetComponent<Rigidbody>();
-            stateMachine = GetComponentInParent<StateMachine>();
 
             // Configure Rigidbody for velocity-based movement with gravity
             rb.isKinematic = false;
@@ -176,14 +174,6 @@ namespace junklite
         private void FixedUpdate()
         {
             if (rb.isKinematic) return;
-
-            // if we're stunned but not currently being knocked back, freeze movement
-            if (stateMachine != null && stateMachine.CurrentState is StunnedState && !isInKnockback)
-            {
-                float vertical = rb.useGravity ? rb.linearVelocity.y : 0f;
-                rb.linearVelocity = BuildVelocity(0f, vertical);
-                return;
-            }
 
             CheckGrounded();
 
@@ -390,8 +380,7 @@ namespace junklite
         /// </summary>
         public void MoveTo(Vector3 position)
         {
-                if (isInKnockback) return;
-                if (stateMachine != null && stateMachine.CurrentState is StunnedState) return;
+            if (isInKnockback) return;
 
             targetPosition = position;
             isMoving = true;
@@ -415,8 +404,7 @@ namespace junklite
         /// </summary>
         public void MoveTo(Vector3 position, float speed)
         {
-                if (isInKnockback) return;
-                if (stateMachine != null && stateMachine.CurrentState is StunnedState) return;
+            if (isInKnockback) return;
 
             targetPosition = position;
             currentSpeed = speed;
@@ -432,8 +420,7 @@ namespace junklite
         /// </summary>
         public void DashTo(Vector3 position, float speed)
         {
-                if (isInKnockback) return;
-                if (stateMachine != null && stateMachine.CurrentState is StunnedState) return;
+            if (isInKnockback) return;
 
             targetPosition = position;
             dashSpeed = speed;
@@ -449,8 +436,7 @@ namespace junklite
         /// </summary>
         public void MoveInDirection(Vector3 direction)
         {
-                if (isInKnockback) return;
-                if (stateMachine != null && stateMachine.CurrentState is StunnedState) return;
+            if (isInKnockback) return;
 
             moveDirection = GetPlanarDirection(direction);
             currentSpeed = moveSpeed;
@@ -465,8 +451,7 @@ namespace junklite
         /// </summary>
         public void MoveInDirection(Vector3 direction, float speed)
         {
-                if (isInKnockback) return;
-                if (stateMachine != null && stateMachine.CurrentState is StunnedState) return;
+            if (isInKnockback) return;
 
             moveDirection = GetPlanarDirection(direction);
             currentSpeed = speed;

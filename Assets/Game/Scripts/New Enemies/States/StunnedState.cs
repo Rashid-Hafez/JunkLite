@@ -18,7 +18,7 @@ namespace junklite
         public override void Enter()
         {
             movement = enemy.Movement;
-            stunnable = enemy as IStunnable;
+            stunnable = GetCapability<IStunnable>();
             complete = false;
 
             if (stunnable == null)
@@ -30,7 +30,7 @@ namespace junklite
 
             stunVFX = stunnable.StunVFXObject;
 
-            // ForcedStunDuration > 0 means parry/explicit stun — use that.
+            // ForcedStunDuration > 0 means parry/explicit stun â€” use that.
             // Otherwise use the enemy's stagger duration (normal hit).
             duration = stunnable.ForcedStunDuration > 0f
                 ? stunnable.ForcedStunDuration
@@ -40,7 +40,7 @@ namespace junklite
 
             // Only stop voluntary movement (chase/patrol). If knockback is
             // already in flight (applied in TakeDamage before entering this
-            // state), preserve it — the Update loop waits for it to finish.
+            // state), preserve it â€” the Update loop waits for it to finish.
             if (movement != null && !movement.IsInKnockback)
                 movement.Stop();
 

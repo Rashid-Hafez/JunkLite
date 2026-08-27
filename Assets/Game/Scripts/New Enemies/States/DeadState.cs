@@ -20,8 +20,8 @@ namespace junklite
 
             enemy.Movement?.Stop();
 
-            if (enemy.DetectionZone != null)
-                enemy.DetectionZone.enabled = false;
+            if (enemy.Perception != null)
+                enemy.Perception.enabled = false;
         }
 
         public override void Update()
