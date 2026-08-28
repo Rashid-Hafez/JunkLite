@@ -14,7 +14,6 @@ namespace junklite
         [Header("Weapon Attachment")]
         [SerializeField] private Transform weaponHolder;
 
-        private Rigidbody ownerRigidbody;
         private WeaponInstance weaponSlot1;
         private WeaponInstance weaponSlot2;
         private WorldWeaponPickup storedPickup1;
@@ -36,11 +35,6 @@ namespace junklite
         {
             if (weaponHolder == null)
                 weaponHolder = fallbackWeaponHolder;
-        }
-
-        public void Initialize(Rigidbody ownerBody)
-        {
-            ownerRigidbody = ownerBody;
         }
 
         public WeaponInstance GetWeapon(int slot)
@@ -90,7 +84,6 @@ namespace junklite
             if (rootRenderer != null)
                 rootRenderer.sortingOrder = 11;
 
-            weapon.SetOwnerRigidbody(ownerRigidbody);
             ApplySocketTransform(weapon, isRanged);
             SetSlot(slot, weapon, pickup);
             SetWeaponVisible(weapon, weaponsVisible);

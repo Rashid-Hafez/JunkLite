@@ -70,12 +70,7 @@ namespace junklite
                 return;
 
             // kill any residual momentum so the player stops immediately
-            if (controller != null)
-            {
-                var rb = controller.GetComponent<Rigidbody>();
-                if (rb != null)
-                    rb.linearVelocity = Vector3.zero;
-            }
+            controller?.StopAllVelocity();
 
            //  Debug.Log("[Parry] Begin stage1");
             PlayParryStartSound();

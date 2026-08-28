@@ -11,9 +11,10 @@ namespace junklite
     [RequireComponent(typeof(PlayerState))]
     [RequireComponent(typeof(AttributeManager))]
     [RequireComponent(typeof(Damageable))]
+    [RequireComponent(typeof(StatusEffectHandler))]
     [DefaultExecutionOrder(5)]
     [RequireComponent(typeof(CinemachineImpulseSource))]
-    public class PlayerCharacter : MonoBehaviour, IDamageReceiver, IGrabbable
+    public class PlayerCharacter : MonoBehaviour, IDamageReceiver, IGrabbable, IStatusEffectTarget
     {
         [Header("Config")]
         [SerializeField] protected CharacterStats baseStats;
@@ -38,6 +39,7 @@ namespace junklite
 
         [Header("Damage Feedback")]
         [SerializeField] private float damageInvulnerability = 0.5f;
+        [SerializeField, Min(0f)] private float defaultHitstunDuration = 0.25f;
         [SerializeField] private GameObject damageHitVFXPrefab;
         [SerializeField] private float damageHitVFXLifetime = 0.5f;
 
@@ -48,6 +50,9 @@ namespace junklite
         public bool JumpHeld => inputManager != null && inputManager.IsJumpHeld;
         public bool ReloadSceneOnDeathTemp => reloadSceneOnDeathTemp;
         public event Action<bool> OnCameraFollowRequested;
+        public event Action OnActivated;
+        public event Action OnDeactivated;
+        public event Action OnRevived;
 
         private Vector3 damageVFXOffset;
 
@@ -57,11 +62,12 @@ namespace junklite
         // Cached
         Collider[] _cachedColliders;
         private SpriteRenderer[] _spriteRenderers;
-        Rigidbody _rb;
         GameInputManager inputManager;
         [HideInInspector] public AttributeManager attributes;
         protected Damageable damageable;
         private DamageShield damageShield;
+        private StatusEffectHandler statusEffects;
+        private PlayerHitReactionResolver hitReactionResolver;
 
         // Controller
         protected Character2D5Controller controller;
@@ -72,13 +78,16 @@ namespace junklite
         public PlayerState PlayerState => playerState;
         public PlayerState State => playerState;
         public CharacterStats Stats => baseStats;
+        public StatusEffectHandler StatusEffects => statusEffects;
         public Attribute Health => attributes ? attributes.Health : null;
         public bool IsAlive => attributes ? attributes.IsAlive : true;
+        public bool IsActive { get; private set; }
 
         // Grab state
-        private bool isGrabbed = false;
-        public bool IsGrabbed => isGrabbed;
-        public bool CanBeGrabbed => IsAlive && !isGrabbed;
+        private PlayerGrabController grabController;
+        private Coroutine grabRoutine;
+        public bool IsGrabbed => grabController?.IsGrabbed ?? false;
+        public bool CanBeGrabbed => grabController?.CanBeGrabbed ?? false;
         public PlayerSoundProfile SoundProfile => soundProfile;
 
         // Attached Comps
@@ -101,6 +110,18 @@ namespace junklite
             damageable = GetComponent<Damageable>();
             TryGetComponent(out damageShield);
 
+            statusEffects = GetComponent<StatusEffectHandler>();
+            if (statusEffects == null)
+                statusEffects = gameObject.AddComponent<StatusEffectHandler>();
+            statusEffects.BindTarget(this);
+            playerState?.BindStatusEffects(statusEffects);
+            hitReactionResolver = new PlayerHitReactionResolver(
+                transform,
+                controller,
+                statusEffects,
+                defaultHitstunDuration);
+            grabController = new PlayerGrabController(this, playerState, controller);
+
             if (attributes != null && baseStats != null)
                 attributes.Initialize(baseStats);
 
@@ -118,7 +139,6 @@ namespace junklite
 
             inputManager = GameInputManager.Instance;
             _cachedColliders = GetComponentsInChildren<Collider>(includeInactive: true);
-            _rb = GetComponent<Rigidbody>();
             _spriteRenderers = GetComponentsInChildren<SpriteRenderer>(includeInactive: true);
             audioHandler = GetComponent<PlayerAudioHandler>();
 
@@ -250,12 +270,14 @@ namespace junklite
 
         public virtual void Deactivate()
         {
+            IsActive = false;
+            CancelGrab(stopCoroutine: true);
             UnsubscribeFromInput();
 
             if (Controller != null)
             {
-                Controller.CanMove = false;
-                if (_rb != null) _rb.linearVelocity = Vector3.zero;
+                Controller.SetLocomotionEnabled(false);
+                Controller.StopAllVelocity();
             }
 
             if (disableCollidersOnDeactivate && _cachedColliders != null)
@@ -271,16 +293,19 @@ namespace junklite
                     playerState.SetVulnerable(false);
                 }
             }
+
+            OnDeactivated?.Invoke();
         }
 
         public virtual void Activate()
         {
+            IsActive = true;
             if (_cachedColliders != null)
                 foreach (var c in _cachedColliders)
                     if (c) c.enabled = true;
 
             if (Controller != null)
-                Controller.CanMove = true;
+                Controller.SetLocomotionEnabled(true);
 
             if (playerState != null)
             {
@@ -291,6 +316,7 @@ namespace junklite
             }
 
             SubscribeToInput();
+            OnActivated?.Invoke();
         }
 
         public void ReviveAt(Vector3 position)
@@ -302,7 +328,7 @@ namespace junklite
             {
                 Controller.TeleportTo(position);
                 Controller.SetMovementInput(0f);
-                Controller.CanMove = false;
+                Controller.SetLocomotionEnabled(false);
             }
             else
                 transform.position = position;
@@ -313,12 +339,15 @@ namespace junklite
                 playerState.SetGrounded(true);
                 playerState.SetVulnerable(false);
             }
+
+            OnRevived?.Invoke();
         }
 
         //  void OnEnable() => SubscribeToInput();
         void OnDisable()
         {
             UnsubscribeFromInput();
+            CancelGrab(stopCoroutine: true);
         }
 
         // ====================================================================
@@ -721,6 +750,18 @@ namespace junklite
         // ====================================================================
 
         #region Damage
+
+        public void ApplyStatusEffectSnapshot(StatusEffectSnapshot snapshot)
+        {
+            bool wasCrowdControlled = playerState != null && playerState.IsStunned;
+
+            playerState?.ApplyStatusEffectSnapshot(snapshot);
+            controller?.SetStatusMoveSpeedMultiplier(snapshot.MoveSpeedMultiplier);
+
+            if (snapshot.IsCrowdControlled && !wasCrowdControlled)
+                controller?.InterruptSpecialMovement();
+        }
+
         public DamageResult ReceiveDamage(DamageRequest request)
         {
             float originallyRequested = request.Amount;
@@ -762,33 +803,26 @@ namespace junklite
             if (!IsAlive)
                 return result;
 
-            if (playerState != null && damageInvulnerability > 0f)
-                playerState.ApplyInvulnerability(damageInvulnerability);
-
-            audioHandler?.PlayHurt(); // TODO - Maybe move this to audio handler? IDK
-
-            if (damageHitVFXPrefab != null)
+            // Periodic damage changes health without repeatedly granting i-frames
+            // or replaying the full impact presentation.
+            if (!request.IsTickDamage)
             {
-                Vector3 spawnPos = transform.position + damageVFXOffset;
-                GameObject vfx = Instantiate(damageHitVFXPrefab, spawnPos, Quaternion.identity);
+                if (playerState != null && damageInvulnerability > 0f)
+                    playerState.ApplyInvulnerability(damageInvulnerability);
+
+                audioHandler?.PlayHurt();
+
+                if (damageHitVFXPrefab != null)
+                {
+                    Vector3 spawnPos = transform.position + damageVFXOffset;
+                    Instantiate(damageHitVFXPrefab, spawnPos, Quaternion.identity);
+                }
+
+                if (feedbackManager != null)
+                    feedbackManager.DoCameraShake(damageImpulseSource, cameraShakeOnHit);
             }
 
-            if (feedbackManager != null)
-                feedbackManager.DoCameraShake(damageImpulseSource, cameraShakeOnHit);
-
-            if (request.Source != null && Controller != null && request.KnockbackForce.sqrMagnitude > 0f)
-            {
-                Vector3 dir = (transform.position - request.Source.transform.position).normalized;
-                Vector3 knockback = new Vector3(
-                    dir.x * request.KnockbackForce.x,
-                    request.KnockbackForce.y,
-                    dir.z * request.KnockbackForce.x
-                );
-                Controller.AddForce(knockback, ForceMode.VelocityChange);
-            }
-
-            if (playerState != null && !request.IsTickDamage)
-                playerState.ApplyStun(0.25f);
+            hitReactionResolver?.Resolve(request);
 
             return result;
         }
@@ -802,85 +836,25 @@ namespace junklite
 
         public void GetGrabbed(GrabInfo info)
         {
-            if (!CanBeGrabbed) return;
-            StartCoroutine(HandleGrab(info));
+            if (grabController == null || !grabController.TryBegin())
+                return;
+
+            grabRoutine = StartCoroutine(RunGrab(info));
         }
 
-        private IEnumerator HandleGrab(GrabInfo info)
+        private IEnumerator RunGrab(GrabInfo info)
         {
-            isGrabbed = true;
+            yield return grabController.Execute(info);
+            grabRoutine = null;
+        }
 
-            // Stun player for entire grab + throw recovery
-            if (playerState != null)
-                playerState.ApplyStun(info.Duration + 0.5f);
+        private void CancelGrab(bool stopCoroutine)
+        {
+            if (stopCoroutine && grabRoutine != null)
+                StopCoroutine(grabRoutine);
 
-            // Disable controller movement and stop velocity
-            if (Controller != null)
-            {
-                Controller.CanMove = false;
-                Controller.StopAllVelocity();
-            }
-
-            // Disable rigidbody physics during grab
-            bool wasKinematic = false;
-            if (_rb != null)
-            {
-                wasKinematic = _rb.isKinematic;
-                _rb.isKinematic = true;
-                _rb.linearVelocity = Vector3.zero;
-            }
-
-            Transform enemyTransform = info.Source?.transform;
-
-            // Hold player attached to enemy for grab duration
-            float timer = 0f;
-            while (timer < info.Duration)
-            {
-                timer += Time.deltaTime;
-
-                // Keep player attached to enemy at grabOffset
-                if (enemyTransform != null)
-                {
-                    transform.position = enemyTransform.position + info.GrabOffset;
-                }
-
-                // Keep velocity zero during grab
-                if (Controller != null)
-                    Controller.StopAllVelocity();
-
-                yield return null;
-            }
-
-            // Re-enable rigidbody physics before throw
-            if (_rb != null)
-            {
-                _rb.isKinematic = wasKinematic;
-            }
-
-            // Apply throw damage
-            if (info.ThrowDamage > 0f)
-                ReceiveDamage(DamageRequest.Forced(info.ThrowDamage, info.Source));
-
-            // Apply throw force
-            if (Controller != null && info.ThrowForce.sqrMagnitude > 0f)
-            {
-                Vector3 throwKnockback = new Vector3(
-                    info.ThrowDirection * info.ThrowForce.x,
-                    info.ThrowForce.y,
-                    0f
-                );
-
-                Controller.AddForce(throwKnockback, ForceMode.VelocityChange);
-                Debug.Log($"Player thrown! Direction: {info.ThrowDirection}, Force: {throwKnockback}");
-            }
-
-            // Re-enable controller after throw
-            if (Controller != null)
-            {
-                Controller.CanMove = true;
-            }
-
-            isGrabbed = false;
+            grabRoutine = null;
+            grabController?.Cancel();
         }
 
         #endregion
@@ -889,14 +863,18 @@ namespace junklite
 
         protected virtual void HandleDeath()
         {
+            IsActive = false;
             // Stop all movement and velocity on death
             if (controller != null)
             {
-                controller.CanMove = false;
+                controller.SetLocomotionEnabled(false);
                 controller.StopAllVelocity();
             }
 
-            isGrabbed = false;
+            statusEffects?.ClearAllEffects();
+            // Do not stop the coroutine from inside a damage callback. Cancelling the
+            // helper releases ownership immediately; the iterator exits on its next check.
+            CancelGrab(stopCoroutine: false);
 
             Debug.Log($"{gameObject.name} has died!");
             UnsubscribeFromInput();
@@ -940,6 +918,56 @@ namespace junklite
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Resolves the player's response after damage was accepted. It does not own
+    /// health, Rigidbody state or timers; it delegates those responsibilities.
+    /// </summary>
+    internal sealed class PlayerHitReactionResolver
+    {
+        private readonly Transform targetTransform;
+        private readonly Character2D5Controller controller;
+        private readonly StatusEffectHandler statusEffects;
+        private readonly float defaultHitstunDuration;
+
+        public PlayerHitReactionResolver(
+            Transform targetTransform,
+            Character2D5Controller controller,
+            StatusEffectHandler statusEffects,
+            float defaultHitstunDuration)
+        {
+            this.targetTransform = targetTransform;
+            this.controller = controller;
+            this.statusEffects = statusEffects;
+            this.defaultHitstunDuration = Mathf.Max(0f, defaultHitstunDuration);
+        }
+
+        public void Resolve(DamageRequest request)
+        {
+            HitReactionRequest reaction = request.HitReaction;
+            if (!reaction.HasAnyReaction)
+                return;
+
+            float hitstunDuration = reaction.ResolveHitstunDuration(defaultHitstunDuration);
+            if (hitstunDuration > 0f)
+                statusEffects?.ApplyHitstun(hitstunDuration, request.Source);
+
+            if (reaction.HasKnockback && controller != null)
+            {
+                Vector3 sourcePosition = request.Source != null
+                    ? request.Source.transform.position
+                    : targetTransform.position;
+                controller.ApplyExternalKnockback(
+                    sourcePosition,
+                    reaction.KnockbackForce,
+                    reaction.InterruptsActions);
+            }
+            else if (reaction.InterruptsActions && hitstunDuration <= 0f)
+            {
+                controller?.InterruptSpecialMovement();
+            }
+        }
     }
 
 }

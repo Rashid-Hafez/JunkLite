@@ -2,10 +2,20 @@ using UnityEngine;
 using Unity.Cinemachine;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace junklite
 {
+    public enum CameraTriggerLockPolicy
+    {
+        // Preserves existing scenes: enemy-list locking when enabled, otherwise
+        // the original global PlayerCombatTracker behavior.
+        LegacyAutomatic,
+        GlobalCombat,
+        Encounter,
+        None,
+        LegacyEnemyList
+    }
+
     public class CameraSwitchTrigger : MonoBehaviour
     {
         [Header("Rotation Settings")]
@@ -30,9 +40,14 @@ namespace junklite
         private bool usingFirstState = false;
 
         [Header("Lock Settings")]
+        [SerializeField] private CameraTriggerLockPolicy lockPolicy = CameraTriggerLockPolicy.LegacyAutomatic;
+        [SerializeField] private EncounterController encounterLock;
         [SerializeField] private bool locked = false;
         [SerializeField] private BoxCollider triggerCollider;
+        private bool policyLocked;
+        private bool oneWayLocked;
         private PlayerCombatTracker subscribedCombatTracker;
+        private EncounterController subscribedEncounter;
         private PlayerLifecycle subscribedPlayerLifecycle;
 
         [Header("Culling Objects")]
@@ -43,19 +58,30 @@ namespace junklite
         [SerializeField] private Renderer[] arrowRenderers;
         [SerializeField] private Color lockColor, unlockColor;
 
-        [Header("Enemy Alive Lock")]
+        [Header("Legacy Enemy Alive Lock")]
         [SerializeField] private bool enableEnemyLock;
         [SerializeField] private List<EnemyCharacter> enemies = new List<EnemyCharacter>();
 
+        public bool IsLocked => locked;
+        public CameraTriggerLockPolicy EffectiveLockPolicy => lockPolicy switch
+        {
+            CameraTriggerLockPolicy.LegacyAutomatic when enableEnemyLock =>
+                CameraTriggerLockPolicy.LegacyEnemyList,
+            CameraTriggerLockPolicy.LegacyAutomatic =>
+                CameraTriggerLockPolicy.GlobalCombat,
+            _ => lockPolicy
+        };
+
         private void OnEnable()
         {
-            RebindCombatTracker();
+            RefreshLockBindings();
             RebindPlayerLifecycle();
         }
 
         private void OnDisable()
         {
             UnsubscribeFromCombatTracker();
+            UnsubscribeFromEncounter();
             UnsubscribeFromPlayerLifecycle();
         }
 
@@ -67,13 +93,14 @@ namespace junklite
             pointB = transform.Find("B");
 
             locked = false;
-
+            policyLocked = false;
+            oneWayLocked = false;
         }
 
         private void Start()
         {
             // Persistent services may finish Awake after this scene object enables.
-            RebindCombatTracker();
+            RefreshLockBindings();
             RebindPlayerLifecycle();
 
             arrowRenderers = GetComponentsInChildren<Renderer>();
@@ -82,28 +109,63 @@ namespace junklite
                 renderer.material.SetFloat("_ZWrite", 1f);
             }
 
+            ApplyLockState();
         }
 
         private void OnDestroy()
         {
             UnsubscribeFromCombatTracker();
+            UnsubscribeFromEncounter();
             UnsubscribeFromPlayerLifecycle();
+        }
+
+        private void RefreshLockBindings()
+        {
+            CameraTriggerLockPolicy policy = EffectiveLockPolicy;
+
+            if (policy == CameraTriggerLockPolicy.GlobalCombat)
+                RebindCombatTracker();
+            else
+                UnsubscribeFromCombatTracker();
+
+            if (policy == CameraTriggerLockPolicy.Encounter)
+                RebindEncounter();
+            else
+                UnsubscribeFromEncounter();
+
+            switch (policy)
+            {
+                case CameraTriggerLockPolicy.None:
+                    SetPolicyLocked(false);
+                    break;
+
+                case CameraTriggerLockPolicy.LegacyEnemyList:
+                    CheckEnemiesAlive();
+                    break;
+            }
         }
 
         private void RebindCombatTracker()
         {
             PlayerCombatTracker tracker = PlayerCombatTracker.Instance;
             if (subscribedCombatTracker == tracker)
+            {
+                SetPolicyLocked(tracker != null && tracker.IsPlayerInCombat);
                 return;
+            }
 
             UnsubscribeFromCombatTracker();
             subscribedCombatTracker = tracker;
 
             if (subscribedCombatTracker == null)
+            {
+                SetPolicyLocked(false);
                 return;
+            }
 
             subscribedCombatTracker.OnCombatStarted += Lock;
             subscribedCombatTracker.OnCombatEnded += Unlock;
+            SetPolicyLocked(subscribedCombatTracker.IsPlayerInCombat);
         }
 
         private void UnsubscribeFromCombatTracker()
@@ -114,6 +176,72 @@ namespace junklite
             subscribedCombatTracker.OnCombatStarted -= Lock;
             subscribedCombatTracker.OnCombatEnded -= Unlock;
             subscribedCombatTracker = null;
+        }
+
+        private void RebindEncounter()
+        {
+            if (subscribedEncounter == encounterLock)
+            {
+                SynchronizeEncounterLock();
+                return;
+            }
+
+            UnsubscribeFromEncounter();
+            subscribedEncounter = encounterLock;
+
+            if (subscribedEncounter == null)
+            {
+                SetPolicyLocked(false);
+                return;
+            }
+
+            subscribedEncounter.EncounterStarted += HandleEncounterStarted;
+            subscribedEncounter.EncounterCompleted += HandleEncounterCompleted;
+            SynchronizeEncounterLock();
+        }
+
+        private void UnsubscribeFromEncounter()
+        {
+            if (subscribedEncounter == null)
+                return;
+
+            subscribedEncounter.EncounterStarted -= HandleEncounterStarted;
+            subscribedEncounter.EncounterCompleted -= HandleEncounterCompleted;
+            subscribedEncounter = null;
+        }
+
+        private void SynchronizeEncounterLock()
+        {
+            if (subscribedEncounter == null)
+                return;
+
+            switch (subscribedEncounter.State)
+            {
+                case EncounterState.Idle:
+                case EncounterState.Completed:
+                    SetPolicyLocked(false);
+                    break;
+
+                case EncounterState.Running:
+                    SetPolicyLocked(true);
+                    break;
+
+                // Cancellation deliberately does not imply success or unlock.
+                case EncounterState.Cancelled:
+                    break;
+            }
+        }
+
+        private void HandleEncounterStarted(EncounterController encounter)
+        {
+            if (encounter == subscribedEncounter)
+                SetPolicyLocked(true);
+        }
+
+        private void HandleEncounterCompleted(EncounterController encounter)
+        {
+            if (encounter == subscribedEncounter)
+                SetPolicyLocked(false);
         }
 
         private void RebindPlayerLifecycle()
@@ -150,6 +278,9 @@ namespace junklite
         private void ResetToDefaultState()
         {
             usingFirstState = false;
+            hasSwitched = false;
+            oneWayLocked = false;
+            ApplyLockState();
 
             // Restore any objects that were hidden mid-run
             if (objectsToHide != null && objectsToHide.Length > 0 && hidden)
@@ -163,26 +294,49 @@ namespace junklite
 
         private void Lock()
         {
-            locked = true;
-            Debug.Log("Locked");
-            if (triggerCollider != null)
-            {
-                triggerCollider.isTrigger = false;
-                foreach (Renderer renderer in arrowRenderers)
-                    renderer.material.SetColor("_BaseColor", lockColor);
-            }
+            SetPolicyLocked(true);
         }
 
         private void Unlock()
         {
-            locked = false;
-            Debug.Log("Unlocked");
+            SetPolicyLocked(false);
+        }
+
+        private void SetPolicyLocked(bool value)
+        {
+            policyLocked = value;
+            ApplyLockState();
+        }
+
+        private void SetOneWayLocked(bool value)
+        {
+            oneWayLocked = value;
+            ApplyLockState();
+        }
+
+        private void ApplyLockState()
+        {
+            bool shouldLock = policyLocked || oneWayLocked;
+            bool changed = locked != shouldLock;
+            locked = shouldLock;
+
             if (triggerCollider != null)
             {
-                triggerCollider.isTrigger = true;
-                foreach (Renderer renderer in arrowRenderers)
-                    renderer.material.SetColor("_BaseColor", unlockColor);
+                triggerCollider.isTrigger = !locked;
+
+                if (arrowRenderers != null)
+                {
+                    Color color = locked ? lockColor : unlockColor;
+                    foreach (Renderer renderer in arrowRenderers)
+                    {
+                        if (renderer != null)
+                            renderer.material.SetColor("_BaseColor", color);
+                    }
+                }
             }
+
+            if (changed)
+                Debug.Log(locked ? "Locked" : "Unlocked", this);
         }
 
         private void OnTriggerEnter(Collider other)
@@ -204,7 +358,7 @@ namespace junklite
 
                 if (oneWaySwitch && !hasSwitched)
                 {
-                    Lock();
+                    SetOneWayLocked(true);
                     hasSwitched = true;
                 }
             }
@@ -252,15 +406,14 @@ namespace junklite
 
         private void Update()
         {
-            // Only check while enemy-lock is enabled to avoid repeated calls when unused
-            if (enableEnemyLock)
+            // Compatibility only. New encounter locks are event-driven.
+            if (EffectiveLockPolicy == CameraTriggerLockPolicy.LegacyEnemyList)
                 CheckEnemiesAlive();
         }
 
         private void CheckEnemiesAlive()
         {
-            // Defensive: do nothing if not enabled
-            if (!enableEnemyLock)
+            if (EffectiveLockPolicy != CameraTriggerLockPolicy.LegacyEnemyList)
                 return;
 
             if (enemies == null)
@@ -276,14 +429,41 @@ namespace junklite
             // If there are no enemies left, ensure unlocked; otherwise ensure locked.
             if (enemies.Count == 0)
             {
-                if (locked)
-                    Unlock();
+                if (policyLocked)
+                    SetPolicyLocked(false);
             }
             else
             {
-                if (!locked)
-                    Lock();
+                if (!policyLocked)
+                    SetPolicyLocked(true);
             }
+        }
+
+        public int ValidateLockConfiguration(bool logWarnings = true)
+        {
+            int issueCount = 0;
+
+            void Report(string message)
+            {
+                issueCount++;
+                if (logWarnings)
+                    Debug.LogWarning($"[CameraSwitchTrigger] '{name}' {message}", this);
+            }
+
+            CameraTriggerLockPolicy policy = EffectiveLockPolicy;
+            if (policy == CameraTriggerLockPolicy.Encounter && encounterLock == null)
+                Report("uses the Encounter lock policy but has no encounter assigned.");
+
+            if (policy != CameraTriggerLockPolicy.Encounter && encounterLock != null)
+                Report("has an encounter assigned but is not using the Encounter lock policy.");
+
+            if (policy == CameraTriggerLockPolicy.LegacyEnemyList &&
+                (enemies == null || enemies.Count == 0))
+            {
+                Report("uses the legacy enemy-list lock but has no enemies assigned.");
+            }
+
+            return issueCount;
         }
 
         private void HideObjects()
@@ -325,5 +505,12 @@ namespace junklite
             if (triggerCollider != null)
                 Gizmos.DrawCube(transform.position, triggerCollider.bounds.size);
         }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            ValidateLockConfiguration();
+        }
+#endif
     }
 }

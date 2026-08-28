@@ -1,12 +1,12 @@
 # JunkLite Architecture Refactor Handoff
 
-Last reviewed: 2026-08-27
+Last reviewed: 2026-08-29
 
 Reviewed branch: `4.7`
 
 Baseline code commit: `46f3c34e` (`changes to player, enemies and base services`)
 
-The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` damage migration, focused mod-runtime cleanup, the explicit `V2.5` infrastructure migration, the focused player/UI lifecycle extractions, the player weapon-loadout extraction, the composed enemy-AI migration, the first encounter/wave implementation slice, and the audited unused-script cleanup described below.
+The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` execution/motion extraction, focused mod-runtime cleanup, the explicit `V2.5` infrastructure migration, the focused player/UI lifecycle extractions, the player weapon-loadout extraction, the composed enemy-AI migration, encounter phases 1–4, and the audited unused-script cleanup described below.
 
 ## Purpose
 
@@ -41,7 +41,7 @@ The goal is better modularity and easier feature development without building a 
 | Player separation | Implemented, gameplay verification pending | `PlayerCharacter` no longer inherits the shared character base. |
 | Enemy foundation | Implemented, gameplay verification pending | `EnemyCharacter` inherits the small enemy-only `EnemyBase`. |
 | Damage request/result pipeline | Implemented | All first-party producers use `DamageRequest`/`DamageResult`; the legacy API is removed. |
-| Weapon damage migration | Implemented, gameplay verification pending | All `WeaponManager` damage paths publish actual applied damage. |
+| Weapon execution and damage migration | Implemented, gameplay verification pending | `WeaponManager` owns attack decisions/lifecycle while plain C# helpers own sequencing, attack motion, hit resolution, and damage delivery. |
 | Ability/mod runtime architecture | Implemented, gameplay verification pending | Per-slot executions, cancellation cleanup, lifecycle separation, and composable player ability locks are in place. |
 | Damage/lock EditMode tests | Passing | Unity 6000.3.22f1 passes all 7 focused tests. |
 | Game root / level context | Migration implemented and validator passing; Play Mode verification pending | `V2.5` contains the reusable root and standalone level context without removing authored environment content. |
@@ -51,7 +51,7 @@ The goal is better modularity and easier feature development without building a 
 | Game UI lifecycle extraction | Implemented, Play Mode verification pending | `GameUIManager` owns HUD, pause, game-over, loading UI, prefab configuration, instances, and state-driven visibility. |
 | Player weapon loadout | Implemented, Play Mode verification pending | `PlayerWeaponLoadout` owns both equipped slots, paired world pickups, attachment, visibility, swap/drop/replace, and break removal. |
 | Composed enemy AI foundation | Implemented for all current first-party enemy prefabs, latest migrations need Play Mode verification | Grunt/Hyena are user-verified. Robot, Flying Dummy, Patrol Dummy, and Dummy now use the same composition boundary without forcing every archetype through the same brain. |
-| Encounter/wave foundation | Runtime and Level 0 migration implemented; EditMode and Play Mode verification pending | Scene-local sequential waves, exact-once participant tracking, cancellation, validation, and the Level 0 legacy bridge are in place. Level goals and gates are not migrated yet. |
+| Encounter/wave progression | Phases 1–4 implemented; scene authoring, EditMode, and Play Mode verification pending | Scene-local waves, exact-once participant tracking, required-encounter level goals, explicit event-driven camera locks, cancellation semantics, validation, and the Level 0 legacy bridge are in place. |
 | Full game/level manager cleanup | In progress | Player and UI lifecycle are extracted; `GameManager` retains global state, pause coordination, scene transitions, and music. |
 
 ## Implemented Architecture
@@ -286,9 +286,9 @@ Deliberately deferred until this vertical slice is gameplay-proven:
 
 - No generalized target/threat framework, service locator, AI event bus, or universal action graph was added.
 - `EnemyType`, `EnemyConfig`, and a possible identity-only `EnemyDefinition` were not redesigned.
-- Animation-presentation cleanup remains deferred. Encounter phases 1–2 are now implemented; level-goal and gate consumers remain deferred until verification.
+- Animation-presentation cleanup remains deferred. Encounter phases 1–4 are implemented; native scene authoring and gameplay verification remain.
 
-### 14. Encounter and wave architecture — phases 1–2 implemented
+### 14. Encounter and wave architecture — phases 1–4 implemented
 
 The first implementation slice extracts one concrete responsibility from level-specific code:
 
@@ -413,19 +413,19 @@ For the two existing tutorial scenes, `enemyPrefabs` and `enemySpawnPoints` rema
 
 The sequence manager's manual `spawnedEnemies`, `enemiesAlive`, spawn/count/wait methods, and direct `EnemyCharacter.Died` subscription ownership are removed. The unused post-pickup enemy spawning method/fields were also removed after a source and serialized-scene audit found only null authored values. No scene was bulk-edited as part of the code extraction.
 
-#### Implementation phase 3 — level goal and statistics
+#### Implementation phase 3 — level goal and statistics (implemented, scene wiring pending)
 
-`LevelGoal` should gain an explicit required-encounters mode and complete when every assigned required encounter publishes `EncounterCompleted`. It must not reconstruct completion from expected kills or participant health. Keep its old scene-scan Kill-All mode as a temporary compatibility path for levels not yet migrated.
+`LevelGoal` now has an explicit `RequiredEncounters` mode. It subscribes to each unique assigned encounter, recognizes encounters that had already completed before binding, and completes only when every valid required encounter publishes or already holds successful completion. Empty configuration does not auto-complete, cancellation is not success, and null/duplicate assignments are reported by validation. The old scene-scan `KillAll`, `ReachZone`, and `Manual` modes remain compatible for levels not yet migrated.
 
 Do not change statistics in the first encounter slice. `EnemyCharacter.HandleDeath` currently reports kills directly to `LevelStatsTracker`; also subscribing the tracker to `EncounterController.EnemyDied` would double-count. Once representative levels use encounters, choose one kill source deliberately. The preferred eventual direction is for a scene-configured stats consumer to observe `EnemyRegistered` and `EnemyDied`, after which the direct enemy-to-stats call can be removed. Until that migration is complete, preserve the existing universal kill path and keep encounter events out of statistics.
 
 Level-goal completion and statistical enemy totals remain separate concepts. A required encounter can complete through an explicit scripted removal without that removal being counted as a kill.
 
-#### Implementation phase 4 — event-driven gates and cameras
+#### Implementation phase 4 — event-driven gates and cameras (implemented, scene wiring pending)
 
-Replace `CameraSwitchTrigger`'s manual enemy-health polling only after the encounter foundation is verified. A trigger/gate may reference a specific encounter and lock on `EncounterStarted`, then unlock on `EncounterCompleted`.
+`CameraSwitchTrigger` now exposes one explicit lock policy: `Encounter`, `GlobalCombat`, `None`, or the temporary legacy enemy-list path. Encounter policy references one `EncounterController`, locks on `EncounterStarted`, and unlocks only on `EncounterCompleted`. Old scenes deserialize to `LegacyAutomatic`, which resolves to their prior enemy-list intent when `enableEnemyLock` is set and otherwise to global combat, so scene migration can be incremental.
 
-Cancellation must not be interpreted as successful completion. V1 gates do not automatically unlock on cancellation; the cancelling level flow decides the appropriate presentation. `PlayerCombatTracker` remains available for gates that intentionally represent global current-combat engagement instead of a bounded encounter, but one gate must have one explicit lock policy rather than combining both concepts implicitly.
+Cancellation is not interpreted as successful completion and does not unlock an encounter-bound trigger. Policy locking and the trigger's one-way lock are composed independently, preventing encounter completion or combat end from accidentally clearing a one-way lock. `PlayerCombatTracker` remains available for triggers intentionally representing global current-combat engagement, but a trigger no longer combines global combat and an enemy list implicitly.
 
 If two or more unrelated gate types repeat identical encounter subscription logic, extract a small `EncounterGate` adapter then. Do not create it pre-emptively.
 
@@ -449,6 +449,10 @@ The implementation is not complete until tests cover:
 14. `Level0SequenceManager` source no longer instantiates or manually counts enemies.
 15. Tutorial parry and Hyena-reward reactions remain outside encounter code.
 16. Gates and level goals no longer inspect enemy health or concrete FSM states after their migration phases.
+17. A required-encounter goal completes only after every assigned encounter completes.
+18. Encounter cancellation never completes a level goal or unlocks an encounter-bound camera trigger.
+19. Camera triggers lock/unlock from encounter start/completion events.
+20. Encounter completion cannot clear an independent one-way trigger lock.
 
 #### Definition of complete
 
@@ -519,6 +523,14 @@ On 2026-08-28, after implementing encounter phases 1–2:
 - `EncounterArchitectureTests` and `Tools > JunkLite > Systems > Validate Encounters` are implemented. The focused tests compile but still require an in-Editor EditMode run.
 - No scene or prefab was changed. Unity generated the runtime encounter script `.meta` files; the Editor will generate metadata for the new validator/test files when it imports them.
 
+On 2026-08-29, after implementing encounter phases 3–4:
+
+- `LevelGoal.RequiredEncounters` consumes authoritative encounter completion and retains the old Kill-All path for unmigrated levels.
+- `CameraSwitchTrigger` supports one explicit encounter/global/none/legacy lock policy. Encounter locks are event-driven, cancellation stays locked, and the independent one-way lock composes safely with policy state.
+- The encounter validator now checks encounters, required-encounter goals, and camera lock configuration. Five focused consumer tests were added for aggregate completion, cancellation, start/completion locking, and one-way lock composition.
+- Direct runtime and editor assembly builds complete with 0 errors. The new focused tests compile but still require an in-Editor EditMode run because the project was already open in Unity.
+- No scene or prefab was changed. Native encounter, goal, and camera-trigger references must be authored with user review.
+
 After the unused-script audit on the same date, the direct runtime and editor assembly builds completed with 0 errors. The audit checked both code symbols and script GUIDs across all assets before deletion; no scene, prefab, or ScriptableObject referenced a removed script.
 
 No scene or prefab was changed for the mod-runtime or camera-binding cleanup. Unity generated only the `.meta` for the new mod runtime script.
@@ -561,7 +573,7 @@ For the enemy architecture, verify in Play Mode:
 
 The broader foundation still needs representative player/enemy/weapon gameplay verification. The migrated `V2.5` scene still needs visual and functional Play Mode approval.
 
-For the encounter foundation, run `EncounterArchitectureTests`, validate a natively authored encounter, and verify both tutorial scenes first through the legacy bridge and then with explicit scene-local encounter configuration. Confirm sequential wave activation, tutorial attack/parry handling, Hyena reward creation, cancellation behavior, and successful continuation only after `EncounterCompleted`.
+For the encounter system, run `EncounterArchitectureTests`, validate a natively authored encounter, and verify both tutorial scenes first through the legacy bridge and then with explicit scene-local encounter configuration. Also wire one representative `LevelGoal` to `RequiredEncounters` and one `CameraSwitchTrigger` to the `Encounter` lock policy. Confirm sequential wave activation, tutorial attack/parry handling, Hyena reward creation, cancellation staying incomplete/locked, and successful continuation/unlock only after `EncounterCompleted`.
 
 ## What Should Be Done Next
 
@@ -595,13 +607,13 @@ Completed according to the user's current test and pickup/break report. Keep the
 
 Run the validator, focused tests, and Play Mode checklist above. Fix regressions inside the existing character/perception/brain/state/behavior/controller boundaries. Do not add `EnemyDefinition` until a concrete content requirement proves it is useful.
 
-### Gate 6: Verify and finish encounter consumers
+### Gate 6: Verify and author encounter consumers
 
-Encounter phases 1–2 are implemented. Run `EncounterArchitectureTests` and `Tools > JunkLite > Systems > Validate Encounters`, then Play Mode-check the Level 0 combat boundary. With user review, author one explicit scene-local encounter in each tutorial scene and remove the legacy bridge only after both are migrated. Once the foundation is proven, implement phase 3 (`LevelGoal` required encounters), then phase 4 (event-driven encounter gates/camera triggers). Keep enemy lifecycle behind `EnemyCharacter.Died`; do not introduce reset/replay, reusable wave assets, pooling, a global AI event bus, or a universal action graph.
+Encounter phases 1–4 are implemented. Run `EncounterArchitectureTests` and `Tools > JunkLite > Systems > Validate Encounters`, then Play Mode-check the Level 0 combat boundary and the required-goal/camera-lock cases above. With user review, author one explicit scene-local encounter in each tutorial scene and migrate representative goals/triggers from compatibility modes. Remove the Level 0 legacy bridge and per-frame legacy enemy-list usage only after their serialized consumers are migrated. Keep enemy lifecycle behind `EnemyCharacter.Died`; do not introduce reset/replay, reusable wave assets, pooling, a global AI event bus, or a universal action graph.
 
-### Deferred weapon reassessment
+### Weapon execution extraction boundary
 
-`WeaponManager` is still large because it contains melee, directional blast, hitscan, timing, movement, and feedback behavior. Do not split it based on line count alone. After loadout verification, use the next planned weapon type to identify whether a focused attack-execution strategy or executor would make that addition materially easier. If existing data-driven melee/ranged paths already support it cleanly, leave the manager as-is and move to the next gameplay system.
+`WeaponManager` remains the authority for attack eligibility, selection, combo state, cancellation, durability, and public combat events. Plain C# `WeaponAttackExecutor`, `WeaponAttackMotion`, `WeaponHitResolver`, and `WeaponDamageResolver` helpers own their focused operational work without adding prefab components or competing attack state. Stop this refactor here; only add another weapon abstraction when an authored weapon behavior proves the current definition/executor boundary insufficient.
 
 ## Performance Priorities
 
@@ -634,7 +646,7 @@ Still required before calling the slice gameplay-closed:
 
 ## Continuation Prompt for a New Codex Task
 
-> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. The player/combat/lifecycle/loadout work described here is implemented. The composed enemy architecture is implemented across Grunt, all Hyena variants, Robot, Flying Dummy, Patrol Dummy, and Dummy. Encounter phases 1–2 are also implemented: `EncounterController` owns scene-local sequential waves and exact-once participant lifecycle, while `Level0SequenceManager` owns only tutorial reactions and sequencing and has a temporary legacy-array bridge. Run the enemy and encounter validators/tests, complete the Robot/Flying/passive and Level 0 Play Mode checklists, then author explicit tutorial encounters with user review. After verification, migrate `LevelGoal` and encounter-specific gates in phases 3–4. Do not add reset/replay, reusable wave assets, pooling, networking architecture, a universal AI/ability graph, a service locator, or a broad manager rewrite.
+> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. The player/combat/lifecycle/loadout and focused weapon-execution work described here is implemented. The composed enemy architecture is implemented across Grunt, all Hyena variants, Robot, Flying Dummy, Patrol Dummy, and Dummy. Encounter phases 1–4 are implemented: `EncounterController` owns scene-local waves and participant lifecycle; `LevelGoal` consumes required encounter completion; `CameraSwitchTrigger` supports an explicit event-driven encounter lock; and `Level0SequenceManager` owns tutorial reactions/sequencing with a temporary legacy-array bridge. Run the enemy and encounter validators/tests, complete the Robot/Flying/passive and Level 0 Play Mode checklists, then author explicit encounter/goal/trigger references with user review and retire compatibility paths only after their consumers are migrated. Do not add reset/replay, reusable wave assets, pooling, networking architecture, a universal AI/ability graph, a service locator, or a broad manager rewrite.
 
 ## Synchronization Checklist
 

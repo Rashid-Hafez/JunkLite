@@ -799,7 +799,6 @@ GameObject:
   m_Component:
   - component: {fileID: 7117484140060184854}
   - component: {fileID: 1482493438042684396}
-  - component: {fileID: 3848022378524677996}
   - component: {fileID: 3267441522425935964}
   - component: {fileID: 5058750099860732212}
   - component: {fileID: 4240971418246477782}
@@ -816,7 +815,8 @@ GameObject:
   - component: {fileID: 6282132647400396865}
   - component: {fileID: -8791361905287476187}
   - component: {fileID: 1478857151611631190}
-  - component: {fileID: 6156739475867978533}
+  - component: {fileID: 2356093748291057341}
+  - component: {fileID: 2356093748291057342}
   m_Layer: 16
   m_Name: Player_2.2
   m_TagString: Player
@@ -951,18 +951,6 @@ MonoBehaviour:
   facingMode: 0
   rotationSpeed: 53.97
   isDashing: 0
---- !u!114 &3848022378524677996
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7038683931279381878}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 93629e578b242487896638b2a3eadfc2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &3267441522425935964
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1449,22 +1437,35 @@ MonoBehaviour:
   stunDuration: 0.3
   parryStunDuration: 1.5
   hitstopDuration: 0.1
---- !u!114 &6156739475867978533
+--- !u!114 &2356093748291057341
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7038683931279381878}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7d21c625ee328f940b6a29850605b6dd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::LightBox
-  playerLight: {fileID: 2786367953726027545}
-  transitionDuration: 0.25
-  dimIntensity: 20
-  brightIntensity: 80
+  m_Script: {fileID: 11500000, guid: c2991485d67c69042a3c4855176eb1a0, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.StatusEffectHandler
+  burnVFX: {fileID: 0}
+  poisonVFX: {fileID: 0}
+  bleedVFX: {fileID: 0}
+  electricVFX: {fileID: 0}
+  showDebugLogs: 0
+--- !u!114 &2356093748291057342
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7038683931279381878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a54fb91f22a73a409555312ae61116a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.ModExecutionRunner
 --- !u!1 &7404579367925327084
 GameObject:
   m_ObjectHideFlags: 0

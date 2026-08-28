@@ -6,6 +6,7 @@ namespace junklite
     public class FireModData : PassiveModData
     {
         [Header("Burn Effect")]
+        [SerializeField] private StatusEffectDefinition burnStatusEffect;
         public float burnDamage = 5f;
         public float tickInterval = 0.5f;
         public float burnDuration = 3f;
@@ -17,14 +18,15 @@ namespace junklite
             if (instance.IsBroken) return;
             if (enemy == null || !enemy.IsAlive || enemy.StatusEffects == null) return;
 
-            var burn = new StatusEffectInstance(
-                type: StatusEffectType.Burn,
-                damagePerTick: burnDamage,
-                tickInterval: tickInterval,
-                duration: burnDuration,
-                damageType: DamageType.Fire,
-                source: player.gameObject
-            );
+            StatusEffectApplication burn = burnStatusEffect != null
+                ? burnStatusEffect.CreateApplication(player.gameObject)
+                : StatusEffectApplication.DamageOverTime(
+                    StatusEffectType.Burn,
+                    burnDamage,
+                    tickInterval,
+                    burnDuration,
+                    DamageType.Fire,
+                    player.gameObject);
 
             enemy.StatusEffects.Apply(burn);
             instance.ConsumeDurability();

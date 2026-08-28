@@ -4913,7 +4913,6 @@ GameObject:
   m_Component:
   - component: {fileID: 5366829167370397050}
   - component: {fileID: 8243180082764676825}
-  - component: {fileID: 8129061883183037283}
   - component: {fileID: 5743356979292015143}
   - component: {fileID: 5260910272949053861}
   - component: {fileID: 3525778777296526183}
@@ -5067,18 +5066,6 @@ MonoBehaviour:
   faceMovementDirection: 1
   facingMode: 0
   rotationSpeed: 10
---- !u!114 &8129061883183037283
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 757279706138491129}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 93629e578b242487896638b2a3eadfc2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &5743356979292015143
 MonoBehaviour:
   m_ObjectHideFlags: 0

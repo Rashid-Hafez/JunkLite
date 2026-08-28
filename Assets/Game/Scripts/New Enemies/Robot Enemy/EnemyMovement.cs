@@ -56,6 +56,7 @@ namespace junklite
         private bool isDashing;
         private float currentSpeed;
         private float dashSpeed;
+        private float statusMoveSpeedMultiplier = 1f;
         private int facingDirection = 1;
 
         // Axis-agnostic movement plane (cached once at startup)
@@ -89,7 +90,8 @@ namespace junklite
 
         // Public accessors
         public float MoveSpeed { get => moveSpeed; set => moveSpeed = value; }
-        public float CurrentSpeed => currentSpeed;
+        public float CurrentSpeed => currentSpeed * statusMoveSpeedMultiplier;
+        public float EffectiveMoveSpeed => moveSpeed * statusMoveSpeedMultiplier;
         public bool IsMoving => isMoving;
         public bool HasReachedDestination => !isMoving || (!isDirectionalMovement && DistanceToTarget <= stoppingDistance);
         public float DistanceToTarget => GetPlanarDistance(rb.position, targetPosition);
@@ -341,7 +343,7 @@ namespace junklite
             Vector3 planarDir = GetPlanarDirection(direction);
 
             float speed = currentSpeed > 0f ? currentSpeed : moveSpeed;
-            return planarDir * speed;
+            return planarDir * speed * statusMoveSpeedMultiplier;
         }
 
         private Vector3 CalculateDashVelocity()
@@ -368,7 +370,7 @@ namespace junklite
                 return Vector3.zero;
             }
 
-            return moveDirection * currentSpeed;
+            return moveDirection * currentSpeed * statusMoveSpeedMultiplier;
         }
 
         // ============================================================
@@ -459,6 +461,15 @@ namespace junklite
             isDirectionalMovement = true;
             isDashing = false;
             UpdateFacingFromDirection(direction);
+        }
+
+        /// <summary>
+        /// Applies the aggregate status multiplier without mutating the configured
+        /// base speed. This prevents a slow expiring from overwriting upgrades.
+        /// </summary>
+        public void SetStatusMoveSpeedMultiplier(float multiplier)
+        {
+            statusMoveSpeedMultiplier = Mathf.Max(0f, multiplier);
         }
 
         /// <summary>

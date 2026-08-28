@@ -7,6 +7,7 @@ namespace junklite
     public class ElectricModData : PassiveModData
     {
         [Header("Zap Effect")]
+        [SerializeField] private StatusEffectDefinition electricStatusEffect;
         public float zapDamage = 3f;
         public float tickInterval = 0.3f;
         public float zapDuration = 2f;
@@ -39,14 +40,19 @@ namespace junklite
 
         private void ApplyZap(EnemyCharacter enemy, float damage, GameObject source)
         {
-            var zap = new StatusEffectInstance(
-                type: StatusEffectType.Electric,
-                damagePerTick: damage,
-                tickInterval: tickInterval,
-                duration: zapDuration,
-                damageType: DamageType.Electric,
-                source: source
-            );
+            StatusEffectApplication zap = electricStatusEffect != null
+                ? new StatusEffectApplication(
+                    electricStatusEffect.BuildSpec().WithDamagePerTick(damage),
+                    source,
+                    strengthOverride: damage,
+                    definition: electricStatusEffect)
+                : StatusEffectApplication.DamageOverTime(
+                    StatusEffectType.Electric,
+                    damage,
+                    tickInterval,
+                    zapDuration,
+                    DamageType.Electric,
+                    source);
 
             enemy.StatusEffects.Apply(zap);
         }

@@ -3,7 +3,13 @@ using UnityEngine;
 
 namespace junklite
 {
-    public enum LevelGoalMode { KillAll, ReachZone, Manual }
+    public enum LevelGoalMode
+    {
+        KillAll,
+        ReachZone,
+        Manual,
+        RequiredEncounters
+    }
 
     public class LevelGoal : MonoBehaviour
     {
@@ -19,8 +25,19 @@ namespace junklite
         [Header("ReachZone")]
         [SerializeField] private string playerTag = "Player";
 
+        [Header("Required Encounters")]
+        [SerializeField] private List<EncounterController> requiredEncounters = new();
+
         private readonly HashSet<EnemyCharacter> _aliveEnemies = new();
+        private readonly HashSet<EncounterController> _subscribedEncounters = new();
+        private readonly HashSet<EncounterController> _completedEncounters = new();
+        private bool _initialized;
         private bool _completed;
+
+        public LevelGoalMode Mode => mode;
+        public bool IsCompleted => _completed;
+        public int RequiredEncounterCount => _subscribedEncounters.Count;
+        public int CompletedEncounterCount => _completedEncounters.Count;
 
         #region Unity Lifecycle
 
@@ -32,7 +49,16 @@ namespace junklite
 
         private void Start()
         {
-            if (mode != LevelGoalMode.KillAll) return;
+            _initialized = true;
+
+            if (mode == LevelGoalMode.RequiredEncounters)
+            {
+                BindRequiredEncounters();
+                return;
+            }
+
+            if (mode != LevelGoalMode.KillAll)
+                return;
 
             var enemies = autoRegisterAllEnemies
                 ? FindObjectsByType<EnemyCharacter>(FindObjectsSortMode.None)
@@ -47,8 +73,21 @@ namespace junklite
             LevelStatsTracker.Instance?.SetTotalEnemies(_aliveEnemies.Count);
         }
 
+        private void OnEnable()
+        {
+            if (_initialized && mode == LevelGoalMode.RequiredEncounters)
+                BindRequiredEncounters();
+        }
+
+        private void OnDisable()
+        {
+            UnsubscribeFromRequiredEncounters();
+        }
+
         private void OnDestroy()
         {
+            UnsubscribeFromRequiredEncounters();
+
             foreach (var e in _aliveEnemies)
             {
                 if (e != null && e.attributes != null)
@@ -57,6 +96,125 @@ namespace junklite
 
             _aliveEnemies.Clear();
             if (Instance == this) Instance = null;
+        }
+
+        #endregion
+
+        #region Encounter Registration
+
+        private void BindRequiredEncounters()
+        {
+            UnsubscribeFromRequiredEncounters();
+            _completedEncounters.Clear();
+
+            if (requiredEncounters == null || requiredEncounters.Count == 0)
+            {
+                Debug.LogWarning(
+                    $"[LevelGoal] '{name}' requires encounters but none are assigned. " +
+                    "The level goal will remain incomplete.",
+                    this);
+                return;
+            }
+
+            for (int index = 0; index < requiredEncounters.Count; index++)
+            {
+                EncounterController encounter = requiredEncounters[index];
+                if (encounter == null)
+                {
+                    Debug.LogWarning(
+                        $"[LevelGoal] '{name}' has a null required encounter at index {index}.",
+                        this);
+                    continue;
+                }
+
+                if (!_subscribedEncounters.Add(encounter))
+                {
+                    Debug.LogWarning(
+                        $"[LevelGoal] '{name}' assigns encounter '{encounter.name}' more than once.",
+                        this);
+                    continue;
+                }
+
+                encounter.EncounterCompleted += HandleEncounterCompleted;
+                if (encounter.State == EncounterState.Completed)
+                    _completedEncounters.Add(encounter);
+            }
+
+            EvaluateRequiredEncounters();
+        }
+
+        private void UnsubscribeFromRequiredEncounters()
+        {
+            foreach (EncounterController encounter in _subscribedEncounters)
+            {
+                if (encounter != null)
+                    encounter.EncounterCompleted -= HandleEncounterCompleted;
+            }
+
+            _subscribedEncounters.Clear();
+        }
+
+        private void HandleEncounterCompleted(EncounterController encounter)
+        {
+            if (_completed || encounter == null || !_subscribedEncounters.Contains(encounter))
+                return;
+
+            if (!_completedEncounters.Add(encounter))
+                return;
+
+            Debug.Log(
+                $"[LevelGoal] Encounter '{encounter.name}' completed. " +
+                $"Progress: {_completedEncounters.Count}/{_subscribedEncounters.Count}.",
+                this);
+
+            EvaluateRequiredEncounters();
+        }
+
+        private void EvaluateRequiredEncounters()
+        {
+            if (!_completed &&
+                _subscribedEncounters.Count > 0 &&
+                _completedEncounters.Count == _subscribedEncounters.Count)
+            {
+                Trigger();
+            }
+        }
+
+        public int ValidateConfiguration(bool logWarnings = true)
+        {
+            if (mode != LevelGoalMode.RequiredEncounters)
+                return 0;
+
+            int issueCount = 0;
+
+            void Report(string message)
+            {
+                issueCount++;
+                if (logWarnings)
+                    Debug.LogWarning($"[LevelGoal] '{name}' {message}", this);
+            }
+
+            if (requiredEncounters == null || requiredEncounters.Count == 0)
+            {
+                Report("requires encounters but none are assigned.");
+                return issueCount;
+            }
+
+            HashSet<EncounterController> uniqueEncounters = new();
+            for (int index = 0; index < requiredEncounters.Count; index++)
+            {
+                EncounterController encounter = requiredEncounters[index];
+                if (encounter == null)
+                {
+                    Report($"has a null required encounter at index {index}.");
+                }
+                else if (!uniqueEncounters.Add(encounter))
+                {
+                    Report($"assigns encounter '{encounter.name}' more than once.");
+                }
+            }
+
+            return issueCount;
         }
 
         #endregion
@@ -126,5 +284,13 @@ namespace junklite
         }
 
         #endregion
+
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            ValidateConfiguration();
+        }
+#endif
     }
 }

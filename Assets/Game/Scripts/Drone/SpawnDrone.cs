@@ -1,56 +1,110 @@
-using junklite;
 using UnityEngine;
+using junklite;
 
-
+[DisallowMultipleComponent]
 public class SpawnDrone : MonoBehaviour
 {
-    public GameObject dronePrefab;
-    public Transform spawnPoint;
+    [SerializeField] private GameObject dronePrefab;
+    [SerializeField] private Transform spawnPoint;
+
     private PlayerCharacter currentPlayer;
+    private PlayerState playerState;
+    private GameObject currentDrone;
 
+    public GameObject CurrentDrone => currentDrone;
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    private void Awake()
     {
         currentPlayer = GetComponent<PlayerCharacter>();
-        if (currentPlayer != null && currentPlayer.State != null)
-        {
-            Debug.Log("SpawnDrone: PlayerCharacter and State found, subscribing to OnHasDroneChanged event.");
-            // Subscribe to drone unlock event
-            currentPlayer.PlayerState.OnHasDroneChanged += OnHasDroneChanged;
-            spawnPoint = currentPlayer.transform; // Set spawn point to player's position
+        playerState = GetComponent<PlayerState>();
 
-            // If drone is already unlocked at spawn, spawn it immediately
-            if (currentPlayer.PlayerState.HasDrone)
-            {
-                Spawn();
-            }
-        }
+        if (spawnPoint == null)
+            spawnPoint = transform;
     }
 
-    /// <summary>
-    /// Called when HasDrone changes. Spawns the drone if unlocked.
-    /// THIS IS SUBSCRIBED TO THE EVENT IN CHARACTER STATE!!!!
-    /// </summary>
+    private void OnEnable()
+    {
+        if (playerState != null)
+        {
+            playerState.OnHasDroneChanged += OnHasDroneChanged;
+            playerState.OnDeath += HandlePlayerDeath;
+        }
+
+        if (currentPlayer != null)
+        {
+            currentPlayer.OnActivated += HandlePlayerActivated;
+            currentPlayer.OnDeactivated += HandlePlayerDeactivated;
+            currentPlayer.OnRevived += HandlePlayerRevived;
+        }
+
+        SynchronizeDrone();
+    }
+
+    private void Start()
+    {
+        SynchronizeDrone();
+    }
+
+    private void OnDisable()
+    {
+        if (playerState != null)
+        {
+            playerState.OnHasDroneChanged -= OnHasDroneChanged;
+            playerState.OnDeath -= HandlePlayerDeath;
+        }
+
+        if (currentPlayer != null)
+        {
+            currentPlayer.OnActivated -= HandlePlayerActivated;
+            currentPlayer.OnDeactivated -= HandlePlayerDeactivated;
+            currentPlayer.OnRevived -= HandlePlayerRevived;
+        }
+
+        Despawn();
+    }
+
     private void OnHasDroneChanged(bool hasDrone)
     {
         if (hasDrone)
-            Spawn();
+            SynchronizeDrone();
+        else
+            Despawn();
     }
 
-    /// <summary>
-    /// Instantiates the drone prefab and passes the player reference to it.
-    /// </summary>
-    void Spawn()
+    private void HandlePlayerActivated() => SynchronizeDrone();
+    private void HandlePlayerRevived() => SynchronizeDrone();
+    private void HandlePlayerDeactivated() => Despawn();
+    private void HandlePlayerDeath() => Despawn();
+
+    private void SynchronizeDrone()
     {
-        if (dronePrefab != null && spawnPoint != null)
+        if (playerState == null || !playerState.HasDrone ||
+            currentPlayer == null || !currentPlayer.IsAlive || !currentPlayer.IsActive)
         {
-            GameObject drone = Instantiate(dronePrefab, spawnPoint.position, spawnPoint.rotation);
-            PetDrone petDrone = drone.GetComponent<PetDrone>();
-            if (petDrone != null)
-            {
-                petDrone.SetPlayer(currentPlayer); // Pass player reference for following
-            }
+            Despawn();
+            return;
         }
+
+        Spawn();
+    }
+
+    private void Spawn()
+    {
+        if (currentDrone != null || dronePrefab == null || spawnPoint == null)
+            return;
+
+        currentDrone = Instantiate(dronePrefab, spawnPoint.position, spawnPoint.rotation);
+        PetDrone petDrone = currentDrone.GetComponent<PetDrone>();
+        if (petDrone != null)
+            petDrone.SetPlayer(currentPlayer);
+    }
+
+    private void Despawn()
+    {
+        if (currentDrone == null)
+            return;
+
+        Destroy(currentDrone);
+        currentDrone = null;
     }
 }

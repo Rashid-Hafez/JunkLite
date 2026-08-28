@@ -22,10 +22,8 @@ namespace junklite.Tests
             holder = Track(new GameObject("Weapon Holder")).transform;
             holder.SetParent(player.transform, false);
 
-            Rigidbody body = player.AddComponent<Rigidbody>();
             loadout = player.AddComponent<PlayerWeaponLoadout>();
             loadout.ApplyDefaultsIfMissing(holder);
-            loadout.Initialize(body);
         }
 
         [TearDown]

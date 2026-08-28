@@ -36,7 +36,7 @@ namespace junklite
     [RequireComponent(typeof(StateMachine))]
     [RequireComponent(typeof(EnemyMovement))]
     [RequireComponent(typeof(StatusEffectHandler))]
-    public class EnemyCharacter : EnemyBase
+    public class EnemyCharacter : EnemyBase, IStatusEffectTarget
     {
         [Header("Enemy Config")]
         [SerializeField] protected EnemyConfig config;
@@ -93,6 +93,7 @@ namespace junklite
         protected StatusEffectHandler statusEffects;
         private EnemyBrain brain;
         private bool isParryStunned;
+        private bool statusCrowdControlled;
         private bool deathHandled;
 
         public bool IsParryStunned => isParryStunned;
@@ -139,6 +140,7 @@ namespace junklite
             stateMachine = GetComponent<StateMachine>();
             movement = GetComponent<EnemyMovement>();
             statusEffects = GetComponent<StatusEffectHandler>();
+            statusEffects?.BindTarget(this);
             brain = GetComponent<EnemyBrain>();
 
             if (detectionZone == null)
@@ -526,11 +528,12 @@ namespace junklite
                 if (state == null || state.CanBeInterrupted)
                 {
                     // 1. Knockback FIRST — starts the push immediately
-                    ApplyKnockback(request);
+                    if (request.HitReaction.HasKnockback)
+                        ApplyKnockback(request);
 
                     // 2. Stagger SECOND — enters StunnedState (which preserves active knockback)
-                    if (!request.IsTickDamage)
-                        ApplyHitstun();
+                    if (request.HitReaction.HasHitstun)
+                        ApplyHitstun(request.Source, request.HitReaction);
                 }
             }
 
@@ -539,6 +542,15 @@ namespace junklite
 
         public virtual void ApplyStun(float duration)
         {
+            if (statusEffects != null)
+            {
+                if (duration <= 0f)
+                    statusEffects.Remove(StatusEffectType.Stun);
+                else
+                    statusEffects.ApplyStun(duration, gameObject);
+                return;
+            }
+
             if (stateMachine == null) return;
 
             IStunnable stunnable = GetCapability<IStunnable>();
@@ -548,12 +560,21 @@ namespace junklite
             stateMachine.ChangeState<StunnedState>();
         }
 
-        protected virtual void ApplyHitstun()
+        protected virtual void ApplyHitstun(GameObject source, HitReactionRequest reaction)
         {
             if (!IsAlive) return;
 
             IStunnable stunnable = GetCapability<IStunnable>();
-            if (stunnable == null || stunnable.StaggerDuration <= 0f) return;
+            if (stunnable == null) return;
+
+            float duration = reaction.ResolveHitstunDuration(stunnable.StaggerDuration);
+            if (duration <= 0f) return;
+
+            if (statusEffects != null)
+            {
+                statusEffects.ApplyHitstun(duration, source);
+                return;
+            }
 
             // Already stunned? Reset timer for combo extension
             if (stateMachine.CurrentState is StunnedState stunned)
@@ -563,6 +584,23 @@ namespace junklite
             }
 
             stateMachine.ChangeState<StunnedState>();
+        }
+
+        public void ApplyStatusEffectSnapshot(StatusEffectSnapshot snapshot)
+        {
+            movement?.SetStatusMoveSpeedMultiplier(snapshot.MoveSpeedMultiplier);
+
+            bool shouldCrowdControl = snapshot.IsCrowdControlled;
+            bool crowdControlStarted = shouldCrowdControl && !statusCrowdControlled;
+            statusCrowdControlled = shouldCrowdControl;
+
+            if (!crowdControlStarted || !IsAlive || stateMachine == null)
+                return;
+
+            movement?.Stop();
+
+            if (stateMachine.HasState<StunnedState>() && GetCapability<IStunnable>() != null)
+                stateMachine.ChangeState<StunnedState>();
         }
 
         /// <summary>

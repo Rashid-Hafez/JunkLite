@@ -1,4 +1,6 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace junklite
@@ -132,7 +134,11 @@ namespace junklite
         [SerializeField] private FacingMode facingMode = FacingMode.ScaleFlip;
         [SerializeField] private float rotationSpeed = 10f;
 
-        private bool physicsOverride = false;
+        private readonly HashSet<int> movementLocks = new();
+        private readonly HashSet<int> physicsOverrideLocks = new();
+        private readonly HashSet<int> kinematicLocks = new();
+        private int nextControlLockId;
+        private bool rigidbodyWasKinematicBeforeLocks;
         public enum FacingMode { ScaleFlip, YAxisRotation }
 
         // Components
@@ -144,6 +150,7 @@ namespace junklite
         private Vector3 moveInput;
         private bool canMove = true;
         private bool allowMovementInput = true;
+        private float statusMoveSpeedMultiplier = 1f;
         private Coroutine smoothStopRoutine;
         private Vector3 smoothStopVelocity;
         private Vector3 smoothStopAngularVelocity;
@@ -189,10 +196,18 @@ namespace junklite
 
         // Properties
         public bool IsGrounded => isGrounded;
-        public bool CanMove { get => canMove; set => canMove = value; }
-        public bool IsPhysicsOverridden => physicsOverride;
+        /// <summary>
+        /// Final locomotion permission. The serialized switch is reserved for lifecycle
+        /// enable/disable, while temporary systems must use AcquireMovementLock().
+        /// </summary>
+        public bool CanMove => canMove && movementLocks.Count == 0 &&
+                               (playerState == null || playerState.CanMove);
+
+        public bool IsPhysicsOverridden => physicsOverrideLocks.Count > 0;
         public Vector3 Velocity => rb.linearVelocity;
         public float MoveSpeed { get => moveSpeed; set => moveSpeed = value; }
+        public float EffectiveMoveSpeed => moveSpeed * statusMoveSpeedMultiplier;
+        public Vector3 MovementAxis => transform.right.normalized;
         public float JumpForce { get => jumpForce; set => jumpForce = value; }
         public float DashForce { get => dashForce; set => dashForce = value; }
         public float DashDuration { get => dashDuration; set => dashDuration = value; }
@@ -254,7 +269,7 @@ namespace junklite
             : Mathf.Abs(transform.eulerAngles.y) < 90f;
 
         public bool IsDashing => isDashing;
-        public bool CanDash => dashCooldownTimer <= 0f && (isGrounded || canDashInAir) && canMove;
+        public bool CanDash => dashCooldownTimer <= 0f && (isGrounded || canDashInAir) && CanMove;
         public bool IsFacingLocked => facingLocked;
 
         /// <summary>
@@ -428,11 +443,21 @@ namespace junklite
 
         private void FixedUpdate()
         {
-            if (physicsOverride)
+            if (IsPhysicsOverridden)
                 return;
 
             if (!IsGrounded)
                 coyoteTimer -= Time.fixedDeltaTime;
+
+            // Hard control has authority over dash, jump stalls and wall jumps.
+            // Gravity still runs and an external impulse remains untouched.
+            if (playerState != null && playerState.IsStunned)
+            {
+                InterruptSpecialMovement();
+                ApplyGravityFixed();
+                ClampFallSpeedFixed();
+                return;
+            }
 
             if (isDoubleJumpStalling)
             {
@@ -472,9 +497,69 @@ namespace junklite
 
         #region Public Methods
 
-        public void SetPhysicsOverride(bool enabled)
+        /// <summary>
+        /// Enables or disables locomotion for player lifecycle transitions such as
+        /// activation, deactivation, death and respawn. Temporary systems use locks.
+        /// </summary>
+        public void SetLocomotionEnabled(bool enabled)
         {
-            physicsOverride = enabled;
+            canMove = enabled;
+        }
+
+        /// <summary>
+        /// Temporarily prevents locomotion without changing the player's lifecycle
+        /// enabled state. Multiple callers can safely overlap their locks.
+        /// </summary>
+        public IDisposable AcquireMovementLock(bool stopVelocity = true)
+        {
+            int id = ++nextControlLockId;
+            movementLocks.Add(id);
+
+            if (stopVelocity)
+                StopAllVelocity();
+
+            return new ControlLock(() => movementLocks.Remove(id));
+        }
+
+        /// <summary>
+        /// Temporarily suspends controller FixedUpdate physics. Use this when another
+        /// gameplay sequence owns the player's transform or Rigidbody motion.
+        /// </summary>
+        public IDisposable AcquirePhysicsOverride()
+        {
+            int id = ++nextControlLockId;
+            physicsOverrideLocks.Add(id);
+            return new ControlLock(() => physicsOverrideLocks.Remove(id));
+        }
+
+        /// <summary>
+        /// Temporarily makes the controller Rigidbody kinematic. The original state is
+        /// restored only after the final overlapping lock is released.
+        /// </summary>
+        public IDisposable AcquireKinematicLock(bool stopVelocity = true)
+        {
+            if (rb == null)
+                return ControlLock.Empty;
+
+            int id = ++nextControlLockId;
+            if (kinematicLocks.Count == 0)
+            {
+                rigidbodyWasKinematicBeforeLocks = rb.isKinematic;
+                if (stopVelocity && !rb.isKinematic)
+                    StopAllVelocity();
+                rb.isKinematic = true;
+            }
+
+            kinematicLocks.Add(id);
+            return new ControlLock(() => ReleaseKinematicLock(id));
+        }
+
+        private void ReleaseKinematicLock(int id)
+        {
+            if (!kinematicLocks.Remove(id) || kinematicLocks.Count > 0 || rb == null)
+                return;
+
+            rb.isKinematic = rigidbodyWasKinematicBeforeLocks;
         }
 
 
@@ -527,7 +612,7 @@ namespace junklite
 
         public void SetMovementInput(float horizontal, float vertical = 0f)
         {
-            if (!canMove)
+            if (!CanMove)
             {
                 moveInput = Vector3.zero;
                 OnMovementChanged?.Invoke(moveInput);
@@ -625,10 +710,67 @@ namespace junklite
             OnDashStarted?.Invoke();
         }
 
+        /// <summary>
+        /// Apply externally imposed movement. The controller owns plane projection
+        /// and interruption so dash/jump writers cannot erase the impulse.
+        /// </summary>
+        public void ApplyExternalImpulse(
+            Vector3 worldImpulse,
+            ForceMode mode = ForceMode.VelocityChange,
+            bool interruptSpecialMovement = true)
+        {
+            if (rb == null || worldImpulse.sqrMagnitude <= 0f)
+                return;
+
+            if (interruptSpecialMovement)
+                InterruptSpecialMovement();
+
+            Vector3 planarImpulse = Vector3.Project(worldImpulse, MovementAxis)
+                                  + Vector3.Project(worldImpulse, Vector3.up);
+            rb.AddForce(planarImpulse, mode);
+        }
+
+        public void ApplyExternalKnockback(
+            Vector3 sourcePosition,
+            Vector2 force,
+            bool interruptSpecialMovement = true)
+        {
+            Vector3 axis = MovementAxis;
+            float side = Vector3.Dot(transform.position - sourcePosition, axis);
+            float direction = Mathf.Approximately(side, 0f)
+                ? (IsFacingRight ? -1f : 1f)
+                : Mathf.Sign(side);
+
+            Vector3 impulse = axis * direction * Mathf.Abs(force.x)
+                            + Vector3.up * force.y;
+            ApplyExternalImpulse(impulse, ForceMode.VelocityChange, interruptSpecialMovement);
+        }
+
+        // Compatibility entry point. New combat code should use ApplyExternalImpulse.
         public void AddForce(Vector3 force, ForceMode mode = ForceMode.Impulse)
         {
-            // Use for external knockback only. We otherwise write linearVelocity directly.
-            rb.AddForce(force, mode);
+            ApplyExternalImpulse(force, mode);
+        }
+
+        public void SetStatusMoveSpeedMultiplier(float multiplier)
+        {
+            statusMoveSpeedMultiplier = Mathf.Max(0f, multiplier);
+        }
+
+        public void InterruptSpecialMovement()
+        {
+            EndDash();
+            CancelSmoothStop();
+            isDoubleJumpStalling = false;
+            isWallJumping = false;
+
+            if (isWallSliding)
+            {
+                isWallSliding = false;
+                OnWallSlideChanged?.Invoke(false);
+            }
+
+            jumpBufferTimer = 0f;
         }
 
         public void TeleportTo(Vector3 position)
@@ -668,9 +810,39 @@ namespace junklite
         /// </summary>
         public void StopAllVelocity()
         {
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            CancelSmoothStop();
+            if (rb != null && !rb.isKinematic)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
             moveInput = Vector3.zero;
+        }
+
+        /// <summary>
+        /// Changes player velocity through the Rigidbody-owning component. Combat and
+        /// ability systems may calculate motion, but they should not write the body.
+        /// </summary>
+        public void SetVelocity(Vector3 velocity)
+        {
+            if (rb == null || rb.isKinematic)
+                return;
+
+            rb.linearVelocity = velocity;
+        }
+
+        private void CancelSmoothStop()
+        {
+            if (smoothStopRoutine != null)
+            {
+                StopCoroutine(smoothStopRoutine);
+                smoothStopRoutine = null;
+            }
+
+            allowMovementInput = true;
+            smoothStopVelocity = Vector3.zero;
+            smoothStopAngularVelocity = Vector3.zero;
+            smoothStopInputVelocity = Vector3.zero;
         }
 
         public void StopAllVelocitySmooth()
@@ -856,7 +1028,7 @@ namespace junklite
                 return;
 
             // --- Ground Jump via Buffer + Coyote ---
-            if (jumpBufferTimer > 0f && canMove && !isDashing && !isWallSliding)
+            if (jumpBufferTimer > 0f && CanMove && !isDashing && !isWallSliding)
             {
                 if (coyoteTimer > 0f)
                 {
@@ -869,7 +1041,7 @@ namespace junklite
                 }
             }
 
-            if (!canMove) return;
+            if (!CanMove) return;
 
             // Decompose current velocity into local axes
             Vector3 right = transform.right;
@@ -890,12 +1062,12 @@ namespace junklite
                 }
                 else
                 {
-                    targetRightVel = moveInput.x * moveSpeed;
+                    targetRightVel = moveInput.x * EffectiveMoveSpeed;
                 }
             }
             else
             {
-                targetRightVel = moveInput.x * moveSpeed;
+                targetRightVel = moveInput.x * EffectiveMoveSpeed;
             }
 
             // Rebuild velocity in local space (preserve vertical)
@@ -948,7 +1120,15 @@ namespace junklite
 
         private void EndDash()
         {
-            if (!isDashing) return;
+            bool wasDashing = isDashing || dashRoutine != null;
+            if (!wasDashing) return;
+
+            if (dashRoutine != null)
+            {
+                StopCoroutine(dashRoutine);
+                dashRoutine = null;
+            }
+
             isDashing = false;
             OnDashEnded?.Invoke();
         }
@@ -1070,7 +1250,7 @@ namespace junklite
 
         private void ClampFallSpeedFixed()
         {
-            if (isWallSliding || physicsOverride) return;
+            if (isWallSliding || IsPhysicsOverridden) return;
 
             if (rb.linearVelocity.y < maxFallSpeed)
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, maxFallSpeed, rb.linearVelocity.z);
@@ -1105,6 +1285,25 @@ namespace junklite
                 Vector3 rayEnd = rayOrigin + Vector3.down * groundSnapMaxDistance;
                 Gizmos.color = Color.yellow;
                 Gizmos.DrawLine(rayOrigin, rayEnd);
+            }
+        }
+
+        private sealed class ControlLock : IDisposable
+        {
+            public static readonly ControlLock Empty = new(null);
+
+            private Action release;
+
+            public ControlLock(Action releaseAction)
+            {
+                release = releaseAction;
+            }
+
+            public void Dispose()
+            {
+                Action action = release;
+                release = null;
+                action?.Invoke();
             }
         }
     }

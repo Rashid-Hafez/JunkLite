@@ -11,11 +11,11 @@ namespace junklite
     public class PlayerState : CharacterState
     {
         // Capability checks
-        public override bool CanMove => IsAlive && !IsStunned && !IsInputLocked && !IsAttacking && !IsParrying;
-        public override bool CanJump => IsAlive && !IsStunned && !IsInputLocked && !IsParrying;
-        public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsInputLocked;
-        public override bool CanAttack => IsAlive && !IsStunned && !IsInputLocked && !IsWallSliding && !IsParrying; // No IsAttacking check - WeaponManager handles cooldown
-        public bool CanRoll => IsAlive && !IsStunned && !IsRolling && !IsInputLocked;
+        public override bool CanMove => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Move) && !IsInputLocked && !IsAttacking && !IsParrying;
+        public override bool CanJump => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Jump) && !IsInputLocked && !IsParrying;
+        public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsActionBlocked(StatusActionBlock.Dash) && !IsInputLocked;
+        public override bool CanAttack => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Attack) && !IsInputLocked && !IsWallSliding && !IsParrying; // No IsAttacking check - WeaponManager handles cooldown
+        public bool CanRoll => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Roll) && !IsRolling && !IsInputLocked;
         public override bool CanTakeDamage => base.CanTakeDamage && damageImmunityLocks.Count == 0;
 
         // State flags
@@ -25,6 +25,8 @@ namespace junklite
         private int nextLockId;
         private readonly HashSet<int> inputLocks = new();
         private readonly HashSet<int> damageImmunityLocks = new();
+        private StatusEffectHandler statusEffects;
+        private StatusEffectSnapshot statusSnapshot = StatusEffectSnapshot.Clear;
 
         public bool IsInputLocked => legacyInputLocked || inputLocks.Count > 0;
 
@@ -47,7 +49,7 @@ namespace junklite
         public event Action<bool> OnParryChanged;
 
         /// <summary>True when player is allowed to initiate a parry (grounded, alive, not stunned/attacking/etc).</summary>
-        public bool CanParry => IsAlive && IsGrounded && !IsFalling && !IsStunned && !IsInputLocked && !IsAttacking;
+        public bool CanParry => IsAlive && IsGrounded && !IsFalling && !IsStunned && !IsActionBlocked(StatusActionBlock.Parry) && !IsInputLocked && !IsAttacking;
 
         /// <summary>How many air attacks have been used this air time.</summary>
         public int AirAttacksUsed { get; private set; }
@@ -87,6 +89,7 @@ namespace junklite
 
         public override void ResetForRespawn()
         {
+            statusEffects?.ClearAllEffects();
             base.ResetForRespawn();
             SetWallSliding(false);
             SetWallJumping(false);
@@ -100,6 +103,42 @@ namespace junklite
             SetRolling(false);
             AirAttacksUsed = 0;
             refundAirAttackAfterNextDoubleJump = false;
+        }
+
+        public void BindStatusEffects(StatusEffectHandler handler)
+        {
+            statusEffects = handler;
+            ApplyStatusEffectSnapshot(handler != null
+                ? handler.CurrentSnapshot
+                : StatusEffectSnapshot.Clear);
+        }
+
+        public void ApplyStatusEffectSnapshot(StatusEffectSnapshot snapshot)
+        {
+            statusSnapshot = snapshot;
+            SetStatusStunned(snapshot.IsCrowdControlled);
+        }
+
+        public bool IsActionBlocked(StatusActionBlock action)
+        {
+            return (statusSnapshot.BlockedActions & action) != 0;
+        }
+
+        public override void ApplyStun(float duration)
+        {
+            if (statusEffects == null)
+                statusEffects = GetComponent<StatusEffectHandler>();
+
+            if (statusEffects != null)
+            {
+                if (duration <= 0f)
+                    statusEffects.Remove(StatusEffectType.Stun);
+                else
+                    statusEffects.ApplyStun(duration, gameObject);
+                return;
+            }
+
+            base.ApplyStun(duration);
         }
 
         public override void ClearTransient()

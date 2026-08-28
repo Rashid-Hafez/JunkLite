@@ -3,6 +3,7 @@ using System;
 
 namespace junklite
 {
+    [RequireComponent(typeof(ModExecutionRunner))]
     public class ModManager : MonoBehaviour
     {
         #region Fields

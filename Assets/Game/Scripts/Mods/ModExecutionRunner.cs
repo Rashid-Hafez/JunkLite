@@ -25,14 +25,6 @@ namespace junklite
         private PlayerCharacter player;
         private PlayerState playerState;
         private Character2D5Controller controller;
-        private Rigidbody playerRigidbody;
-
-        private int movementLockCount;
-        private int physicsOverrideCount;
-        private int kinematicLockCount;
-        private bool movementWasEnabled;
-        private bool physicsWasOverridden;
-        private bool rigidbodyWasKinematic;
 
         public PlayerCharacter Player => player;
 
@@ -41,7 +33,6 @@ namespace junklite
             player = GetComponent<PlayerCharacter>();
             playerState = GetComponent<PlayerState>();
             controller = GetComponent<Character2D5Controller>();
-            playerRigidbody = GetComponent<Rigidbody>();
         }
 
         public bool TryStart(
@@ -153,44 +144,19 @@ namespace junklite
             IDisposable damageImmunity = grantDamageImmunity
                 ? playerState?.AcquireDamageImmunity()
                 : null;
-
-            bool blockedMovement = controller != null;
-            if (blockedMovement)
-            {
-                if (movementLockCount++ == 0)
-                {
-                    movementWasEnabled = controller.CanMove;
-                    controller.StopAllVelocity();
-                    controller.CanMove = false;
-                }
-            }
-
-            bool appliedPhysicsOverride = overridePhysics && controller != null;
-            if (appliedPhysicsOverride && physicsOverrideCount++ == 0)
-            {
-                physicsWasOverridden = controller.IsPhysicsOverridden;
-                controller.SetPhysicsOverride(true);
-            }
-
-            bool appliedKinematicLock = makeKinematic && playerRigidbody != null;
-            if (appliedKinematicLock && kinematicLockCount++ == 0)
-            {
-                rigidbodyWasKinematic = playerRigidbody.isKinematic;
-                playerRigidbody.isKinematic = true;
-                playerRigidbody.linearVelocity = Vector3.zero;
-            }
+            IDisposable movementLock = controller?.AcquireMovementLock();
+            IDisposable physicsLock = overridePhysics
+                ? controller?.AcquirePhysicsOverride()
+                : null;
+            IDisposable kinematicLock = makeKinematic
+                ? controller?.AcquireKinematicLock()
+                : null;
 
             context.AddCleanup(() =>
             {
-                if (appliedKinematicLock && --kinematicLockCount == 0 && playerRigidbody != null)
-                    playerRigidbody.isKinematic = rigidbodyWasKinematic;
-
-                if (appliedPhysicsOverride && --physicsOverrideCount == 0 && controller != null)
-                    controller.SetPhysicsOverride(physicsWasOverridden);
-
-                if (blockedMovement && --movementLockCount == 0 && controller != null)
-                    controller.CanMove = movementWasEnabled;
-
+                kinematicLock?.Dispose();
+                physicsLock?.Dispose();
+                movementLock?.Dispose();
                 damageImmunity?.Dispose();
                 inputLock?.Dispose();
             });

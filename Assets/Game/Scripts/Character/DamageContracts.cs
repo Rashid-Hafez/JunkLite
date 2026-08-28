@@ -14,6 +14,52 @@ namespace junklite
     }
 
     /// <summary>
+    /// Optional physical/behavioral response to an accepted hit. Damage, status
+    /// effects and hit reactions remain independently callable systems.
+    /// </summary>
+    public struct HitReactionRequest
+    {
+        public Vector2 KnockbackForce;
+        public float HitstunDuration;
+        public bool UseReceiverDefaultHitstun;
+        public bool InterruptsActions;
+
+        public bool HasKnockback => KnockbackForce.sqrMagnitude > 0f;
+        public bool HasHitstun => UseReceiverDefaultHitstun || HitstunDuration > 0f;
+        public bool HasAnyReaction => HasKnockback || HasHitstun || InterruptsActions;
+
+        public HitReactionRequest(
+            Vector2 knockbackForce,
+            float hitstunDuration = 0f,
+            bool useReceiverDefaultHitstun = false,
+            bool interruptsActions = true)
+        {
+            KnockbackForce = knockbackForce;
+            HitstunDuration = Mathf.Max(0f, hitstunDuration);
+            UseReceiverDefaultHitstun = useReceiverDefaultHitstun;
+            InterruptsActions = interruptsActions;
+        }
+
+        public float ResolveHitstunDuration(float receiverDefault)
+        {
+            return UseReceiverDefaultHitstun
+                ? Mathf.Max(0f, receiverDefault)
+                : HitstunDuration;
+        }
+
+        public static HitReactionRequest DefaultHit(Vector2 knockbackForce)
+        {
+            return new HitReactionRequest(
+                knockbackForce,
+                useReceiverDefaultHitstun: true,
+                interruptsActions: true);
+        }
+
+        public static HitReactionRequest None =>
+            new HitReactionRequest(Vector2.zero, interruptsActions: false);
+    }
+
+    /// <summary>
     /// Describes one attempt to damage a receiver. Runtime receivers may reduce
     /// Amount while resolving shields, but the returned result retains the
     /// originally requested amount.
@@ -23,10 +69,21 @@ namespace junklite
         public float Amount;
         public GameObject Source;
         public DamageType Type;
-        public Vector2 KnockbackForce;
+        public HitReactionRequest HitReaction;
         public bool IsTickDamage;
         public bool BypassesDefenses;
         public bool BypassesMitigation;
+
+        public Vector2 KnockbackForce
+        {
+            get => HitReaction.KnockbackForce;
+            set
+            {
+                HitReactionRequest reaction = HitReaction;
+                reaction.KnockbackForce = value;
+                HitReaction = reaction;
+            }
+        }
 
         public DamageRequest(
             float amount,
@@ -35,15 +92,18 @@ namespace junklite
             Vector2 knockback = default,
             bool isTickDamage = false,
             bool bypassesDefenses = false,
-            bool bypassesMitigation = false)
+            bool bypassesMitigation = false,
+            HitReactionRequest? hitReaction = null)
         {
             Amount = amount;
             Source = source;
             Type = type;
-            KnockbackForce = knockback;
             IsTickDamage = isTickDamage;
             BypassesDefenses = bypassesDefenses;
             BypassesMitigation = bypassesMitigation;
+            HitReaction = hitReaction ?? (isTickDamage
+                ? HitReactionRequest.None
+                : HitReactionRequest.DefaultHit(knockback));
         }
 
         public static DamageRequest Forced(
@@ -63,6 +123,13 @@ namespace junklite
         {
             var copy = this;
             copy.Amount = amount;
+            return copy;
+        }
+
+        public DamageRequest WithHitReaction(HitReactionRequest reaction)
+        {
+            var copy = this;
+            copy.HitReaction = reaction;
             return copy;
         }
 

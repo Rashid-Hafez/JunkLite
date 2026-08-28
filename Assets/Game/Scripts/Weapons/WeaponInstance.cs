@@ -115,8 +115,6 @@ namespace junklite
             combatState?.ResetCombo();
         }
 
-        public void SetOwnerRigidbody(Rigidbody rb) { }
-
         #endregion
 
         #region Durability

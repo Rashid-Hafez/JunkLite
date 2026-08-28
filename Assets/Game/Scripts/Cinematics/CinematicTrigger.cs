@@ -11,9 +11,9 @@ public class CinematicTrigger : MonoBehaviour
     private bool directorStopped = false;
     private PlayerCharacter frozenPlayer;
     private Character2D5Controller frozenController;
-    private Rigidbody frozenRigidbody;
-    private bool frozenWasKinematic;
-    private bool frozenControllerCanMove;
+    private System.IDisposable movementLock;
+    private System.IDisposable physicsLock;
+    private System.IDisposable kinematicLock;
 
     private void Awake()
     {
@@ -62,21 +62,12 @@ public class CinematicTrigger : MonoBehaviour
 
         frozenPlayer = player;
         frozenController = player.Controller;
-        frozenRigidbody = player.GetComponent<Rigidbody>();
 
         if (frozenController != null)
         {
-            frozenControllerCanMove = frozenController.CanMove;
-            frozenController.CanMove = false;
-            frozenController.StopAllVelocity();
-        }
-
-        if (frozenRigidbody != null)
-        {
-            frozenWasKinematic = frozenRigidbody.isKinematic;
-            frozenRigidbody.isKinematic = true;
-            frozenRigidbody.linearVelocity = Vector3.zero;
-            frozenRigidbody.angularVelocity = Vector3.zero;
+            movementLock = frozenController.AcquireMovementLock();
+            physicsLock = frozenController.AcquirePhysicsOverride();
+            kinematicLock = frozenController.AcquireKinematicLock();
         }
     }
 
@@ -85,14 +76,21 @@ public class CinematicTrigger : MonoBehaviour
         if (!freezePlayerDuringCinematic)
             return;
 
-        if (frozenRigidbody != null)
-            frozenRigidbody.isKinematic = frozenWasKinematic;
+        kinematicLock?.Dispose();
+        physicsLock?.Dispose();
+        movementLock?.Dispose();
 
-        if (frozenController != null)
-            frozenController.CanMove = frozenControllerCanMove;
-
+        kinematicLock = null;
+        physicsLock = null;
+        movementLock = null;
         frozenPlayer = null;
         frozenController = null;
-        frozenRigidbody = null;
+    }
+
+    private void OnDisable()
+    {
+        if (director != null)
+            director.stopped -= HandleDirectorStopped;
+        UnfreezePlayer();
     }
 }
