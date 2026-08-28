@@ -95,48 +95,6 @@ namespace junklite
             return true;
         }
 
-        public void ApplyLegacyHyenaConfiguration(
-            EnemySpineAnimationController animationController,
-            PatrolBehavior patrolBehavior,
-            ChaseBehavior chaseBehavior,
-            float configuredPursuitRadius,
-            MeleeAttackBehavior meleeBehavior,
-            DodgeBehavior dodgeBehavior,
-            float configuredDodgeChance,
-            float configuredDodgeCheckRange,
-            float configuredDodgeCooldown,
-            ChargeBehavior chargeBehavior,
-            DashBehavior dashBehavior,
-            float configuredDashChance,
-            float configuredWhiffStunDuration,
-            float configuredMaxCounterDashRange,
-            StunBehavior stunBehavior)
-        {
-            if (OwnsSerializedConfiguration)
-                return;
-
-            ApplyLegacyConfiguration(
-                animationController,
-                true,
-                patrolBehavior,
-                chaseBehavior,
-                configuredPursuitRadius,
-                meleeBehavior,
-                stunBehavior);
-
-            UninitializeHyenaCapabilities();
-            dodge = dodgeBehavior ?? new DodgeBehavior();
-            dodgeChance = configuredDodgeChance;
-            dodgeCheckRange = configuredDodgeCheckRange;
-            dodgeCooldown = configuredDodgeCooldown;
-            charge = chargeBehavior ?? new ChargeBehavior();
-            dash = dashBehavior ?? new DashBehavior();
-            dashChance = configuredDashChance;
-            whiffStunDuration = configuredWhiffStunDuration;
-            maxCounterDashRange = configuredMaxCounterDashRange;
-            InitializeHyenaCapabilities();
-        }
-
         private void CheckForDodgeOpportunity()
         {
             if (!Actor.IsAlive || !Actor.HasTarget)

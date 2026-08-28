@@ -8,11 +8,6 @@ namespace junklite
     /// </summary>
     public class MeleeChaserBrain : EnemyBrain, IEnemyCapabilityProvider
     {
-        [SerializeField, HideInInspector] private bool ownsSerializedConfiguration;
-
-        [Header("Presentation")]
-        [SerializeField] protected EnemySpineAnimationController spineController;
-
         [Header("Passive")]
         [SerializeField] protected bool patrolWhenPassive;
         [SerializeField] protected PatrolBehavior patrol = new();
@@ -28,8 +23,6 @@ namespace junklite
         [SerializeField] protected StunBehavior stun = new();
 
         private bool returningToPassive;
-
-        public bool OwnsSerializedConfiguration => ownsSerializedConfiguration;
 
         protected override void Awake()
         {
@@ -189,31 +182,6 @@ namespace junklite
             return capability != null;
         }
 
-        /// <summary>Runtime bridge for prefabs that have not yet serialized this brain.</summary>
-        public void ApplyLegacyConfiguration(
-            EnemySpineAnimationController animationController,
-            bool usePatrol,
-            PatrolBehavior patrolBehavior,
-            ChaseBehavior chaseBehavior,
-            float configuredPursuitRadius,
-            MeleeAttackBehavior meleeBehavior,
-            StunBehavior stunBehavior)
-        {
-            if (ownsSerializedConfiguration)
-                return;
-
-            UninitializeBaseCapabilities();
-            spineController = animationController;
-            patrolWhenPassive = usePatrol;
-            patrol = patrolBehavior ?? new PatrolBehavior();
-            chase = chaseBehavior ?? new ChaseBehavior();
-            pursuitRadius = configuredPursuitRadius;
-            melee = meleeBehavior ?? new MeleeAttackBehavior();
-            stun = stunBehavior ?? new StunBehavior();
-            ownsSerializedConfiguration = true;
-            InitializeBaseCapabilities();
-        }
-
         private void EnsureBehaviors()
         {
             patrol ??= new PatrolBehavior();
@@ -235,7 +203,7 @@ namespace junklite
                     melee.AssignHitbox(resolved);
             }
 
-            melee.Initialize(gameObject, spineController);
+            melee.Initialize(gameObject);
             chase.ReachedTarget += HandleReachedTarget;
             melee.Completed += HandleMeleeCompleted;
             stun.Completed += HandleStunCompleted;

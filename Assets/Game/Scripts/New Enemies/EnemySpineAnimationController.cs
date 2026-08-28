@@ -18,7 +18,7 @@ namespace junklite
         [Range(0f, 1f)] public float mixDuration;
     }
 
-    public class EnemySpineAnimationController : MonoBehaviour
+    public class EnemySpineAnimationController : EnemyAnimationPresenter
     {
         [Header("Spine")]
         [SerializeField] private SkeletonAnimation skeletonAnimation;
@@ -34,6 +34,10 @@ namespace junklite
         [SerializeField] private string dodge = "JumpBack";
         [SerializeField] private string hurt = "Hurt";
         [SerializeField] private string death = "Death";
+
+        [Header("Melee Timing")]
+        [Tooltip("When enabled, wind-up and attack clips are time-scaled to the authoritative gameplay phase duration.")]
+        [SerializeField] private bool fitMeleeAnimationsToGameplayDuration;
 
         [Header("Stun")]
         [SerializeField] private string stunLoop = "";
@@ -58,9 +62,9 @@ namespace junklite
         [SerializeField] private bool debugLog = false;
 
         private StateMachine stateMachine;
-        private EnemyCharacter enemyCharacter;
         private bool isDead;
         private float previousTimeScale = 1f;
+        private bool playbackPaused;
 
         private void Awake()
         {
@@ -68,7 +72,6 @@ namespace junklite
                 skeletonAnimation = GetComponentInChildren<SkeletonAnimation>(true);
 
             stateMachine = GetComponentInParent<StateMachine>();
-            enemyCharacter = GetComponentInParent<EnemyCharacter>();
         }
 
         private void OnEnable()
@@ -115,6 +118,12 @@ namespace junklite
 
             if (isDead) return;
 
+            // MeleeAttackState owns two gameplay phases. Those phases call the
+            // presenter directly, so the state-change observer must not clear
+            // the animation that was just selected during Enter().
+            if (to is MeleeAttackState)
+                return;
+
             var state = skeletonAnimation.AnimationState;
             skeletonAnimation.Skeleton.SetToSetupPose();
             state.ClearTrack(0);
@@ -125,12 +134,6 @@ namespace junklite
                 state.SetAnimation(0, walk, true);
             else if (to is ChaseState)
                 state.SetAnimation(0, run, true);
-            else if (to is MeleeAttackState)
-            {
-                // Don't play anything here � the enemy will call
-                // PlayWindUpAnimation() and PlayAttackAnimation()
-                // at the right moments via OnMeleeWindUp / OnMeleeAttack.
-            }
             else if (to is ChargeState)
                 state.SetAnimation(0, charge, true);
             else if (to is DashState)
@@ -168,10 +171,11 @@ namespace junklite
 
         #region Public API
 
-        public void SetPlaybackPaused(bool paused)
+        public override void SetPlaybackPaused(bool paused)
         {
-            if (skeletonAnimation == null) return;
+            if (skeletonAnimation == null || playbackPaused == paused) return;
 
+            playbackPaused = paused;
             if (paused)
             {
                 previousTimeScale = skeletonAnimation.timeScale;
@@ -183,7 +187,7 @@ namespace junklite
             }
         }
 
-        public void PlayWindUpAnimation()
+        public override void PlayMeleeWindup(float gameplayDuration)
         {
             if (isDead || skeletonAnimation == null) return;
 
@@ -191,27 +195,29 @@ namespace junklite
             skeletonAnimation.Skeleton.SetToSetupPose();
             state.ClearTrack(0);
 
-            if (!string.IsNullOrEmpty(attackWindUp))
-                state.SetAnimation(0, attackWindUp, false);
+            bool hasDistinctWindup = !string.IsNullOrEmpty(attackWindUp)
+                && !string.Equals(attackWindUp, attack, System.StringComparison.Ordinal);
+
+            if (hasDistinctWindup)
+            {
+                var entry = state.SetAnimation(0, attackWindUp, false);
+                FitToGameplayDuration(entry, gameplayDuration);
+            }
             else
                 state.SetAnimation(0, idle, true);
         }
 
-        public void PlayAttackAnimation()
+        public override void PlayMeleeAttack(float gameplayDuration)
         {
             if (isDead || skeletonAnimation == null) return;
 
             var state = skeletonAnimation.AnimationState;
             var entry = state.SetAnimation(0, attack, false);
-            if (entry != null) entry.MixDuration = 0f;
-        }
-
-        public void PlayStunLoop(float duration)
-        {
-            if (skeletonAnimation == null) return;
-            string anim = string.IsNullOrEmpty(stunLoop) ? hurt : stunLoop;
-            PlayWithSettings(0, anim, true, stunSettings);
-            StartCoroutine(ClearStunAfter(duration));
+            if (entry != null)
+            {
+                entry.MixDuration = 0f;
+                FitToGameplayDuration(entry, gameplayDuration);
+            }
         }
 
         #endregion
@@ -258,11 +264,12 @@ namespace junklite
             PlayWithSettings(0, stunAnim, true, stunSettings);
         }
 
-        private System.Collections.IEnumerator ClearStunAfter(float duration)
+        private void FitToGameplayDuration(TrackEntry entry, float gameplayDuration)
         {
-            yield return new WaitForSeconds(duration);
-            if (stateMachine != null && stateMachine.CurrentState != null)
-                HandleStateChanged(null, stateMachine.CurrentState);
+            if (!fitMeleeAnimationsToGameplayDuration || entry?.Animation == null || gameplayDuration <= 0f)
+                return;
+
+            entry.TimeScale = entry.Animation.Duration / gameplayDuration;
         }
 
         private void PlayDeath()
@@ -280,5 +287,70 @@ namespace junklite
             else
                 Debug.LogError($"[AnimCtrl] Failed to play '{death}' - check animation name in Spine!");
         }
+
+#if UNITY_EDITOR
+        [ContextMenu("Validate Animation Configuration")]
+        private void ValidateAnimationConfiguration()
+        {
+            if (skeletonAnimation == null)
+            {
+                Debug.LogError($"[{name}] Spine presenter requires a SkeletonAnimation.", this);
+                return;
+            }
+
+            SkeletonData data = skeletonAnimation.SkeletonDataAsset?.GetSkeletonData(true);
+            if (data == null)
+            {
+                Debug.LogError($"[{name}] Spine presenter could not load skeleton data.", this);
+                return;
+            }
+
+            ValidateAnimation(data, idle, nameof(idle), true);
+            ValidateAnimation(data, walk, nameof(walk), false);
+            ValidateAnimation(data, run, nameof(run), false);
+            ValidateAnimation(data, attackWindUp, nameof(attackWindUp), false);
+            ValidateAnimation(data, attack, nameof(attack), false);
+            ValidateAnimation(data, charge, nameof(charge), false);
+            ValidateAnimation(data, dash, nameof(dash), false);
+            ValidateAnimation(data, dodge, nameof(dodge), false);
+            ValidateAnimation(data, hurt, nameof(hurt), false);
+            ValidateAnimation(data, death, nameof(death), false);
+            ValidateAnimation(data, stunLoop, nameof(stunLoop), false);
+            ValidateAnimation(data, onParried, nameof(onParried), false);
+            ValidateAnimation(data, parryStun, nameof(parryStun), false);
+
+            if (!string.IsNullOrEmpty(attackWindUp)
+                && string.Equals(attackWindUp, attack, System.StringComparison.Ordinal))
+            {
+                Debug.LogWarning(
+                    $"[{name}] Wind-up and attack both use '{attack}'. " +
+                    "The wind-up phase will show idle so the attack clip only plays once.",
+                    this);
+            }
+        }
+
+        private void ValidateAnimation(SkeletonData data, string animationName, string fieldName, bool required)
+        {
+            if (string.IsNullOrWhiteSpace(animationName))
+            {
+                if (required)
+                    Debug.LogError($"[{name}] Required Spine animation field '{fieldName}' is empty.", this);
+                return;
+            }
+
+            if (data.FindAnimation(animationName) == null)
+            {
+                Debug.LogWarning(
+                    $"[{name}] Spine animation '{animationName}' configured in '{fieldName}' was not found.",
+                    this);
+            }
+        }
+
+        private void OnValidate()
+        {
+            if (skeletonAnimation == null)
+                skeletonAnimation = GetComponentInChildren<SkeletonAnimation>(true);
+        }
+#endif
     }
 }

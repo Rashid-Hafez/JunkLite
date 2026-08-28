@@ -70,9 +70,9 @@ namespace junklite
             timer = 0f;
             FaceTarget();
 
-            // Tell the enemy a new attack cycle is starting (wind-up).
-            // Animation controller can use this to play a telegraph/anticipation anim.
-            meleeAttacker.OnMeleeWindUp();
+            // Gameplay owns the duration. Presentation may fit its clip to this
+            // phase, but it cannot change when the attack becomes active.
+            enemy.AnimationPresenter?.PlayMeleeWindup(meleeAttacker.MeleeWindUpDuration);
         }
 
         private void BeginAttack()
@@ -83,9 +83,7 @@ namespace junklite
             hitboxActivated = false;
             hitboxDeactivated = false;
 
-            // Tell the enemy the actual swing is starting now.
-            // Animation controller plays the attack clip at this point.
-            meleeAttacker.OnMeleeAttack();
+            enemy.AnimationPresenter?.PlayMeleeAttack(attackDuration);
         }
 
         // =============================================================

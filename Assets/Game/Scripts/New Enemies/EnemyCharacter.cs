@@ -1,6 +1,7 @@
 using System.Collections;
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace junklite
 {
@@ -64,9 +65,9 @@ namespace junklite
         [Tooltip("Delay in seconds after entering melee attack before showing the notification. 0 = show immediately.")]
         [SerializeField] protected float attackNotifyDelay = 0f;
 
-        [Header("Animation (Enemy)")]
-        [SerializeField] private EnemyAnimationController enemyAnimation;
-        public EnemyAnimationController Anim => enemyAnimation;
+        [Header("Animation Presentation")]
+        [FormerlySerializedAs("enemyAnimation")]
+        [SerializeField] private EnemyAnimationPresenter animationPresenter;
 
         [Header("Death VFX")]
         [SerializeField] protected GameObject deathParticlePrefab;
@@ -85,7 +86,6 @@ namespace junklite
         private bool tutorialFrozen;
         private bool tutorialPreviousKinematic;
         private Rigidbody tutorialFrozenRigidbody;
-        private EnemySpineAnimationController spineAnimationController;
 
         // Components
         protected StateMachine stateMachine;
@@ -113,6 +113,7 @@ namespace junklite
         public EnemyPerception DetectionZone => detectionZone;
         public StatusEffectHandler StatusEffects => statusEffects;
         public EnemyBrain Brain => brain != null ? brain : brain = GetComponent<EnemyBrain>();
+        public EnemyAnimationPresenter AnimationPresenter => animationPresenter;
 
         // Public accessors - Target
         public Transform Target => detectionZone != null ? detectionZone.TargetTransform : null;
@@ -143,13 +144,19 @@ namespace junklite
             if (detectionZone == null)
                 detectionZone = GetComponentInChildren<EnemyPerception>(true);
 
-            if (enemyAnimation == null)
-                enemyAnimation = GetComponentInChildren<EnemyAnimationController>(true);
+            EnemyAnimationPresenter[] presenters = GetComponentsInChildren<EnemyAnimationPresenter>(true);
+            if (animationPresenter == null && presenters.Length > 0)
+                animationPresenter = presenters[0];
+
+            if (presenters.Length > 1)
+            {
+                Debug.LogError(
+                    $"[{gameObject.name}] Multiple enemy animation presenters found. Assign exactly one active presentation backend.",
+                    this);
+            }
 
             if (damageFlashUniversal == null)
                 damageFlashUniversal = GetComponentInChildren<DamageFlashUniversal>(true);
-            if (spineAnimationController == null)
-                spineAnimationController = GetComponentInChildren<EnemySpineAnimationController>(true);
 
             if (movement != null)
             {
@@ -232,11 +239,11 @@ namespace junklite
                     tutorialFrozenRigidbody.isKinematic = true;
                 }
 
-                spineAnimationController?.SetPlaybackPaused(true);
+                animationPresenter?.SetPlaybackPaused(true);
             }
             else
             {
-                spineAnimationController?.SetPlaybackPaused(false);
+                animationPresenter?.SetPlaybackPaused(false);
 
                 if (tutorialFrozenRigidbody != null)
                 {

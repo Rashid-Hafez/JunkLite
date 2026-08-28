@@ -5097,7 +5097,7 @@ MonoBehaviour:
   damageFlashUniversal: {fileID: 0}
   attackWarningVfx: {fileID: 0}
   attackNotifyDelay: 0
-  enemyAnimation: {fileID: 0}
+  animationPresenter: {fileID: 0}
   deathParticlePrefab: {fileID: 358637981425055526, guid: 8eb503696b886e04faff8fc0f480d473, type: 3}
   deathParticleLifetime: 2
   enemyVisual: {fileID: 873555257464973405}
@@ -5115,8 +5115,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a80ca370b17e4480aa5b212d56d47db2, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.MeleeChaserBrain
-  ownsSerializedConfiguration: 1
-  spineController: {fileID: 0}
   patrolWhenPassive: 0
   patrol:
     patrolDistance: 0

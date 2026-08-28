@@ -282,7 +282,6 @@ namespace junklite
         [SerializeField][Range(0f, 1f)] private float hitEndNormalized = 0.6f;
 
         private GameObject owner;
-        private EnemySpineAnimationController animationController;
         private Hitbox subscribedHitbox;
 
         public event System.Action Completed;
@@ -302,10 +301,9 @@ namespace junklite
         public float MeleeHitStartNormalized => hitStartNormalized;
         public float MeleeHitEndNormalized => hitEndNormalized;
 
-        public void Initialize(GameObject damageOwner, EnemySpineAnimationController animation)
+        public void Initialize(GameObject damageOwner)
         {
             owner = damageOwner;
-            animationController = animation;
             RefreshHitboxSubscription();
         }
 
@@ -316,11 +314,8 @@ namespace junklite
 
             subscribedHitbox = null;
             owner = null;
-            animationController = null;
         }
 
-        public void OnMeleeWindUp() => animationController?.PlayWindUpAnimation();
-        public void OnMeleeAttack() => animationController?.PlayAttackAnimation();
         public void OnMeleeComplete() => Completed?.Invoke();
 
         private void RefreshHitboxSubscription()

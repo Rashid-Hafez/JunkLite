@@ -206,7 +206,7 @@ MonoBehaviour:
   damageFlashUniversal: {fileID: 0}
   attackWarningVfx: {fileID: 7542237875352858683}
   attackNotifyDelay: 0.06
-  enemyAnimation: {fileID: 0}
+  animationPresenter: {fileID: 6885050171418826779}
   deathParticlePrefab: {fileID: 0}
   deathParticleLifetime: 2
   enemyVisual: {fileID: 0}
@@ -224,8 +224,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f5d8c384d96b4d218faac214376d8e4e, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.HyenaBrain
-  ownsSerializedConfiguration: 1
-  spineController: {fileID: 6885050171418826779}
   patrolWhenPassive: 1
   patrol:
     patrolDistance: 6.05

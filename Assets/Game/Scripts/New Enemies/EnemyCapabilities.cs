@@ -113,8 +113,6 @@ namespace junklite
         Vector2 MeleeKnockback { get; }
         Hitbox MeleeHitbox { get; }
         GameObject MeleeVFXPrefab { get; }
-        void OnMeleeWindUp();
-        void OnMeleeAttack();
         void OnMeleeComplete();
     }
 
