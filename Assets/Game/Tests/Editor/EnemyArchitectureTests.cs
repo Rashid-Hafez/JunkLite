@@ -187,7 +187,7 @@ namespace junklite.Tests
             StringAssert.DoesNotContain("StateMachine", movementSource);
             StringAssert.DoesNotContain("StunnedState", movementSource);
             StringAssert.DoesNotContain("DeadState", levelSequenceSource);
-            StringAssert.Contains("enemy.Died += OnWaveEnemyDied", levelSequenceSource);
+            StringAssert.Contains("encounter.EnemyDied += OnEncounterEnemyDied", levelSequenceSource);
         }
 
         private static GameObject LoadPrefab(string path)

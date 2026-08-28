@@ -70,13 +70,12 @@ namespace junklite
         [SerializeField] private SequenceTrigger objective3Trigger;
         [SerializeField] private SequenceTrigger finalObjectiveTrigger;
 
-        [Header("Enemies")]
-        [SerializeField] private GameObject[] enemyPrefabs;
-        [SerializeField] private Transform[] enemySpawnPoints;
+        [Header("Encounter")]
+        [SerializeField] private EncounterController encounter;
+        [SerializeField, HideInInspector] private GameObject[] enemyPrefabs;
+        [SerializeField, HideInInspector] private Transform[] enemySpawnPoints;
         [SerializeField] private GameObject tutorialWeaponPickupPrefab;
         [SerializeField] private Transform tutorialWeaponPickupSpawnPoint;
-        [SerializeField] private GameObject postPickupEnemyPrefab;
-        [SerializeField] private Transform postPickupEnemySpawnPoint;
 
         [Header("Mod pickup (after hyena)")]
         [Tooltip("Prefab from Project, or an inactive pickup already in the scene.")]
@@ -134,8 +133,7 @@ namespace junklite
         private Coroutine revealFadeRoutine;
         private bool platformCompleteBeatRunning;
 
-        private readonly List<EnemyCharacter> spawnedEnemies = new();
-        private int enemiesAlive;
+        private readonly HashSet<EnemyCharacter> tutorialEncounterEnemies = new();
         private WorldWeaponPickup activeTutorialPickup;
         private bool tutorialModHyenaSpawnHandled;
 
@@ -175,7 +173,7 @@ namespace junklite
 
         private void OnDestroy()
         {
-            UnsubscribeEnemyCallbacks();
+            UnsubscribeEncounterCallbacks();
 
             if (DialogueManager.instance != null)
             {
@@ -288,8 +286,21 @@ namespace junklite
                 yield return RunDialogue(combatIntroDialogue);
 
             SetStage(Stage.EnemyWave);
-            SpawnEnemyWave();
-            yield return WaitForAllEnemiesDead();
+            PrepareEncounter();
+            SubscribeEncounterCallbacks();
+            encounter.StartEncounter();
+            yield return encounter.WaitUntilFinished();
+
+            bool encounterCompleted = encounter.State == EncounterState.Completed;
+            UnsubscribeEncounterCallbacks();
+            if (!encounterCompleted)
+            {
+                Debug.LogWarning(
+                    $"[Level0Sequence] Encounter ended in state {encounter.State}; tutorial progression stopped.",
+                    encounter);
+                yield break;
+            }
+
             yield return WaitForParryEffectsToSettle();
 
             // If any mod pickups were spawned by enemy deaths (e.g. hyena drops),
@@ -653,82 +664,80 @@ namespace junklite
 
         #region Enemy Wave
 
-        private void SpawnEnemyWave()
+        private void PrepareEncounter()
         {
-            UnsubscribeEnemyCallbacks();
-            spawnedEnemies.Clear();
-            enemiesAlive = 0;
             parryTutorialPromptUsed = false;
             tutorialModHyenaSpawnHandled = false;
 
-            if (enemyPrefabs == null || enemyPrefabs.Length == 0)
+            if (encounter != null)
+                return;
+
+            EncounterController localEncounter = GetComponent<EncounterController>();
+            if (localEncounter != null && localEncounter.ConfiguredWaveCount > 0)
             {
-                Debug.LogWarning("[Level0Sequence] No enemy prefabs assigned — skipping wave.");
+                encounter = localEncounter;
+                Debug.LogWarning(
+                    "[Level0Sequence] Using the local EncounterController. Assign it explicitly in the Inspector.",
+                    encounter);
                 return;
             }
 
-            int spawnCount = Mathf.Min(enemyPrefabs.Length,
-                enemySpawnPoints != null ? enemySpawnPoints.Length : 1);
+            encounter = localEncounter != null
+                ? localEncounter
+                : gameObject.AddComponent<EncounterController>();
 
-            for (int i = 0; i < spawnCount; i++)
+            List<EncounterEnemyEntry> legacyEntries = new();
+            int prefabCount = enemyPrefabs?.Length ?? 0;
+            int spawnPointCount = enemySpawnPoints?.Length ?? 0;
+            int entryCount = Mathf.Min(prefabCount, spawnPointCount);
+
+            if (prefabCount != spawnPointCount)
             {
-                Vector3 pos = (enemySpawnPoints != null && i < enemySpawnPoints.Length && enemySpawnPoints[i] != null)
-                    ? enemySpawnPoints[i].position
-                    : Vector3.zero;
+                Debug.LogWarning(
+                    $"[Level0Sequence] Legacy encounter arrays have different lengths " +
+                    $"({prefabCount} prefabs, {spawnPointCount} spawn points); only paired entries will migrate.",
+                    this);
+            }
 
-                var go = Instantiate(enemyPrefabs[i], pos, Quaternion.identity);
-                var enemy = go.GetComponent<EnemyCharacter>();
+            for (int i = 0; i < entryCount; i++)
+            {
+                GameObject prefabObject = enemyPrefabs[i];
+                Transform spawnPoint = enemySpawnPoints[i];
+                EnemyCharacter enemyPrefab = prefabObject != null
+                    ? prefabObject.GetComponent<EnemyCharacter>()
+                    : null;
 
-                if (enemy == null)
+                if (enemyPrefab == null || spawnPoint == null)
                 {
-                    Debug.LogWarning($"[Level0Sequence] Enemy prefab {i} missing EnemyCharacter!");
+                    Debug.LogWarning(
+                        $"[Level0Sequence] Legacy encounter entry {i} is invalid and will be skipped.",
+                        this);
                     continue;
                 }
 
-                spawnedEnemies.Add(enemy);
-                enemiesAlive++;
-                SubscribeTrackedWaveEnemy(enemy);
+                legacyEntries.Add(EncounterEnemyEntry.SpawnPrefab(enemyPrefab, spawnPoint));
             }
 
-            Debug.Log($"[Level0Sequence] Spawned {enemiesAlive} enemies");
+            encounter.ConfigureRuntimeWaves(new[] { new EncounterWave(legacyEntries) });
+            Debug.LogWarning(
+                "[Level0Sequence] Built a runtime EncounterController from legacy enemy arrays. " +
+                "Author and assign a scene-local encounter to remove this compatibility path.",
+                encounter);
         }
 
-        private void SpawnPostPickupEnemy()
+        private void SubscribeEncounterCallbacks()
         {
-            UnsubscribeEnemyCallbacks();
-            spawnedEnemies.Clear();
-            enemiesAlive = 0;
+            UnsubscribeEncounterCallbacks();
+            encounter.EnemyRegistered += OnEncounterEnemyRegistered;
+            encounter.EnemyDied += OnEncounterEnemyDied;
+        }
 
-            if (postPickupEnemyPrefab == null)
-            {
-                Debug.LogWarning("[Level0Sequence] No post-pickup enemy prefab assigned.");
+        private void OnEncounterEnemyRegistered(EnemyCharacter enemy)
+        {
+            if (enemy == null || !tutorialEncounterEnemies.Add(enemy))
                 return;
-            }
 
-            Vector3 pos = postPickupEnemySpawnPoint != null ? postPickupEnemySpawnPoint.position : Vector3.zero;
-            SpawnTrackedEnemy(postPickupEnemyPrefab, pos);
-        }
-
-        private void SpawnTrackedEnemy(GameObject enemyPrefab, Vector3 position)
-        {
-            var go = Instantiate(enemyPrefab, position, Quaternion.identity);
-            var enemy = go.GetComponent<EnemyCharacter>();
-
-            if (enemy == null)
-            {
-                Debug.LogWarning("[Level0Sequence] Spawned enemy prefab missing EnemyCharacter!");
-                return;
-            }
-
-            spawnedEnemies.Add(enemy);
-            enemiesAlive++;
-            SubscribeTrackedWaveEnemy(enemy);
-        }
-
-        private void SubscribeTrackedWaveEnemy(EnemyCharacter enemy)
-        {
             enemy.OnAttackNotifyShown += OnTutorialEnemyAttackNotifyShown;
-            enemy.Died += OnWaveEnemyDied;
         }
 
         private void OnTutorialEnemyAttackNotifyShown(EnemyCharacter enemy)
@@ -775,10 +784,10 @@ namespace junklite
 
         private void OnTutorialParryPressed() => parryTutorialPressed = true;
 
-        private void OnWaveEnemyDied(EnemyCharacter enemy)
+        private void OnEncounterEnemyDied(EnemyCharacter enemy)
         {
-            enemiesAlive = Mathf.Max(0, enemiesAlive - 1);
-            Debug.Log($"[Level0Sequence] Enemy died — {enemiesAlive} remaining");
+            if (enemy != null && tutorialEncounterEnemies.Remove(enemy))
+                enemy.OnAttackNotifyShown -= OnTutorialEnemyAttackNotifyShown;
 
             if (enemy != null && enemy.EnemyType == EnemyType.Hyena)
                 SpawnOrActivateTutorialModAfterHyenaDeath();
@@ -810,24 +819,24 @@ namespace junklite
             tutorialModPickup.SetActive(true);
         }
 
-        private IEnumerator WaitForAllEnemiesDead()
+        private void UnsubscribeEncounterCallbacks()
         {
-            while (enemiesAlive > 0)
-                yield return null;
-
-            UnsubscribeEnemyCallbacks();
-            Debug.Log("[Level0Sequence] All enemies dead");
-        }
-
-        private void UnsubscribeEnemyCallbacks()
-        {
-            foreach (var enemy in spawnedEnemies)
+            if (encounter != null)
             {
-                if (enemy == null) continue;
-                enemy.Died -= OnWaveEnemyDied;
+                encounter.EnemyRegistered -= OnEncounterEnemyRegistered;
+                encounter.EnemyDied -= OnEncounterEnemyDied;
+            }
+
+            foreach (EnemyCharacter enemy in tutorialEncounterEnemies)
+            {
+                if (enemy == null)
+                    continue;
+
                 enemy.OnAttackNotifyShown -= OnTutorialEnemyAttackNotifyShown;
                 enemy.SetTutorialFrozen(false);
             }
+
+            tutorialEncounterEnemies.Clear();
         }
 
         #endregion
@@ -1326,7 +1335,7 @@ namespace junklite
             GUILayout.Label("=== LEVEL 0 SEQUENCE ===");
             GUILayout.Label($"Stage:         {currentStage}");
             GUILayout.Label($"Player:        {(currentPlayer != null ? (currentPlayer.IsAlive ? "Alive" : "Dead") : "None")}");
-            GUILayout.Label($"Enemies alive: {enemiesAlive}");
+            GUILayout.Label($"Enemies alive: {(encounter != null ? encounter.AliveEnemyCount : 0)}");
             GUILayout.Label($"Next scene:    {(string.IsNullOrEmpty(nextSceneName) ? "(not set)" : nextSceneName)}");
             GUILayout.EndArea();
         }

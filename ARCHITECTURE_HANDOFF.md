@@ -6,7 +6,7 @@ Reviewed branch: `4.7`
 
 Baseline code commit: `46f3c34e` (`changes to player, enemies and base services`)
 
-The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` damage migration, focused mod-runtime cleanup, the explicit `V2.5` infrastructure migration, the focused player/UI lifecycle extractions, the player weapon-loadout extraction, and the composed enemy-AI migration described below.
+The current working tree contains the player/enemy separation, result-based damage pipeline, `WeaponManager` damage migration, focused mod-runtime cleanup, the explicit `V2.5` infrastructure migration, the focused player/UI lifecycle extractions, the player weapon-loadout extraction, the composed enemy-AI migration, the first encounter/wave implementation slice, and the audited unused-script cleanup described below.
 
 ## Purpose
 
@@ -51,6 +51,7 @@ The goal is better modularity and easier feature development without building a 
 | Game UI lifecycle extraction | Implemented, Play Mode verification pending | `GameUIManager` owns HUD, pause, game-over, loading UI, prefab configuration, instances, and state-driven visibility. |
 | Player weapon loadout | Implemented, Play Mode verification pending | `PlayerWeaponLoadout` owns both equipped slots, paired world pickups, attachment, visibility, swap/drop/replace, and break removal. |
 | Composed enemy AI foundation | Implemented for all current first-party enemy prefabs, latest migrations need Play Mode verification | Grunt/Hyena are user-verified. Robot, Flying Dummy, Patrol Dummy, and Dummy now use the same composition boundary without forcing every archetype through the same brain. |
+| Encounter/wave foundation | Runtime and Level 0 migration implemented; EditMode and Play Mode verification pending | Scene-local sequential waves, exact-once participant tracking, cancellation, validation, and the Level 0 legacy bridge are in place. Level goals and gates are not migrated yet. |
 | Full game/level manager cleanup | In progress | Player and UI lifecycle are extracted; `GameManager` retains global state, pause coordination, scene transitions, and music. |
 
 ## Implemented Architecture
@@ -104,7 +105,7 @@ Player defense order is:
 
 `EnemyBase` owns only enemy stats/attributes, damage binding, health/death lifecycle, healing, activation, and forced death. Enemy targeting, movement, FSM decisions, interruption, knockback, presentation, drops, and encounters remain enemy-specific.
 
-`CharacterBase` has no known first-party inheritors or serialized references. It now uses `IDamageReceiver` so it does not preserve the removed damage API; the file can be deleted in a later cleanup after one final Unity reference check.
+The unused universal `CharacterBase` was deleted after confirming it had no inheritors, code consumers, or serialized references. Player and enemy lifecycle now use only their focused boundaries.
 
 ### 3. WeaponManager result-based damage migration
 
@@ -285,17 +286,17 @@ Deliberately deferred until this vertical slice is gameplay-proven:
 
 - No generalized target/threat framework, service locator, AI event bus, or universal action graph was added.
 - `EnemyType`, `EnemyConfig`, and a possible identity-only `EnemyDefinition` were not redesigned.
-- Animation-presentation cleanup and encounter/wave architecture were not migrated yet.
+- Animation-presentation cleanup remains deferred. Encounter phases 1–2 are now implemented; level-goal and gate consumers remain deferred until verification.
 
-### 14. Planned encounter and wave architecture — approved, not implemented
+### 14. Encounter and wave architecture — phases 1–2 implemented
 
-The next implementation should extract one concrete responsibility from level-specific code:
+The first implementation slice extracts one concrete responsibility from level-specific code:
 
 > The sequence manager decides when a fight happens. The encounter decides which enemies belong to that fight and when the fight is finished.
 
-This plan is intentionally not a universal mission, quest, or sequencing framework. The current code already demonstrates the need for the smaller boundary:
+This design is intentionally not a universal mission, quest, or sequencing framework. Before phases 1–2, the code demonstrated the need for the smaller boundary:
 
-- `Level0SequenceManager` owns enemy configuration, instantiation, living counts, death subscriptions, tutorial reactions, and progression waits.
+- `Level0SequenceManager` owned enemy configuration, instantiation, living counts, death subscriptions, tutorial reactions, and progression waits.
 - `LevelGoal` separately finds enemies and subscribes to attribute death events, which duplicates ownership and does not naturally cover later runtime spawns.
 - `CameraSwitchTrigger` can maintain a manual enemy list and poll health every frame while also reacting to `PlayerCombatTracker`.
 - `PlayerCombatTracker` represents current aggression against the player. Losing aggro is not the same as defeating an encounter.
@@ -384,9 +385,9 @@ Runtime edge-case semantics are fixed as follows:
 - `CancelEncounter()` stops pending spawn/delay work, unsubscribes every participant, clears runtime tracking, enters `Cancelled`, and leaves participating enemies alive and independent. It does not kill, destroy, despawn, unlock gates, or publish `EncounterCompleted`.
 - True reset/restart semantics are not part of v1. Respawning dead scene enemies, restoring health/AI, replaying callbacks, and resetting statistics require explicit product behavior and will only be added when encounter replay is needed.
 
-#### Implementation phase 1 — encounter foundation
+#### Implementation phase 1 — encounter foundation (implemented, verification pending)
 
-Add focused first-party scripts under `Assets/Game/Scripts/Encounters/`:
+Focused first-party scripts now live under `Assets/Game/Scripts/Encounters/`:
 
 1. `EncounterTypes.cs` containing the state/source enums and serializable `EncounterWave` / `EncounterEnemyEntry` data.
 2. `EncounterController.cs` containing the runtime lifecycle, sequential-wave coroutine, set-based participant tracking, exact-once completion, cancellation, and validation.
@@ -394,9 +395,9 @@ Add focused first-party scripts under `Assets/Game/Scripts/Encounters/`:
 
 Do not add a singleton, factory abstraction, pooling interface, wave asset, mission graph, or generic action framework in this phase. Continue using `Instantiate`; pooling would require a separate enemy reset/activation contract and should be driven by profiling.
 
-#### Implementation phase 2 — migrate the tutorial combat boundary
+#### Implementation phase 2 — migrate the tutorial combat boundary (implemented, scene authoring pending)
 
-Give `Level0SequenceManager` one explicit `EncounterController` reference. Its combat portion becomes conceptually:
+`Level0SequenceManager` now has one explicit `EncounterController` reference. Its combat portion is:
 
 ```text
 subscribe to encounter participant/death events
@@ -408,9 +409,9 @@ unsubscribe
 
 The tutorial subscribes to `EnemyRegistered` so it can listen for the first attack notification, and to `EnemyDied` so it can detect the tutorial Hyena and create/activate the mod reward. Those rules remain tutorial-owned and must never move into `EncounterController`.
 
-For the two existing tutorial scenes, retain `enemyPrefabs` and `enemySpawnPoints` only as hidden migration fields. If no native encounter configuration is assigned, the sequence manager obtains/adds a local controller and converts the legacy arrays into one runtime wave. Emit an editor/development warning whenever this bridge is used. Remove the bridge once both scenes have an explicitly authored encounter.
+For the two existing tutorial scenes, `enemyPrefabs` and `enemySpawnPoints` remain only as hidden migration fields. If no native encounter configuration is assigned, the sequence manager obtains/adds a local controller and converts paired legacy entries into one runtime wave. It emits a development warning whenever this bridge is used. Remove the bridge once both scenes have an explicitly authored encounter.
 
-After migration, remove the sequence manager's manual `spawnedEnemies`, `enemiesAlive`, spawn/count/wait methods, and direct death-subscription ownership. The currently unused post-pickup enemy spawning method/fields should be removed only after a serialized-reference audit confirms no authored content expects them. No scene should be bulk-edited as part of the code extraction.
+The sequence manager's manual `spawnedEnemies`, `enemiesAlive`, spawn/count/wait methods, and direct `EnemyCharacter.Died` subscription ownership are removed. The unused post-pickup enemy spawning method/fields were also removed after a source and serialized-scene audit found only null authored values. No scene was bulk-edited as part of the code extraction.
 
 #### Implementation phase 3 — level goal and statistics
 
@@ -465,6 +466,21 @@ The encounter/wave architecture is structurally complete when:
 
 Only after this definition is met should the project consider reusable wave assets, overlapping waves, encounter replay/reset, enemy pooling, or a more general objective system.
 
+### 15. Audited unused-script cleanup
+
+On 2026-08-28, a code-symbol and serialized-GUID audit removed ten first-party scripts that had no consumers anywhere under `Assets`:
+
+- The superseded `CharacterBase`.
+- Empty prototype `Item` and `Weapon` components.
+- Unused `DropRateTable`, `ModEffectBase`, and `Items` crafting prototypes.
+- Unused `ChargeStrikeSplitBehaviour` and `SpineEnemyMovement` enemy prototypes.
+- The fully commented-out `TutorialManager` prototype.
+- The unused `DashTiltEffect` prototype.
+
+Their matching `.meta` files were removed with them. Runtime and editor assemblies compile with 0 errors after the deletion.
+
+Legacy-looking scripts with active serialized consumers were deliberately retained. In particular, `DetectionZone`, `ActivateTestManager`, `TestManager`, `UIManager`, older level UI components, and scene-specific trigger scripts must not be deleted until their referenced scenes/prefabs are explicitly migrated or retired.
+
 ## Verification Recorded
 
 On 2026-08-26 with Unity 6000.3.22f1:
@@ -494,6 +510,16 @@ On 2026-08-27, after migrating the remaining active enemy prefabs:
 - Direct runtime and editor assembly builds complete with 0 warnings and 0 errors when warning output is suppressed for the focused compile check.
 - The architecture suite now contains nine focused tests producing fifteen cases. Added coverage checks Robot composition/runtime capabilities, Flying Dummy brain/hover separation, passive-dummy settings, and source guards that keep migrated identity classes free of decision FSMs.
 - Robot, Flying Dummy, Patrol Dummy, and Dummy still require the in-Editor validator, EditMode tests, and focused Play Mode checks below. Grunt and Hyena behavior was already confirmed working by the user.
+
+On 2026-08-28, after implementing encounter phases 1–2:
+
+- `EncounterTypes` and the scene-local `EncounterController` implement explicit prefab/existing participant modes, sequential waves, set-based living tracking, exact-once death/completion, destroyed-participant pruning, scripted unregister, cancellation, and runtime/configuration warnings.
+- `Level0SequenceManager` delegates spawning and completion to the encounter while retaining tutorial-owned parry and Hyena-reward reactions. The two existing tutorial scenes remain compatible through hidden legacy arrays and a warning-emitting runtime conversion bridge.
+- The direct runtime and editor assembly builds complete with 0 errors. Existing unrelated/third-party warnings remain.
+- `EncounterArchitectureTests` and `Tools > JunkLite > Systems > Validate Encounters` are implemented. The focused tests compile but still require an in-Editor EditMode run.
+- No scene or prefab was changed. Unity generated the runtime encounter script `.meta` files; the Editor will generate metadata for the new validator/test files when it imports them.
+
+After the unused-script audit on the same date, the direct runtime and editor assembly builds completed with 0 errors. The audit checked both code symbols and script GUIDs across all assets before deletion; no scene, prefab, or ScriptableObject referenced a removed script.
 
 No scene or prefab was changed for the mod-runtime or camera-binding cleanup. Unity generated only the `.meta` for the new mod runtime script.
 
@@ -535,6 +561,8 @@ For the enemy architecture, verify in Play Mode:
 
 The broader foundation still needs representative player/enemy/weapon gameplay verification. The migrated `V2.5` scene still needs visual and functional Play Mode approval.
 
+For the encounter foundation, run `EncounterArchitectureTests`, validate a natively authored encounter, and verify both tutorial scenes first through the legacy bridge and then with explicit scene-local encounter configuration. Confirm sequential wave activation, tutorial attack/parry handling, Hyena reward creation, cancellation behavior, and successful continuation only after `EncounterCompleted`.
+
 ## What Should Be Done Next
 
 ### Gate 1: Play-test the completed combat/mod slice
@@ -567,9 +595,9 @@ Completed according to the user's current test and pickup/break report. Keep the
 
 Run the validator, focused tests, and Play Mode checklist above. Fix regressions inside the existing character/perception/brain/state/behavior/controller boundaries. Do not add `EnemyDefinition` until a concrete content requirement proves it is useful.
 
-### Gate 6: Reassess encounter and wave ownership
+### Gate 6: Verify and finish encounter consumers
 
-After the new Robot/Flying/passive checks pass, implement the approved phased plan in section 14. Begin only with the scene-local `EncounterController`, explicit `EncounterEnemyEntry` modes, sequential waves, set-based lifecycle tracking, tests, and the Level 0 combat-boundary migration. Keep enemy lifecycle behind `EnemyCharacter.Died`; do not introduce reset/replay, reusable wave assets, pooling, a global AI event bus, or a universal action graph during the first slice.
+Encounter phases 1–2 are implemented. Run `EncounterArchitectureTests` and `Tools > JunkLite > Systems > Validate Encounters`, then Play Mode-check the Level 0 combat boundary. With user review, author one explicit scene-local encounter in each tutorial scene and remove the legacy bridge only after both are migrated. Once the foundation is proven, implement phase 3 (`LevelGoal` required encounters), then phase 4 (event-driven encounter gates/camera triggers). Keep enemy lifecycle behind `EnemyCharacter.Died`; do not introduce reset/replay, reusable wave assets, pooling, a global AI event bus, or a universal action graph.
 
 ### Deferred weapon reassessment
 
@@ -603,11 +631,10 @@ Still required before calling the slice gameplay-closed:
 
 - Complete the Play Mode checklist above.
 - Verify representative player, enemy, weapon, status, and mod prefabs in the Inspector.
-- Delete the unused `CharacterBase.cs` after one final serialized-reference check.
 
 ## Continuation Prompt for a New Codex Task
 
-> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. The player/combat/lifecycle/loadout work described here is implemented. The composed enemy architecture is implemented across Grunt, all Hyena variants, Robot, Flying Dummy, Patrol Dummy, and Dummy: `EnemyPerception` reports facts, archetype brains own voluntary transitions, states execute one action, behaviors own reusable mechanics, focused controllers own independent physical presentation, and `EnemyCharacter.Died` isolates Level 0 from enemy FSM details. Grunt/Hyena are user-verified; run `Tools > JunkLite > Systems > Validate Enemies`, run `EnemyArchitectureTests`, and complete the Robot/Flying/passive Play Mode checklist. Section 14 contains the approved but unimplemented encounter/wave plan. Implement it in phases, starting only with the scene-local `EncounterController`, explicit participant source modes, sequential waves, set-based tracking, tests, and the Level 0 combat-boundary migration. Do not add reset/replay, reusable wave assets, pooling, networking architecture, a universal AI/ability graph, a service locator, or a broad manager rewrite in the first slice.
+> Read `ARCHITECTURE_HANDOFF.md` completely and inspect the current code before changing anything. JunkLite is single-player. The player/combat/lifecycle/loadout work described here is implemented. The composed enemy architecture is implemented across Grunt, all Hyena variants, Robot, Flying Dummy, Patrol Dummy, and Dummy. Encounter phases 1–2 are also implemented: `EncounterController` owns scene-local sequential waves and exact-once participant lifecycle, while `Level0SequenceManager` owns only tutorial reactions and sequencing and has a temporary legacy-array bridge. Run the enemy and encounter validators/tests, complete the Robot/Flying/passive and Level 0 Play Mode checklists, then author explicit tutorial encounters with user review. After verification, migrate `LevelGoal` and encounter-specific gates in phases 3–4. Do not add reset/replay, reusable wave assets, pooling, networking architecture, a universal AI/ability graph, a service locator, or a broad manager rewrite.
 
 ## Synchronization Checklist
 
