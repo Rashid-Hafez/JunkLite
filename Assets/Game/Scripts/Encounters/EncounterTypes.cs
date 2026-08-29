@@ -25,11 +25,13 @@ namespace junklite
         [SerializeField] private EnemyCharacter enemyPrefab;
         [SerializeField] private Transform spawnTransform;
         [SerializeField] private EnemyCharacter existingEnemy;
+        [SerializeField] private bool activateExistingEnemy = true;
 
         public EncounterEnemySourceMode SourceMode => sourceMode;
         public EnemyCharacter EnemyPrefab => enemyPrefab;
         public Transform SpawnTransform => spawnTransform;
         public EnemyCharacter ExistingEnemy => existingEnemy;
+        public bool ActivateExistingEnemy => activateExistingEnemy;
 
         public static EncounterEnemyEntry SpawnPrefab(
             EnemyCharacter prefab,
@@ -43,12 +45,15 @@ namespace junklite
             };
         }
 
-        public static EncounterEnemyEntry UseExisting(EnemyCharacter enemy)
+        public static EncounterEnemyEntry UseExisting(
+            EnemyCharacter enemy,
+            bool activateWhenWaveStarts = true)
         {
             return new EncounterEnemyEntry
             {
                 sourceMode = EncounterEnemySourceMode.ExistingEnemy,
-                existingEnemy = enemy
+                existingEnemy = enemy,
+                activateExistingEnemy = activateWhenWaveStarts
             };
         }
     }

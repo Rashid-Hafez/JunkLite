@@ -257,7 +257,6 @@ namespace junklite
             if (follow)
             {
                 BindCameraTarget(activeCamera, cachedTrackingTarget);
-                Debug.Log("[CameraManager] Camera follow enabled");
             }
             else
             {
@@ -265,7 +264,6 @@ namespace junklite
                     cachedTrackingTarget = activeCamera.Target.TrackingTarget;
 
                 BindCameraTarget(activeCamera, null);
-                Debug.Log("[CameraManager] Camera follow disabled (frozen)");
             }
         }
 

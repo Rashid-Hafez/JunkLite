@@ -10,9 +10,6 @@ namespace junklite
     /// </summary>
     public class StateMachine : MonoBehaviour
     {
-        [Header("Debug")]
-        [SerializeField] private bool logTransitions = false;
-
         private Dictionary<Type, IState> states = new Dictionary<Type, IState>();
         private IState currentState;
         private IState previousState;
@@ -89,9 +86,6 @@ namespace junklite
 
             if (currentState == newState) return;
 
-            if (logTransitions)
-                Debug.Log($"[FSM] {gameObject.name}: {currentState?.GetType().Name ?? "None"} -> {newState.GetType().Name}");
-
             previousState = currentState;
             currentState?.Exit();
 
@@ -115,9 +109,6 @@ namespace junklite
                 Debug.LogError($"Initial state {type.Name} not registered!");
                 return;
             }
-
-            if (logTransitions)
-                Debug.Log($"[FSM] {gameObject.name}: Initial state -> {type.Name}");
 
             currentState = initialState;
             currentState.Enter();

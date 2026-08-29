@@ -17,9 +17,6 @@ namespace junklite
         [SerializeField] private GameObject bleedVFX;
         [SerializeField] private GameObject electricVFX;
 
-        [Header("Debug")]
-        [SerializeField] private bool showDebugLogs;
-
         private readonly List<StatusEffectInstance> activeEffects = new();
         private readonly List<StatusEffectInstance> tickBuffer = new();
         private readonly List<StatusEffectInstance> removalBuffer = new();
@@ -86,9 +83,6 @@ namespace junklite
 
                 OnEffectRefreshed?.Invoke(existing.Type);
 
-                if (showDebugLogs)
-                    Debug.Log($"[StatusEffect] Refreshed {existing.Type} on {name}", this);
-
                 return existing;
             }
 
@@ -97,9 +91,6 @@ namespace junklite
             SetVFXActive(effect.Type, true);
             RecalculateSnapshot();
             OnEffectApplied?.Invoke(effect.Type);
-
-            if (showDebugLogs)
-                Debug.Log($"[StatusEffect] Applied {effect.Type} to {name} ({application.Duration:0.##}s)", this);
 
             return effect;
         }
@@ -266,8 +257,6 @@ namespace junklite
 
             OnEffectTick?.Invoke(effect.Type, result.AppliedDamage);
 
-            if (showDebugLogs)
-                Debug.Log($"[StatusEffect] {effect.Type} tick: {result.AppliedDamage} damage to {name}", this);
         }
 
         private StatusEffectInstance FindMatchingEffect(StatusEffectApplication application)
@@ -302,9 +291,6 @@ namespace junklite
                 SetVFXActive(effect.Type, false);
 
             OnEffectRemoved?.Invoke(effect.Type);
-
-            if (showDebugLogs)
-                Debug.Log($"[StatusEffect] Removed {effect.Type} from {name}", this);
 
             if (recalculate)
                 RecalculateSnapshot();

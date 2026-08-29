@@ -32,8 +32,6 @@ namespace junklite
             enemy.Movement?.Stop();
 
             activeVFX = VFXPool.Get(recoverer.RecoveryVFXPrefab, enemy.transform);
-
-            Debug.Log($"{enemy.gameObject.name}: Recovering! ({timer}s)");
         }
 
         public override void Update()

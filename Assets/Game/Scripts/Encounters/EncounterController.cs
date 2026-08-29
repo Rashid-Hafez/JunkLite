@@ -12,6 +12,7 @@ namespace junklite
     [DisallowMultipleComponent]
     public sealed class EncounterController : MonoBehaviour
     {
+        [SerializeField] private bool startOnStart;
         [SerializeField] private List<EncounterWave> waves = new();
 
         private readonly HashSet<EnemyCharacter> livingEnemies = new();
@@ -25,11 +26,18 @@ namespace junklite
         public int CurrentWaveIndex { get; private set; } = -1;
         public int AliveEnemyCount => livingEnemies.Count;
         public int ConfiguredWaveCount => waves?.Count ?? 0;
+        public bool StartOnStart => startOnStart;
 
         public event Action<EncounterController> EncounterStarted;
         public event Action<EnemyCharacter> EnemyRegistered;
         public event Action<EnemyCharacter> EnemyDied;
         public event Action<EncounterController> EncounterCompleted;
+
+        private void Start()
+        {
+            if (startOnStart)
+                StartEncounter();
+        }
 
         public void StartEncounter()
         {
@@ -338,8 +346,13 @@ namespace junklite
 
             // Subscribe and publish registration before activation so OnEnable-driven
             // death cannot escape encounter tracking.
-            if (livingEnemies.Contains(enemy) && enemy.IsAlive && !enemy.gameObject.activeSelf)
+            if (entry.ActivateExistingEnemy &&
+                livingEnemies.Contains(enemy) &&
+                enemy.IsAlive &&
+                !enemy.gameObject.activeSelf)
+            {
                 enemy.gameObject.SetActive(true);
+            }
         }
 
         private bool TryRegisterEnemy(EnemyCharacter enemy, string location)

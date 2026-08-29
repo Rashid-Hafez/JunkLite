@@ -124,7 +124,6 @@ namespace junklite
             if (playerLifecycle == null)
                 return;
 
-            playerLifecycle.PlayerDied += HandleLifecyclePlayerDied;
             playerLifecycle.PlayerDeathPresentationCompleted += HandlePlayerDeathPresentationCompleted;
         }
 
@@ -133,13 +132,7 @@ namespace junklite
             if (playerLifecycle == null)
                 return;
 
-            playerLifecycle.PlayerDied -= HandleLifecyclePlayerDied;
             playerLifecycle.PlayerDeathPresentationCompleted -= HandlePlayerDeathPresentationCompleted;
-        }
-
-        private void HandleLifecyclePlayerDied(PlayerCharacter player)
-        {
-            Debug.Log("[GameManager] Player lifecycle reported death.");
         }
 
         private void HandlePlayerDeathPresentationCompleted(PlayerCharacter player)
@@ -196,7 +189,6 @@ namespace junklite
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            Debug.Log($"[GameManager] Scene loaded: {scene.name}");
             if (!gameInitialized) return;
 
             if (sceneInitializationRoutine != null)
@@ -243,18 +235,6 @@ namespace junklite
             }
 
             currentSceneSettings = FindFirstObjectByType<SceneSettings>();
-
-            if (currentLevelContext != null)
-            {
-                Debug.Log(
-                    $"[GameManager] LevelContext '{currentLevelContext.DisplayName}' found " +
-                    $"(id: {currentLevelContext.LevelId}, training: {currentLevelContext.IsTrainingLevel}, " +
-                    $"spawnPlayer: {currentLevelContext.SpawnPlayer}).");
-            }
-            else if (currentSceneSettings != null)
-                Debug.Log($"[GameManager] SceneSettings found — spawnPlayer: {currentSceneSettings.SpawnPlayer}");
-            else
-                Debug.Log("[GameManager] No LevelContext in scene — using legacy defaults (player spawns).");
         }
 
         /// <summary>
@@ -282,10 +262,6 @@ namespace junklite
             {
                 playerLifecycle?.SpawnPlayer();
             }
-            else
-            {
-                Debug.Log("[GameManager] Player spawn skipped by the active level configuration.");
-            }
 
             SetGameState(GameState.Playing);
             PlayLevelMusic();
@@ -307,10 +283,6 @@ namespace junklite
             {
                 playerLifecycle?.SpawnPlayer();
             }
-            else
-            {
-                Debug.Log("[GameManager] Player spawn skipped by the initial level configuration.");
-            }
 
             SetGameState(GameState.Playing);
             gameInitialized = true;
@@ -324,7 +296,6 @@ namespace junklite
         {
             if (currentState == newState) return;
 
-            GameState previous = currentState;
             currentState = newState;
 
             switch (newState)
@@ -334,7 +305,6 @@ namespace junklite
                 case GameState.GameOver: Time.timeScale = 1f; break;
             }
 
-            Debug.Log($"[GameManager] State: {previous} -> {newState}");
             OnGameStateChanged?.Invoke(newState);
         }
 
@@ -370,25 +340,21 @@ namespace junklite
 
         public void RestartCurrentScene()
         {
-            Debug.Log("[GameManager] Restarting current scene...");
             LoadLevel(SceneManager.GetActiveScene().buildIndex);
         }
 
         public void RestartGame()
         {
-            Debug.Log("[GameManager] Restarting game from beginning...");
             LoadLevel(0);
         }
 
         public void LoadLevel(string sceneName)
         {
-            Debug.Log($"[GameManager] Loading level: {sceneName}");
             StartCoroutine(LoadLevelWithScreen(sceneName, -1));
         }
 
         public void LoadLevel(int sceneIndex)
         {
-            Debug.Log($"[GameManager] Loading level index: {sceneIndex}");
             StartCoroutine(LoadLevelWithScreen(null, sceneIndex));
         }
 
@@ -445,7 +411,6 @@ namespace junklite
 
         public void QuitGame()
         {
-            Debug.Log("[GameManager] Quitting game...");
             Application.Quit();
         }
 

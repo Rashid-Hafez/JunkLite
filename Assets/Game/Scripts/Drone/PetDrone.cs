@@ -96,7 +96,6 @@ public class PetDrone : MonoBehaviour
 
     void Start()
     {
-        //Debug.LogWarning("PetDrone script started.");
         // Ensure player reference is set before starting
         if (player1 != null)
         {
@@ -198,7 +197,6 @@ public class PetDrone : MonoBehaviour
         if (currentState != newState)
         {
             currentState = newState;
-            Debug.Log("Drone state changed to: " + currentState);
         }
     }
 

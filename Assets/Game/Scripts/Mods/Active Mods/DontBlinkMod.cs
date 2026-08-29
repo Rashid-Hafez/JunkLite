@@ -70,7 +70,6 @@ namespace junklite
             var enemy = FindNearestEnemyInFacingDirection(player);
             if (enemy == null)
             {
-                Debug.Log("[DontBlink] No enemy found in facing direction within range.");
                 return false;
             }
 
@@ -108,7 +107,6 @@ namespace junklite
 
             if (enemy == null || !enemy.IsAlive)
             {
-                Debug.Log("[DontBlink] Enemy died during vanish, aborting.");
                 player.transform.position = startPos;
                 player.SetVisible(true);
                 yield break;
@@ -244,9 +242,6 @@ namespace junklite
                     closest = enemy;
                 }
             }
-
-            if (closest == null)
-                Debug.Log($"[DontBlink] Search found {searchResults.Length} colliders but none matched (facingDir={facingDir}).");
 
             return closest;
         }

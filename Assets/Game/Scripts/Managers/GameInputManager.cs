@@ -213,10 +213,8 @@ namespace junklite
             var parryAction = controls.FindAction("Parry", throwIfNotFound: false);
             if (parryAction != null)
             {
-                Debug.Log("[Input] Parry action found and bound");
-                parryAction.performed += ctx =>
+                parryAction.performed += _ =>
                 {
-                    Debug.Log("[Input] Parry performed, gameplay enabled? " + IsGameplayInputEnabled + ", parry only? " + IsParryOnlyInputEnabled);
                     if (!IsGameplayInputEnabled && !IsParryOnlyInputEnabled) return;
                     OnParry();
                 };
@@ -231,7 +229,6 @@ namespace junklite
             // Bind it to the F key (or your preferred key).
             controls.Player.Interact.performed += _ =>
             {
-                Debug.Log("[Input] on interact was performed");
                 if (!IsGameplayInputEnabled) return;
                 OnInteract();
             };

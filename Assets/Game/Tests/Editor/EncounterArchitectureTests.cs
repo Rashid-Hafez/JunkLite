@@ -64,6 +64,31 @@ namespace junklite.Tests
         }
 
         [UnityTest]
+        public IEnumerator ExistingParticipantCanRemainInactiveUntilExternalActivation()
+        {
+            EnemyCharacter enemy = CreateEnemyInstance("Externally Activated Enemy");
+            yield return null;
+            enemy.gameObject.SetActive(false);
+
+            EncounterController encounter = CreateEncounter(new EncounterWave(new[]
+            {
+                EncounterEnemyEntry.UseExisting(enemy, false)
+            }));
+
+            encounter.StartEncounter();
+
+            Assert.That(encounter.State, Is.EqualTo(EncounterState.Running));
+            Assert.That(encounter.AliveEnemyCount, Is.EqualTo(1));
+            Assert.That(enemy.gameObject.activeSelf, Is.False);
+
+            enemy.gameObject.SetActive(true);
+            Kill(enemy);
+            yield return null;
+
+            Assert.That(encounter.State, Is.EqualTo(EncounterState.Completed));
+        }
+
+        [UnityTest]
         public IEnumerator EmptyAndInvalidWavesCannotDeadlockEncounter()
         {
             EncounterController encounter = CreateEncounter(
@@ -412,6 +437,19 @@ namespace junklite.Tests
             StringAssert.DoesNotContain("enemiesAlive", source);
             StringAssert.DoesNotContain("SpawnEnemyWave", source);
             StringAssert.DoesNotContain("WaitForAllEnemiesDead", source);
+            StringAssert.DoesNotContain("enemyPrefabs", source);
+            StringAssert.DoesNotContain("enemySpawnPoints", source);
+        }
+
+        [Test]
+        public void CameraLocksHaveNoLegacyHealthPollingPath()
+        {
+            string source = File.ReadAllText(
+                "Assets/Game/Scripts/LEVEL/CameraSwitchTrigger.cs");
+
+            StringAssert.DoesNotContain("LegacyEnemyList", source);
+            StringAssert.DoesNotContain("CheckEnemiesAlive", source);
+            StringAssert.DoesNotContain("enableEnemyLock", source);
         }
 
         [Test]

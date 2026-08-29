@@ -66,15 +66,13 @@ namespace junklite
             GameObject activateVFX = null;
             GameObject loopVFX = null;
 
-            System.Action<float, float> onShieldDamaged = (currentHP, maxHP) =>
+            System.Action<float, float> onShieldDamaged = (_, _) =>
             {
-                Debug.Log($"[PulseBarrier] Shield hit! Remaining: {currentHP}/{maxHP}");
                 SpawnVFX(shieldAbsorbVFX, player);
             };
             System.Action onShieldBroken = () =>
             {
                 shieldEnded = true;
-                Debug.Log("[PulseBarrier] Shield broken/expired.");
             };
 
             shield.OnShieldDamaged += onShieldDamaged;
@@ -100,8 +98,6 @@ namespace junklite
             shield.Activate(shieldHP, shieldDuration);
             activateVFX = SpawnVFX(shieldActivateVFX, player);
             loopVFX = SpawnVFX(shieldLoopVFXPrefab, player);
-
-            Debug.Log($"[PulseBarrier] Shield activated: {shieldHP} HP, {shieldDuration}s duration.");
 
             while (!shieldEnded && shield.IsActive && player != null && player.IsAlive)
                 yield return null;

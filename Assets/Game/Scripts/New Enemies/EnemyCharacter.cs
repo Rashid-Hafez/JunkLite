@@ -336,7 +336,6 @@ namespace junklite
 
         public virtual void OnPlayerSpotted()
         {
-            Debug.Log($"{gameObject.name}: Player spotted but no behavior defined!");
         }
 
         public virtual void OnPlayerLost()
@@ -352,7 +351,6 @@ namespace junklite
 
         public virtual void OnStunComplete()
         {
-            Debug.Log($"{gameObject.name}: Stun complete but no behavior defined!");
         }
 
         public virtual void OnAttackFinished()
@@ -644,7 +642,6 @@ namespace junklite
         public virtual void Attack()
         {
             if (!HasTarget || !IsTargetInAttackRange) return;
-            //Debug.Log($"{gameObject.name} attacks {target.name}!");
         }
 
         protected override void HandleDeath()

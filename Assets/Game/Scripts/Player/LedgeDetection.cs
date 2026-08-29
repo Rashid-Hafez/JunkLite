@@ -27,17 +27,14 @@ public class LedgeDetection : MonoBehaviour
 
         if (triggerActive)
         {
-            Debug.Log("LedgeDetection: trigger box active – cancelling ledge detection");
             hit = false;
         }
         else if (insideGround)
         {
-            Debug.Log("LedgeDetection: sphere hit but insideGround==true – cancelling");
             hit = false;
         }
 
         playerController.LedgeDetected = hit;
-       // Debug.Log($"Ledge Detected: {hit}");
     }
 
     private void OnDrawGizmos()
@@ -58,7 +55,6 @@ public class LedgeDetection : MonoBehaviour
         Vector3 closest = other.ClosestPoint(playerBox.bounds.center);
         bool below = closest.y < playerBox.bounds.center.y - 0.01f;
 
-        Debug.Log($"LedgeDetection: trigger enter '{other.name}' closest={closest}, below={below}");
         if (below)
             insideGround = true;
     }
@@ -67,7 +63,6 @@ public class LedgeDetection : MonoBehaviour
     {
         if (((1 << other.gameObject.layer) & WhatIsGround) == 0) return;
 
-        Debug.Log($"LedgeDetection: trigger exit '{other.name}'");
         triggerActive = false;
         insideGround = false;
     }

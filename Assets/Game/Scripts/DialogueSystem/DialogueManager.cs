@@ -108,7 +108,6 @@ public class DialogueManager : MonoBehaviour
         // already active to avoid restarting the currently shown line.
         if (currentSequence != null && currentSequence == sequence)
         {
-            Debug.Log("DialogueManager: StartDialogue called for already-active sequence; ignoring duplicate.");
             return;
         }
 

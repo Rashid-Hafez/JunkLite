@@ -16,8 +16,6 @@ namespace junklite
 
         public override void Enter()
         {
-            Debug.Log($"[DeadState] {enemy.gameObject.name} entered DeadState");
-
             enemy.Movement?.Stop();
 
             if (enemy.Perception != null)
@@ -27,11 +25,6 @@ namespace junklite
         public override void Update()
         {
             // Dead enemies don't do anything
-        }
-
-        public override void Exit()
-        {
-            Debug.Log($"[DeadState] {enemy.gameObject.name} exiting DeadState (respawn?)");
         }
     }
 }

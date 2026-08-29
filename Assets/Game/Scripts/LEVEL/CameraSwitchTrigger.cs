@@ -1,19 +1,14 @@
 using UnityEngine;
 using Unity.Cinemachine;
 using System.Collections;
-using System.Collections.Generic;
 
 namespace junklite
 {
     public enum CameraTriggerLockPolicy
     {
-        // Preserves existing scenes: enemy-list locking when enabled, otherwise
-        // the original global PlayerCombatTracker behavior.
-        LegacyAutomatic,
-        GlobalCombat,
-        Encounter,
-        None,
-        LegacyEnemyList
+        GlobalCombat = 0,
+        Encounter = 2,
+        None = 3
     }
 
     public class CameraSwitchTrigger : MonoBehaviour
@@ -40,7 +35,7 @@ namespace junklite
         private bool usingFirstState = false;
 
         [Header("Lock Settings")]
-        [SerializeField] private CameraTriggerLockPolicy lockPolicy = CameraTriggerLockPolicy.LegacyAutomatic;
+        [SerializeField] private CameraTriggerLockPolicy lockPolicy = CameraTriggerLockPolicy.GlobalCombat;
         [SerializeField] private EncounterController encounterLock;
         [SerializeField] private bool locked = false;
         [SerializeField] private BoxCollider triggerCollider;
@@ -58,19 +53,8 @@ namespace junklite
         [SerializeField] private Renderer[] arrowRenderers;
         [SerializeField] private Color lockColor, unlockColor;
 
-        [Header("Legacy Enemy Alive Lock")]
-        [SerializeField] private bool enableEnemyLock;
-        [SerializeField] private List<EnemyCharacter> enemies = new List<EnemyCharacter>();
-
         public bool IsLocked => locked;
-        public CameraTriggerLockPolicy EffectiveLockPolicy => lockPolicy switch
-        {
-            CameraTriggerLockPolicy.LegacyAutomatic when enableEnemyLock =>
-                CameraTriggerLockPolicy.LegacyEnemyList,
-            CameraTriggerLockPolicy.LegacyAutomatic =>
-                CameraTriggerLockPolicy.GlobalCombat,
-            _ => lockPolicy
-        };
+        public CameraTriggerLockPolicy EffectiveLockPolicy => lockPolicy;
 
         private void OnEnable()
         {
@@ -137,10 +121,6 @@ namespace junklite
             {
                 case CameraTriggerLockPolicy.None:
                     SetPolicyLocked(false);
-                    break;
-
-                case CameraTriggerLockPolicy.LegacyEnemyList:
-                    CheckEnemiesAlive();
                     break;
             }
         }
@@ -317,7 +297,6 @@ namespace junklite
         private void ApplyLockState()
         {
             bool shouldLock = policyLocked || oneWayLocked;
-            bool changed = locked != shouldLock;
             locked = shouldLock;
 
             if (triggerCollider != null)
@@ -335,8 +314,6 @@ namespace junklite
                 }
             }
 
-            if (changed)
-                Debug.Log(locked ? "Locked" : "Unlocked", this);
         }
 
         private void OnTriggerEnter(Collider other)
@@ -349,8 +326,6 @@ namespace junklite
 
             if (controller != null && playerSpine != null)
             {
-                Debug.Log("Entered trigger");
-
                 SwitchCamera();
                 RotateCharacter(controller, playerSpine);
                 usingFirstState = !usingFirstState;
@@ -383,7 +358,6 @@ namespace junklite
         {
             if (switchCameras)
             {
-                Debug.Log("Switching cameras");
                 if (cameraA != null && cameraB != null)
                 {
                     CinemachineCamera nextCam;
@@ -404,41 +378,6 @@ namespace junklite
             }
         }
 
-        private void Update()
-        {
-            // Compatibility only. New encounter locks are event-driven.
-            if (EffectiveLockPolicy == CameraTriggerLockPolicy.LegacyEnemyList)
-                CheckEnemiesAlive();
-        }
-
-        private void CheckEnemiesAlive()
-        {
-            if (EffectiveLockPolicy != CameraTriggerLockPolicy.LegacyEnemyList)
-                return;
-
-            if (enemies == null)
-                enemies = new List<EnemyCharacter>();
-
-            // Remove null/destroyed or dead enemies from the tracked list.
-            // Use RemoveAll to avoid modifying the list while iterating.
-            enemies.RemoveAll(e =>
-                e == null ||
-                e.attributes?.Health == null ||
-                e.attributes.Health.Current <= 0);
-
-            // If there are no enemies left, ensure unlocked; otherwise ensure locked.
-            if (enemies.Count == 0)
-            {
-                if (policyLocked)
-                    SetPolicyLocked(false);
-            }
-            else
-            {
-                if (!policyLocked)
-                    SetPolicyLocked(true);
-            }
-        }
-
         public int ValidateLockConfiguration(bool logWarnings = true)
         {
             int issueCount = 0;
@@ -456,12 +395,6 @@ namespace junklite
 
             if (policy != CameraTriggerLockPolicy.Encounter && encounterLock != null)
                 Report("has an encounter assigned but is not using the Encounter lock policy.");
-
-            if (policy == CameraTriggerLockPolicy.LegacyEnemyList &&
-                (enemies == null || enemies.Count == 0))
-            {
-                Report("uses the legacy enemy-list lock but has no enemies assigned.");
-            }
 
             return issueCount;
         }

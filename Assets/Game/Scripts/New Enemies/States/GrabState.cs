@@ -34,8 +34,6 @@ namespace junklite
             enemy.Movement?.Stop();
 
             activeVFX = VFXPool.Get(grabber.GrabVFXPrefab, enemy.transform);
-
-            Debug.Log($"{enemy.gameObject.name}: Grabbing! (duration: {grabber.GrabDuration}s)");
         }
 
         public override void Update()

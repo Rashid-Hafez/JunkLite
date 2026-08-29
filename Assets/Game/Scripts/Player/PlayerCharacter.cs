@@ -253,9 +253,7 @@ namespace junklite
 
         protected void InstantDeath()
         {
-            var result = Kill();
-            if (result.WasApplied)
-                Debug.Log($"{gameObject.name} died instantly!");
+            Kill();
         }
 
         private void SetControllerProperty(string prop, object value)
@@ -876,7 +874,6 @@ namespace junklite
             // helper releases ownership immediately; the iterator exits on its next check.
             CancelGrab(stopCoroutine: false);
 
-            Debug.Log($"{gameObject.name} has died!");
             UnsubscribeFromInput();
         }
 
@@ -914,7 +911,6 @@ namespace junklite
             // Toggle ghosting
             skeletonGhost.ghostingEnabled = activate;
 
-            //Debug.Log($"[PlayerCharacter] SkeletonGhost ghostingEnabled set to: {skeletonGhost.ghostingEnabled}, Component enabled: {skeletonGhost.enabled}, GameObject active: {skeletonGhost.gameObject.activeInHierarchy}", this);
         }
 
         #endregion

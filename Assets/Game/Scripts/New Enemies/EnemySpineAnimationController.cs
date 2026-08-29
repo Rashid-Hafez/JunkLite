@@ -58,9 +58,6 @@ namespace junklite
         [Tooltip("How to play the OnParried animation. Hard-cut (mixDuration=0, resetPose=true) avoids 360° bone spin.")]
         [SerializeField] private AnimPlaySettings onParriedSettings = new AnimPlaySettings { resetPoseFirst = true, mixDuration = 0f };
 
-        [Header("Debug")]
-        [SerializeField] private bool debugLog = false;
-
         private StateMachine stateMachine;
         private bool isDead;
         private float previousTimeScale = 1f;
@@ -91,8 +88,6 @@ namespace junklite
 
             if (stateMachine != null && stateMachine.CurrentState != null)
             {
-                if (debugLog)
-                    Debug.Log($"[AnimCtrl] Syncing initial state: {stateMachine.CurrentState.GetType().Name}");
                 HandleStateChanged(null, stateMachine.CurrentState);
             }
         }
@@ -105,9 +100,6 @@ namespace junklite
 
         private void HandleStateChanged(IState from, IState to)
         {
-            if (debugLog)
-                Debug.Log($"[AnimCtrl] State: {from?.GetType().Name ?? "null"} -> {to?.GetType().Name ?? "null"}");
-
             if (skeletonAnimation == null || to == null) return;
 
             if (to is DeadState)

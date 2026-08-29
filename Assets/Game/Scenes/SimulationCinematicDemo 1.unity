@@ -995,6 +995,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cded085d155cde949b60f67a11dbc3bd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolume
+  version: 2
+  globalVolume: 0
   mode: 1
   size: {x: 3, y: 3, z: 3}
   overrideRendererFilters: 0
@@ -1025,8 +1027,6 @@ MonoBehaviour:
     e33: 0
   cachedHashCode: 0
   fillEmptySpaces: 0
-  version: 2
-  globalVolume: 0
 --- !u!4 &673264645
 Transform:
   m_ObjectHideFlags: 0
@@ -6461,6 +6461,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1427418369}
   - component: {fileID: 1427418370}
+  - component: {fileID: 1427418371}
   m_Layer: 0
   m_Name: Level Sequence Manager
   m_TagString: Untagged
@@ -6502,15 +6503,48 @@ MonoBehaviour:
   reflectionRevealDuration: 1
   director: {fileID: 28358334}
   platformCompleteDirector: {fileID: 0}
+  endCinematicDirector: {fileID: 0}
   completionAnimation: {fileID: 956710496}
+  videoScreen: {fileID: 0}
   completedResetDelay: 1.5
+  introSequenceSfx:
+    clip: {fileID: 0}
+    volume: 1
+    pitchMin: 1
+    pitchMax: 1
+    effects: []
+  lightRevealSfx:
+    clip: {fileID: 0}
+    volume: 1
+    pitchMin: 1
+    pitchMax: 1
+    effects: []
+  platformCompleteSfx:
+    clip: {fileID: 0}
+    volume: 1
+    pitchMin: 1
+    pitchMax: 1
+    effects: []
+  platformDissolveSfx:
+    clip: {fileID: 0}
+    volume: 1
+    pitchMin: 1
+    pitchMax: 1
+    effects: []
+  introSfxPoint: {fileID: 0}
+  platformStep1DissolveSfxPoint: {fileID: 0}
+  platformStep2DissolveSfxPoint: {fileID: 0}
+  platformStep3DissolveSfxPoint: {fileID: 0}
   introDialogue: {fileID: 11400000, guid: 0a9256d4cb4ffe447bc7bbc919272f7d, type: 2}
   postCinematicDialogue: {fileID: 11400000, guid: 4c48cad93059a406999b16e3d5ddaca1, type: 2}
   secondPlatformDialogue: {fileID: 11400000, guid: 98cf15ba842ad4be5b1b2f0e142c6e08, type: 2}
   thirdPlatformDialogue: {fileID: 11400000, guid: 91e5312a3333f47a0bbcfc2c0aa9d496, type: 2}
   combatIntroDialogue: {fileID: 11400000, guid: 391ddb2c71ea745d6a2486a694a66df4, type: 2}
+  parryPromptDialogue: {fileID: 0}
   postEnemyDialogue: {fileID: 11400000, guid: 8d089c37da16c4c038c4eb920fcabb84, type: 2}
   postPickupDialogue: {fileID: 11400000, guid: b13ceaf5d50f347f4b7fa067e1c8f9dc, type: 2}
+  modActivationPromptDialogue: {fileID: 0}
+  inventoryPromptDialogue: {fileID: 0}
   finalDialogue: {fileID: 11400000, guid: ab0258e30eac04422b0ba19901867f85, type: 2}
   platformStep1: {fileID: 475989695}
   platformStep2: {fileID: 5850483783724389931}
@@ -6521,17 +6555,47 @@ MonoBehaviour:
   objective2Trigger: {fileID: 6056993615771248935}
   objective3Trigger: {fileID: 8002651415487350159}
   finalObjectiveTrigger: {fileID: 0}
-  enemyPrefabs:
-  - {fileID: 84268223678430046, guid: 015a35f97bcbd45e5a6b0e5998f45f69, type: 3}
-  - {fileID: 84268223678430046, guid: 015a35f97bcbd45e5a6b0e5998f45f69, type: 3}
-  enemySpawnPoints:
-  - {fileID: 1955712852}
+  encounter: {fileID: 1427418371}
   tutorialWeaponPickupPrefab: {fileID: 5612364688996449167, guid: 48377b0cb212849febc8109d51345e1a, type: 3}
   tutorialWeaponPickupSpawnPoint: {fileID: 1019056401}
-  postPickupEnemyPrefab: {fileID: 0}
-  postPickupEnemySpawnPoint: {fileID: 0}
+  tutorialModPickup: {fileID: 0}
+  tutorialModPickupSpawnPoint: {fileID: 0}
   nextSceneName: Level1Whitebox 1st Track
+  nextSceneBuildIndex: -1
+  endSequenceVolumeSettings: {fileID: 0}
+  endGlitchRampInSeconds: 2
+  endGlitchHoldSeconds: 0.35
+  endGlitchRampOutSeconds: 1.25
+  endGlitchAnalogPeak: 0.5
+  endGlitchDigitalPeak: 0.4
+  playerUI: {fileID: 0}
+  endOutroVideoPlayer: {fileID: 0}
+  endOutroVideoClip: {fileID: 0}
+  endOutroVideoScreenRoot: {fileID: 0}
   showDebugInfo: 0
+  postParryRespawnDelay: 0.6
+  objectiveRepositionPasses: 3
+--- !u!114 &1427418371
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1427418368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4ce5640df4cdec34ca7fd431f1a6a281, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.EncounterController
+  startOnStart: 0
+  waves:
+  - delayBeforeWave: 0
+    enemies:
+    - sourceMode: 0
+      enemyPrefab: {fileID: 8620707696424177089, guid: 015a35f97bcbd45e5a6b0e5998f45f69, type: 3}
+      spawnTransform: {fileID: 1955712852}
+      existingEnemy: {fileID: 0}
+      activateExistingEnemy: 1
 --- !u!1001 &1444674245
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -11867,6 +11931,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FogLight
   m_IntensityMult: 1
   m_RangeMult: 1
+  m_BlurShadowmapShader: {fileID: 0}
+  m_CopyShadowParamsShader: {fileID: 0}
   m_ForceOnForFog: 0
   m_Shadows: 0
   m_ShadowmapRes: 256
@@ -11874,8 +11940,6 @@ MonoBehaviour:
   m_BlurSize: 1
   m_ESMExponent: 40
   m_Bounded: 1
-  m_BlurShadowmapShader: {fileID: 0}
-  m_CopyShadowParamsShader: {fileID: 0}
 --- !u!1001 &1908615144
 PrefabInstance:
   m_ObjectHideFlags: 0

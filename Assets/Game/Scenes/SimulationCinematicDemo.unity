@@ -1047,7 +1047,7 @@ Transform:
   m_GameObject: {fileID: 673264643}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.052349, y: 5.159767, z: 958.84125}
+  m_LocalPosition: {x: 3.052349, y: 5.159767, z: 958.8413}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1635,6 +1635,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1427418369}
   - component: {fileID: 1427418370}
+  - component: {fileID: 1427418371}
   m_Layer: 0
   m_Name: Level Sequence Manager
   m_TagString: Untagged
@@ -1728,14 +1729,9 @@ MonoBehaviour:
   objective2Trigger: {fileID: 6056993615771248935}
   objective3Trigger: {fileID: 8002651415487350159}
   finalObjectiveTrigger: {fileID: 0}
-  enemyPrefabs:
-  - {fileID: 84268223678430046, guid: 015a35f97bcbd45e5a6b0e5998f45f69, type: 3}
-  enemySpawnPoints:
-  - {fileID: 1955712852}
+  encounter: {fileID: 1427418371}
   tutorialWeaponPickupPrefab: {fileID: 5612364688996449167, guid: 48377b0cb212849febc8109d51345e1a, type: 3}
   tutorialWeaponPickupSpawnPoint: {fileID: 1019056401}
-  postPickupEnemyPrefab: {fileID: 0}
-  postPickupEnemySpawnPoint: {fileID: 0}
   tutorialModPickup: {fileID: 8161909773096738608, guid: 11d86441caac64f0d9bc34481fc72da8, type: 3}
   tutorialModPickupSpawnPoint: {fileID: 1888561153}
   nextSceneName: Backup 01Level1Whitebox 2
@@ -1753,6 +1749,27 @@ MonoBehaviour:
   showDebugInfo: 0
   postParryRespawnDelay: 0.6
   objectiveRepositionPasses: 3
+--- !u!114 &1427418371
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1427418368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4ce5640df4cdec34ca7fd431f1a6a281, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.EncounterController
+  startOnStart: 0
+  waves:
+  - delayBeforeWave: 0
+    enemies:
+    - sourceMode: 0
+      enemyPrefab: {fileID: 8620707696424177089, guid: 015a35f97bcbd45e5a6b0e5998f45f69, type: 3}
+      spawnTransform: {fileID: 1955712852}
+      existingEnemy: {fileID: 0}
+      activateExistingEnemy: 1
 --- !u!1001 &1444674245
 PrefabInstance:
   m_ObjectHideFlags: 0

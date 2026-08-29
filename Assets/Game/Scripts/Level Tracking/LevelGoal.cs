@@ -69,7 +69,6 @@ namespace junklite
                 if (e != null && e.IsAlive) RegisterEnemy(e);
             }
 
-            Debug.Log($"[LevelGoal] Tracking {_aliveEnemies.Count} enemies.");
             LevelStatsTracker.Instance?.SetTotalEnemies(_aliveEnemies.Count);
         }
 
@@ -162,11 +161,6 @@ namespace junklite
             if (!_completedEncounters.Add(encounter))
                 return;
 
-            Debug.Log(
-                $"[LevelGoal] Encounter '{encounter.name}' completed. " +
-                $"Progress: {_completedEncounters.Count}/{_subscribedEncounters.Count}.",
-                this);
-
             EvaluateRequiredEncounters();
         }
 
@@ -243,8 +237,6 @@ namespace junklite
                 return false;
             });
 
-            Debug.Log($"[LevelGoal] Enemy died. Remaining: {_aliveEnemies.Count}");
-
             if (_aliveEnemies.Count == 0) Trigger();
         }
 
@@ -267,7 +259,6 @@ namespace junklite
             if (_completed) return;
             _completed = true;
 
-            Debug.Log("[LevelGoal] Level complete!");
             LevelStatsTracker.Instance?.CompleteLevel();
         }
 

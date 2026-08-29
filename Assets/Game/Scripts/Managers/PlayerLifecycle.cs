@@ -106,7 +106,6 @@ namespace junklite
         {
             if (!ShouldSpawnPlayer)
             {
-                Debug.Log("[PlayerLifecycle] Player spawn skipped by scene configuration.");
                 return null;
             }
 
@@ -142,7 +141,6 @@ namespace junklite
 
             PlayerCombatTracker.Instance?.ClearCombatState();
             PlayerSpawned?.Invoke(currentPlayer);
-            Debug.Log($"[PlayerLifecycle] Player ready at {spawnPosition}.");
             return currentPlayer;
         }
 
@@ -202,7 +200,6 @@ namespace junklite
                 return;
 
             PlayerCharacter deadPlayer = currentPlayer;
-            Debug.Log("[PlayerLifecycle] Player died.");
             PlayerDied?.Invoke(deadPlayer);
             deathRoutine = StartCoroutine(CompleteDeathPresentation(deadPlayer));
         }
@@ -258,7 +255,6 @@ namespace junklite
 
                 if (spawnPoints.Count > 0)
                 {
-                    Debug.Log($"[PlayerLifecycle] Using {spawnPoints.Count} LevelContext spawn point(s).");
                     return;
                 }
 
@@ -289,7 +285,6 @@ namespace junklite
 
             if (spawnPoints.Count > 0)
             {
-                Debug.Log($"[PlayerLifecycle] Found {spawnPoints.Count} typed spawn point(s).");
                 return;
             }
 
@@ -342,7 +337,6 @@ namespace junklite
 
             float rotation = GetSpawnRotation();
             currentPlayer.Controller.ResetToSpawnOrientation(rotation);
-            Debug.Log($"[PlayerLifecycle] Movement axis reset from spawn rotation {rotation}°.");
         }
 
         private void CancelPendingOperations()

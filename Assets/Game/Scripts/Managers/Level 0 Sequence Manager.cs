@@ -72,8 +72,6 @@ namespace junklite
 
         [Header("Encounter")]
         [SerializeField] private EncounterController encounter;
-        [SerializeField, HideInInspector] private GameObject[] enemyPrefabs;
-        [SerializeField, HideInInspector] private Transform[] enemySpawnPoints;
         [SerializeField] private GameObject tutorialWeaponPickupPrefab;
         [SerializeField] private Transform tutorialWeaponPickupSpawnPoint;
 
@@ -286,7 +284,9 @@ namespace junklite
                 yield return RunDialogue(combatIntroDialogue);
 
             SetStage(Stage.EnemyWave);
-            PrepareEncounter();
+            if (!PrepareEncounter())
+                yield break;
+
             SubscribeEncounterCallbacks();
             encounter.StartEncounter();
             yield return encounter.WaitUntilFinished();
@@ -308,7 +308,6 @@ namespace junklite
             var modPickups = FindObjectsOfType<WorldModPickup>();
             if (modPickups != null && modPickups.Length > 0)
             {
-                Debug.Log($"[Level0Sequence] Waiting for {modPickups.Length} mod pickup(s) to be collected before repositioning.");
                 while (true)
                 {
                     var remaining = FindObjectsOfType<WorldModPickup>();
@@ -324,7 +323,6 @@ namespace junklite
                     if (!anyActive) break;
                     yield return null;
                 }
-                Debug.Log("[Level0Sequence] Mod pickup(s) collected, continuing sequence.");
             }
 
             RepositionPlayer(centerRoomSpawn);
@@ -381,7 +379,6 @@ namespace junklite
         private void SetStage(Stage s)
         {
             currentStage = s;
-            Debug.Log($"[Level0Sequence] >>> {s}");
         }
 
         #endregion
@@ -439,9 +436,7 @@ namespace junklite
                 return;
             }
 
-            Vector3 from = currentPlayer.transform.position;
             Vector3 target = spawnPoint.position;
-            Debug.Log($"[Level0Sequence] Reposition begin during {currentStage}: player '{currentPlayer.name}' from {from} to spawn '{spawnPoint.name}' at {target}. timeScale={Time.timeScale:0.###}");
 
             currentPlayer.ReviveAt(target);
             currentPlayer.Activate();
@@ -449,10 +444,7 @@ namespace junklite
             if (CameraManager.Instance != null)
             {
                 CameraManager.Instance.ConnectToPlayer(currentPlayer);
-                Debug.Log($"[Level0Sequence] Camera reconnected to player after reposition during {currentStage}.");
             }
-
-            Debug.Log($"[Level0Sequence] Reposition complete during {currentStage}: player now at {currentPlayer.transform.position}.");
         }
 
         private IEnumerator ForceObjectiveReposition(Transform spawnPoint)
@@ -469,11 +461,6 @@ namespace junklite
                     yield return new WaitForFixedUpdate();
             }
 
-            if (currentPlayer != null && spawnPoint != null)
-            {
-                float remaining = Vector3.Distance(currentPlayer.transform.position, spawnPoint.position);
-                Debug.Log($"[Level0Sequence] Objective reposition settled during {currentStage}: remaining distance to spawn = {remaining:0.###}");
-            }
         }
 
         private void RefreshPlayerRef()
@@ -516,11 +503,8 @@ namespace junklite
 
             if (!parryLikelyActive)
             {
-                Debug.Log($"[Level0Sequence] No parry settle wait needed during {currentStage}. timeScale={Time.timeScale:0.###}");
                 yield break;
             }
-
-            Debug.Log($"[Level0Sequence] Waiting for parry effects during {currentStage}. IsParrying={playerState?.IsParrying ?? false}, IsInputLocked={playerState?.IsInputLocked ?? false}, timeScale={Time.timeScale:0.###}");
 
             float endTime = Time.realtimeSinceStartup + Mathf.Max(0f, postParryRespawnDelay);
             while (Time.realtimeSinceStartup < endTime)
@@ -540,7 +524,6 @@ namespace junklite
                 yield return null;
             }
 
-            Debug.Log($"[Level0Sequence] Parry effects settled during {currentStage}. timeScale={Time.timeScale:0.###}");
             yield return null;
         }
 
@@ -664,65 +647,18 @@ namespace junklite
 
         #region Enemy Wave
 
-        private void PrepareEncounter()
+        private bool PrepareEncounter()
         {
             parryTutorialPromptUsed = false;
             tutorialModHyenaSpawnHandled = false;
 
             if (encounter != null)
-                return;
+                return true;
 
-            EncounterController localEncounter = GetComponent<EncounterController>();
-            if (localEncounter != null && localEncounter.ConfiguredWaveCount > 0)
-            {
-                encounter = localEncounter;
-                Debug.LogWarning(
-                    "[Level0Sequence] Using the local EncounterController. Assign it explicitly in the Inspector.",
-                    encounter);
-                return;
-            }
-
-            encounter = localEncounter != null
-                ? localEncounter
-                : gameObject.AddComponent<EncounterController>();
-
-            List<EncounterEnemyEntry> legacyEntries = new();
-            int prefabCount = enemyPrefabs?.Length ?? 0;
-            int spawnPointCount = enemySpawnPoints?.Length ?? 0;
-            int entryCount = Mathf.Min(prefabCount, spawnPointCount);
-
-            if (prefabCount != spawnPointCount)
-            {
-                Debug.LogWarning(
-                    $"[Level0Sequence] Legacy encounter arrays have different lengths " +
-                    $"({prefabCount} prefabs, {spawnPointCount} spawn points); only paired entries will migrate.",
-                    this);
-            }
-
-            for (int i = 0; i < entryCount; i++)
-            {
-                GameObject prefabObject = enemyPrefabs[i];
-                Transform spawnPoint = enemySpawnPoints[i];
-                EnemyCharacter enemyPrefab = prefabObject != null
-                    ? prefabObject.GetComponent<EnemyCharacter>()
-                    : null;
-
-                if (enemyPrefab == null || spawnPoint == null)
-                {
-                    Debug.LogWarning(
-                        $"[Level0Sequence] Legacy encounter entry {i} is invalid and will be skipped.",
-                        this);
-                    continue;
-                }
-
-                legacyEntries.Add(EncounterEnemyEntry.SpawnPrefab(enemyPrefab, spawnPoint));
-            }
-
-            encounter.ConfigureRuntimeWaves(new[] { new EncounterWave(legacyEntries) });
-            Debug.LogWarning(
-                "[Level0Sequence] Built a runtime EncounterController from legacy enemy arrays. " +
-                "Author and assign a scene-local encounter to remove this compatibility path.",
-                encounter);
+            Debug.LogError(
+                "[Level0Sequence] An authored EncounterController is required before combat can start.",
+                this);
+            return false;
         }
 
         private void SubscribeEncounterCallbacks()
@@ -1299,14 +1235,12 @@ namespace junklite
 
             if (nextSceneBuildIndex >= 0)
             {
-                Debug.Log($"[Level0Sequence] Loading next scene by build index: {nextSceneBuildIndex}");
                 GameManager.Instance.LoadLevel(nextSceneBuildIndex);
                 return;
             }
 
             if (!string.IsNullOrEmpty(nextSceneName))
             {
-                Debug.Log($"[Level0Sequence] Loading next scene by name: {nextSceneName}");
                 GameManager.Instance.LoadLevel(nextSceneName);
                 return;
             }

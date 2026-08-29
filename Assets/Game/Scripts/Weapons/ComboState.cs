@@ -4,7 +4,7 @@ namespace junklite
 {
     /// <summary>
     /// Tracks combo progression and attack cooldowns for a WeaponData.
-    /// Plain C# class — no MonoBehaviour. Call Tick() each frame.
+    /// Plain C# class â€” no MonoBehaviour. Call Tick() each frame.
     /// Used by WeaponInstance for world weapons and directly by WeaponManager for fists.
     ///
     /// CombatState is deliberately type-agnostic. It only needs combo length and animation
@@ -24,8 +24,6 @@ namespace junklite
         private float cooldownTimer;
         private bool onCooldown;
 
-        private bool logCombo;
-
         #region Properties
 
         public WeaponData Data => data;
@@ -39,10 +37,9 @@ namespace junklite
 
         #endregion
 
-        public CombatState(WeaponData weaponData, bool enableLogging = false)
+        public CombatState(WeaponData weaponData)
         {
             data = weaponData;
-            logCombo = enableLogging;
         }
 
         #region Tick
@@ -57,7 +54,6 @@ namespace junklite
                 if (cooldownTimer >= AttackCooldown)
                 {
                     onCooldown = false;
-                    Log($"Cooldown ended ({AttackCooldown}s)");
                 }
             }
 
@@ -66,7 +62,6 @@ namespace junklite
                 comboTimer += dt;
                 if (comboTimer >= ComboWindow)
                 {
-                    Log($"Combo window expired ({ComboWindow}s) - resetting from {sideComboIndex}");
                     ResetCombo();
                 }
             }
@@ -78,7 +73,7 @@ namespace junklite
 
         /// <summary>
         /// Resolves the current combo index and animation name for the given attack direction.
-        /// Does NOT advance the index — call OnAttackComplete to advance.
+        /// Does NOT advance the index â€” call OnAttackComplete to advance.
         /// WeaponManager uses the returned comboIndex to separately fetch the typed step data
         /// from the weapon's concrete subclass (TryGetMeleeStep, TryGetRangedStep, etc).
         /// </summary>
@@ -108,19 +103,16 @@ namespace junklite
                     if (sideComboIndex >= comboLength) sideComboIndex = 0;
                     comboIndex = sideComboIndex;
                     airComboIndex = sideComboIndex; // sync air track to continuation point
-                    Log($"Air side attack - continuing ground combo {comboIndex + 1}/{comboLength}");
                 }
                 else if (isGrounded)
                 {
                     if (sideComboIndex >= comboLength) sideComboIndex = 0;
                     comboIndex = sideComboIndex;
-                    Log($"Side attack - combo {sideComboIndex + 1}/{comboLength}");
                 }
                 else
                 {
                     if (airComboIndex >= comboLength) airComboIndex = 0;
                     comboIndex = airComboIndex;
-                    Log($"Air side attack - combo {airComboIndex + 1}/{comboLength}");
                 }
             }
             else
@@ -128,11 +120,9 @@ namespace junklite
                 // Directional attacks (Up/Down) break any active side combo
                 if (sideComboIndex > 0 || airComboIndex > 0)
                 {
-                    Log($"{dir} attack - breaking combo from {sideComboIndex}");
                     ResetCombo();
                 }
                 comboIndex = 0;
-                Log($"{dir} attack");
             }
 
             return weaponData.TryGetAnimationName(dir, comboIndex, isGrounded, out animationName);
@@ -151,14 +141,10 @@ namespace junklite
             onCooldown = true;
             comboTimer = 0f;
             comboActive = true;
-
-            int nextIndex = wasGrounded ? sideComboIndex : airComboIndex;
-            Log($"Attack complete - cooldown: {AttackCooldown}s, combo window: {ComboWindow}s, next index: {nextIndex}");
         }
 
         public void OnAttackInterrupted()
         {
-            Log("Attack interrupted - no cooldown");
             onCooldown = false;
             ResetCombo();
         }
@@ -191,10 +177,5 @@ namespace junklite
         }
 
         #endregion
-
-        private void Log(string msg)
-        {
-            if (logCombo) Debug.Log($"[CombatState] {msg}");
-        }
     }
 }

@@ -72,9 +72,6 @@ namespace junklite
         [Header("Attack Input Lock")]
         [SerializeField] private bool lockMovementDuringAttack = true;
 
-        [Header("Debug")]
-        [SerializeField] private bool logAttacks = false;
-
         // Internal refs
         private Transform playerTransform;
         private PlayerState playerState;
@@ -225,7 +222,6 @@ namespace junklite
                 if (bufferTimer <= 0f)
                 {
                     hasBufferedInput = false;
-                    Log("Buffer expired");
                     return;
                 }
             }
@@ -234,7 +230,6 @@ namespace junklite
             if (!isAttacking && combat != null && combat.CanAttack)
             {
                 hasBufferedInput = false;
-                Log("Executing buffered attack");
                 AttackDirection dir = ResolveAttackDirection(bufferedInput, bufferedGrounded, IsRangedSlot(bufferedWeaponSlot, bufferedGrounded));
                 StartAttack(bufferedWeaponSlot, dir);
             }
@@ -431,8 +426,7 @@ namespace junklite
         {
             if (isAttacking) return;
 
-            if (weaponLoadout != null && weaponLoadout.TrySwapSlots())
-                Log("Weapon slots swapped");
+            weaponLoadout?.TrySwapSlots();
         }
 
         public Transform GetAttackTransform(AttackDirection dir)
@@ -480,7 +474,6 @@ namespace junklite
             bufferedInput = moveInput;
             bufferedGrounded = isGrounded;
             bufferTimer = BUFFER_DURATION;
-            Log("Attack buffered");
         }
 
         private void StartAttack(int slot, AttackDirection dir)
@@ -491,21 +484,18 @@ namespace junklite
 
             /* if (playerState != null && !playerState.IsGrounded && !playerState.CanAirAttack)
              {
-                 Log("Air attack blocked");
                  return;
              }*/ // Why are we blocking air attack??
 
             if (lastAttackedSlot >= 0 && lastAttackedSlot != slot)
             {
                 GetCombatStateForSlot(lastAttackedSlot)?.ResetCombo();
-                Log($"Weapon switch: reset combo on slot {lastAttackedSlot}");
             }
 
             bool isGrounded = playerState == null || playerState.IsGrounded;
 
             if (!combat.TryBeginAttack(dir, isGrounded, data, out int comboIndex, out string animName))
             {
-                Log($"No combo step for {dir}");
                 return;
             }
 
@@ -555,8 +545,6 @@ namespace junklite
             }
             activeAttackExecutionId = executionId;
 
-            Log($"Attack: slot {slot}, {dir}, combo {comboIndex}, anim '{animName}'");
-
             if (controller != null && facingLockDuration > 0f)
                 controller.LockFacing(facingLockDuration);
 
@@ -579,8 +567,6 @@ namespace junklite
         {
             if (!isAttacking)
                 return;
-
-            Log($"Attack complete - slot {activeWeaponSlot}, {currentAttackDir}, combo {currentComboIndex}");
 
             CombatState completedCombatState = activeCombatState;
             WeaponData completedWeaponData = activeWeaponData;
@@ -613,8 +599,6 @@ namespace junklite
         {
             if (!isAttacking && activeAttackExecution == null)
                 return;
-
-            Log("Attack interrupted");
 
             CancelActiveAttackExecution();
             activeCombatState?.OnAttackInterrupted();
@@ -659,8 +643,6 @@ namespace junklite
 
         private void HandleLoadoutWeaponBroken(int slot)
         {
-            Log($"Weapon in slot {slot} broke");
-
             if (isModCombat && (weaponLoadout == null || !weaponLoadout.HasAnyWeapon))
                 ExitModCombat();
         }
@@ -749,12 +731,6 @@ namespace junklite
             if (!lockMovementDuringAttack || playerState == null || !attackInputLockApplied) return;
             playerState.SetInputLocked(false);
             attackInputLockApplied = false;
-        }
-
-        private void Log(string message)
-        {
-            if (logAttacks)
-                Debug.Log($"[WeaponManager] {message}", this);
         }
 
         /// <summary>

@@ -92,7 +92,6 @@ namespace junklite
                 rb.AddForce(randomDir * dropForce, ForceMode.Impulse);
             }
 
-            Debug.Log($"DropManager: Spawned {modData.modName}");
         }
 
         #endregion

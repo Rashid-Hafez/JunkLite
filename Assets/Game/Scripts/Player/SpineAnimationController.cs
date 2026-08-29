@@ -89,10 +89,6 @@ namespace junklite
         [SerializeField] private AudioSource footstepSource;
         [SerializeField] private float footstepPitchOffset = 0.2f;
 
-        [Header("Debug")]
-        [SerializeField] private bool logStateChanges = false;
-        [SerializeField] private bool logAttacks = false;
-
         // References
         private PlayerState playerState;
         private Character2D5Controller controller;
@@ -152,9 +148,7 @@ namespace junklite
 
             // Subscribe to state events
             playerState.OnGroundedChanged += OnGroundedChanged;
-            playerState.OnMovingChanged += OnMovingChanged;
             playerState.OnJumpStateChanged += OnJumpStateChanged;
-            playerState.OnFallStateChanged += OnFallStateChanged;
             playerState.OnDashingChanged += OnDashingChanged;
             playerState.OnWallSlideChanged += OnWallSlideChanged;
             playerState.OnLedgeDetectedChanged += OnLedgeDetectedChanged;
@@ -194,9 +188,7 @@ namespace junklite
             if (playerState != null)
             {
                 playerState.OnGroundedChanged -= OnGroundedChanged;
-                playerState.OnMovingChanged -= OnMovingChanged;
                 playerState.OnJumpStateChanged -= OnJumpStateChanged;
-                playerState.OnFallStateChanged -= OnFallStateChanged;
                 playerState.OnDashingChanged -= OnDashingChanged;
                 playerState.OnWallSlideChanged -= OnWallSlideChanged;
                 playerState.OnLedgeDetectedChanged -= OnLedgeDetectedChanged;
@@ -229,21 +221,18 @@ namespace junklite
         {
             if (string.IsNullOrEmpty(animationName))
             {
-                LogAttack("PlayAttackAnimation: null/empty name - completing immediately");
                 NotifyPlayerAttackComplete();
                 return;
             }
 
             if (!HasAnimation(animationName))
             {
-                LogAttack($"Animation not found: '{animationName}' - completing immediately");
                 NotifyPlayerAttackComplete();
                 return;
             }
 
             if (attackActive)
             {
-                LogAttack("Already attacking - forcing previous complete");
                 ForceFinishAttack();
             }
 
@@ -252,13 +241,10 @@ namespace junklite
             if (string.Equals(animationName, "Perry_2", System.StringComparison.OrdinalIgnoreCase))
             {
                 bool has = HasAnimation(animationName);
-                Debug.Log($"[SpineAnim] parry2 special case – HasAnimation={has}, timeScale={Time.timeScale}");
                 if (!has)
                 {
                     Debug.LogWarning("Perry_2 not found on skeleton data! Check naming.");
                 }
-
-                Debug.Log("Playing parry hit animation with special settings to prevent blending issues");
                 attackActive = true;
                 // clear overlay so it cannot influence locomotion bones (we'll play on overlay)
                 skeletonAnimation?.AnimationState.ClearTrack(overlayTrack);
@@ -278,13 +264,10 @@ namespace junklite
                     entry.Interrupt += _ => OnAttackInterrupted();
                 }
                 currentAttackEntry = entry;
-                LogAttack($"Playing forced overwrite attack: '{animationName}'");
                 return;
             }
 
             attackActive = true;
-
-            LogAttack($"Playing attack: '{animationName}'");
 
             bool isWeaponState = weaponManager != null && weaponManager.IsModCombat;
             float timeScale = isWeaponState ? weaponAttackTimeScale : fistAttackTimeScale;
@@ -317,12 +300,9 @@ namespace junklite
         {
             if (!attackActive) return;
 
-            LogAttack("Attack overlay complete");
-
             // hold last frame if parry still active
             if (playerState != null && playerState.IsParrying)
             {
-                LogAttack("Holding overlay because parry still active");
                 waitingForParryEnd = true;
                 return;
             }
@@ -340,12 +320,9 @@ namespace junklite
         {
             if (!attackActive) return;
 
-            LogAttack("Attack overwrite complete");
-
             // hold last frame if parry still active
             if (playerState != null && playerState.IsParrying)
             {
-                LogAttack("Holding overwrite because parry still active");
                 waitingForParryEnd = true;
                 return;
             }
@@ -373,8 +350,6 @@ namespace junklite
         private void OnAttackInterrupted()
         {
             if (!attackActive) return;
-
-            LogAttack("Attack interrupted");
 
             attackActive = false;
             currentAttackEntry = null;
@@ -421,7 +396,6 @@ namespace junklite
 
             if (!HasAnimation(animationName))
             {
-                Log($"ForcePlayOverride: animation '{animationName}' not found");
                 onComplete?.Invoke();
                 return false;
             }
@@ -512,11 +486,9 @@ namespace junklite
 
             if (HasAnimation(modCombatEntryFallbackAnim))
             {
-                Log($"Mod entry animation '{modCombatEntryAnim}' not found. Falling back to '{modCombatEntryFallbackAnim}'.");
                 return modCombatEntryFallbackAnim;
             }
 
-            Log($"No valid mod entry animation found. Checked '{modCombatEntryAnim}' and '{modCombatEntryFallbackAnim}'.");
             return string.Empty;
         }
 
@@ -527,8 +499,6 @@ namespace junklite
         private void InterruptAttack(string reason)
         {
             if (!attackActive) return;
-
-            LogAttack($"Attack interrupted by: {reason}");
 
             attackActive = false;
             currentAttackEntry = null;
@@ -594,27 +564,12 @@ namespace junklite
             {
                 wasAirborne = true;
             }
-
-            Log($"Grounded={grounded}");
-        }
-
-        private void OnMovingChanged(bool moving)
-        {
-            Log($"Moving={moving}");
         }
 
         private void OnJumpStateChanged(bool jumping)
         {
             if (jumping)
                 PlayJumpStart();
-
-            Log($"Jumping={jumping}");
-        }
-
-        private void OnFallStateChanged(bool falling)
-        {
-            // Falling handled by ApplyAnyStateFallbacks
-            Log($"Falling={falling}");
         }
 
         private void OnDashingChanged(bool dashing)
@@ -1061,18 +1016,6 @@ namespace junklite
 
             footstepSource.pitch = 1f + UnityEngine.Random.Range(-footstepPitchOffset, footstepPitchOffset);
             footstepSource.Play();
-        }
-
-        private void Log(string message)
-        {
-            if (logStateChanges)
-                Debug.Log($"[SpineAnim] {message}", this);
-        }
-
-        private void LogAttack(string message)
-        {
-            if (logAttacks)
-                Debug.Log($"[SpineAnim] {message}", this);
         }
 
         #endregion

@@ -60,14 +60,12 @@ namespace junklite
             if (!IsAlive || attributes?.Health == null) return;
 
             ReceiveDamage(DamageRequest.Forced(attributes.Health.Current));
-            Debug.Log($"{gameObject.name} died instantly!");
         }
 
         public Attribute GetAttribute(AttributeType type) => attributes ? attributes.Get(type) : null;
 
         protected virtual void HandleDeath()
         {
-            Debug.Log($"{gameObject.name} has died!");
         }
 
         public virtual void Activate() { }

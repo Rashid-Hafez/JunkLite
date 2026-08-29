@@ -33,7 +33,6 @@ public class DissolveController : MonoBehaviour
 
     public void AnimateDissolve(float target, float duration)
     {
-        Debug.Log("Animating dissolve!");
         if (routine != null)
         {
             StopCoroutine(routine);

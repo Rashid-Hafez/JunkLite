@@ -162,7 +162,6 @@ namespace junklite
                         mod.Data.OnCombatModeExited(mod, playerCharacter);
                         mod.Data.OnRemoved(mod, playerCharacter);
                         passiveSlots[i] = null;
-                        Debug.Log($"[ModManager] Passive mod broke: {mod.Data.modName}");
                         OnModSlotsChanged?.Invoke();
                     }
                 }
@@ -213,7 +212,6 @@ namespace junklite
                     mod.Data.OnCombatModeExited(mod, playerCharacter);
                     mod.Data.OnRemoved(mod, playerCharacter);
                     activeSlots[activeSlotIndex] = null;
-                    Debug.Log($"[ModManager] Active mod broke: {mod.Data.modName}");
                 }
                 OnModSlotsChanged?.Invoke();
             }

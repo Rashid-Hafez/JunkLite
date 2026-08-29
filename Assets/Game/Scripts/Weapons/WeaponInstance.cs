@@ -11,9 +11,6 @@ namespace junklite
         public float baseDamage;
         public float baseAttackSpeed;
 
-        [Header("Debug")]
-        [SerializeField] private bool logCombo = false;
-
         #region State
 
         private CombatState combatState;
@@ -70,7 +67,7 @@ namespace junklite
             baseDamage = weaponData.baseDamage;
             baseAttackSpeed = weaponData.baseAttackSpeed;
             currentDurability = weaponData.maxWeaponDurability;
-            combatState = new CombatState(weaponData, logCombo);
+            combatState = new CombatState(weaponData);
 
             if (weaponData.comboWindow <= weaponData.attackCooldown)
             {
@@ -127,7 +124,6 @@ namespace junklite
 
             if (IsBroken)
             {
-                Debug.Log($"[WeaponInstance] Weapon broke: {weaponData.displayName}");
                 OnWeaponBroken?.Invoke();
                 return true;
             }

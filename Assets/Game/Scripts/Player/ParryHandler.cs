@@ -72,7 +72,6 @@ namespace junklite
             // kill any residual momentum so the player stops immediately
             controller?.StopAllVelocity();
 
-           //  Debug.Log("[Parry] Begin stage1");
             PlayParryStartSound();
             parryRoutine = StartCoroutine(ParryCoroutine());
         }
@@ -88,7 +87,6 @@ namespace junklite
             yield return new WaitForSeconds(parryDuration);
 
             // whiff
-          //  Debug.Log("[Parry] Stage1 timed out (whiff)");
             EndParryWithWhiff();
         }
 
@@ -127,7 +125,6 @@ namespace junklite
                 parryStage = 2;
                 if (parryRoutine != null) StopCoroutine(parryRoutine);
 
-              //  Debug.Log("[Parry] Hit detected during stage1 -> entering stage2");
                 playerState?.ApplyInvulnerability(parryDuration);
                 // immediately switch to the hit animation before anything else
                 playerState?.RequestAttackAnimation("Perry_2");
@@ -188,7 +185,6 @@ namespace junklite
             VisualEffectParry.SetActive(false);
             parryVFXPrefab.SetActive(false);
 
-          //  Debug.Log("[Parry] Stage2 complete, holding input lock until animation ends");
             if (playerState != null)
             {
                 playerState.SetInputLocked(true);

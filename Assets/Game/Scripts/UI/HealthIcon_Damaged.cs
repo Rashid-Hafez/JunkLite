@@ -34,10 +34,6 @@ namespace junklite
         [SerializeField] private float hitPulseDuration = 0.8f;
         [SerializeField] private AnimationCurve hitPulseCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
 
-        [Header("Debug")]
-        [SerializeField] private bool enableDebugLogs = true;
-        [SerializeField] private bool includeCallStack = true;
-
         private static readonly int DistortionID = Shader.PropertyToID("_DistortionAmount");
         private static readonly int TintColorID  = Shader.PropertyToID("_Color");
 
@@ -47,10 +43,6 @@ namespace junklite
         private float previousHealth = -1f;
         private float baselineDistortion;
         private Coroutine pulseRoutine;
-        private Color originalBoxColor;
-        private Color originalIconColor;
-        private float originalBoxDistortion;
-        private float originalIconDistortion;
 
         // -----------------------------------------------------------------------
         // Public API — called by PlayerUI
@@ -62,18 +54,11 @@ namespace junklite
 
             boundAttribute = health;
             if (boundAttribute == null)
-            {
-                LogDebug("Bind called with null health attribute.", true);
                 return;
-            }
 
             InitMaterials();
 
             previousHealth = boundAttribute.Current;
-            LogDebug(
-                $"Bind -> current={boundAttribute.Current:0.###}, max={boundAttribute.Max:0.###}, " +
-                $"box={DescribeGraphic(boxGraphic, boxMat)}, icon={DescribeGraphic(iconGraphic, iconMat)}",
-                true);
             ApplyState(boundAttribute.Current, boundAttribute.Max);
 
             boundAttribute.OnValueChanged += OnHealthChanged;
@@ -84,7 +69,6 @@ namespace junklite
         {
             if (boundAttribute != null)
             {
-                LogDebug($"Unbind -> health current={boundAttribute.Current:0.###}, max={boundAttribute.Max:0.###}");
                 boundAttribute.OnValueChanged -= OnHealthChanged;
                 boundAttribute.OnMaxChanged   -= OnMaxChanged;
             }
@@ -104,12 +88,8 @@ namespace junklite
         {
             float max = boundAttribute != null ? boundAttribute.Max : 1f;
             bool damaged = previousHealth > 0f && newValue < previousHealth;
-            float oldValue = previousHealth;
             previousHealth = newValue;
 
-            LogDebug(
-                $"OnHealthChanged -> old={oldValue:0.###}, new={newValue:0.###}, max={max:0.###}, damaged={damaged}",
-                damaged);
             ApplyState(newValue, max);
 
             if (damaged)
@@ -119,7 +99,6 @@ namespace junklite
         private void OnMaxChanged(float newMax)
         {
             float current = boundAttribute != null ? boundAttribute.Current : 0f;
-            LogDebug($"OnMaxChanged -> current={current:0.###}, newMax={newMax:0.###}", true);
             ApplyState(current, newMax);
         }
 
@@ -143,19 +122,12 @@ namespace junklite
                 iconMat.SetColor(TintColorID, tint);
 
             MarkGraphicsDirty();
-
-            LogDebug(
-                $"ApplyState -> current={current:0.###}, max={max:0.###}, pct={pct:0.###}, critical={critical}, " +
-                $"threshold={criticalThreshold:0.###}, baselineDistortion={baselineDistortion:0.###}, tint={FormatColor(tint)}, " +
-                $"boxMaterial={DescribeMaterial(boxMat)}, iconMaterial={DescribeMaterial(iconMat)}");
         }
 
         private void SetDistortion(float value)
         {
             if (boxMat  != null) boxMat.SetFloat(DistortionID, value);
             if (iconMat != null) iconMat.SetFloat(DistortionID, value);
-            LogDebug(
-                $"SetDistortion -> requested={value:0.###}, boxNow={GetDistortion(boxMat):0.###}, iconNow={GetDistortion(iconMat):0.###}");
         }
 
         // -----------------------------------------------------------------------
@@ -165,15 +137,11 @@ namespace junklite
         private void TriggerHitPulse()
         {
             StopPulse();
-            LogDebug(
-                $"TriggerHitPulse -> baseline={baselineDistortion:0.###}, peak={hitDistortionPeak:0.###}, duration={hitPulseDuration:0.###}",
-                true);
             pulseRoutine = StartCoroutine(HitPulseRoutine());
         }
 
         private IEnumerator HitPulseRoutine()
         {
-            LogDebug("HitPulseRoutine started.");
             float elapsed = 0f;
             while (elapsed < hitPulseDuration)
             {
@@ -188,7 +156,6 @@ namespace junklite
             SetDistortion(baselineDistortion);
             pulseRoutine = null;
             MarkGraphicsDirty();
-            LogDebug("HitPulseRoutine finished.");
         }
 
         private void StopPulse()
@@ -197,7 +164,6 @@ namespace junklite
             {
                 StopCoroutine(pulseRoutine);
                 pulseRoutine = null;
-                LogDebug("Existing hit pulse stopped before starting a new one.");
             }
         }
 
@@ -212,11 +178,6 @@ namespace junklite
                 boxMat = boxGraphic.materialForRendering != null
                     ? boxGraphic.material
                     : null;
-                if (boxMat != null)
-                {
-                    originalBoxColor = boxMat.GetColor(TintColorID);
-                    originalBoxDistortion = boxMat.GetFloat(DistortionID);
-                }
             }
 
             if (iconGraphic != null)
@@ -224,18 +185,7 @@ namespace junklite
                 iconMat = iconGraphic.materialForRendering != null
                     ? iconGraphic.material
                     : null;
-                if (iconMat != null)
-                {
-                    originalIconColor = iconMat.GetColor(TintColorID);
-                    originalIconDistortion = iconMat.GetFloat(DistortionID);
-                }
             }
-
-            LogDebug(
-                $"InitMaterials -> boxOriginalColor={FormatColor(originalBoxColor)}, boxOriginalDistortion={originalBoxDistortion:0.###}, " +
-                $"iconOriginalColor={FormatColor(originalIconColor)}, iconOriginalDistortion={originalIconDistortion:0.###}, " +
-                $"boxGraphicColor={FormatGraphicColor(boxGraphic)}, iconGraphicColor={FormatGraphicColor(iconGraphic)}",
-                true);
         }
 
         private void CleanupMaterials()
@@ -257,53 +207,6 @@ namespace junklite
                 iconGraphic.SetMaterialDirty();
                 iconGraphic.SetVerticesDirty();
             }
-        }
-
-        private float GetDistortion(Material material)
-        {
-            return material != null && material.HasProperty(DistortionID)
-                ? material.GetFloat(DistortionID)
-                : float.NaN;
-        }
-
-        private string DescribeGraphic(Graphic graphic, Material material)
-        {
-            if (graphic == null)
-                return "null";
-
-            return $"{graphic.name} (graphicColor={FormatColor(graphic.color)}, material={DescribeMaterial(material)})";
-        }
-
-        private string DescribeMaterial(Material material)
-        {
-            if (material == null)
-                return "null";
-
-            string shaderName = material.shader != null ? material.shader.name : "null-shader";
-            Color tint = material.HasProperty(TintColorID) ? material.GetColor(TintColorID) : Color.clear;
-            float distortion = material.HasProperty(DistortionID) ? material.GetFloat(DistortionID) : float.NaN;
-            return $"{material.name} [shader={shaderName}, tint={FormatColor(tint)}, distortion={distortion:0.###}]";
-        }
-
-        private string FormatGraphicColor(Graphic graphic)
-        {
-            return graphic == null ? "null" : FormatColor(graphic.color);
-        }
-
-        private static string FormatColor(Color color)
-        {
-            return $"RGBA({color.r:0.###}, {color.g:0.###}, {color.b:0.###}, {color.a:0.###})";
-        }
-
-        private void LogDebug(string message, bool forceStackTrace = false)
-        {
-            if (!enableDebugLogs)
-                return;
-
-            if (includeCallStack || forceStackTrace)
-                Debug.Log($"[HealthIcon_Damaged] {message}\n{StackTraceUtility.ExtractStackTrace()}", this);
-            else
-                Debug.Log($"[HealthIcon_Damaged] {message}", this);
         }
     }
 }
