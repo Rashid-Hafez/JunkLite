@@ -11,6 +11,10 @@ public class Enemy : MonoBehaviour {
 	public LayerMask turnLayerMask;
 	private Rigidbody2D rb;
 
+	private Coroutine statusCoroutine;
+    private SpriteRenderer activeVFX;
+
+
 	private bool facingRight = true;
 	
 	public float speed = 5f;
@@ -94,6 +98,44 @@ public class Enemy : MonoBehaviour {
 		isHitted = false;
 		isInvincible = false;
 	}
+
+// #region status effect system
+// 	/// <summary>
+// 	/// Applies a status effect to the enemy.
+// 	public void ApplyStatusEffect(StatusEffect effect, SpriteRenderer VFX)
+// 	{
+// 		if (effect == null) return;
+
+//         // stop any existing status coroutine (optional behaviour)
+//         if (statusCoroutine != null)
+//         {
+//             StopCoroutine(statusCoroutine);
+//             statusCoroutine = null;
+//         }
+
+//         // spawn VFX (if provided) as child so it follows the enemy
+//         if (VFX != null)
+//         {
+//             activeVFX = Instantiate(VFX, transform);
+//             activeVFX.transform.localPosition = Vector3.zero;
+//         }
+
+//         statusCoroutine = StartCoroutine(RunStatus(effect, activeVFX));
+// 	}
+
+// 	 private IEnumerator RunStatus(StatusEffect effect, SpriteRenderer vfx)
+//     {
+//         yield return StartCoroutine(effect.Apply(this));
+
+//         if (vfx != null)
+//         {
+//             Destroy(vfx.gameObject);
+//             activeVFX = null;
+//         }
+
+//         statusCoroutine = null;
+//     }
+// #endregion status effect system
 
 	IEnumerator DestroyEnemy()
 	{

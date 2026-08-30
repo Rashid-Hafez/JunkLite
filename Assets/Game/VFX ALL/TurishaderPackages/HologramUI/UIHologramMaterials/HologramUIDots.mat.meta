@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d7563a8ac5e49d0418ece3f6be77d7f9
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318135
+  packageName: UI Hologram VFX
+  packageVersion: 1.1
+  assetPath: Assets/TurishaderPackages/HologramUI/UIHologramMaterials/HologramUIDots.mat
+  uploadId: 756720

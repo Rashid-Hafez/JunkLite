@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 41b4d776d983f4ee39254538199028f6
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - skeletonAnimation: {instanceID: 0}
+  - footstepEvent: {fileID: 11400000, guid: 910b84ab2bcf7cc428f4a27a81bbe44b, type: 2}
+  - footstepSource: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -1,0 +1,479 @@
+using UnityEngine;
+
+namespace junklite
+{
+ 
+    /// <summary>
+    /// Reusable patrol implementation.
+    /// </summary>
+    [System.Serializable]
+    public class PatrolBehavior : IPatroller
+    {
+        [SerializeField] private float patrolDistance = 5f;
+        [SerializeField] private float patrolSpeed = 2f;
+        [SerializeField] private float wallCheckDistance = 0.5f;
+        [SerializeField] private LayerMask wallLayer;
+        [SerializeField] private Transform wallCheckPoint;
+
+        private Transform owner;
+        private Vector3 spawnPosition;
+        private int direction = 1;
+        private Vector3 horizontalAxis = Vector3.right;
+
+        public float PatrolDistance => patrolDistance;
+        public float PatrolSpeed => patrolSpeed;
+        public Vector3 SpawnPosition => spawnPosition;
+        public int PatrolDirection { get => direction; set => direction = value; }
+        public bool HasPatrol => patrolDistance > 0f;
+
+        public void Initialize(Transform owner)
+        {
+            this.owner = owner;
+            this.spawnPosition = owner.position;
+        }
+
+        public bool IsWallAhead()
+        {
+            if (owner == null) return false;
+
+            Vector3 origin = wallCheckPoint != null
+                ? wallCheckPoint.position
+                : owner.position + Vector3.up * 0.5f;
+            Vector3 dir = horizontalAxis * direction;
+            return Physics.Raycast(origin, dir, wallCheckDistance, wallLayer);
+        }
+
+        public bool IsAtPatrolBoundary()
+        {
+            if (owner == null) return false;
+
+            float dist = Vector3.Dot(owner.position - spawnPosition,owner.right);
+            return (direction > 0 && dist >= patrolDistance) ||
+                   (direction < 0 && dist <= -patrolDistance);
+        }
+
+        public void ReverseDirection() => direction *= -1;
+
+        private Vector3 SnapToNearestAxis(Vector3 dir)
+        {
+            float absX = Mathf.Abs(dir.x);
+            float absZ = Mathf.Abs(dir.z);
+            if (absX >= absZ)
+                return new Vector3(Mathf.Sign(dir.x), 0f, 0f);
+            else
+                return new Vector3(0f, 0f, Mathf.Sign(dir.z));
+        }
+
+        public void DrawGizmos(Transform enemyTransform)
+        {
+            if (patrolDistance <= 0f) return;
+            if (enemyTransform == null) return;
+
+            // In play mode use stored spawn, in edit mode use current position
+            Vector3 origin = Application.isPlaying ? spawnPosition : enemyTransform.position;
+
+            // Patrol range
+            Gizmos.color = Color.cyan;
+            Vector3 left = origin + enemyTransform.right * -1f * patrolDistance;
+            Vector3 right = origin + enemyTransform.right * patrolDistance;
+            Gizmos.DrawLine(left, right);
+            Gizmos.DrawWireSphere(left, 0.2f);
+            Gizmos.DrawWireSphere(right, 0.2f);
+
+            // Spawn point
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireCube(origin, Vector3.one * 0.2f);
+
+            // Wall check ray
+            Gizmos.color = Color.yellow;
+            Vector3 checkOrigin = wallCheckPoint != null
+                ? wallCheckPoint.position
+                : enemyTransform.position + Vector3.up * 0.5f;
+            Vector3 checkDir = (Application.isPlaying ? horizontalAxis : SnapToNearestAxis(enemyTransform.right)) * direction;
+            Gizmos.DrawRay(checkOrigin, checkDir * wallCheckDistance);
+        }
+    }
+
+    /// <summary>
+    /// Reusable charge-up implementation.
+    /// </summary>
+    [System.Serializable]
+    public class ChargeBehavior : ICharger
+    {
+        [SerializeField] private float chargeTime = 1f;
+        [SerializeField] private GameObject chargeVFXPrefab;
+
+        public event System.Action Completed;
+
+        public float ChargeTime => chargeTime;
+        public GameObject ChargeVFXPrefab => chargeVFXPrefab;
+
+        public void OnChargeComplete() => Completed?.Invoke();
+    }
+
+    /// <summary>
+    /// Reusable dash attack implementation.
+    /// </summary>
+    [System.Serializable]
+    public class DashBehavior : IDasher
+    {
+        [SerializeField] private float dashSpeed = 15f;
+        [SerializeField] private float dashDamage = 10f;
+        [SerializeField] private float dashStopDistance = 0.5f;
+        [SerializeField] private Vector2 dashKnockback = new Vector2(15f, 5f);
+        [SerializeField] private Hitbox dashHitbox;
+        [SerializeField] private GameObject dashVFXPrefab;
+        [Tooltip("If false, the enemy cannot be interrupted (no hitstun/knockback) during this dash")]
+        [SerializeField] private bool canBeInterrupted = true;
+        [Tooltip("When during dash movement the hitbox should turn on (0 = start, 1 = end)")]
+        [SerializeField][Range(0f, 1f)] private float attackStartNormalized = 0.8f;
+        [Tooltip("How long the dash hitbox stays active once triggered")]
+        [SerializeField] private float attackActiveDuration = 0.12f;
+        [Tooltip("Extra delay after attack window ends before dash resolves whiff/success")]
+        [SerializeField] private float whiffResolveDelay = 0.05f;
+
+        private GameObject owner;
+        private Hitbox subscribedHitbox;
+        private bool lastHitApplied;
+
+        public event System.Action Completed;
+
+        public float DashSpeed => dashSpeed;
+        public float DashDamage => dashDamage;
+        public float DashStopDistance => dashStopDistance;
+        public Vector2 DashKnockback => dashKnockback;
+        public Hitbox DashHitbox => dashHitbox;
+        public GameObject DashVFXPrefab => dashVFXPrefab;
+        public bool DashCanBeInterrupted => canBeInterrupted;
+        public float DashAttackStartNormalized => attackStartNormalized;
+        public float DashAttackActiveDuration => attackActiveDuration;
+        public float DashWhiffResolveDelay => whiffResolveDelay;
+        public bool LastHitApplied => lastHitApplied;
+
+        public void Initialize(GameObject damageOwner)
+        {
+            owner = damageOwner;
+            RefreshHitboxSubscription();
+        }
+
+        public void Dispose()
+        {
+            if (subscribedHitbox != null)
+                subscribedHitbox.OnHit -= OnHitboxHit;
+
+            subscribedHitbox = null;
+            owner = null;
+        }
+
+        public void ResetHitResult() => lastHitApplied = false;
+
+        public void OnDashComplete() => Completed?.Invoke();
+
+        private void RefreshHitboxSubscription()
+        {
+            if (subscribedHitbox == dashHitbox)
+                return;
+
+            if (subscribedHitbox != null)
+                subscribedHitbox.OnHit -= OnHitboxHit;
+
+            subscribedHitbox = dashHitbox;
+            if (subscribedHitbox != null)
+            {
+                subscribedHitbox.OnHit += OnHitboxHit;
+                subscribedHitbox.Deactivate();
+            }
+        }
+
+        private void OnHitboxHit(Collider other, Hitbox hitbox)
+        {
+            hitbox?.Deactivate();
+            if (owner == null || !DamageReceiverUtility.IsAlive(other))
+                return;
+
+            DamageResult result = DamageReceiverUtility.Receive(other, new DamageRequest(
+                dashDamage,
+                owner,
+                DamageType.Physical,
+                dashKnockback));
+
+            if (result.WasApplied)
+                lastHitApplied = true;
+        }
+    }
+
+    /// <summary>
+    /// Reusable grab implementation.
+    /// </summary>
+    [System.Serializable]
+    public class GrabBehavior
+    {
+        [SerializeField] private bool canGrab = true;
+        [SerializeField][Range(0f, 1f)] private float grabChance = 0.3f;
+        [SerializeField] private float grabDuration = 0.5f;
+        [SerializeField] private Vector3 grabOffset = new Vector3(0f, 1.5f, 0f);
+        [SerializeField] private Vector2 throwForce = new Vector2(25f, 10f);
+        [SerializeField] private float throwDamage = 5f;
+        [SerializeField] private GameObject grabVFXPrefab;
+
+        public bool CanGrab => canGrab;
+        public float GrabChance => grabChance;
+        public float GrabDuration => grabDuration;
+        public Vector3 GrabOffset => grabOffset;
+        public Vector2 ThrowForce => throwForce;
+        public float ThrowDamage => throwDamage;
+        public GameObject GrabVFXPrefab => grabVFXPrefab;
+
+        public bool RollForGrab() => canGrab && Random.value <= grabChance;
+    }
+
+    /// <summary>
+    /// Reusable recovery implementation.
+    /// </summary>
+    [System.Serializable]
+    public class RecoveryBehavior : IRecoverer
+    {
+        [SerializeField] private float recoveryTime = 0.3f;
+        [SerializeField] private GameObject recoveryVFXPrefab;
+
+        public event System.Action Completed;
+
+        public float RecoveryTime => recoveryTime;
+        public GameObject RecoveryVFXPrefab => recoveryVFXPrefab;
+
+        public void OnRecoveryComplete() => Completed?.Invoke();
+    }
+
+    /// <summary>
+    /// Interrupt completion for enemies that can be knocked back or explicitly
+    /// stunned but should not enter hit-stun from ordinary damage.
+    /// </summary>
+    public sealed class NoHitstunBehavior : IStunnable
+    {
+        public event System.Action Completed;
+
+        public float StaggerDuration => 0f;
+        public float ForcedStunDuration { get; set; }
+        public GameObject StunVFXObject => null;
+
+        public void OnStunComplete() => Completed?.Invoke();
+    }
+
+    /// <summary>
+    /// Reusable melee attack implementation.
+    /// </summary>
+    [System.Serializable]
+    public class MeleeAttackBehavior : IMeleeAttacker
+    {
+        [Tooltip("Delay before the attack swing. Telegraph/anticipation time.")]
+        [SerializeField] private float windUpDuration = 0.3f;
+        [Tooltip("Total duration of one attack swing")]
+        [SerializeField] private float attackDuration = 0.5f;
+        [Tooltip("Cooldown between attacks")]
+        [SerializeField] private float attackSpeed = 0.5f;
+        [SerializeField] private float damage = 10f;
+        [SerializeField] private Vector2 knockback = new Vector2(5f, 2f);
+        [SerializeField] private Hitbox hitbox;
+        [SerializeField] private GameObject vfxPrefab;
+        [Header("Hitbox Timing")]
+        [Tooltip("When during the attack the hitbox activates (0 = start, 1 = end)")]
+        [SerializeField][Range(0f, 1f)] private float hitStartNormalized = 0.3f;
+        [Tooltip("When during the attack the hitbox deactivates")]
+        [SerializeField][Range(0f, 1f)] private float hitEndNormalized = 0.6f;
+
+        private GameObject owner;
+        private Hitbox subscribedHitbox;
+
+        public event System.Action Completed;
+
+        public void AssignHitbox(Hitbox resolvedHitbox)
+        {
+            hitbox = resolvedHitbox;
+            RefreshHitboxSubscription();
+        }
+        public float MeleeWindUpDuration => windUpDuration;
+        public float MeleeAttackDuration => attackDuration;
+        public float MeleeAttackSpeed => attackSpeed;
+        public float MeleeDamage => damage;
+        public Vector2 MeleeKnockback => knockback;
+        public Hitbox MeleeHitbox => hitbox;
+        public GameObject MeleeVFXPrefab => vfxPrefab;
+        public float MeleeHitStartNormalized => hitStartNormalized;
+        public float MeleeHitEndNormalized => hitEndNormalized;
+
+        public void Initialize(GameObject damageOwner)
+        {
+            owner = damageOwner;
+            RefreshHitboxSubscription();
+        }
+
+        public void Dispose()
+        {
+            if (subscribedHitbox != null)
+                subscribedHitbox.OnHit -= OnHitboxHit;
+
+            subscribedHitbox = null;
+            owner = null;
+        }
+
+        public void OnMeleeComplete() => Completed?.Invoke();
+
+        private void RefreshHitboxSubscription()
+        {
+            if (owner == null || subscribedHitbox == hitbox)
+                return;
+
+            if (subscribedHitbox != null)
+                subscribedHitbox.OnHit -= OnHitboxHit;
+
+            subscribedHitbox = hitbox;
+            if (subscribedHitbox != null)
+            {
+                subscribedHitbox.OnHit += OnHitboxHit;
+                subscribedHitbox.Deactivate();
+            }
+        }
+
+        private void OnHitboxHit(Collider other, Hitbox sourceHitbox)
+        {
+            if (owner == null || !DamageReceiverUtility.IsAlive(other))
+                return;
+
+            DamageReceiverUtility.Receive(other, new DamageRequest(
+                damage,
+                owner,
+                DamageType.Physical,
+                knockback));
+        }
+    }
+
+    /// <summary>
+    /// Reusable dodge implementation.
+    /// </summary>
+    [System.Serializable]
+    public class DodgeBehavior : IDodger
+    {
+        [SerializeField] private float dodgeDistance = 3f;
+        [SerializeField] private float dodgeSpeed = 10f;
+        [SerializeField] private float dodgeHeight = 0.5f;
+        [SerializeField] private bool hasIFrames = true;
+        [SerializeField] private GameObject dodgeVFXPrefab;
+
+        [Header("Wall Detection")]
+        [SerializeField] private LayerMask wallLayer;
+        [Tooltip("Buffer distance to keep from walls when clamping dodge")]
+        [SerializeField] private float wallCheckBuffer = 0.3f;
+
+        [Header("Forward Dodge")]
+        [Tooltip("Chance to dodge forward (past/behind the player) instead of backward")]
+        [SerializeField][Range(0f, 1f)] private float forwardDodgeChance = 0f;
+
+        public event System.Action Completed;
+
+        public float DodgeDistance => dodgeDistance;
+        public float DodgeSpeed => dodgeSpeed;
+        public float DodgeDuration => dodgeSpeed > 0f ? dodgeDistance / dodgeSpeed : 0.3f;
+        public float DodgeHeight => dodgeHeight;
+        public bool DodgeHasIFrames => hasIFrames;
+        public GameObject DodgeVFXPrefab => dodgeVFXPrefab;
+        public LayerMask DodgeWallLayer => wallLayer;
+        public float DodgeWallCheckBuffer => wallCheckBuffer;
+        public float DodgeForwardChance => forwardDodgeChance;
+
+        public void OnDodgeComplete() => Completed?.Invoke();
+    }
+
+    /// <summary>
+    /// Reusable chase implementation.
+    /// </summary>
+    [System.Serializable]
+    public class ChaseBehavior : IChaser
+    {
+        [SerializeField] private float chaseSpeed = 5f;
+        [Tooltip("Distance to stop from target (0 = use attack range instead)")]
+        [SerializeField] private float chaseStopDistance = 0f;
+
+        private Vector3 lastKnownPosition;
+        private bool hasLastKnownPosition;
+
+        public event System.Action ReachedTarget;
+
+        public float ChaseSpeed => chaseSpeed;
+        public float ChaseStopDistance => chaseStopDistance;
+        public Vector3 LastKnownTargetPosition => lastKnownPosition;
+        public bool HasLastKnownPosition => hasLastKnownPosition;
+
+        public void UpdateLastKnownPosition(Vector3 position)
+        {
+            lastKnownPosition = position;
+            hasLastKnownPosition = true;
+        }
+
+        public void ClearLastKnownPosition() => hasLastKnownPosition = false;
+
+        public void OnReachedTarget() => ReachedTarget?.Invoke();
+    }
+
+    /// <summary>
+    /// Reusable ranged attack implementation.
+    /// </summary>
+    [System.Serializable]
+    public class RangedAttackBehavior
+    {
+        [SerializeField] private float attackDuration = 0.5f;
+        [SerializeField] private float damage = 10f;
+        [SerializeField] private float projectileSpeed = 10f;
+        [SerializeField] private float attackRange = 10f;
+        [SerializeField] private float attackCooldown = 2f;
+        [SerializeField] private GameObject projectilePrefab;
+        [SerializeField] private Transform spawnPoint;
+        [SerializeField] private GameObject vfxPrefab;
+
+        private float lastAttackTime = float.NegativeInfinity;
+
+        public float RangedAttackDuration => attackDuration;
+        public float RangedDamage => damage;
+        public float ProjectileSpeed => projectileSpeed;
+        public float RangedAttackRange => attackRange;
+        public GameObject ProjectilePrefab => projectilePrefab;
+        public Transform ProjectileSpawnPoint => spawnPoint;
+        public GameObject RangedVFXPrefab => vfxPrefab;
+
+        public bool CanAttack => Time.time >= lastAttackTime + attackCooldown;
+        public void RecordAttack() => lastAttackTime = Time.time;
+        public void SetSpawnPoint(Transform point) => spawnPoint = point;
+    }
+
+    /// <summary>
+    /// Reusable stun/stagger implementation.
+    /// </summary>
+    [System.Serializable]
+    public class StunBehavior : IStunnable
+    {
+        [SerializeField] private float staggerDuration = 0.5f;
+        [SerializeField] private GameObject stunVFXObject;
+
+        private float forcedStunDuration;
+
+        public event System.Action Completed;
+
+        public float StaggerDuration => staggerDuration;
+        public GameObject StunVFXObject => stunVFXObject;
+
+        /// <summary>
+        /// When > 0, overrides StaggerDuration (e.g. parry stun, whiff punishment).
+        /// Reset to 0 after the stun completes.
+        /// </summary>
+        public float ForcedStunDuration { get => forcedStunDuration; set => forcedStunDuration = value; }
+
+        /// <summary>
+        /// Returns ForcedStunDuration if set, otherwise StaggerDuration.
+        /// </summary>
+        public float EffectiveDuration =>
+            forcedStunDuration > 0f ? forcedStunDuration : staggerDuration;
+
+        public void ClearForcedDuration() => forcedStunDuration = 0f;
+
+        public void OnStunComplete() => Completed?.Invoke();
+    }
+}

@@ -1,11 +1,11 @@
 # Unity generated files
 [Ll]ibrary/
-[Tt]emp/
 [Oo]bj/
 [Bb]uild/
 [Bb]uilds/
 [Ll]ogs/
 [Mm]emoryCaptures/
+[Tt]emp/
 
 # Visual Studio / MonoDevelop generated files
 .vs/
@@ -15,6 +15,7 @@
 *.pidb
 *.unityproj
 *.booproj
+*.mov
 
 ProjectSettings/Packages/com.unity.muse.common/
 UserSettings/Layouts/
@@ -45,3 +46,8 @@ crashlytics-build.properties
 Thumbs.db
 
 UserSettings/
+
+# Baking data (large files, exclude from Git for now)
+Assets/Game/Scenes/TutorialV1.1/TutorialV1.1 Baking Set-Default.CellData.bytes
+Assets/Game/Scenes/TutorialV1.1/TutorialV1.1 Baking Set-Default.CellOptionalData.bytes
+Assets/Game/Scenes/TutorialV1.1/TutorialV1.1 Baking Set.CellSupportData.bytes

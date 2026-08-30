@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3e783688685004545b136926e89685e7
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318135
+  packageName: UI Hologram VFX
+  packageVersion: 1.1
+  assetPath: Assets/TurishaderPackages/HologramUI/UIHologramMaterials/HologramUIDotsFresnel.mat
+  uploadId: 756720

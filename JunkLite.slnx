@@ -1,0 +1,16 @@
+﻿<Solution>
+  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="AmplifyShaderEditor.csproj" />
+  <Project Path="Gaskellgames.csproj" />
+  <Project Path="spine-unity-examples.csproj" />
+  <Project Path="spine-unity-editor.csproj" />
+  <Project Path="Coffee.UIParticle.csproj" />
+  <Project Path="spine-csharp.csproj" />
+  <Project Path="Gaskellgames.FolderSystem.csproj" />
+  <Project Path="spine-unity.csproj" />
+  <Project Path="Assembly-CSharp-firstpass.csproj" />
+  <Project Path="Gentleland.SteampunkUI.DemoAndExample.csproj" />
+  <Project Path="Coffee.UIParticle.Editor.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="spine-unity-examples-editor.csproj" />
+</Solution>

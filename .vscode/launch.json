@@ -2,6 +2,21 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Unity Editor",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "ENTER_PATH_TO_UNITY_EDITOR",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false
+        },
+        {
+            "name": "Play in Unity",
+            "type": "coreclr",
+            "request": "attach",
+            "processName": "Unity"
+        },
+        {
             "name": "Attach to Unity",
             "type": "vstuc",
             "request": "attach"

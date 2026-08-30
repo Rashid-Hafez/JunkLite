@@ -9,6 +9,9 @@ public class PlayerMovement : MonoBehaviour {
 
 	public float runSpeed = 40f;
 
+	[Header("Controller Tuning")]
+	[SerializeField] private float gamepadActuation = 0.6f;
+
 	float horizontalMove = 0f;
 	bool jump = false;
 	bool dash = false;
@@ -18,7 +21,11 @@ public class PlayerMovement : MonoBehaviour {
 	// Update is called once per frame
 	void Update () {
 
-		horizontalMove = Input.GetAxisRaw("Horizontal") * runSpeed;
+		float raw = Input.GetAxisRaw("Horizontal");
+		if (Mathf.Abs(raw) < gamepadActuation)
+			horizontalMove = 0f;
+		else
+			horizontalMove = Mathf.Sign(raw) * runSpeed;
 
 		animator.SetFloat("Speed", Mathf.Abs(horizontalMove));
 

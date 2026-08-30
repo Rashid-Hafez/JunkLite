@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 69788c86c5df77441953ebd4a6bb3a41
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318135
+  packageName: UI Hologram VFX
+  packageVersion: 1.1
+  assetPath: Assets/TurishaderPackages/HologramUI/UIHologramMaterials/HologramUIHex.mat
+  uploadId: 756720

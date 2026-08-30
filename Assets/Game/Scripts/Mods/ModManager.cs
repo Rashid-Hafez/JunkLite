@@ -1,0 +1,411 @@
+﻿using UnityEngine;
+using System;
+
+namespace junklite
+{
+    [RequireComponent(typeof(ModExecutionRunner))]
+    public class ModManager : MonoBehaviour
+    {
+        #region Fields
+
+        [Header("Slot Limits")]
+        [SerializeField] private int maxActiveSlots = 4;
+        [SerializeField] private int maxPassiveSlots = 2;
+
+        [Header("Starting Slots")]
+        [SerializeField] private int unlockedActiveSlots = 1;
+        [SerializeField] private int unlockedPassiveSlots = 1;
+
+        // Equipped mods
+        private ModInstance[] activeSlots;
+        private ModInstance[] passiveSlots;
+
+        // References
+        private WeaponManager weaponManager;
+        private PlayerCharacter playerCharacter;
+        private ModExecutionRunner executionRunner;
+
+        private bool isActive;
+
+        #endregion
+
+        #region Properties
+
+        public int UnlockedActiveSlots => unlockedActiveSlots;
+        public int UnlockedPassiveSlots => unlockedPassiveSlots;
+        public int MaxActiveSlots => maxActiveSlots;
+        public int MaxPassiveSlots => maxPassiveSlots;
+        public bool IsActive => isActive;
+
+        public event Action OnModSlotsChanged;
+        public event Action<int> OnActiveModActivated;
+        public event Action<int> OnActiveModReady;
+
+        #endregion
+
+        #region Unity
+
+        private void Awake()
+        {
+            weaponManager = GetComponent<WeaponManager>();
+            playerCharacter = GetComponent<PlayerCharacter>();
+            executionRunner = GetComponent<ModExecutionRunner>();
+            if (executionRunner == null)
+                executionRunner = gameObject.AddComponent<ModExecutionRunner>();
+
+            activeSlots = new ModInstance[maxActiveSlots];
+            passiveSlots = new ModInstance[maxPassiveSlots];
+
+            unlockedActiveSlots = Mathf.Clamp(unlockedActiveSlots, 0, maxActiveSlots);
+            unlockedPassiveSlots = Mathf.Clamp(unlockedPassiveSlots, 0, maxPassiveSlots);
+        }
+
+        private void OnEnable()
+        {
+            if (weaponManager != null)
+            {
+                weaponManager.OnCombatModeChanged += OnCombatModeChanged;
+                weaponManager.OnEnemyHit += OnEnemyHit;
+
+                if (weaponManager.IsModCombat)
+                    Activate();
+            }
+        }
+
+        private void OnDisable()
+        {
+            Deactivate();
+
+            if (weaponManager != null)
+            {
+                weaponManager.OnCombatModeChanged -= OnCombatModeChanged;
+                weaponManager.OnEnemyHit -= OnEnemyHit;
+            }
+        }
+
+        #endregion
+
+        #region Combat Mode
+
+        private void OnCombatModeChanged()
+        {
+            if (weaponManager.IsModCombat)
+                Activate();
+            else
+                Deactivate();
+        }
+
+        private void Activate()
+        {
+            if (isActive) return;
+            isActive = true;
+
+            for (int i = 0; i < unlockedPassiveSlots; i++)
+            {
+                var mod = passiveSlots[i];
+                if (mod != null && !mod.IsBroken)
+                    mod.Data.OnCombatModeEntered(mod, playerCharacter);
+            }
+
+            for (int i = 0; i < unlockedActiveSlots; i++)
+            {
+                var mod = activeSlots[i];
+                if (mod != null && !mod.IsBroken)
+                    mod.Data.OnCombatModeEntered(mod, playerCharacter);
+            }
+
+            OnModSlotsChanged?.Invoke();
+        }
+
+        private void Deactivate()
+        {
+            if (!isActive) return;
+
+            executionRunner?.CancelAll();
+
+            for (int i = 0; i < unlockedPassiveSlots; i++)
+            {
+                var mod = passiveSlots[i];
+                if (mod != null)
+                    mod.Data.OnCombatModeExited(mod, playerCharacter);
+            }
+
+            for (int i = 0; i < unlockedActiveSlots; i++)
+            {
+                var mod = activeSlots[i];
+                if (mod != null)
+                    mod.Data.OnCombatModeExited(mod, playerCharacter);
+            }
+
+            isActive = false;
+            OnModSlotsChanged?.Invoke();
+        }
+
+        #endregion
+
+        #region Hit Notification
+
+        private void OnEnemyHit(EnemyCharacter enemy, float damageDealt)
+        {
+            if (!isActive) return;
+
+            for (int i = 0; i < unlockedPassiveSlots; i++)
+            {
+                var mod = passiveSlots[i];
+                if (mod == null || mod.IsBroken) continue;
+                if (mod.Data is PassiveModData passive)
+                {
+                    passive.OnHitRegistered(mod, playerCharacter, enemy, damageDealt);
+
+                    if (mod.IsBroken)
+                    {
+                        mod.Data.OnCombatModeExited(mod, playerCharacter);
+                        mod.Data.OnRemoved(mod, playerCharacter);
+                        passiveSlots[i] = null;
+                        OnModSlotsChanged?.Invoke();
+                    }
+                }
+            }
+
+            for (int i = 0; i < unlockedActiveSlots; i++)
+            {
+                var mod = activeSlots[i];
+                if (mod == null || mod.IsBroken) continue;
+                if (mod.Data is ActiveModData active)
+                {
+                    bool wasReady = active.CanActivate(mod, playerCharacter);
+                    active.OnHitRegistered(mod, playerCharacter, enemy, damageDealt);
+                    bool nowReady = active.CanActivate(mod, playerCharacter);
+
+                    if (!wasReady && nowReady)
+                        OnActiveModReady?.Invoke(i);
+                }
+            }
+        }
+
+        #endregion
+
+        #region Activation
+
+        /// <summary>
+        /// Try to activate an active mod by slot index. Called from player input.
+        /// </summary>
+        public bool TryActivateMod(int activeSlotIndex)
+        {
+            if (!isActive) return false;
+            if (activeSlotIndex < 0 || activeSlotIndex >= unlockedActiveSlots) return false;
+            var mod = activeSlots[activeSlotIndex];
+            if (mod == null || mod.IsBroken) return false;
+            if (mod.Data is not ActiveModData active) return false;
+
+            bool used = active.TryActivate(mod, playerCharacter, executionRunner);
+            if (used)
+            {
+                PlayModActivationSfx(active);
+                mod.ConsumeDurability();
+                OnActiveModActivated?.Invoke(activeSlotIndex);
+                if (mod.IsBroken)
+                {
+                    // The final use is allowed to finish even though the broken mod
+                    // immediately leaves its slot. Mode exit/removal hooks must not
+                    // hold per-execution state; the runner owns that cleanup.
+                    mod.Data.OnCombatModeExited(mod, playerCharacter);
+                    mod.Data.OnRemoved(mod, playerCharacter);
+                    activeSlots[activeSlotIndex] = null;
+                }
+                OnModSlotsChanged?.Invoke();
+            }
+            return used;
+        }
+
+        #endregion
+
+        #region Equip / Unequip
+
+        /// <summary>
+        /// Place a mod directly into a specific slot. Validates mod type matches slot type.
+        /// </summary>
+        public bool EquipModAt(ModInstance mod, bool isActiveSlot, int slotIndex)
+        {
+            if (mod == null) return false;
+
+            // Type restriction: active mods → active slots, passive mods → passive slots
+            if (isActiveSlot && !mod.IsActive) return false;
+            if (!isActiveSlot && !mod.IsPassive) return false;
+
+            var slots = isActiveSlot ? activeSlots : passiveSlots;
+            int max = isActiveSlot ? unlockedActiveSlots : unlockedPassiveSlots;
+
+            if (slotIndex < 0 || slotIndex >= max) return false;
+            if (slots[slotIndex] != null) return false; // slot occupied
+
+            slots[slotIndex] = mod;
+            mod.Data.OnInstalled(mod, playerCharacter);
+
+            // Enable the installed mod immediately when combat mode is already active.
+            if (isActive)
+                mod.Data.OnCombatModeEntered(mod, playerCharacter);
+
+            OnModSlotsChanged?.Invoke();
+            return true;
+        }
+
+        public bool EquipModAny(ModInstance mod)
+        {
+            if (mod == null) return false;
+
+            if (FindEquippedMod(mod.Data, out _, out _)) return false;
+
+            if (mod.IsActive)
+            {
+                for (int i = 0; i < unlockedActiveSlots; i++)
+                {
+                    if (activeSlots[i] == null)
+                        return EquipModAt(mod, true, i);
+                }
+            }
+            else if (mod.IsPassive)
+            {
+                for (int i = 0; i < unlockedPassiveSlots; i++)
+                {
+                    if (passiveSlots[i] == null)
+                        return EquipModAt(mod, false, i);
+                }
+            }
+
+            return false; // no compatible slot — caller should put in inventory
+        }
+
+        /// <summary>
+        /// Keep old name working for any code that calls TryEquipMod.
+        /// </summary>
+        public bool TryEquipMod(ModInstance mod) => EquipModAny(mod);
+
+        public ModInstance UnequipMod(bool isActiveSlot, int slotIndex)
+        {
+            var slots = isActiveSlot ? activeSlots : passiveSlots;
+            int max = isActiveSlot ? unlockedActiveSlots : unlockedPassiveSlots;
+
+            if (slotIndex < 0 || slotIndex >= max) return null;
+
+            ModInstance mod = slots[slotIndex];
+            if (mod == null) return null;
+
+            executionRunner?.Cancel(mod);
+
+            if (isActive)
+                mod.Data.OnCombatModeExited(mod, playerCharacter);
+
+            mod.Data.OnRemoved(mod, playerCharacter);
+
+            slots[slotIndex] = null;
+            OnModSlotsChanged?.Invoke();
+            return mod;
+        }
+
+        public ModInstance GetActiveMod(int index)
+        {
+            if (index < 0 || index >= activeSlots.Length) return null;
+            return activeSlots[index];
+        }
+
+        public ModInstance GetPassiveMod(int index)
+        {
+            if (index < 0 || index >= passiveSlots.Length) return null;
+            return passiveSlots[index];
+        }
+
+        #endregion
+
+        #region Slot Management
+
+        public void SwapSlots(bool isActive, int indexA, int indexB)
+        {
+            var slots = isActive ? activeSlots : passiveSlots;
+            int max = isActive ? unlockedActiveSlots : unlockedPassiveSlots;
+
+            if (indexA < 0 || indexA >= max) return;
+            if (indexB < 0 || indexB >= max) return;
+
+            (slots[indexA], slots[indexB]) = (slots[indexB], slots[indexA]);
+            OnModSlotsChanged?.Invoke();
+        }
+
+        public void UnlockActiveSlot()
+        {
+            if (unlockedActiveSlots < maxActiveSlots)
+            {
+                unlockedActiveSlots++;
+                OnModSlotsChanged?.Invoke();
+            }
+        }
+
+        public void UnlockPassiveSlot()
+        {
+            if (unlockedPassiveSlots < maxPassiveSlots)
+            {
+                unlockedPassiveSlots++;
+                OnModSlotsChanged?.Invoke();
+            }
+        }
+
+        #endregion
+
+        #region Helpers
+
+        public bool HasEmptyActiveSlot()
+        {
+            for (int i = 0; i < unlockedActiveSlots; i++)
+                if (activeSlots[i] == null) return true;
+            return false;
+        }
+
+        public bool HasEmptyPassiveSlot()
+        {
+            for (int i = 0; i < unlockedPassiveSlots; i++)
+                if (passiveSlots[i] == null) return true;
+            return false;
+        }
+
+        private void PlayModActivationSfx(ActiveModData active)
+        {
+            if (AudioManager.Instance == null || active == null || active.activationSfx == null || !active.activationSfx.IsValid)
+                return;
+
+            Vector3 position = playerCharacter != null ? playerCharacter.transform.position : transform.position;
+            AudioManager.Instance.PlaySpatialAtPosition(active.activationSfx, position, spatialBlend: 0f);
+        }
+
+
+        public bool FindEquippedMod(ModData data, out bool isActiveSlot, out int foundIndex)
+        {
+            isActiveSlot = false;
+            foundIndex = -1;
+            if (data == null) return false;
+
+            for (int i = 0; i < unlockedActiveSlots; i++)
+            {
+                if (activeSlots[i] != null && activeSlots[i].Data == data)
+                {
+                    isActiveSlot = true;
+                    foundIndex = i;
+                    return true;
+                }
+            }
+
+            for (int i = 0; i < unlockedPassiveSlots; i++)
+            {
+                if (passiveSlots[i] != null && passiveSlots[i].Data == data)
+                {
+                    isActiveSlot = false;
+                    foundIndex = i;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        #endregion
+    }
+}

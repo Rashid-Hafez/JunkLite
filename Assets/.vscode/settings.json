@@ -1,0 +1,12 @@
+{
+  // Make the C# tooling consistently load the Unity solution when opening the repo root.
+  "dotnet.defaultSolution": "JunkLite.sln",
+
+  // OmniSharp behavior (used by many Unity + VSCode/Cursor setups).
+  "omnisharp.useModernNet": true,
+  "omnisharp.useGlobalMono": "never",
+  "omnisharp.enableEditorConfigSupport": true,
+  "omnisharp.enableImportCompletion": true
+}
+
+

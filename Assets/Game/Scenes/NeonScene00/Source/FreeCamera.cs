@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-public class FreeCamera : MonoBehaviour {
+public class FreeCamera1 : MonoBehaviour {
 #if UNITY_EDITOR
 	static Texture2D ms_invisibleCursor;
 #endif

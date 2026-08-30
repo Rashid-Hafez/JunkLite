@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 68218c05d0e27564c92d1a2f8dd5a326
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318135
+  packageName: UI Hologram VFX
+  packageVersion: 1.1
+  assetPath: Assets/TurishaderPackages/HologramUI/UIHologramMaterials/HologramUIDotsGlitch.mat
+  uploadId: 756720
