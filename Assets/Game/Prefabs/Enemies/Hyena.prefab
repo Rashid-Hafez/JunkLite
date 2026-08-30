@@ -323,6 +323,7 @@ MonoBehaviour:
   dodge: JumpBack
   hurt: Hurt
   death: Death
+  fitActionAnimationsToGameplayDuration: 1
   stunLoop: Stunt
   onParried: OnParried
   parryStun: Stunt

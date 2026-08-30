@@ -39,6 +39,10 @@ namespace junklite
         [Tooltip("When enabled, wind-up and attack clips are time-scaled to the authoritative gameplay phase duration.")]
         [SerializeField] private bool fitMeleeAnimationsToGameplayDuration;
 
+        [Header("Action Timing")]
+        [Tooltip("When enabled, dodge and charge clips play once and are time-scaled to their authoritative gameplay durations.")]
+        [SerializeField] private bool fitActionAnimationsToGameplayDuration;
+
         [Header("Stun")]
         [SerializeField] private string stunLoop = "";
         [Header("Parry")]
@@ -59,6 +63,7 @@ namespace junklite
         [SerializeField] private AnimPlaySettings onParriedSettings = new AnimPlaySettings { resetPoseFirst = true, mixDuration = 0f };
 
         private StateMachine stateMachine;
+        private EnemyCharacter enemyCharacter;
         private bool isDead;
         private float previousTimeScale = 1f;
         private bool playbackPaused;
@@ -69,6 +74,7 @@ namespace junklite
                 skeletonAnimation = GetComponentInChildren<SkeletonAnimation>(true);
 
             stateMachine = GetComponentInParent<StateMachine>();
+            enemyCharacter = GetComponentInParent<EnemyCharacter>();
         }
 
         private void OnEnable()
@@ -127,11 +133,22 @@ namespace junklite
             else if (to is ChaseState)
                 state.SetAnimation(0, run, true);
             else if (to is ChargeState)
-                state.SetAnimation(0, charge, true);
+            {
+                // Charge is an anticipation phase, not a looping locomotion state.
+                // Fit the one-shot clip to the authoritative gameplay duration so
+                // a short clip cannot restart before the dash begins.
+                var entry = state.SetAnimation(0, charge, !fitActionAnimationsToGameplayDuration);
+                if (fitActionAnimationsToGameplayDuration)
+                    FitActionToGameplayDuration(entry, enemyCharacter?.GetCapability<ICharger>()?.ChargeTime ?? 0f);
+            }
             else if (to is DashState)
                 state.SetAnimation(0, dash, false);
             else if (to is DodgeState)
-                state.SetAnimation(0, dodge, false);
+            {
+                var entry = state.SetAnimation(0, dodge, false);
+                if (fitActionAnimationsToGameplayDuration)
+                    FitActionToGameplayDuration(entry, enemyCharacter?.GetCapability<IDodger>()?.DodgeDuration ?? 0f);
+            }
             else if (to is ParriedState)
             {
                 PlayOnParriedThenStunLoop();
@@ -259,6 +276,14 @@ namespace junklite
         private void FitToGameplayDuration(TrackEntry entry, float gameplayDuration)
         {
             if (!fitMeleeAnimationsToGameplayDuration || entry?.Animation == null || gameplayDuration <= 0f)
+                return;
+
+            FitActionToGameplayDuration(entry, gameplayDuration);
+        }
+
+        private static void FitActionToGameplayDuration(TrackEntry entry, float gameplayDuration)
+        {
+            if (entry?.Animation == null || entry.Animation.Duration <= 0f || gameplayDuration <= 0f)
                 return;
 
             entry.TimeScale = entry.Animation.Duration / gameplayDuration;

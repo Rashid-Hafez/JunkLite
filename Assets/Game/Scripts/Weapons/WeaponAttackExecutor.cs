@@ -96,7 +96,6 @@ namespace junklite
         private readonly Action<EnemyCharacter, float> enemyHitApplied;
         private readonly Action environmentHit;
         private readonly Action playHitFeedback;
-        private readonly Action<string> log;
 
         public WeaponAttackExecutor(
             MonoBehaviour coroutineHost,
@@ -112,8 +111,7 @@ namespace junklite
             Action<int> completeWithoutAnimation,
             Action<EnemyCharacter, float> enemyHitApplied,
             Action environmentHit,
-            Action playHitFeedback,
-            Action<string> log)
+            Action playHitFeedback)
         {
             this.coroutineHost = coroutineHost;
             this.motion = motion;
@@ -129,7 +127,6 @@ namespace junklite
             this.enemyHitApplied = enemyHitApplied;
             this.environmentHit = environmentHit;
             this.playHitFeedback = playHitFeedback;
-            this.log = log;
         }
 
         public Execution Prepare(WeaponAttackExecutionRequest request)
@@ -163,8 +160,6 @@ namespace junklite
             }
             else
             {
-                log?.Invoke($"No executable {request.WeaponData.GetType().Name} step for " +
-                            $"{request.Direction} combo {request.ComboIndex}");
                 return null;
             }
 
@@ -443,9 +438,6 @@ namespace junklite
             if (hitAnyEnvironment && !hitAnyEnemy)
                 environmentHit?.Invoke();
 
-            log?.Invoke($"Directional blast ({request.Direction}): {enemyHits.Length} enemies, " +
-                        $"radius={blastRadius}, offset={step.blastForwardOffset}, " +
-                        $"durability={durabilityCost}");
             return hitAnyEnemy;
         }
 
@@ -585,7 +577,6 @@ namespace junklite
                     tracerDuration);
             }
 
-            log?.Invoke($"Hitscan | hit={hitAnyEnemy} | piercing={piercing}");
             return hitAnyEnemy;
         }
 
@@ -619,8 +610,6 @@ namespace junklite
                 yield return null;
             }
 
-            if (execution.IsActive)
-                log?.Invoke($"WaitForFirePose timed out at normalizedTime={normalizedTime:F2}");
         }
 
         private void RequestAnimation(WeaponAttackExecutionRequest request)

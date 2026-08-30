@@ -183,8 +183,7 @@ namespace junklite
                 CompleteAttackWithoutAnimation,
                 (enemy, damage) => OnEnemyHit?.Invoke(enemy, damage),
                 () => OnEnvironmentHit?.Invoke(),
-                PlayHitFeedback,
-                Log);
+                PlayHitFeedback);
 
             CreateFistCombatState();
         }
