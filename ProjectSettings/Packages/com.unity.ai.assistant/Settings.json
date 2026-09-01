@@ -1,0 +1,11 @@
+{
+    "CustomInstructionsGUID": "",
+    "CheckpointEnabled": false,
+    "GitInstanceTypeValue": 1,
+    "CustomGitPath": "/Applications/GitHub Desktop.app",
+    "CheckpointRetentionWeeks": 2,
+    "PlanExecutionPromptDismissed": false,
+    "CheckpointDiscoveryBannerDismissed": false,
+    "CheckpointDiscoveryUserDisabled": false,
+    "CheckpointDiscoveryFlowStarted": true
+}

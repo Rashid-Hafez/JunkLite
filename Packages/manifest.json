@@ -2,6 +2,8 @@
   "dependencies": {
     "com.cqf.urpvolumetricfog": "https://github.com/CristianQiu/Unity-URP-Volumetric-Light.git",
     "com.subbu.urp-glitch": "https://github.com/saimarei/URPGlitch.git",
+    "com.unity.ai.assistant": "2.19.0-pre.2",
+    "com.unity.ai.inference": "2.6.1",
     "com.unity.animation.rigging": "1.4.1",
     "com.unity.cinemachine": "3.1.4",
     "com.unity.collab-proxy": "2.12.4",
