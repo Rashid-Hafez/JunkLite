@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace junklite
 {
@@ -68,12 +68,6 @@ namespace junklite
             baseAttackSpeed = weaponData.baseAttackSpeed;
             currentDurability = weaponData.maxWeaponDurability;
             combatState = new CombatState(weaponData);
-
-            if (weaponData.comboWindow <= weaponData.attackCooldown)
-            {
-                Debug.LogWarning($"[WeaponInstance] '{weaponData.displayName}': comboWindow " +
-                                 $"({weaponData.comboWindow}s) must be > attackCooldown ({weaponData.attackCooldown}s)!");
-            }
         }
 
         private void Update()

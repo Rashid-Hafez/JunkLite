@@ -24,6 +24,9 @@ namespace junklite
         private float cooldownTimer;
         private bool onCooldown;
 
+        private float attackCooldown = 0.15f;
+        private float comboWindow = 0.6f;
+
         #region Properties
 
         public WeaponData Data => data;
@@ -32,14 +35,36 @@ namespace junklite
         public float CooldownRemaining => onCooldown ? Mathf.Max(0, AttackCooldown - cooldownTimer) : 0f;
         public float ComboTimeRemaining => comboActive ? Mathf.Max(0, ComboWindow - comboTimer) : 0f;
 
-        private float AttackCooldown => data != null ? data.attackCooldown : 0.2f;
-        private float ComboWindow => data != null ? data.comboWindow : 0.5f;
+        public float AttackCooldown
+        {
+            get => attackCooldown;
+            set => attackCooldown = Mathf.Max(0f, value);
+        }
+
+        public float ComboWindow
+        {
+            get => comboWindow;
+            set => comboWindow = Mathf.Max(0f, value);
+        }
 
         #endregion
 
         public CombatState(WeaponData weaponData)
         {
             data = weaponData;
+        }
+
+        public CombatState(WeaponData weaponData, float attackCooldown, float comboWindow)
+        {
+            data = weaponData;
+            this.attackCooldown = Mathf.Max(0f, attackCooldown);
+            this.comboWindow = Mathf.Max(0f, comboWindow);
+        }
+
+        public void SetTiming(float cooldown, float window)
+        {
+            AttackCooldown = cooldown;
+            ComboWindow = window;
         }
 
         #region Tick

@@ -48,19 +48,7 @@ namespace junklite
         public int maxWeaponDurability = 100;
         [Tooltip("Durability consumed per confirmed hit")]
         public float durabilityPerHit = 1f;
-
-        // =====================================================================
-        // ATTACK TIMING
-        // =====================================================================
-
-        [Header("Attack Timing")]
-        [Tooltip("Delay after attack animation ends before player can attack again")]
-        public float attackCooldown = 0.2f;
-        [Tooltip("Time after attack ends to continue combo (must be > attackCooldown)")]
-        public float comboWindow = 0.5f;
-
-        public float ComboInputWindow => Mathf.Max(0, comboWindow - attackCooldown);
-
+        
         // =====================================================================
         // SOCKET OFFSETS
         // =====================================================================
@@ -88,18 +76,5 @@ namespace junklite
 
         public abstract int GetComboLength(AttackDirection dir, bool isGrounded);
         public abstract bool TryGetAnimationName(AttackDirection dir, int comboIndex, bool isGrounded, out string animationName);
-
-        // =====================================================================
-        // VALIDATION
-        // =====================================================================
-
-        protected void OnValidate()
-        {
-            if (comboWindow <= attackCooldown)
-            {
-                Debug.LogWarning($"[{name}] comboWindow ({comboWindow}s) should be greater than " +
-                                 $"attackCooldown ({attackCooldown}s). Combo input window is only {ComboInputWindow}s!");
-            }
-        }
     }
 }

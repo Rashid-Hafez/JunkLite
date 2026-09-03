@@ -43,6 +43,14 @@ namespace junklite
         [SerializeField] private float enemyHitHitstopDuration = 0.08f;
         [SerializeField] private float enemyHitShakeForce = 0.8f;
 
+        [Header("Attack Timing & Combo Windows")]
+        [Tooltip("Delay after attack animation ends before player can attack again.")]
+        [SerializeField] private float attackCooldown = 0.15f;
+        [Tooltip("Time window after attack ends to continue combo string.")]
+        [SerializeField] private float comboWindow = 0.6f;
+        [Tooltip("How long an early attack input remains valid in buffer.")]
+        [SerializeField] private float bufferDuration = 0.35f;
+
         [Header("Attack Hit Window")]
         [SerializeField] private float delayBeforeAttack = 0.1f;
         [Tooltip("How long after impulse fires before the attack animation plays.")]
@@ -50,7 +58,6 @@ namespace junklite
         [SerializeField]
         [Tooltip("Time that the collision stays open to deliver the attack")]
         private float attackOpenWindow = 0.3f;
-        [SerializeField] private float BUFFER_DURATION = 0.3f;
 
         [Header("Down Attack Float")]
         [SerializeField]
@@ -392,13 +399,21 @@ namespace junklite
 
         private CombatState GetCombatStateForSlot(int slot)
         {
-            return slot switch
+            CombatState combat = slot switch
             {
                 0 => fistCombat,
                 1 => weaponLoadout?.WeaponSlot1?.Combat,
                 2 => weaponLoadout?.WeaponSlot2?.Combat,
                 _ => null
             };
+
+            if (combat != null)
+            {
+                combat.AttackCooldown = attackCooldown;
+                combat.ComboWindow = comboWindow;
+            }
+
+            return combat;
         }
 
         private WeaponData GetWeaponDataForSlot(int slot)
@@ -472,7 +487,7 @@ namespace junklite
             bufferedWeaponSlot = weaponSlot;
             bufferedInput = moveInput;
             bufferedGrounded = isGrounded;
-            bufferTimer = BUFFER_DURATION;
+            bufferTimer = bufferDuration;
         }
 
         private void StartAttack(int slot, AttackDirection dir)
@@ -638,6 +653,14 @@ namespace junklite
         private void HandleLoadoutChanged()
         {
             lastAttackedSlot = -1;
+            SyncCombatStateTimings();
+        }
+
+        private void SyncCombatStateTimings()
+        {
+            fistCombat?.SetTiming(attackCooldown, comboWindow);
+            weaponLoadout?.WeaponSlot1?.Combat?.SetTiming(attackCooldown, comboWindow);
+            weaponLoadout?.WeaponSlot2?.Combat?.SetTiming(attackCooldown, comboWindow);
         }
 
         private void HandleLoadoutWeaponBroken(int slot)
@@ -689,7 +712,7 @@ namespace junklite
                 Debug.LogWarning("[WeaponManager] No fist WeaponData assigned!");
                 return;
             }
-            fistCombat = new CombatState(fistWeaponData);
+            fistCombat = new CombatState(fistWeaponData, attackCooldown, comboWindow);
         }
 
         private float GetFallbackRadius(AttackDirection dir)

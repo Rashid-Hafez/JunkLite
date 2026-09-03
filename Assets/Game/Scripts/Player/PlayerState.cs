@@ -14,7 +14,7 @@ namespace junklite
         public override bool CanMove => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Move) && !IsInputLocked && !IsAttacking && !IsParrying;
         public override bool CanJump => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Jump) && !IsInputLocked && !IsParrying;
         public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsActionBlocked(StatusActionBlock.Dash) && !IsInputLocked;
-        public override bool CanAttack => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Attack) && !IsInputLocked && !IsWallSliding && !IsParrying; // No IsAttacking check - WeaponManager handles cooldown
+        public override bool CanAttack => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Attack) && (!IsInputLocked || IsAttacking) && !IsWallSliding && !IsParrying; // Allows buffering during attack execution
         public bool CanRoll => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Roll) && !IsRolling && !IsInputLocked;
         public override bool CanTakeDamage => base.CanTakeDamage && damageImmunityLocks.Count == 0;
 
