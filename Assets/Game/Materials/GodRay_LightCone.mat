@@ -29,11 +29,11 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _CameraFade: 1.18
-    - _DepthFade: 6.52
-    - _EdgeFade: 0.79
-    - _SideFade: 0.298
+    - _CameraFade: 1.47
+    - _DepthFade: 3.95
+    - _EdgeFade: 0.44
+    - _SideFade: 0.21
     m_Colors:
-    - _Color: {r: 0.050329298, g: 0.06432521, b: 0.122641504, a: 0.6156863}
+    - _Color: {r: 0.12961629, g: 0.13639271, b: 0.1720064, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

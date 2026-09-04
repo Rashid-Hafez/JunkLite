@@ -2,70 +2,85 @@ using UnityEngine;
 
 namespace junklite
 {
+    [RequireComponent(typeof(BoxCollider))]
     public class VolumetricLOD : MonoBehaviour
     {
         [Header("References")]
-        [Tooltip("The expensive volumetric light script component.")]
-        public MonoBehaviour realVolumetric;
-        [Tooltip("The cheap God Ray mesh GameObject.")]
-        public GameObject fakeVolumetric;
+        [SerializeField] GameObject realVolumetric;
+        [SerializeField] GameObject fakeVolumetric;
+        [Tooltip("Scene player instance (not the prefab asset).")]
+        [SerializeField] Transform player;
 
-        [Header("Settings")]
-        [Tooltip("Distance at which we swap to the real volumetric light.")]
-        public float highQualityRange = 5f;
-        [Tooltip("Hysteresis to prevent flickering at the boundary.")]
-        public float bufferZone = 0.5f;
-        [Tooltip("How often to check the distance (seconds).")]
-        public float updateInterval = 0.2f;
+        bool highQuality;
+        int playerOverlaps;
 
-        private Transform playerTransform;
-        private bool isHighQuality;
-        private float nextCheckTime;
-
-        private void Start()
+        void Reset()
         {
-            var player = GameObject.FindWithTag("Player");
-            if (player != null) playerTransform = player.transform;
-
-            // Initial state: start as fake to save performance
-            SetQuality(false);
+            var box = GetComponent<BoxCollider>();
+            box.isTrigger = true;
         }
 
-        private void Update()
+        void Awake()
         {
-            if (playerTransform == null) return;
-            if (Time.time < nextCheckTime) return;
+            var box = GetComponent<BoxCollider>();
+            box.isTrigger = true;
+        }
 
-            nextCheckTime = Time.time + updateInterval;
+        void Start()
+        {
+            highQuality = false;
+            Apply();
+        }
 
-            float distSq = (transform.position - playerTransform.position).sqrMagnitude;
-            float threshold = isHighQuality ? (highQualityRange + bufferZone) : highQualityRange;
-            
-            bool shouldBeHighQuality = distSq < (threshold * threshold);
-
-            if (shouldBeHighQuality != isHighQuality)
+         private void OnTriggerEnter(Collider other)
+        {
+            if (!other.CompareTag("Player"))
             {
-                SetQuality(shouldBeHighQuality);
+                Debug.Log("Volumetric LOD: NOT Player entered trigger, highQuality set to false");
+                return;
+            }
+
+            playerOverlaps++;
+            if (playerOverlaps == 1)
+            {
+                highQuality = true;
+                Apply();
             }
         }
 
-        private void SetQuality(bool highQuality)
+        void OnTriggerExit(Collider other)
         {
-            isHighQuality = highQuality;
+            if (!other.CompareTag("Player"))
+            {
+                Debug.Log("Volumetric LOD: NOT Player exited trigger, highQuality set to false");
+                return;
+            }
 
+            playerOverlaps--;
+            if (playerOverlaps <= 0)
+            {
+                playerOverlaps = 0;
+                highQuality = false;
+                Debug.Log("Volumetric LOD: Player exited trigger, highQuality set to false");
+                Apply();
+            }
+        }
+
+        bool IsPlayer(Collider other)
+        {
+            if (player == null)
+                return other.GetComponentInParent<PlayerCharacter>() != null;
+
+            return other.transform == player || other.transform.IsChildOf(player);
+        }
+
+        void Apply()
+        {
             if (realVolumetric != null)
-                realVolumetric.enabled = highQuality;
+                realVolumetric.SetActive(highQuality);
 
             if (fakeVolumetric != null)
                 fakeVolumetric.SetActive(!highQuality);
-        }
-
-        private void OnDrawGizmosSelected()
-        {
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(transform.position, highQualityRange);
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(transform.position, highQualityRange + bufferZone);
         }
     }
 }
