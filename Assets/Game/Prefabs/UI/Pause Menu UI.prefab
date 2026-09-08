@@ -373,6 +373,9 @@ MonoBehaviour:
   restartGameButton: {fileID: 2162704819422696440}
   quitButton: {fileID: 7437589813745408065}
   showOnGameOver: 0
+  headingFont: {fileID: 0}
+  bodyFont: {fileID: 11400000, guid: d420ec421400c4761b6423d19266a147, type: 2}
+  headingSourceFont: {fileID: 12800000, guid: 3259a038809934b37b220a603b5b5d04, type: 3}
 --- !u!1 &4805542924831728407
 GameObject:
   m_ObjectHideFlags: 0

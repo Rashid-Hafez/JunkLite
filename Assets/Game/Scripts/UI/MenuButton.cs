@@ -54,6 +54,42 @@ namespace junklite
 
         public bool IsSelected => isSelected;
 
+        /// <summary>
+        /// Configures a button created at runtime. The pause menu uses this to keep
+        /// its generated navigation controls on the same interaction path as the
+        /// rest of the game's controller-aware menu buttons.
+        /// </summary>
+        public void Configure(
+            TMP_Text buttonLabel,
+            Image buttonBackground,
+            Color idleBackground,
+            Color idleForeground,
+            Color selectedBackground,
+            Color selectedForeground,
+            Color hoverBackground,
+            Color pressedBackground,
+            float fontSize,
+            float focusedFontSize = -1f)
+        {
+            label = buttonLabel;
+            background = buttonBackground;
+            idleBgColor = idleBackground;
+            idleTextColor = idleForeground;
+            selectedBgColor = selectedBackground;
+            selectedTextColor = selectedForeground;
+            hoverBgColor = hoverBackground;
+            pressBgColor = pressedBackground;
+            idleFontSize = fontSize;
+            selectedFontSize = focusedFontSize > 0f ? focusedFontSize : fontSize;
+            ApplyState();
+        }
+
+        public void SetText(string text)
+        {
+            if (label != null)
+                label.text = text;
+        }
+
         public void SetSelected(bool selected)
         {
             isSelected = selected;

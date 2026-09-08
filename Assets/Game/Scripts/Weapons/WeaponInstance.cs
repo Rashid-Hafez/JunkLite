@@ -30,6 +30,17 @@ namespace junklite
         public bool IsBroken => CurrentDurability <= 0f;
         public event System.Action OnWeaponBroken;
 
+#if UNITY_EDITOR
+        /// <summary>Editor play-mode override used by the runtime developer console.</summary>
+        public bool EditorInfiniteDurability { get; set; }
+
+        public void EditorRestoreDurability()
+        {
+            if (weaponData != null)
+                currentDurability = weaponData.maxWeaponDurability;
+        }
+#endif
+
         /// <summary>
         /// Set true at runtime by mods/abilities to override per-step piercing defaults.
         /// Set back to false when the effect expires.
@@ -112,6 +123,13 @@ namespace junklite
 
         public bool ConsumeDurability()
         {
+#if UNITY_EDITOR
+            if (EditorInfiniteDurability)
+            {
+                EditorRestoreDurability();
+                return false;
+            }
+#endif
             if (IsBroken || weaponData == null) return false;
 
             currentDurability = Mathf.Max(0f, currentDurability - weaponData.durabilityPerHit);

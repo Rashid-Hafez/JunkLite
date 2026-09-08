@@ -17,6 +17,17 @@ namespace junklite
         public bool IsPassive => Data is PassiveModData;
         public bool IsExecuting { get; private set; }
 
+#if UNITY_EDITOR
+        /// <summary>Editor play-mode override used by the runtime developer console.</summary>
+        public bool EditorInfiniteDurability { get; set; }
+
+        public void EditorRestoreDurability()
+        {
+            if (Data != null)
+                CurrentDurability = Data.maxDurability;
+        }
+#endif
+
         // Cooldown
         private float cooldownStartTime;
         private float cooldownEndTime;
@@ -63,6 +74,13 @@ namespace junklite
 
         public void ConsumeDurability()
         {
+#if UNITY_EDITOR
+            if (EditorInfiniteDurability)
+            {
+                EditorRestoreDurability();
+                return;
+            }
+#endif
             if (IsBroken || Data == null) return;
             CurrentDurability = Mathf.Max(0f, CurrentDurability - Data.durabilityPerUse);
         }

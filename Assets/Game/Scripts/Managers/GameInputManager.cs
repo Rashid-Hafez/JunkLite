@@ -176,9 +176,10 @@ namespace junklite
             };
 
             // === ATTACK (tap/hold) ===
-            controls.Player.Attack.performed += _ =>
+            controls.Player.Attack.performed += ctx =>
             {
                 if (!IsGameplayInputEnabled) return;
+                if (IsDevConsoleClick(ctx)) return;
                 IsAttackHeld = true;
                 OnAttack();
             };
@@ -245,16 +246,18 @@ namespace junklite
             };
 
             // === WEAPON 1 ATTACK ===
-            controls.Player.Weapon1Attack.performed += _ =>
+            controls.Player.Weapon1Attack.performed += ctx =>
             {
                 if (!IsGameplayInputEnabled) return;
+                if (IsDevConsoleClick(ctx)) return;
                 OnWeapon1Attack();
             };
 
             // === WEAPON 2 ATTACK ===
-            controls.Player.Weapon2Attack.performed += _ =>
+            controls.Player.Weapon2Attack.performed += ctx =>
             {
                 if (!IsGameplayInputEnabled) return;
+                if (IsDevConsoleClick(ctx)) return;
                 OnWeapon2Attack();
             };
 
@@ -306,6 +309,15 @@ namespace junklite
             };
 
 
+        }
+
+        private static bool IsDevConsoleClick(InputAction.CallbackContext context)
+        {
+#if UNITY_EDITOR
+            return context.control?.device is Mouse && EditorRuntimeDevToolsPanel.ContainsPointer();
+#else
+            return false;
+#endif
         }
 
         void OnEnable()
