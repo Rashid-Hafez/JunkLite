@@ -20,6 +20,22 @@ namespace junklite
 
         private ModInstance boundMod;
 
+        public void Configure(
+            Image icon,
+            Image durability,
+            TMP_Text inputHint,
+            Image cooldown,
+            Color ready,
+            Color notReady)
+        {
+            iconImage = icon;
+            durabilityFill = durability;
+            inputHintText = inputHint;
+            cooldownFill = cooldown;
+            readyColor = ready;
+            notReadyColor = notReady;
+        }
+
         public void Bind(ModInstance mod, PlayerCharacter player, string inputHint = null)
         {
             Clear();

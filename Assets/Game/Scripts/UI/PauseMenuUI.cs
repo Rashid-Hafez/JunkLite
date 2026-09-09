@@ -328,7 +328,6 @@ namespace junklite
         {
             TextAt("Brand", frameTransform, "JUNKLITE  /  NEURAL LINK", 17f, Cyan, 44, 28, 720, 26);
             TextAt("Title", frameTransform, "RUN PAUSED", 52f, Paper, 42, 65, 790, 74, true);
-            TextAt("State", frameTransform, "CONNECTION HELD  //  AWAITING INPUT", 15f, Muted, 44, 147, 760, 28);
             systemTabButton = CreateButton(frameTransform, "SYSTEM", ShowSystemPage, 17f);
             Place((RectTransform)systemTabButton.transform, 964, 93, 154, 52);
 #if UNITY_EDITOR
@@ -345,20 +344,13 @@ namespace junklite
             TextAt("Input Hints", frameTransform,
                 "ESC / B  RESUME     UP / DOWN  NAVIGATE     ENTER / A  SELECT", 14f, Muted,
                 44, 749, 920, 30);
-            TMP_Text mark = TextAt("Build Mark", frameTransform,
-#if UNITY_EDITOR
-                "EDITOR SESSION", 14f, Magenta, 1030, 749, 285, 30);
-#else
-                "LINK STABLE", 14f, Cyan, 1030, 749, 285, 30);
-#endif
-            mark.horizontalAlignment = HorizontalAlignmentOptions.Right;
         }
 
         private void BuildSystemPage()
         {
             systemPage = CreateRect("System Page", frameTransform).gameObject;
             Place((RectTransform)systemPage.transform, 44, 228, 1272, 480);
-            TextAt("Commands", systemPage.transform, "01  /  SESSION", 16f, Muted, 0, 0, 520, 28);
+            TextAt("Commands", systemPage.transform, "SESSION", 16f, Muted, 0, 0, 520, 28);
             AddSystemAction("CONTINUE RUN", "Return to the streets", () => GameManager.Instance?.ResumeGame(), 46);
             restartLevelButton = AddSystemAction("RESTART SECTOR", "Start this scene again", () => GameManager.Instance?.RestartCurrentScene(), 142);
             restartGameButton = AddSystemAction("RETURN TO TITLE", "Leave the current run", () => GameManager.Instance?.RestartGame(), 238);
@@ -367,15 +359,13 @@ namespace junklite
             Image status = RectImage("Session Card", systemPage.transform, Card, 588, 0, 684, 454);
             AddBorder(status.rectTransform, Line);
             RectImage("Status Accent", status.transform, Magenta, 0, 0, 3, 454);
-            TextAt("Status Label", status.transform, "02  /  LIVE SESSION", 16f, Magenta, 34, 27, 610, 26);
+            TextAt("Status Label", status.transform, "LIVE SESSION", 16f, Magenta, 34, 27, 610, 26);
             TextAt("Status Title", status.transform, "STAND BY.", 46f, Paper, 32, 67, 620, 66, true);
-            TextAt("Status Description", status.transform, "Your run is paused. Pick up where you left off.", 18f, Muted, 34, 145, 605, 48);
             RectImage("Status Rule", status.transform, Line, 34, 220, 616, 1);
             TextAt("Sector Label", status.transform, "SECTOR", 15f, Muted, 34, 246, 172, 28);
             sceneStatusText = TextAt("Sector Value", status.transform, "--", 21f, Paper, 212, 240, 438, 40);
             TextAt("Player Label", status.transform, "PLAYER SIGNAL", 15f, Muted, 34, 306, 180, 28);
             playerStatusText = TextAt("Player Value", status.transform, "--", 21f, Cyan, 212, 300, 438, 40);
-            TextAt("Status Footnote", status.transform, "// THE CITY CAN WAIT.", 16f, Muted, 34, 392, 604, 30);
         }
 
         private MenuButton AddSystemAction(string label, string subtitle, Action action, float y, bool danger = false)
@@ -396,52 +386,42 @@ namespace junklite
             editorPage = CreateRect("Editor Page", frameTransform).gameObject;
             Place((RectTransform)editorPage.transform, 44, 228, 1272, 480);
             TextAt("Editor Heading", editorPage.transform, "DEVELOPER ACCESS", 32f, Paper, 0, 0, 820, 48, true);
-            TextAt("Editor Subtitle", editorPage.transform,
-                "Test the live game from a floating console.", 19f, Muted, 0, 54, 820, 35);
 
             MenuButton toggleRow = CreateButton(editorPage.transform, "ENABLE DEV TOOLS",
                 () => devToolsToggle.isOn = !devToolsToggle.isOn, 24f);
-            Place((RectTransform)toggleRow.transform, 0, 110, 798, 112);
-            Place(toggleRow.GetComponentInChildren<TMP_Text>().rectTransform, 24, 16, 520, 42);
-            TextAt("Toggle Help", toggleRow.transform, "Show the console while playing", 17f, Muted, 24, 63, 555, 30);
+            Place((RectTransform)toggleRow.transform, 0, 96, 798, 96);
+            Place(toggleRow.GetComponentInChildren<TMP_Text>().rectTransform, 24, 27, 520, 42);
             editorButtons.Add(toggleRow);
 
-            toggleTrack = RectImage("Enable Dev Tools Toggle", toggleRow.transform, Line, 656, 25, 112, 40);
+            toggleTrack = RectImage("Enable Dev Tools Toggle", toggleRow.transform, Line, 656, 16, 112, 40);
             toggleTrack.raycastTarget = true;
             devToolsToggle = toggleTrack.gameObject.AddComponent<Toggle>();
             devToolsToggle.targetGraphic = toggleTrack;
             devToolsToggle.transition = Selectable.Transition.None;
             devToolsToggle.navigation = new Navigation { mode = Navigation.Mode.None };
             toggleThumb = RectImage("Switch Thumb", toggleTrack.transform, Paper, 4, 4, 32, 32).rectTransform;
-            toggleStateText = TextAt("Switch State", toggleRow.transform, "OFF", 14f, Muted, 656, 70, 112, 24);
+            toggleStateText = TextAt("Switch State", toggleRow.transform, "OFF", 14f, Muted, 656, 60, 112, 24);
             toggleStateText.horizontalAlignment = HorizontalAlignmentOptions.Center;
             devToolsToggle.onValueChanged.AddListener(EditorRuntimeDevToolsPanel.SetFeatureEnabled);
 
-            editorStatusText = TextAt("Console Status", editorPage.transform, "", 18f, Cyan, 0, 235, 798, 55);
-            TextAt("Available Label", editorPage.transform, "IN THE FLOATING CONSOLE", 14f, Magenta, 0, 310, 798, 26);
+            editorStatusText = TextAt("Console Status", editorPage.transform, "", 18f, Cyan, 0, 208, 798, 35);
+            TextAt("Available Label", editorPage.transform, "TOOLS", 14f, Magenta, 0, 296, 798, 26);
             TextAt("Available Tools", editorPage.transform,
-                "Enemies / weapons / mods\nFull heal / infinite ammo / durability / run controls", 18f, Muted, 0, 346, 798, 70);
+                "Player / spawns / mods / run controls", 18f, Muted, 0, 332, 798, 35);
 
             Image help = RectImage("Console Guide", editorPage.transform, Card, 844, 0, 428, 454);
             AddBorder(help.rectTransform, Line);
-            TextAt("Guide Label", help.transform, "LIVE TOOLS  /  QUICK START", 15f, Magenta, 26, 26, 376, 30);
-            AddGuideStep(help.transform, "01", "ENABLE", "Turn on the switch to the left.", 89);
-            AddGuideStep(help.transform, "02", "RESUME", "The console appears over gameplay.", 186);
-            AddGuideStep(help.transform, "03", "HIDE / SHOW", "Use F10 or the DEV button.\nHiding keeps your toggles active.", 283);
-            TextAt("Editor Only", help.transform, "UNITY EDITOR ONLY", 14f, Muted, 26, 402, 376, 30);
+            TextAt("Guide Label", help.transform, "CONSOLE CONTROLS", 15f, Magenta, 26, 26, 376, 30);
+            TextAt("Shortcut", help.transform, "F10  /  HIDE OR SHOW", 22f, Paper, 26, 104, 376, 42);
+            TextAt("Shortcut Help", help.transform, "Hiding keeps enabled tools active.", 17f, Muted, 26, 152, 376, 52);
+            RectImage("Guide Rule", help.transform, Line, 26, 238, 376, 1);
+            TextAt("Preference Help", help.transform, "Dev tools preference is saved\nbetween play sessions.", 17f, Muted, 26, 268, 376, 60);
 
             MenuButton resume = CreateButton(editorPage.transform, "RESUME GAME  >", HandleCancel, 20f);
             Place((RectTransform)resume.transform, 0, 420, 798, 54);
             editorButtons.Add(resume);
             RefreshEditorState();
             editorPage.SetActive(false);
-        }
-
-        private void AddGuideStep(Transform parent, string index, string title, string description, float y)
-        {
-            TextAt("Step " + index, parent, index, 24f, Cyan, 26, y, 48, 35, true);
-            TextAt(title, parent, title, 18f, Paper, 86, y, 316, 30);
-            TextAt(title + " Help", parent, description, 16f, Muted, 86, y + 34, 316, 50);
         }
 
         private void RefreshEditorState()
@@ -456,8 +436,8 @@ namespace junklite
             toggleStateText.text = enabled ? "ON" : "OFF";
             toggleStateText.color = enabled ? Cyan : Muted;
             editorStatusText.text = enabled
-                ? "ENABLED  /  Resume to use the floating console.\nF10 hides the panel without disabling your tools."
-                : "DISABLED  /  Enable to access the live tools.\nThis preference is remembered between play sessions.";
+                ? "Resume to use the console."
+                : "Enable to use the console during play.";
             editorStatusText.color = enabled ? Cyan : Muted;
         }
 #endif

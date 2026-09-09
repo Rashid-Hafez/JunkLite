@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 namespace junklite
 {
@@ -11,6 +12,8 @@ namespace junklite
         [SerializeField] private Image iconImage;
         [SerializeField] private Image durabilityFill;
         [SerializeField] private GameObject activeIndicator;
+        [SerializeField] private GameObject durabilityTrack;
+        [SerializeField] private TMP_Text emptyLabel;
 
         [Header("Mouse Button Icons")]
         [SerializeField] private GameObject mousePressedIcon;
@@ -22,6 +25,24 @@ namespace junklite
         #endregion
 
         #region Bind
+
+        public void Configure(
+            Image icon,
+            Image durability,
+            GameObject active,
+            GameObject track = null,
+            TMP_Text empty = null,
+            GameObject pressedIcon = null,
+            GameObject unpressedIcon = null)
+        {
+            iconImage = icon;
+            durabilityFill = durability;
+            activeIndicator = active;
+            durabilityTrack = track;
+            emptyLabel = empty;
+            mousePressedIcon = pressedIcon;
+            mouseUnpressedIcon = unpressedIcon;
+        }
 
         /// <summary>
         /// Bind to a weapon. Shows icon and optionally durability.
@@ -42,6 +63,10 @@ namespace junklite
 
             if (durabilityFill != null)
                 durabilityFill.enabled = hasWeapon && showDurability;
+            if (durabilityTrack != null)
+                durabilityTrack.SetActive(hasWeapon && showDurability);
+            if (emptyLabel != null)
+                emptyLabel.gameObject.SetActive(!hasWeapon);
 
             SetActive(false);
             SetMousePressed(false);
@@ -63,6 +88,10 @@ namespace junklite
 
             if (durabilityFill != null)
                 durabilityFill.enabled = false;
+            if (durabilityTrack != null)
+                durabilityTrack.SetActive(false);
+            if (emptyLabel != null)
+                emptyLabel.gameObject.SetActive(false);
 
             SetActive(false);
             SetMousePressed(false);
@@ -76,6 +105,8 @@ namespace junklite
         {
             if (iconImage != null) iconImage.enabled = active;
             if (durabilityFill != null) durabilityFill.enabled = active;
+            if (durabilityTrack != null) durabilityTrack.SetActive(active && showDurability);
+            if (emptyLabel != null) emptyLabel.gameObject.SetActive(!active);
             if (activeIndicator != null) activeIndicator.SetActive(false);
 
             if (!active) SetMousePressed(false);

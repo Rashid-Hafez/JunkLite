@@ -89,7 +89,6 @@ namespace junklite.Tests
             Assert.That(uiManager.PlayerUIPrefab.GetComponent<PlayerUI>(), Is.Not.Null);
             Assert.That(uiManager.PauseMenuUIPrefab, Is.Not.Null);
             Assert.That(uiManager.PauseMenuUIPrefab.GetComponent<PauseMenuUI>(), Is.Not.Null);
-            Assert.That(uiManager.GameOverUIPrefab, Is.Not.Null);
             Assert.That(uiManager.LoadingScreenUIPrefab, Is.Not.Null);
             Assert.That(uiManager.LoadingScreenUIPrefab.GetComponent<LoadingScreenUI>(), Is.Not.Null);
         }

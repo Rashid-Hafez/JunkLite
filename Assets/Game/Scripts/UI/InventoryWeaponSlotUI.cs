@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System;
+using TMPro;
 
 namespace junklite
 {
@@ -15,6 +16,8 @@ namespace junklite
         [SerializeField] private Image iconImage;
         [SerializeField] private Image durabilityFill;
         [SerializeField] private Image highlightImage;
+        [SerializeField] private GameObject durabilityTrack;
+        [SerializeField] private TMP_Text emptyLabel;
 
         private WeaponManager weaponManager;
         private PlayerWeaponLoadout weaponLoadout;
@@ -47,6 +50,20 @@ namespace junklite
 
         #region Bind / Unbind
 
+        public void Configure(
+            Image icon,
+            Image durability,
+            Image highlight,
+            GameObject track = null,
+            TMP_Text empty = null)
+        {
+            iconImage = icon;
+            durabilityFill = durability;
+            highlightImage = highlight;
+            durabilityTrack = track;
+            emptyLabel = empty;
+        }
+
         public void Bind(WeaponManager manager, int slot)
         {
             weaponManager = manager;
@@ -67,6 +84,8 @@ namespace junklite
             if (iconImage != null) { iconImage.enabled = false; iconImage.sprite = null; iconImage.color = Color.white; }
             if (durabilityFill != null) durabilityFill.enabled = false;
             if (highlightImage != null) highlightImage.enabled = false;
+            if (durabilityTrack != null) durabilityTrack.SetActive(false);
+            if (emptyLabel != null) emptyLabel.gameObject.SetActive(true);
         }
 
         public void Refresh()
@@ -87,6 +106,11 @@ namespace junklite
                 if (hasWeapon && weapon.MaxDurability > 0f)
                     durabilityFill.fillAmount = weapon.CurrentDurability / weapon.MaxDurability;
             }
+
+            if (durabilityTrack != null)
+                durabilityTrack.SetActive(hasWeapon);
+            if (emptyLabel != null)
+                emptyLabel.gameObject.SetActive(!hasWeapon);
 
             if (highlightImage != null)
             {
