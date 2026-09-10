@@ -21,6 +21,8 @@ namespace junklite
 
         private WeaponInstance weapon;
         private bool showDurability;
+        private float nextDurabilityRefresh;
+        private const float DurabilityRefreshInterval = 0.1f;
 
         #endregion
 
@@ -134,9 +136,14 @@ namespace junklite
         private void Update()
         {
             if (weapon == null || durabilityFill == null || !showDurability) return;
-            durabilityFill.fillAmount = weapon.MaxDurability > 0f
+            if (Time.unscaledTime < nextDurabilityRefresh) return;
+            nextDurabilityRefresh = Time.unscaledTime + DurabilityRefreshInterval;
+
+            float fill = weapon.MaxDurability > 0f
                 ? weapon.CurrentDurability / weapon.MaxDurability
                 : 0f;
+            if (!Mathf.Approximately(durabilityFill.fillAmount, fill))
+                durabilityFill.fillAmount = fill;
         }
 
         #endregion

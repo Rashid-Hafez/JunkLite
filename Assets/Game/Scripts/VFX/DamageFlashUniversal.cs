@@ -10,33 +10,41 @@ namespace junklite
         [SerializeField] private float normalAmount = 1f;
         [SerializeField] private bool isSpine = false;
         [SerializeField] private Color flashColor = Color.white;
-        private SpriteRenderer[] _spriteRendererArray;
-        private Material[] _materialArray;
+        private Renderer[] _renderers;
+        private bool[] _supportsFlashAmount;
+        private bool[] _supportsFlashColor;
         private Coroutine _flashCoroutine;
-        private Renderer[] _spineRenderers;
-        private MaterialPropertyBlock _spinePropertyBlock;
+        private MaterialPropertyBlock _propertyBlock;
         private static readonly int AmountToFlashId = Shader.PropertyToID("_AmountToFlash");
         private static readonly int FlashColorId = Shader.PropertyToID("_FlashColor");
 
         private void Awake()
         {
-            if (isSpine)
-            {
-                _spineRenderers = GetComponentsInChildren<Renderer>(true);
-                _spinePropertyBlock = new MaterialPropertyBlock();
-            }
-            else
-            {
-                _spriteRendererArray = GetComponentsInChildren<SpriteRenderer>(true);
-                InitializeMaterials();
-            }
+            _renderers = isSpine
+                ? GetComponentsInChildren<Renderer>(true)
+                : GetComponentsInChildren<SpriteRenderer>(true);
+            _propertyBlock = new MaterialPropertyBlock();
+            CacheSupportedProperties();
         }
 
-        private void InitializeMaterials()
+        private void CacheSupportedProperties()
         {
-            _materialArray = new Material[_spriteRendererArray.Length];
-            for (int i = 0; i < _spriteRendererArray.Length; i++)
-                _materialArray[i] = _spriteRendererArray[i].material;
+            _supportsFlashAmount = new bool[_renderers.Length];
+            _supportsFlashColor = new bool[_renderers.Length];
+            for (int i = 0; i < _renderers.Length; i++)
+            {
+                Renderer renderer = _renderers[i];
+                if (renderer == null) continue;
+
+                Material[] materials = renderer.sharedMaterials;
+                for (int j = 0; j < materials.Length; j++)
+                {
+                    Material material = materials[j];
+                    if (material == null) continue;
+                    _supportsFlashAmount[i] |= material.HasProperty(AmountToFlashId);
+                    _supportsFlashColor[i] |= material.HasProperty(FlashColorId);
+                }
+            }
         }
 
         public void Flash()
@@ -48,26 +56,8 @@ namespace junklite
 
         private IEnumerator FlashCoroutine()
         {
-            if (isSpine)
-            {
-                if (_spineRenderers == null || _spineRenderers.Length == 0) yield break;
-                foreach (var r in _spineRenderers)
-                {
-                    if (r == null) continue;
-                    r.GetPropertyBlock(_spinePropertyBlock);
-                    if (RendererHasProperty(r, AmountToFlashId))
-                        _spinePropertyBlock.SetFloat(AmountToFlashId, flashAmount);
-                    if (RendererHasProperty(r, FlashColorId))
-                        _spinePropertyBlock.SetColor(FlashColorId, flashColor);
-                    r.SetPropertyBlock(_spinePropertyBlock);
-                }
-            }
-            else
-            {
-                if (_materialArray == null || _materialArray.Length == 0) yield break;
-                foreach (var mat in _materialArray)
-                    SetFlashProperties(mat, flashAmount, flashColor);
-            }
+            if (_renderers == null || _renderers.Length == 0) yield break;
+            SetFlashProperties(flashAmount, flashColor);
 
             yield return new WaitForSeconds(flashDuration);
             ResetFlash();
@@ -76,47 +66,36 @@ namespace junklite
 
         private void ResetFlash()
         {
-            if (isSpine)
+            if (_renderers == null) return;
+            SetFlashProperties(normalAmount, flashColor);
+        }
+
+        private void SetFlashProperties(float amountToFlash, Color color)
+        {
+            for (int i = 0; i < _renderers.Length; i++)
             {
-                if (_spineRenderers == null) return;
-                foreach (var r in _spineRenderers)
-                {
-                    if (r == null) continue;
-                    r.GetPropertyBlock(_spinePropertyBlock);
-                    if (RendererHasProperty(r, AmountToFlashId))
-                        _spinePropertyBlock.SetFloat(AmountToFlashId, normalAmount);
-                    if (RendererHasProperty(r, FlashColorId))
-                        _spinePropertyBlock.SetColor(FlashColorId, flashColor);
-                    r.SetPropertyBlock(_spinePropertyBlock);
-                }
-            }
-            else
-            {
-                if (_materialArray == null) return;
-                foreach (var mat in _materialArray)
-                    SetFlashProperties(mat, normalAmount, flashColor);
+                Renderer renderer = _renderers[i];
+                if (renderer == null || (!_supportsFlashAmount[i] && !_supportsFlashColor[i]))
+                    continue;
+
+                _propertyBlock.Clear();
+                renderer.GetPropertyBlock(_propertyBlock);
+                if (_supportsFlashAmount[i])
+                    _propertyBlock.SetFloat(AmountToFlashId, amountToFlash);
+                if (_supportsFlashColor[i])
+                    _propertyBlock.SetColor(FlashColorId, color);
+                renderer.SetPropertyBlock(_propertyBlock);
             }
         }
 
-        private static void SetFlashProperties(Material mat, float amountToFlash, Color color)
+        private void OnDisable()
         {
-            if (mat == null) return;
-            if (mat.HasProperty(AmountToFlashId))
-                mat.SetFloat(AmountToFlashId, amountToFlash);
-            if (mat.HasProperty(FlashColorId))
-                mat.SetColor(FlashColorId, color);
-        }
-
-        private static bool RendererHasProperty(Renderer r, int propertyId)
-        {
-            var mats = r.sharedMaterials;
-            if (mats == null) return false;
-            foreach (var mat in mats)
+            if (_flashCoroutine != null)
             {
-                if (mat != null && mat.HasProperty(propertyId))
-                    return true;
+                StopCoroutine(_flashCoroutine);
+                _flashCoroutine = null;
             }
-            return false;
+            ResetFlash();
         }
     }
 }

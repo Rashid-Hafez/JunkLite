@@ -32,6 +32,8 @@ namespace junklite
         private int slotIndex;
         private SlotType slotType;
         private bool isLocked;
+        private float nextDurabilityRefresh;
+        private const float DurabilityRefreshInterval = 0.1f;
 
         // Drag state
         private static ModSlotUI draggedSlot;
@@ -183,10 +185,14 @@ namespace junklite
 
         private void Update()
         {
-            if (modInstance != null && durabilityFill != null && modInstance.Data != null)
+            if (Time.unscaledTime >= nextDurabilityRefresh &&
+                modInstance != null && durabilityFill != null && modInstance.Data != null)
             {
+                nextDurabilityRefresh = Time.unscaledTime + DurabilityRefreshInterval;
                 float max = modInstance.Data.maxDurability;
-                durabilityFill.fillAmount = max > 0f ? modInstance.CurrentDurability / max : 0f;
+                float fill = max > 0f ? modInstance.CurrentDurability / max : 0f;
+                if (!Mathf.Approximately(durabilityFill.fillAmount, fill))
+                    durabilityFill.fillAmount = fill;
             }
 
             UpdateOverlays();
@@ -210,9 +216,13 @@ namespace junklite
                         showCross = !compatible;
                     }
                 }
-                crossIcon.enabled = showCross;
+                if (crossIcon.enabled != showCross)
+                    crossIcon.enabled = showCross;
                 if (lockedLabel != null)
-                    lockedLabel.gameObject.SetActive(showCross);
+                {
+                    if (lockedLabel.gameObject.activeSelf != showCross)
+                        lockedLabel.gameObject.SetActive(showCross);
+                }
             }
 
             if (highlightImage != null)
@@ -220,7 +230,8 @@ namespace junklite
                 bool showHighlight = false;
                 if (!isLocked && selectedSlot != null && selectedSlot != this)
                     showHighlight = IsValidTargetFor(selectedSlot);
-                highlightImage.enabled = showHighlight;
+                if (highlightImage.enabled != showHighlight)
+                    highlightImage.enabled = showHighlight;
             }
         }
 

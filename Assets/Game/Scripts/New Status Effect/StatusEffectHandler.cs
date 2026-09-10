@@ -41,6 +41,13 @@ namespace junklite
             CacheTarget();
         }
 
+        private void Start()
+        {
+            // Public Apply calls still work while this component is disabled and
+            // re-enable ticking when the first effect is added.
+            enabled = activeEffects.Count > 0;
+        }
+
         public void BindTarget(IStatusEffectTarget statusTarget)
         {
             target = statusTarget;
@@ -82,6 +89,7 @@ namespace junklite
                     RecalculateSnapshot();
 
                 OnEffectRefreshed?.Invoke(existing.Type);
+                enabled = true;
 
                 return existing;
             }
@@ -91,6 +99,7 @@ namespace junklite
             SetVFXActive(effect.Type, true);
             RecalculateSnapshot();
             OnEffectApplied?.Invoke(effect.Type);
+            enabled = true;
 
             return effect;
         }
@@ -159,6 +168,7 @@ namespace junklite
                     snapshot = StatusEffectSnapshot.Clear;
                     PublishSnapshot();
                 }
+                enabled = false;
                 return;
             }
 
@@ -175,6 +185,7 @@ namespace junklite
 
             removalBuffer.Clear();
             RecalculateSnapshot();
+            enabled = false;
         }
 
         public float GetRemainingDuration(StatusEffectType type)
@@ -208,6 +219,7 @@ namespace junklite
 
             tickBuffer.Clear();
             tickBuffer.AddRange(activeEffects);
+            int effectCountBeforeTick = activeEffects.Count;
 
             for (int i = 0; i < tickBuffer.Count; i++)
             {
@@ -237,8 +249,11 @@ namespace junklite
 
             if (damageReceiver != null && !damageReceiver.IsAlive)
                 ClearAllEffects();
-            else
+            else if (activeEffects.Count != effectCountBeforeTick)
                 RecalculateSnapshot();
+
+            if (activeEffects.Count == 0)
+                enabled = false;
         }
 
         private void ApplyTickDamage(StatusEffectInstance effect)
@@ -280,6 +295,7 @@ namespace junklite
 
             removalBuffer.Clear();
             RecalculateSnapshot();
+            enabled = activeEffects.Count > 0;
         }
 
         private void RemoveInstance(StatusEffectInstance effect, bool recalculate)

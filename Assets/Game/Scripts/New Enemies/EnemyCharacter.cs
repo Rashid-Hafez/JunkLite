@@ -285,8 +285,6 @@ namespace junklite
                 ShowAttackNotify();
         }
 
-        protected virtual void Update() { }
-
         protected virtual void InitializeStateMachine() { }
 
         #region Detection Zone Events
@@ -691,6 +689,11 @@ namespace junklite
             Died?.Invoke(this);
             base.HandleDeath();
             enabled = false;
+
+            // The death presentation is detached (drops and particles own their own
+            // objects), so keeping the enemy root active only leaves its remaining
+            // MonoBehaviours receiving no-op Update/FixedUpdate callbacks.
+            gameObject.SetActive(false);
         }
 
         protected virtual void DisablePhysics()
@@ -734,9 +737,14 @@ namespace junklite
         {
             if (deathParticlePrefab == null) return;
 
-            GameObject go = Instantiate(deathParticlePrefab, transform.position, Quaternion.identity);
             if (deathParticleLifetime > 0f)
-                Destroy(go, deathParticleLifetime);
+                VFXPool.SpawnTimed(
+                    deathParticlePrefab,
+                    transform.position,
+                    Quaternion.identity,
+                    deathParticleLifetime);
+            else
+                Instantiate(deathParticlePrefab, transform.position, Quaternion.identity);
         }
 
         protected virtual void DisableEnemyVisual()

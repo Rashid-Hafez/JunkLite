@@ -29,7 +29,9 @@ namespace junklite
         private bool isActive;
         private bool isExecutingSpecial;
 
-        private readonly Collider[] overlapBuffer = new Collider[32];
+        private Collider[] overlapBuffer = new Collider[32];
+        private readonly HashSet<IDamageReceiver> damagedReceivers = new();
+        private const int MaxOverlapCapacity = 256;
 
         #endregion
 
@@ -248,8 +250,20 @@ namespace junklite
         private void DealSlamDamage(Vector3 position)
         {
             float damage = modData.slamDamage * modData.criticalMultiplier;
-            int hitCount = Physics.OverlapSphereNonAlloc(position, modData.slamRadius, overlapBuffer, modData.enemyLayerMask);
-            var damagedReceivers = new HashSet<IDamageReceiver>();
+            int hitCount;
+            while (true)
+            {
+                hitCount = Physics.OverlapSphereNonAlloc(
+                    position,
+                    modData.slamRadius,
+                    overlapBuffer,
+                    modData.enemyLayerMask);
+                if (hitCount < overlapBuffer.Length || overlapBuffer.Length >= MaxOverlapCapacity)
+                    break;
+
+                overlapBuffer = new Collider[Mathf.Min(overlapBuffer.Length * 2, MaxOverlapCapacity)];
+            }
+            damagedReceivers.Clear();
 
             for (int i = 0; i < hitCount; i++)
             {

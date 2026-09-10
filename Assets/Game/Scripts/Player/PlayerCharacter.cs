@@ -827,7 +827,18 @@ namespace junklite
                 if (damageHitVFXPrefab != null)
                 {
                     Vector3 spawnPos = transform.position + damageVFXOffset;
-                    Instantiate(damageHitVFXPrefab, spawnPos, Quaternion.identity);
+                    if (damageHitVFXLifetime > 0f)
+                    {
+                        VFXPool.SpawnTimed(
+                            damageHitVFXPrefab,
+                            spawnPos,
+                            Quaternion.identity,
+                            damageHitVFXLifetime);
+                    }
+                    else
+                    {
+                        Instantiate(damageHitVFXPrefab, spawnPos, Quaternion.identity);
+                    }
                 }
 
                 if (feedbackManager != null)

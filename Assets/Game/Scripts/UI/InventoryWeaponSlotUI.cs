@@ -135,7 +135,8 @@ namespace junklite
                 bool showHighlight = selectedSlot != null
                     && selectedSlot != this
                     && selectedSlot.weaponLoadout == weaponLoadout;
-                highlightImage.enabled = showHighlight;
+                if (highlightImage.enabled != showHighlight)
+                    highlightImage.enabled = showHighlight;
             }
         }
 

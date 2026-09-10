@@ -96,6 +96,12 @@ namespace junklite
         private readonly Action<EnemyCharacter, float> enemyHitApplied;
         private readonly Action environmentHit;
         private readonly Action playHitFeedback;
+        private Collider[] overlapBuffer = new Collider[64];
+        private RaycastHit[] piercingHitBuffer = new RaycastHit[128];
+        private readonly HashSet<int> processedReceivers = new();
+        private const int MaxPhysicsQueryCapacity = 512;
+        private static readonly IComparer<RaycastHit> HitDistanceComparer =
+            Comparer<RaycastHit>.Create((a, b) => a.distance.CompareTo(b.distance));
 
         public WeaponAttackExecutor(
             MonoBehaviour coroutineHost,
@@ -243,7 +249,7 @@ namespace junklite
                 {
                     hasHitEnemy = true;
                     bool damageApplied = isPiercing && hitResult.AllTargets != null
-                        ? DealDamageToAll(request, hitResult.AllTargets, step.damageMultiplier, knockback)
+                        ? DealDamageToAll(request, hitResult.AllTargets, hitResult.AllTargetCount, step.damageMultiplier, knockback)
                         : hitResult.Target != null &&
                           DealDamage(request, hitResult.Target, step.damageMultiplier, knockback).WasApplied;
 
@@ -400,16 +406,15 @@ namespace junklite
                 request,
                 blastRadius,
                 step.blastForwardOffset);
-            Collider[] enemyHits = Physics.OverlapSphere(
-                blastOrigin,
-                blastRadius,
-                enemyLayer,
-                QueryTriggerInteraction.Ignore);
+            int enemyHitCount = QueryBlastOverlaps(blastOrigin, blastRadius);
             bool hitAnyEnemy = false;
-            var processedReceivers = new HashSet<int>();
+            processedReceivers.Clear();
 
-            foreach (Collider hit in enemyHits)
+            for (int i = 0; i < enemyHitCount; i++)
             {
+                Collider hit = overlapBuffer[i];
+                if (hit == null)
+                    continue;
                 DamageResult result = ResolveDamage(
                     hit,
                     damage,
@@ -469,26 +474,14 @@ namespace junklite
 
             if (piercing)
             {
-                RaycastHit[] allHits = castRadius > 0f
-                    ? Physics.SphereCastAll(
-                        origin,
-                        castRadius,
-                        direction,
-                        maxRange,
-                        enemyLayer | environmentLayer,
-                        QueryTriggerInteraction.Ignore)
-                    : Physics.RaycastAll(
-                        origin,
-                        direction,
-                        maxRange,
-                        enemyLayer | environmentLayer,
-                        QueryTriggerInteraction.Ignore);
-                Array.Sort(allHits, (a, b) => a.distance.CompareTo(b.distance));
+                int allHitCount = QueryPiercingHits(origin, castRadius, direction, maxRange);
+                Array.Sort(piercingHitBuffer, 0, allHitCount, HitDistanceComparer);
 
                 bool hitEnvironment = false;
-                var processedReceivers = new HashSet<int>();
-                foreach (RaycastHit hit in allHits)
+                processedReceivers.Clear();
+                for (int i = 0; i < allHitCount; i++)
                 {
+                    RaycastHit hit = piercingHitBuffer[i];
                     int hitMask = 1 << hit.collider.gameObject.layer;
                     if ((hitMask & enemyLayer) != 0)
                     {
@@ -640,15 +633,19 @@ namespace junklite
         private bool DealDamageToAll(
             WeaponAttackExecutionRequest request,
             Collider[] targets,
+            int targetCount,
             float damageMultiplier,
             Vector2 knockback)
         {
             bool anyHit = false;
             float damage = CalculateDamage(request.WeaponData, damageMultiplier);
-            var processedReceivers = new HashSet<int>();
+            processedReceivers.Clear();
 
-            foreach (Collider target in targets)
+            for (int i = 0; i < targetCount; i++)
             {
+                Collider target = targets[i];
+                if (target == null)
+                    continue;
                 DamageResult result = ResolveDamage(
                     target,
                     damage,
@@ -664,6 +661,51 @@ namespace junklite
             if (anyHit && request.WeaponSlot != 0 && request.Weapon != null)
                 request.Weapon.ConsumeDurability();
             return anyHit;
+        }
+
+        private int QueryBlastOverlaps(Vector3 origin, float radius)
+        {
+            while (true)
+            {
+                int count = Physics.OverlapSphereNonAlloc(
+                    origin,
+                    radius,
+                    overlapBuffer,
+                    enemyLayer,
+                    QueryTriggerInteraction.Ignore);
+                if (count < overlapBuffer.Length || overlapBuffer.Length >= MaxPhysicsQueryCapacity)
+                    return count;
+
+                overlapBuffer = new Collider[Mathf.Min(overlapBuffer.Length * 2, MaxPhysicsQueryCapacity)];
+            }
+        }
+
+        private int QueryPiercingHits(Vector3 origin, float radius, Vector3 direction, float maxRange)
+        {
+            while (true)
+            {
+                int count = radius > 0f
+                    ? Physics.SphereCastNonAlloc(
+                        origin,
+                        radius,
+                        direction,
+                        piercingHitBuffer,
+                        maxRange,
+                        enemyLayer | environmentLayer,
+                        QueryTriggerInteraction.Ignore)
+                    : Physics.RaycastNonAlloc(
+                        origin,
+                        direction,
+                        piercingHitBuffer,
+                        maxRange,
+                        enemyLayer | environmentLayer,
+                        QueryTriggerInteraction.Ignore);
+
+                if (count < piercingHitBuffer.Length || piercingHitBuffer.Length >= MaxPhysicsQueryCapacity)
+                    return count;
+
+                piercingHitBuffer = new RaycastHit[Mathf.Min(piercingHitBuffer.Length * 2, MaxPhysicsQueryCapacity)];
+            }
         }
 
         private DamageResult ResolveDamage(

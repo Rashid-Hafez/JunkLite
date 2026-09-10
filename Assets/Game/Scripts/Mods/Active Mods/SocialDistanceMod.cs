@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System.Buffers;
+using UnityEngine.Pool;
 
 namespace junklite
 {
@@ -59,8 +61,8 @@ namespace junklite
         private IEnumerator CoExecutePulse(ModExecutionContext context, PlayerCharacter player)
         {
             Vector3 origin = player.transform.position;
-            var hitEnemies = new HashSet<EnemyCharacter>();
-            var pushBuffer = new Collider[32];
+            var hitEnemies = HashSetPool<EnemyCharacter>.Get();
+            Collider[] pushBuffer = ArrayPool<Collider>.Shared.Rent(64);
 
             // Camera shake at start of pulse
             if (cameraShakeIntensity > 0f && FeedbackManager.Instance != null)
@@ -79,6 +81,8 @@ namespace junklite
             {
                 if (vfxInstance != null)
                     Destroy(vfxInstance);
+                ArrayPool<Collider>.Shared.Return(pushBuffer, clearArray: true);
+                HashSetPool<EnemyCharacter>.Release(hitEnemies);
             });
 
             float elapsed = 0f;

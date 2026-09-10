@@ -8,16 +8,22 @@ public class DissolveController : MonoBehaviour
     [SerializeField] private string propertyName = "_CutoffHeight";
     [SerializeField] private float duration = 1f;
 
-    private Material materialInstance;
+    private MaterialPropertyBlock propertyBlock;
+    private int propertyId;
     private float currentValue;
     private Coroutine routine;
 
     void Awake()
     {
-        materialInstance = rend.material; // instance, not shared
-        currentValue = materialInstance.GetFloat(propertyName);
+        propertyBlock = new MaterialPropertyBlock();
+        propertyId = Shader.PropertyToID(propertyName);
+        Material sharedMaterial = rend != null ? rend.sharedMaterial : null;
+        currentValue = sharedMaterial != null && sharedMaterial.HasProperty(propertyId)
+            ? sharedMaterial.GetFloat(propertyId)
+            : 0f;
     }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
     public void Update()
     {
         if (Keyboard.current[Key.P].wasPressedThisFrame)
@@ -30,6 +36,7 @@ public class DissolveController : MonoBehaviour
             Undissolve();
         }
     }
+#endif
 
     public void AnimateDissolve(float target, float duration)
     {
@@ -55,13 +62,23 @@ public class DissolveController : MonoBehaviour
             float t = time / duration;
 
             currentValue = Mathf.Lerp(start, target, t);
-            materialInstance.SetFloat(propertyName, currentValue);
+            SetDissolveValue(currentValue);
 
             yield return null;
         }
 
         currentValue = target;
-        materialInstance.SetFloat(propertyName, currentValue);
+        SetDissolveValue(currentValue);
+        routine = null;
+    }
+
+    private void SetDissolveValue(float value)
+    {
+        if (rend == null) return;
+        propertyBlock.Clear();
+        rend.GetPropertyBlock(propertyBlock);
+        propertyBlock.SetFloat(propertyId, value);
+        rend.SetPropertyBlock(propertyBlock);
     }
 
     // Convenience wrappers

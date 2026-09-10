@@ -537,7 +537,7 @@ MonoBehaviour:
   fixPrefabOverrideViaMeshFilter: 2
   initialFlipX: 0
   initialFlipY: 0
-  updateWhenInvisible: 3
+  updateWhenInvisible: 1
   separatorSlotNames: []
   zSpacing: -0.0082
   useClipping: 1

@@ -1,11 +1,13 @@
 using UnityEngine;
 using System.Collections;
+using System.Buffers;
 
 namespace junklite
 {
     [CreateAssetMenu(fileName = "DontBlinkMod", menuName = "Junklite/Mods/Dont Blink")]
     public class DontBlinkMod : ActiveModData
     {
+        private const int MaxSearchCapacity = 256;
         #region Config
 
         [Header("Teleport")]
@@ -215,18 +217,32 @@ namespace junklite
             Vector3 origin = player.transform.position;
             Vector3 facingDir = GetFacingWorldDirection(player);
 
-            Collider[] searchResults = Physics.OverlapSphere(
-                origin,
-                searchRange,
-                enemyLayerMask,
-                QueryTriggerInteraction.Ignore);
+            Collider[] searchResults = ArrayPool<Collider>.Shared.Rent(64);
+            int searchCount;
+            while (true)
+            {
+                searchCount = Physics.OverlapSphereNonAlloc(
+                    origin,
+                    searchRange,
+                    searchResults,
+                    enemyLayerMask,
+                    QueryTriggerInteraction.Ignore);
+                if (searchCount < searchResults.Length || searchResults.Length >= MaxSearchCapacity)
+                    break;
+
+                Collider[] largerBuffer = ArrayPool<Collider>.Shared.Rent(
+                    Mathf.Min(searchResults.Length * 2, MaxSearchCapacity));
+                ArrayPool<Collider>.Shared.Return(searchResults, clearArray: true);
+                searchResults = largerBuffer;
+            }
 
             EnemyCharacter closest = null;
             float closestDist = float.MaxValue;
 
-            for (int i = 0; i < searchResults.Length; i++)
+            for (int i = 0; i < searchCount; i++)
             {
                 var col = searchResults[i];
+                if (col == null) continue;
                 if (col.gameObject == player.gameObject) continue;
 
                 var enemy = col.GetComponentInParent<EnemyCharacter>();
@@ -243,6 +259,7 @@ namespace junklite
                 }
             }
 
+            ArrayPool<Collider>.Shared.Return(searchResults, clearArray: true);
             return closest;
         }
 

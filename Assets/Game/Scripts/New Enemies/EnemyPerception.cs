@@ -22,6 +22,10 @@ namespace junklite
         [SerializeField] private LayerMask platformLayers;
         [SerializeField] private float minVerticalDifferenceToCheck = 0.5f;
 
+        [Header("Performance")]
+        [SerializeField, Min(0.05f), Tooltip("How often tracked targets are revalidated while inside the sensor.")]
+        private float validationInterval = 0.2f;
+
         [Header("Debug")]
         [SerializeField] private bool showGizmos = true;
 
@@ -30,6 +34,8 @@ namespace junklite
         private SphereCollider sphereCollider;
         private Transform distanceOrigin;
         private float originalRadius;
+        private Coroutine validationRoutine;
+        private WaitForSeconds validationWait;
 
         /// <summary>Fires after the current target changes. Arguments are previous and current.</summary>
         public event Action<PlayerCharacter, PlayerCharacter> TargetChanged;
@@ -62,13 +68,8 @@ namespace junklite
             int playerLayer = LayerMask.NameToLayer("Player");
             if (playerLayer >= 0)
                 targetLayers |= 1 << playerLayer;
-        }
 
-        private void Update()
-        {
-            if (!ReferenceEquals(currentTarget, null)
-                && (currentTarget == null || !currentTarget.IsAlive))
-                ClearTarget();
+            validationWait = new WaitForSeconds(validationInterval);
         }
 
         protected virtual void OnDisable()
@@ -76,6 +77,11 @@ namespace junklite
             ClearTarget();
             targetColliders.Clear();
             ResetRadius();
+            if (validationRoutine != null)
+            {
+                StopCoroutine(validationRoutine);
+                validationRoutine = null;
+            }
         }
 
         public void SetRadius(float radius)
@@ -108,24 +114,7 @@ namespace junklite
         private void OnTriggerEnter(Collider other)
         {
             TryTrackCollider(other);
-        }
-
-        private void OnTriggerStay(Collider other)
-        {
-            if (!HasTarget)
-            {
-                TryTrackCollider(other);
-                return;
-            }
-
-            // LOS/reachability do not need to be raycast for every collider every frame.
-            if (Time.frameCount % 10 != 0)
-                return;
-
-            CleanupMissingColliders();
-
-            if (!IsValidTarget(currentTarget))
-                ClearTarget();
+            EnsureValidationRunning();
         }
 
         private void OnTriggerExit(Collider other)
@@ -134,11 +123,58 @@ namespace junklite
 
             PlayerCharacter player = ResolvePlayer(other);
             if (player == null || player != currentTarget)
+            {
+                StopValidationIfEmpty();
                 return;
+            }
 
             CleanupMissingColliders();
             if (!ContainsColliderFor(player))
                 ClearTarget();
+
+            StopValidationIfEmpty();
+        }
+
+        private void EnsureValidationRunning()
+        {
+            if (targetColliders.Count > 0 && validationRoutine == null)
+                validationRoutine = StartCoroutine(ValidateTrackedTargets());
+        }
+
+        private void StopValidationIfEmpty()
+        {
+            if (targetColliders.Count > 0 || validationRoutine == null)
+                return;
+
+            StopCoroutine(validationRoutine);
+            validationRoutine = null;
+        }
+
+        private System.Collections.IEnumerator ValidateTrackedTargets()
+        {
+            while (targetColliders.Count > 0)
+            {
+                yield return validationWait;
+                CleanupMissingColliders();
+
+                if (!ReferenceEquals(currentTarget, null) &&
+                    (currentTarget == null || !currentTarget.IsAlive || !IsValidTarget(currentTarget)))
+                {
+                    ClearTarget();
+                }
+
+                if (!HasTarget)
+                {
+                    foreach (Collider collider in targetColliders)
+                    {
+                        TryTrackCollider(collider);
+                        if (HasTarget)
+                            break;
+                    }
+                }
+            }
+
+            validationRoutine = null;
         }
 
         private void TryTrackCollider(Collider other)
