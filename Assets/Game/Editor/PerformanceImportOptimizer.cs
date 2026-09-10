@@ -93,6 +93,14 @@ namespace junklite.Editor
             Debug.Log($"[Performance Imports] Enabled mip streaming on {changedPaths.Count} world textures.");
         }
 
+        [MenuItem("Tools/JunkLite/Performance/Open Frame Spike Logs")]
+        public static void OpenFrameSpikeLogs()
+        {
+            string directory = Path.Combine(Application.persistentDataPath, "PerformanceLogs");
+            Directory.CreateDirectory(directory);
+            EditorUtility.RevealInFinder(directory);
+        }
+
         private static long GetSourceFileSize(string assetPath)
         {
             string fullPath = Path.GetFullPath(assetPath);
