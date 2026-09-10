@@ -31,6 +31,7 @@ public class DialogueManager : MonoBehaviour
     private bool waitingForInput;
     private bool revealedCurrentLine;
     private int lastShownIndex = -1;
+    private string currentDisplayText = string.Empty;
     private float lastContinueTime = -10f;
     private float continueDebounce = 0.12f; // seconds, uses unscaled time so it works during freezes
 
@@ -156,7 +157,7 @@ public class DialogueManager : MonoBehaviour
         if (isTyping)
         {
             StopCoroutine(typingCoroutine);
-            dialogueText.text = line.dialogueText;
+            dialogueText.text = currentDisplayText;
             isTyping = false;
 
             if (line.requiresPlayerInput)
@@ -193,6 +194,7 @@ public class DialogueManager : MonoBehaviour
         
 
         var line = currentSequence.dialogueLines[currentIndex];
+        currentDisplayText = ResolveInputBindings(line.dialogueText);
 
         speakerText.text = line.speakerName;
         if (portraitImage)
@@ -208,16 +210,16 @@ public class DialogueManager : MonoBehaviour
         // reset reveal state for the new line
         revealedCurrentLine = false;
         lastShownIndex = currentIndex;
-        typingCoroutine = StartCoroutine(TypeLine(line));
+        typingCoroutine = StartCoroutine(TypeLine(line, currentDisplayText));
     }
 
-    private IEnumerator TypeLine(DialogueLine line)
+    private IEnumerator TypeLine(DialogueLine line, string displayText)
     {
         isTyping = true;
         waitingForInput = false;
         dialogueText.text = "";
 
-        foreach (char c in line.dialogueText)
+        foreach (char c in displayText)
         {
             dialogueText.text += c;
             yield return new WaitForSeconds(typeSpeed);
@@ -257,7 +259,7 @@ public class DialogueManager : MonoBehaviour
         {
             if (typingCoroutine != null)
                 StopCoroutine(typingCoroutine);
-            dialogueText.text = line.dialogueText;
+            dialogueText.text = currentDisplayText;
             isTyping = false;
             revealedCurrentLine = true;
 
@@ -298,7 +300,7 @@ public class DialogueManager : MonoBehaviour
         {
             if (typingCoroutine != null)
                 StopCoroutine(typingCoroutine);
-            dialogueText.text = line.dialogueText;
+            dialogueText.text = currentDisplayText;
             isTyping = false;
             revealedCurrentLine = true;
             // If this line requires explicit player input, mark it satisfied so NextLine can proceed.
@@ -317,12 +319,20 @@ public class DialogueManager : MonoBehaviour
             var newLine = currentSequence.dialogueLines[currentIndex];
             if (typingCoroutine != null)
                 StopCoroutine(typingCoroutine);
-            dialogueText.text = newLine.dialogueText;
+            dialogueText.text = currentDisplayText;
             isTyping = false;
             revealedCurrentLine = true;
             waitingForInput = newLine.requiresPlayerInput;
             if (waitingForInput && continueIndicator) continueIndicator.SetActive(true);
         }
+    }
+
+    private static string ResolveInputBindings(string sourceText)
+    {
+        GameInputManager inputManager = GameInputManager.Instance;
+        return inputManager != null
+            ? inputManager.ResolveBindingTokens(sourceText)
+            : sourceText;
     }
 
     private void EndDialogue()

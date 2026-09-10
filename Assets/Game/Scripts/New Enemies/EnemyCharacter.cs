@@ -194,6 +194,9 @@ namespace junklite
 
         private void HandleAttackWarningStateChanged(IState from, IState to)
         {
+            if (from is MeleeAttackState)
+                HideAttackWarning();
+
             if (to is MeleeAttackState)
             {
                 if (attackNotifyCoroutine != null)
@@ -205,10 +208,6 @@ namespace junklite
                     ShowAttackNotify();
                 else
                     attackNotifyCoroutine = StartCoroutine(AttackNotifyAfterDelay());
-            }
-            else if (from is MeleeAttackState)
-            {
-                HideAttackWarning();
             }
         }
 

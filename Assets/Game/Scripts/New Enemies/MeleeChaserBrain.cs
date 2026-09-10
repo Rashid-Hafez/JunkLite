@@ -112,7 +112,14 @@ namespace junklite
             if (Actor.HasTarget)
             {
                 if (IsTargetInMeleeRange())
-                    ChangeState<MeleeAttackState>();
+                {
+                    // A completed melee state has shut down its update loop. Re-enter
+                    // it explicitly so a consecutive attack starts a fresh wind-up.
+                    if (actionCompleted && StateMachine.CurrentState is MeleeAttackState)
+                        RestartState<MeleeAttackState>();
+                    else
+                        ChangeState<MeleeAttackState>();
+                }
                 else
                     ChangeState<ChaseState>();
                 return;
