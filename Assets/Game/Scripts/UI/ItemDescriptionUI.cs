@@ -23,6 +23,22 @@ namespace junklite
 
         // -----------------------------------------------------------------------
 
+        public void Configure(
+            Image icon,
+            TMP_Text itemName,
+            TMP_Text description,
+            TMP_Text stats,
+            GameObject emptyState)
+        {
+            iconImage = icon;
+            itemNameText = itemName;
+            descriptionText = description;
+            statsText = stats;
+            emptyLabel = emptyState;
+        }
+
+        // -----------------------------------------------------------------------
+
         public void ShowWeapon(WeaponInstance instance)
         {
             if (instance == null || instance.weaponData == null)
@@ -52,11 +68,11 @@ namespace junklite
                 int combos = data.GetComboLength(AttackDirection.Side, true);
 
                 statsText.text =
-                    $"Damage: {data.baseDamage}\n" +
-                    $"Combos Available: {combos}\n" +
-                    $"Max Durability: {data.maxWeaponDurability}\n" +
-                    $"Current Durability: {instance.CurrentDurability:F0}\n" +
-                    $"Durability Per Hit: {data.durabilityPerHit}";
+                    $"DAMAGE  {data.baseDamage}\n" +
+                    $"COMBOS  {combos}\n" +
+                    $"MAX DURABILITY  {data.maxWeaponDurability}\n" +
+                    $"CURRENT  {instance.CurrentDurability:F0}\n" +
+                    $"PER HIT  {data.durabilityPerHit}";
             }
         }
 
@@ -91,20 +107,20 @@ namespace junklite
                 var sb = new System.Text.StringBuilder();
 
                 if (data.baseDamage > 0f)
-                    sb.AppendLine($"Damage: {data.baseDamage}");
+                    sb.AppendLine($"DAMAGE  {data.baseDamage}");
 
-                sb.AppendLine($"Max Durability: {data.maxDurability}");
-                sb.AppendLine($"Current Durability: {instance.CurrentDurability:F0}");
-                sb.AppendLine($"Durability Per Use: {data.durabilityPerUse}");
+                sb.AppendLine($"MAX DURABILITY  {data.maxDurability}");
+                sb.AppendLine($"CURRENT  {instance.CurrentDurability:F0}");
+                sb.AppendLine($"PER USE  {data.durabilityPerUse}");
 
                 // Active-mod-only stats
                 if (data is ActiveModData activeMod)
                 {
                     if (activeMod.cooldown > 0f)
-                        sb.AppendLine($"Cooldown: {activeMod.cooldown}s");
+                        sb.AppendLine($"COOLDOWN  {activeMod.cooldown}s");
 
                     if (activeMod.chargesRequired > 0)
-                        sb.AppendLine($"Charges Required: {activeMod.chargesRequired}");
+                        sb.AppendLine($"CHARGES  {activeMod.chargesRequired}");
                 }
 
                 statsText.text = sb.ToString().TrimEnd();

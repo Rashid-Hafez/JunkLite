@@ -3,6 +3,7 @@ using UnityEngine.EventSystems;
 using System;
 using System.Collections.Generic;
 using UnityEngine.UI;
+using TMPro;
 
 namespace junklite
 {
@@ -38,6 +39,25 @@ namespace junklite
         [Header("Description Box")]
         [SerializeField] private ItemDescriptionUI descriptionUI;
 
+        [Header("Presentation")]
+        [SerializeField] private GameObject panel;
+        [SerializeField] private RectTransform characterVisual;
+        [SerializeField] private TMP_FontAsset headingFont;
+        [SerializeField] private TMP_FontAsset bodyFont;
+        [SerializeField] private Font headingSourceFont;
+
+        private static readonly Color Backdrop = new(0.012f, 0.018f, 0.042f, 0.78f);
+        private static readonly Color Frame = new(0.032f, 0.045f, 0.087f, 0.985f);
+        private static readonly Color Card = new(0.055f, 0.073f, 0.125f, 0.96f);
+        private static readonly Color Well = new(0.025f, 0.035f, 0.07f, 0.9f);
+        private static readonly Color Hover = new(0.075f, 0.18f, 0.24f, 1f);
+        private static readonly Color Cyan = new(0.24f, 0.91f, 0.98f, 1f);
+        private static readonly Color Magenta = new(0.86f, 0.25f, 0.89f, 1f);
+        private static readonly Color Paper = new(0.9f, 0.94f, 1f, 1f);
+        private static readonly Color Muted = new(0.51f, 0.61f, 0.74f, 1f);
+        private static readonly Color Line = new(0.18f, 0.27f, 0.38f, 0.75f);
+        private static readonly Vector2 DesignSize = new(1440f, 820f);
+
         private InventoryComponent inventory;
         private WeaponManager weaponManager;
         private PlayerWeaponLoadout weaponLoadout;
@@ -52,6 +72,36 @@ namespace junklite
         private const float NavigateDeadZone = 0.45f;
         private const float NavigateRepeatDelay = 0.16f;
         private float nextNavigateTime;
+        private bool themedInterfaceBuilt;
+        private RectTransform frameTransform;
+        private TMP_FontAsset generatedHeadingFont;
+
+        #endregion
+
+
+        #region Unity
+
+        private void Awake()
+        {
+            if (headingSourceFont != null)
+            {
+                generatedHeadingFont = TMP_FontAsset.CreateFontAsset(headingSourceFont);
+                headingFont = generatedHeadingFont;
+            }
+
+            if (bodyFont == null)
+                bodyFont = TMP_Settings.defaultFontAsset;
+            if (headingFont == null)
+                headingFont = bodyFont;
+
+            BuildInterface();
+        }
+
+        private void LateUpdate()
+        {
+            if (panel != null && panel.activeInHierarchy)
+                FitFrame();
+        }
 
         #endregion
 
@@ -255,14 +305,16 @@ namespace junklite
         {
             ClearSlots(inventorySlots);
 
-            if (inventory == null || inventorySlotPrefab == null || inventorySlotParent == null) return;
+            if (inventory == null || inventorySlotParent == null ||
+                (!themedInterfaceBuilt && inventorySlotPrefab == null)) return;
 
             for (int i = 0; i < inventory.SlotCount; i++)
             {
                 ModInstance mod = inventory.GetModAt(i);
 
-                var go = Instantiate(inventorySlotPrefab, inventorySlotParent);
-                var slot = go.GetComponent<ModSlotUI>();
+                ModSlotUI slot = themedInterfaceBuilt
+                    ? CreateThemedModSlot(inventorySlotParent, Cyan)
+                    : Instantiate(inventorySlotPrefab, inventorySlotParent).GetComponent<ModSlotUI>();
 
                 if (slot != null)
                 {
@@ -306,13 +358,14 @@ namespace junklite
 
             if (modManager == null) return;
 
-            if (activeModSlotParent != null && activeModSlotPrefab != null)
+            if (activeModSlotParent != null && (themedInterfaceBuilt || activeModSlotPrefab != null))
             {
                 for (int i = 0; i < modManager.MaxActiveSlots; i++)
                 {
                     bool locked = i >= modManager.UnlockedActiveSlots;
-                    var go = Instantiate(activeModSlotPrefab, activeModSlotParent);
-                    var slot = go.GetComponent<ModSlotUI>();
+                    ModSlotUI slot = themedInterfaceBuilt
+                        ? CreateThemedModSlot(activeModSlotParent, Cyan)
+                        : Instantiate(activeModSlotPrefab, activeModSlotParent).GetComponent<ModSlotUI>();
                     if (slot != null)
                     {
                         slot.Bind(modManager.GetActiveMod(i), modManager, inventory, i, true, locked);
@@ -322,13 +375,14 @@ namespace junklite
                 }
             }
 
-            if (passiveModSlotParent != null && passiveModSlotPrefab != null)
+            if (passiveModSlotParent != null && (themedInterfaceBuilt || passiveModSlotPrefab != null))
             {
                 for (int i = 0; i < modManager.MaxPassiveSlots; i++)
                 {
                     bool locked = i >= modManager.UnlockedPassiveSlots;
-                    var go = Instantiate(passiveModSlotPrefab, passiveModSlotParent);
-                    var slot = go.GetComponent<ModSlotUI>();
+                    ModSlotUI slot = themedInterfaceBuilt
+                        ? CreateThemedModSlot(passiveModSlotParent, Magenta)
+                        : Instantiate(passiveModSlotPrefab, passiveModSlotParent).GetComponent<ModSlotUI>();
                     if (slot != null)
                     {
                         slot.Bind(modManager.GetPassiveMod(i), modManager, inventory, i, false, locked);
@@ -344,12 +398,489 @@ namespace junklite
         #endregion
 
 
+        #region Presentation
+
+        private void BuildInterface()
+        {
+            if (characterVisual == null && inventoryScreen != null)
+            {
+                RectTransform[] candidates = inventoryScreen.GetComponentsInChildren<RectTransform>(true);
+                foreach (RectTransform candidate in candidates)
+                {
+                    if (candidate.name == "CHARACTER")
+                    {
+                        characterVisual = candidate;
+                        break;
+                    }
+                }
+            }
+
+            if (characterVisual != null)
+                characterVisual.SetParent(transform, false);
+
+            if (panel == null && inventoryScreen != null && inventoryScreen.transform.parent != null)
+                panel = inventoryScreen.transform.parent.gameObject;
+            if (panel == null && transform.childCount > 0)
+                panel = transform.GetChild(0).gameObject;
+            if (panel == null)
+                panel = CreateRect("Inventory Panel", transform).gameObject;
+
+            RectTransform panelRect = (RectTransform)panel.transform;
+            Stretch(panelRect);
+            panelRect.localScale = Vector3.one;
+
+            for (int i = panel.transform.childCount - 1; i >= 0; i--)
+            {
+                GameObject child = panel.transform.GetChild(i).gameObject;
+                child.SetActive(false);
+                Destroy(child);
+            }
+
+            Image backdrop = panel.GetComponent<Image>();
+            if (backdrop == null)
+                backdrop = panel.AddComponent<Image>();
+            backdrop.color = Backdrop;
+            backdrop.sprite = null;
+            backdrop.raycastTarget = true;
+
+            Image frame = CreateImage("Inventory Interface", panel.transform, Frame);
+            frameTransform = frame.rectTransform;
+            frameTransform.anchorMin = frameTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            frameTransform.pivot = new Vector2(0.5f, 0.5f);
+            frameTransform.anchoredPosition = Vector2.zero;
+            frameTransform.sizeDelta = DesignSize;
+            frame.raycastTarget = false;
+            AddBorder(frameTransform, Line);
+
+            for (int i = 1; i < 12; i++)
+                RectImage("Grid Line", frameTransform,
+                    new Color(Cyan.r, Cyan.g, Cyan.b, 0.022f),
+                    i * 120f, 0f, 1f, DesignSize.y);
+
+            RectImage("Cyan Edge", frameTransform, Cyan, 0f, 0f, 390f, 3f);
+            RectImage("Magenta Edge", frameTransform, Magenta, 1190f, 817f, 250f, 3f);
+            RectImage("Left Mark", frameTransform, Cyan, 0f, 0f, 3f, 28f);
+            RectImage("Right Mark", frameTransform, Magenta, 1437f, 792f, 3f, 28f);
+
+            BuildHeader();
+            BuildPages();
+            BuildFooter();
+            themedInterfaceBuilt = true;
+            FitFrame();
+        }
+
+        private void BuildHeader()
+        {
+            TextAt("Brand", frameTransform, "JUNKLITE  /  STORAGE LINK",
+                16f, Cyan, 40f, 24f, 620f, 24f, false, FontStyles.Bold);
+            TextAt("Title", frameTransform, "INVENTORY",
+                48f, Paper, 38f, 52f, 650f, 64f, true, FontStyles.Bold);
+
+            inventoryTabButton = CreateTab("INVENTORY", 914f, 76f, 148f);
+            infoTabButton = CreateTab("CODEX", 1074f, 76f, 130f);
+            missionsTabButton = CreateTab("MISSIONS", 1216f, 76f, 174f);
+
+            RectImage("Header Rule", frameTransform, Line, 40f, 146f, 1360f, 1f);
+            RectImage("Header Signal", frameTransform, Magenta, 40f, 146f, 96f, 3f);
+        }
+
+        private MenuButton CreateTab(string label, float x, float y, float width)
+        {
+            Image background = RectImage(label, frameTransform, Card, x, y, width, 46f);
+            background.raycastTarget = true;
+            AddBorder(background.rectTransform, Line);
+            TMP_Text text = TextAt("Label", background.transform, label,
+                14f, Paper, 12f, 0f, width - 24f, 46f, false, FontStyles.Bold);
+            text.horizontalAlignment = HorizontalAlignmentOptions.Center;
+
+            MenuButton button = background.gameObject.AddComponent<MenuButton>();
+            button.Configure(text, background, Card, Paper,
+                new Color(0.08f, 0.21f, 0.29f, 1f), Cyan,
+                Hover, new Color(0.12f, 0.29f, 0.36f, 1f), 14f, 14f);
+            return button;
+        }
+
+        private void BuildPages()
+        {
+            inventoryScreen = CreateRect("Inventory Page", frameTransform).gameObject;
+            Place((RectTransform)inventoryScreen.transform, 40f, 170f, 1360f, 568f);
+            BuildInventoryPage((RectTransform)inventoryScreen.transform);
+
+            infoScreen = CreateRect("Codex Page", frameTransform).gameObject;
+            Place((RectTransform)infoScreen.transform, 40f, 170f, 1360f, 568f);
+            BuildEmptyPage((RectTransform)infoScreen.transform, "CODEX", "NO CODEX DATA");
+
+            missionsScreen = CreateRect("Missions Page", frameTransform).gameObject;
+            Place((RectTransform)missionsScreen.transform, 40f, 170f, 1360f, 568f);
+            BuildEmptyPage((RectTransform)missionsScreen.transform, "MISSIONS", "NO ACTIVE MISSIONS");
+
+            infoScreen.SetActive(false);
+            missionsScreen.SetActive(false);
+        }
+
+        private void BuildInventoryPage(RectTransform page)
+        {
+            Image loadoutCard = RectImage("Loadout", page, Card, 0f, 0f, 320f, 568f);
+            AddBorder(loadoutCard.rectTransform, Line);
+            RectImage("Loadout Accent", loadoutCard.transform, Magenta, 0f, 0f, 3f, 568f);
+            TextAt("Loadout Label", loadoutCard.transform, "LOADOUT", 14f, Magenta,
+                16f, 12f, 180f, 24f, false, FontStyles.Bold);
+
+            if (characterVisual != null)
+            {
+                characterVisual.SetParent(loadoutCard.transform, false);
+                Place(characterVisual, 126f, 50f, 178f, 494f);
+                characterVisual.localScale = Vector3.one;
+                characterVisual.gameObject.SetActive(true);
+                Image characterImage = characterVisual.GetComponent<Image>();
+                if (characterImage != null)
+                {
+                    characterImage.preserveAspect = true;
+                    characterImage.raycastTarget = false;
+                }
+            }
+
+            weaponSlot1 = CreateWeaponSlot(loadoutCard.transform, "SLOT 01", 16f, 62f, Cyan);
+            weaponSlot2 = CreateWeaponSlot(loadoutCard.transform, "SLOT 02", 16f, 246f, Magenta);
+
+            Image equippedCard = RectImage("Equipped Mods", page, Card, 338f, 0f, 300f, 568f);
+            AddBorder(equippedCard.rectTransform, Line);
+            RectImage("Equipped Accent", equippedCard.transform, Cyan, 0f, 0f, 3f, 568f);
+            TextAt("Equipped Label", equippedCard.transform, "EQUIPPED MODS", 14f, Cyan,
+                16f, 12f, 220f, 24f, false, FontStyles.Bold);
+
+            TextAt("Active Label", equippedCard.transform, "ACTIVE", 12f, Paper,
+                16f, 52f, 120f, 20f, false, FontStyles.Bold);
+            activeModSlotParent = CreateRect("Active Mods", equippedCard.transform);
+            Place((RectTransform)activeModSlotParent, 16f, 80f, 268f, 188f);
+            ConfigureGrid(activeModSlotParent, 76f, 76f, 13f, 13f, 3);
+
+            RectImage("Mod Divider", equippedCard.transform, Line, 16f, 284f, 268f, 1f);
+            TextAt("Passive Label", equippedCard.transform, "PASSIVE", 12f, Paper,
+                16f, 302f, 120f, 20f, false, FontStyles.Bold);
+            passiveModSlotParent = CreateRect("Passive Mods", equippedCard.transform);
+            Place((RectTransform)passiveModSlotParent, 16f, 330f, 268f, 188f);
+            ConfigureGrid(passiveModSlotParent, 76f, 76f, 13f, 13f, 3);
+
+            Image inventoryCard = RectImage("Stored Mods", page, Card, 656f, 0f, 360f, 568f);
+            AddBorder(inventoryCard.rectTransform, Line);
+            RectImage("Inventory Accent", inventoryCard.transform, Cyan, 0f, 0f, 3f, 568f);
+            TextAt("Inventory Label", inventoryCard.transform, "STORED MODS", 14f, Cyan,
+                16f, 12f, 220f, 24f, false, FontStyles.Bold);
+            inventorySlotParent = CreateRect("Inventory Grid", inventoryCard.transform);
+            Place((RectTransform)inventorySlotParent, 16f, 52f, 328f, 496f);
+            ConfigureGrid(inventorySlotParent, 72f, 72f, 13f, 13f, 4);
+
+            BuildDescriptionCard(page);
+        }
+
+        private InventoryWeaponSlotUI CreateWeaponSlot(
+            Transform parent, string label, float x, float y, Color accent)
+        {
+            Image card = RectImage(label, parent, Well, x, y, 96f, 160f);
+            card.raycastTarget = true;
+            AddBorder(card.rectTransform, new Color(accent.r, accent.g, accent.b, 0.3f));
+            TextAt("Slot Label", card.transform, label, 11f, accent,
+                10f, 8f, 76f, 18f, false, FontStyles.Bold);
+
+            Image icon = CreateImage("Weapon Icon", card.transform, Color.white);
+            Place(icon.rectTransform, 13f, 36f, 70f, 70f);
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+
+            TMP_Text empty = TextAt("Empty", card.transform, "EMPTY", 12f, Muted,
+                10f, 59f, 76f, 24f, false, FontStyles.Bold);
+            empty.horizontalAlignment = HorizontalAlignmentOptions.Center;
+
+            Image track = RectImage("Durability Track", card.transform, Line,
+                13f, 125f, 70f, 6f);
+            Image fill = CreateFill(track.transform, accent);
+
+            Image highlight = CreateImage("Swap Target", card.transform,
+                new Color(accent.r, accent.g, accent.b, 0.15f));
+            Stretch(highlight.rectTransform);
+            highlight.raycastTarget = false;
+            highlight.enabled = false;
+
+            InventoryWeaponSlotUI slot = card.gameObject.AddComponent<InventoryWeaponSlotUI>();
+            slot.Configure(icon, fill, highlight, track.gameObject, empty);
+            return slot;
+        }
+
+        private void BuildDescriptionCard(RectTransform page)
+        {
+            Image card = RectImage("Item Details", page, Card, 1034f, 0f, 326f, 568f);
+            AddBorder(card.rectTransform, Line);
+            RectImage("Details Accent", card.transform, Magenta, 0f, 0f, 3f, 568f);
+            TextAt("Details Label", card.transform, "ITEM DETAILS", 14f, Magenta,
+                16f, 12f, 220f, 24f, false, FontStyles.Bold);
+
+            Image iconWell = RectImage("Icon Well", card.transform, Well, 20f, 54f, 92f, 92f);
+            AddBorder(iconWell.rectTransform, new Color(Cyan.r, Cyan.g, Cyan.b, 0.25f));
+            Image icon = CreateImage("Item Icon", iconWell.transform, Color.white);
+            Place(icon.rectTransform, 10f, 10f, 72f, 72f);
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+
+            TMP_Text name = TextAt("Item Name", card.transform, "", 23f, Paper,
+                20f, 158f, 286f, 40f, true, FontStyles.Bold);
+            TMP_Text description = TextAt("Description", card.transform, "", 14f, Muted,
+                20f, 204f, 286f, 108f);
+            description.textWrappingMode = TextWrappingModes.Normal;
+            description.verticalAlignment = VerticalAlignmentOptions.Top;
+
+            RectImage("Details Rule", card.transform, Line, 20f, 328f, 286f, 1f);
+            TMP_Text stats = TextAt("Stats", card.transform, "", 13f, Paper,
+                20f, 344f, 286f, 180f);
+            stats.textWrappingMode = TextWrappingModes.Normal;
+            stats.verticalAlignment = VerticalAlignmentOptions.Top;
+
+            TMP_Text emptyText = TextAt("Empty", card.transform, "SELECT AN ITEM", 14f, Muted,
+                20f, 246f, 286f, 32f, false, FontStyles.Bold);
+            emptyText.horizontalAlignment = HorizontalAlignmentOptions.Center;
+
+            descriptionUI = card.gameObject.AddComponent<ItemDescriptionUI>();
+            descriptionUI.Configure(icon, name, description, stats, emptyText.gameObject);
+            descriptionUI.Clear();
+        }
+
+        private ModSlotUI CreateThemedModSlot(Transform parent, Color accent)
+        {
+            RectTransform root = CreateRect("Mod Slot", parent);
+            root.sizeDelta = new Vector2(72f, 72f);
+            LayoutElement element = root.gameObject.AddComponent<LayoutElement>();
+            element.minWidth = element.preferredWidth = 72f;
+            element.minHeight = element.preferredHeight = 72f;
+
+            Image background = root.gameObject.AddComponent<Image>();
+            background.color = Well;
+            background.raycastTarget = true;
+            AddBorder(root, new Color(accent.r, accent.g, accent.b, 0.24f));
+
+            Button button = root.gameObject.AddComponent<Button>();
+            button.targetGraphic = background;
+            button.transition = Selectable.Transition.None;
+
+            Image icon = CreateImage("Icon", root, Color.white);
+            Place(icon.rectTransform, 10f, 12f, 52f, 47f);
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+
+            TMP_Text inputHint = TextAt("Input Hint", root, "", 10f, Paper,
+                5f, 2f, 62f, 16f, false, FontStyles.Bold);
+            inputHint.horizontalAlignment = HorizontalAlignmentOptions.Right;
+
+            Image track = RectImage("Durability Track", root, Line, 9f, 63f, 54f, 4f);
+            Image durability = CreateFill(track.transform, accent);
+
+            Image blocked = CreateImage("Blocked", root,
+                new Color(Magenta.r, Magenta.g, Magenta.b, 0.18f));
+            Stretch(blocked.rectTransform);
+            blocked.raycastTarget = false;
+            blocked.enabled = false;
+
+            TMP_Text locked = TextAt("Locked", root, "×", 28f, Magenta,
+                5f, 17f, 62f, 36f, false, FontStyles.Bold);
+            locked.horizontalAlignment = HorizontalAlignmentOptions.Center;
+            locked.gameObject.SetActive(false);
+
+            GameObject hover = CreateRect("Hover", root).gameObject;
+            Stretch((RectTransform)hover.transform);
+            Image hoverTint = hover.AddComponent<Image>();
+            hoverTint.color = new Color(accent.r, accent.g, accent.b, 0.1f);
+            hoverTint.raycastTarget = false;
+            AddBorder((RectTransform)hover.transform, accent);
+            hover.SetActive(false);
+
+            Image validTarget = CreateImage("Valid Target", root,
+                new Color(Cyan.r, Cyan.g, Cyan.b, 0.18f));
+            Stretch(validTarget.rectTransform);
+            validTarget.raycastTarget = false;
+            validTarget.enabled = false;
+
+            ModSlotUI slot = root.gameObject.AddComponent<ModSlotUI>();
+            slot.Configure(icon, durability, background, blocked, validTarget,
+                hover, inputHint, track.gameObject, null, locked);
+            return slot;
+        }
+
+        private static void ConfigureGrid(
+            Transform parent,
+            float cellWidth,
+            float cellHeight,
+            float spacingX,
+            float spacingY,
+            int columns)
+        {
+            GridLayoutGroup grid = parent.gameObject.AddComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(cellWidth, cellHeight);
+            grid.spacing = new Vector2(spacingX, spacingY);
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = columns;
+            grid.childAlignment = TextAnchor.UpperLeft;
+        }
+
+        private void BuildEmptyPage(RectTransform page, string title, string emptyMessage)
+        {
+            Image card = RectImage(title, page, Card, 0f, 0f, 1360f, 568f);
+            AddBorder(card.rectTransform, Line);
+            RectImage("Page Accent", card.transform, Magenta, 0f, 0f, 3f, 568f);
+            TextAt("Page Title", card.transform, title, 36f, Paper,
+                40f, 34f, 700f, 54f, true, FontStyles.Bold);
+            RectImage("Page Rule", card.transform, Line, 40f, 112f, 1280f, 1f);
+            TMP_Text empty = TextAt("Empty", card.transform, emptyMessage, 17f, Muted,
+                40f, 242f, 1280f, 42f, false, FontStyles.Bold);
+            empty.horizontalAlignment = HorizontalAlignmentOptions.Center;
+        }
+
+        private void BuildFooter()
+        {
+            RectImage("Footer Rule", frameTransform, Line, 40f, 760f, 1360f, 1f);
+            TextAt("Input Hints", frameTransform,
+                "DRAG / CLICK  MOVE MOD     HOVER  DETAILS     I / ESC  CLOSE",
+                13f, Muted, 40f, 775f, 1100f, 24f);
+        }
+
+        private void FitFrame()
+        {
+            if (panel == null || frameTransform == null)
+                return;
+
+            Rect available = ((RectTransform)panel.transform).rect;
+            float scale = Mathf.Min(
+                available.width / (DesignSize.x + 100f),
+                available.height / (DesignSize.y + 80f));
+            frameTransform.localScale = Vector3.one * Mathf.Max(0.01f, scale);
+        }
+
+        private static RectTransform CreateRect(string name, Transform parent)
+        {
+            GameObject go = new(name, typeof(RectTransform));
+            go.layer = parent.gameObject.layer;
+            RectTransform rect = (RectTransform)go.transform;
+            rect.SetParent(parent, false);
+            return rect;
+        }
+
+        private static Image CreateImage(string name, Transform parent, Color color)
+        {
+            Image image = CreateRect(name, parent).gameObject.AddComponent<Image>();
+            image.color = color;
+            return image;
+        }
+
+        private static Image RectImage(
+            string name,
+            Transform parent,
+            Color color,
+            float x,
+            float y,
+            float width,
+            float height)
+        {
+            Image image = CreateImage(name, parent, color);
+            Place(image.rectTransform, x, y, width, height);
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private static Image CreateFill(Transform parent, Color color)
+        {
+            Image fill = CreateImage("Fill", parent, color);
+            Stretch(fill.rectTransform);
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.fillOrigin = 0;
+            fill.raycastTarget = false;
+            return fill;
+        }
+
+        private TMP_Text TextAt(
+            string name,
+            Transform parent,
+            string value,
+            float size,
+            Color color,
+            float x,
+            float y,
+            float width,
+            float height,
+            bool heading = false,
+            FontStyles style = FontStyles.Normal)
+        {
+            TextMeshProUGUI text = CreateRect(name, parent).gameObject.AddComponent<TextMeshProUGUI>();
+            text.font = heading ? headingFont : bodyFont;
+            text.text = value;
+            text.fontSize = size;
+            text.fontStyle = style;
+            text.color = color;
+            text.raycastTarget = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+            text.verticalAlignment = VerticalAlignmentOptions.Middle;
+            Place(text.rectTransform, x, y, width, height);
+            return text;
+        }
+
+        private static void AddBorder(RectTransform parent, Color color)
+        {
+            Image top = CreateImage("Top Border", parent, color);
+            Stretch(top.rectTransform);
+            top.rectTransform.anchorMin = new Vector2(0f, 1f);
+            top.rectTransform.sizeDelta = new Vector2(0f, 1f);
+
+            Image bottom = CreateImage("Bottom Border", parent, color);
+            Stretch(bottom.rectTransform);
+            bottom.rectTransform.anchorMax = new Vector2(1f, 0f);
+            bottom.rectTransform.sizeDelta = new Vector2(0f, 1f);
+
+            Image left = CreateImage("Left Border", parent, color);
+            Stretch(left.rectTransform);
+            left.rectTransform.anchorMax = new Vector2(0f, 1f);
+            left.rectTransform.sizeDelta = new Vector2(1f, 0f);
+
+            Image right = CreateImage("Right Border", parent, color);
+            Stretch(right.rectTransform);
+            right.rectTransform.anchorMin = new Vector2(1f, 0f);
+            right.rectTransform.sizeDelta = new Vector2(1f, 0f);
+
+            foreach (Image edge in new[] { top, bottom, left, right })
+                edge.raycastTarget = false;
+        }
+
+        private static void Place(
+            RectTransform rect,
+            float x,
+            float y,
+            float width,
+            float height)
+        {
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(x, -y);
+            rect.sizeDelta = new Vector2(width, height);
+        }
+
+        private static void Stretch(RectTransform rect)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+        }
+
+        #endregion
+
+
         #region Helpers
 
         private void ClearSlots(List<ModSlotUI> slots)
         {
             foreach (var slot in slots)
-                if (slot != null) Destroy(slot.gameObject);
+            {
+                if (slot == null) continue;
+                slot.gameObject.SetActive(false);
+                Destroy(slot.gameObject);
+            }
             slots.Clear();
         }
 
@@ -359,7 +890,20 @@ namespace junklite
             ClearSlots(passiveModSlots);
         }
 
-        private void OnDestroy() => Unbind();
+        private void OnDestroy()
+        {
+            Unbind();
+
+            if (generatedHeadingFont == null)
+                return;
+
+            foreach (Texture2D atlas in generatedHeadingFont.atlasTextures)
+                if (atlas != null)
+                    Destroy(atlas);
+            if (generatedHeadingFont.material != null)
+                Destroy(generatedHeadingFont.material);
+            Destroy(generatedHeadingFont);
+        }
 
         private void TrySelectDefaultSlotIfGamepad()
         {

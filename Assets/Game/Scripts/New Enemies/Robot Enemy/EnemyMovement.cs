@@ -44,6 +44,8 @@ namespace junklite
         [Header("Ground Detection")]
         [SerializeField] private float groundCheckDistance = 0.1f;
         [SerializeField] private LayerMask groundLayers = ~0; // Default to all layers
+        [SerializeField, Min(1), Tooltip("Ground checks are throttled by this many physics ticks while settled.")]
+        private int settledGroundCheckInterval = 3;
 
         // Components
         private Rigidbody rb;
@@ -76,6 +78,7 @@ namespace junklite
 
         // Ground state
         private bool isGrounded;
+        private int settledGroundCheckCounter;
 
         // Events for FSM integration
         /// <summary>
@@ -108,7 +111,7 @@ namespace junklite
             // Configure Rigidbody for velocity-based movement with gravity
             rb.isKinematic = false;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
-            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
             // Cache the movement plane axes from the enemy's initial orientation
             CacheMovementAxes();
@@ -177,7 +180,12 @@ namespace junklite
         {
             if (rb.isKinematic) return;
 
-            CheckGrounded();
+            bool needsFrequentGroundCheck = !isGrounded || isMoving || isInKnockback || isPushActive;
+            if (needsFrequentGroundCheck || ++settledGroundCheckCounter >= settledGroundCheckInterval)
+            {
+                settledGroundCheckCounter = 0;
+                CheckGrounded();
+            }
 
             if (rb.useGravity && gravityScale > 1f)
             {
@@ -276,6 +284,7 @@ namespace junklite
         {
             isInKnockback = false;
             knockbackVelocity = Vector3.zero;
+            RefreshCollisionDetectionMode();
             OnKnockbackEnd?.Invoke();
         }
 
@@ -389,6 +398,7 @@ namespace junklite
             isDirectionalMovement = false;
             isDashing = false;
             currentSpeed = moveSpeed;
+            RefreshCollisionDetectionMode();
             UpdateFacingFromDirection(position - rb.position);
         }
 
@@ -413,6 +423,7 @@ namespace junklite
             isMoving = true;
             isDirectionalMovement = false;
             isDashing = false;
+            RefreshCollisionDetectionMode();
             UpdateFacingFromDirection(position - rb.position);
         }
 
@@ -430,6 +441,7 @@ namespace junklite
             isMoving = true;
             isDirectionalMovement = false;
             isDashing = true;
+            RefreshCollisionDetectionMode();
             UpdateFacingFromDirection(position - rb.position);
         }
 
@@ -445,6 +457,7 @@ namespace junklite
             isMoving = true;
             isDirectionalMovement = true;
             isDashing = false;
+            RefreshCollisionDetectionMode();
             UpdateFacingFromDirection(direction);
         }
 
@@ -460,6 +473,7 @@ namespace junklite
             isMoving = true;
             isDirectionalMovement = true;
             isDashing = false;
+            RefreshCollisionDetectionMode();
             UpdateFacingFromDirection(direction);
         }
 
@@ -482,6 +496,7 @@ namespace junklite
             isDashing = false;
             currentSpeed = 0f;
             moveDirection = Vector3.zero;
+            RefreshCollisionDetectionMode();
         }
 
         /// <summary>
@@ -498,6 +513,7 @@ namespace junklite
 
             isInKnockback = true;
             knockbackTimer = 0f;
+            RefreshCollisionDetectionMode();
 
             // Project the knockback force onto our movement plane
             knockbackVelocity = ProjectOntoMovementPlane(force);
@@ -524,6 +540,7 @@ namespace junklite
             if (rb == null || duration <= 0f) yield break;
 
             isPushActive = true;
+            RefreshCollisionDetectionMode();
 
             float hDot = Vector3.Dot(worldDir, horizontalAxis);
             float hSign = hDot >= 0f ? 1f : -1f;
@@ -540,6 +557,7 @@ namespace junklite
             }
 
             isPushActive = false;
+            RefreshCollisionDetectionMode();
 
             // Stop sliding after push ends
             if (rb != null)
@@ -558,6 +576,18 @@ namespace junklite
             {
                 EndKnockback();
             }
+        }
+
+        private void RefreshCollisionDetectionMode()
+        {
+            if (rb == null || rb.isKinematic)
+                return;
+
+            CollisionDetectionMode desired = isDashing || isInKnockback || isPushActive
+                ? CollisionDetectionMode.ContinuousDynamic
+                : CollisionDetectionMode.ContinuousSpeculative;
+            if (rb.collisionDetectionMode != desired)
+                rb.collisionDetectionMode = desired;
         }
 
         // ============================================================

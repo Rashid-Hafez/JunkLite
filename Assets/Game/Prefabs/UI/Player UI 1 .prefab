@@ -2635,6 +2635,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d40a037350a1e9646b1ddc0363eb48a5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponPickupUI
+  panel: {fileID: 2566624717040419748}
+  headingFont: {fileID: 0}
+  bodyFont: {fileID: 11400000, guid: d420ec421400c4761b6423d19266a147, type: 2}
+  headingSourceFont: {fileID: 12800000, guid: 3259a038809934b37b220a603b5b5d04, type: 3}
   newWeaponIcon: {fileID: 4683847261768117071}
   newWeaponName: {fileID: 9163410827531195096}
   newWeaponDurabilityFill: {fileID: 8237618996972593908}

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace junklite
@@ -8,17 +7,20 @@ namespace junklite
         public AttackHitResult Type { get; }
         public Collider Target { get; }
         public Collider[] AllTargets { get; }
+        public int AllTargetCount { get; }
         public Vector3 Point { get; }
 
         public WeaponHitDetectionResult(
             AttackHitResult type,
             Collider target = null,
             Collider[] allTargets = null,
+            int allTargetCount = 0,
             Vector3 point = default)
         {
             Type = type;
             Target = target;
             AllTargets = allTargets;
+            AllTargetCount = allTargetCount;
             Point = point;
         }
     }
@@ -31,6 +33,9 @@ namespace junklite
     {
         private readonly LayerMask enemyLayer;
         private readonly LayerMask environmentLayer;
+        private Collider[] queryBuffer = new Collider[64];
+        private Collider[] enemyBuffer = new Collider[64];
+        private const int MaxQueryCapacity = 512;
 
         public WeaponHitResolver(LayerMask enemyLayer, LayerMask environmentLayer)
         {
@@ -40,27 +45,25 @@ namespace junklite
 
         public WeaponHitDetectionResult Detect(Vector3 origin, float radius, bool piercing)
         {
-            Collider[] hits = Physics.OverlapSphere(
-                origin,
-                radius,
-                enemyLayer | environmentLayer,
-                QueryTriggerInteraction.Ignore);
+            int hitCount = QueryOverlaps(origin, radius);
 
             Collider closestEnemy = null;
             float closestDistance = float.MaxValue;
             bool hitEnvironment = false;
-            List<Collider> enemyHits = piercing ? new List<Collider>() : null;
+            int enemyCount = 0;
 
-            for (int i = 0; i < hits.Length; i++)
+            for (int i = 0; i < hitCount; i++)
             {
-                Collider hit = hits[i];
+                Collider hit = queryBuffer[i];
+                if (hit == null)
+                    continue;
                 int layerMask = 1 << hit.gameObject.layer;
 
                 if ((layerMask & enemyLayer) != 0)
                 {
                     if (piercing)
                     {
-                        enemyHits.Add(hit);
+                        enemyBuffer[enemyCount++] = hit;
                         continue;
                     }
 
@@ -77,12 +80,13 @@ namespace junklite
                 }
             }
 
-            if (piercing && enemyHits != null && enemyHits.Count > 0)
+            if (piercing && enemyCount > 0)
             {
                 return new WeaponHitDetectionResult(
                     AttackHitResult.Enemy,
-                    allTargets: enemyHits.ToArray(),
-                    point: enemyHits[0].ClosestPoint(origin));
+                    allTargets: enemyBuffer,
+                    allTargetCount: enemyCount,
+                    point: enemyBuffer[0].ClosestPoint(origin));
             }
 
             if (!piercing && closestEnemy != null)
@@ -96,6 +100,34 @@ namespace junklite
             return hitEnvironment
                 ? new WeaponHitDetectionResult(AttackHitResult.Environment)
                 : new WeaponHitDetectionResult(AttackHitResult.None);
+        }
+
+        private int QueryOverlaps(Vector3 origin, float radius)
+        {
+            while (true)
+            {
+                int count = Physics.OverlapSphereNonAlloc(
+                    origin,
+                    radius,
+                    queryBuffer,
+                    enemyLayer | environmentLayer,
+                    QueryTriggerInteraction.Ignore);
+
+                if (count < queryBuffer.Length || queryBuffer.Length >= MaxQueryCapacity)
+                {
+                    EnsureEnemyCapacity(queryBuffer.Length);
+                    return count;
+                }
+
+                int nextCapacity = Mathf.Min(queryBuffer.Length * 2, MaxQueryCapacity);
+                queryBuffer = new Collider[nextCapacity];
+            }
+        }
+
+        private void EnsureEnemyCapacity(int capacity)
+        {
+            if (enemyBuffer.Length < capacity)
+                enemyBuffer = new Collider[capacity];
         }
     }
 }

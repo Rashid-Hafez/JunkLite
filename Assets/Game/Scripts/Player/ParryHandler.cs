@@ -39,6 +39,9 @@ namespace junklite
         private bool parryActive;
         private int parryStage; // 1 or 2
         private Coroutine parryRoutine;
+        private Collider[] parryOverlapBuffer = new Collider[64];
+        private readonly HashSet<EnemyCharacter> processedEnemies = new();
+        private const int MaxParryOverlapCapacity = 256;
 
         public bool IsParrying => parryActive;
 
@@ -196,11 +199,12 @@ namespace junklite
 
         private void PushEnemies()
         {
-            Collider[] hits = Physics.OverlapSphere(transform.position, parryRadius, enemyLayer);
-            var processedEnemies = new HashSet<EnemyCharacter>();
+            int hitCount = QueryParryOverlaps();
+            processedEnemies.Clear();
 
-            foreach (var c in hits)
+            for (int i = 0; i < hitCount; i++)
             {
+                Collider c = parryOverlapBuffer[i];
                 if (c == null) continue;
 
                 var enemyChar = c.GetComponent<EnemyCharacter>() ?? c.GetComponentInParent<EnemyCharacter>();
@@ -244,6 +248,22 @@ namespace junklite
 
             // clear remembered attacker once we're done
             primaryAttacker = null;
+        }
+
+        private int QueryParryOverlaps()
+        {
+            while (true)
+            {
+                int count = Physics.OverlapSphereNonAlloc(
+                    transform.position,
+                    parryRadius,
+                    parryOverlapBuffer,
+                    enemyLayer);
+                if (count < parryOverlapBuffer.Length || parryOverlapBuffer.Length >= MaxParryOverlapCapacity)
+                    return count;
+
+                parryOverlapBuffer = new Collider[Mathf.Min(parryOverlapBuffer.Length * 2, MaxParryOverlapCapacity)];
+            }
         }
 
     private void OnDrawGizmosSelected()

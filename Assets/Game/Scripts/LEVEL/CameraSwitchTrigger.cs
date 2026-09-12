@@ -51,6 +51,9 @@ namespace junklite
 
         [Header("Arrows")]
         [SerializeField] private Renderer[] arrowRenderers;
+        private MaterialPropertyBlock arrowPropertyBlock;
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int ZWriteId = Shader.PropertyToID("_ZWrite");
         [SerializeField] private Color lockColor, unlockColor;
 
         public bool IsLocked => locked;
@@ -72,6 +75,7 @@ namespace junklite
         private void Awake()
         {
             triggerCollider = GetComponent<BoxCollider>();
+            arrowPropertyBlock = new MaterialPropertyBlock();
             cinemachineBrain = FindAnyObjectByType<CinemachineBrain>();
             pointA = transform.Find("A");
             pointB = transform.Find("B");
@@ -90,7 +94,11 @@ namespace junklite
             arrowRenderers = GetComponentsInChildren<Renderer>();
             foreach (Renderer renderer in arrowRenderers)
             {
-                renderer.material.SetFloat("_ZWrite", 1f);
+                if (renderer == null) continue;
+                arrowPropertyBlock.Clear();
+                renderer.GetPropertyBlock(arrowPropertyBlock);
+                arrowPropertyBlock.SetFloat(ZWriteId, 1f);
+                renderer.SetPropertyBlock(arrowPropertyBlock);
             }
 
             ApplyLockState();
@@ -309,7 +317,12 @@ namespace junklite
                     foreach (Renderer renderer in arrowRenderers)
                     {
                         if (renderer != null)
-                            renderer.material.SetColor("_BaseColor", color);
+                        {
+                            arrowPropertyBlock.Clear();
+                            renderer.GetPropertyBlock(arrowPropertyBlock);
+                            arrowPropertyBlock.SetColor(BaseColorId, color);
+                            renderer.SetPropertyBlock(arrowPropertyBlock);
+                        }
                     }
                 }
             }

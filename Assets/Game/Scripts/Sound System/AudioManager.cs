@@ -36,6 +36,7 @@ namespace junklite
         private AudioSource[] sfxPool;
         private int poolIndex;
         private AudioSource musicSource;
+        private AudioSource musicTransitionSource;
         private AudioSource ambienceSource;
         private Coroutine musicFadeRoutine;
         private readonly Dictionary<AudioClip, float> musicResumePositions = new();
@@ -101,12 +102,21 @@ namespace junklite
 
         private void InitMusicSource()
         {
-            var go = new GameObject("Music");
+            musicSource = CreateMusicSource("Music");
+            musicTransitionSource = CreateMusicSource("Music Transition");
+        }
+
+        private AudioSource CreateMusicSource(string sourceName)
+        {
+            var go = new GameObject(sourceName);
             go.transform.SetParent(transform);
-            musicSource = go.AddComponent<AudioSource>();
-            musicSource.loop = true;
-            musicSource.playOnAwake = true;
-            musicSource.outputAudioMixerGroup = musicGroup;
+
+            var source = go.AddComponent<AudioSource>();
+            source.loop = true;
+            source.playOnAwake = false;
+            source.spatialBlend = 0f;
+            source.outputAudioMixerGroup = musicGroup;
+            return source;
         }
 
         private void InitAmbienceSource()
@@ -216,23 +226,21 @@ namespace junklite
         {
             if (entry == null || !entry.IsValid) return;
 
-            if (musicFadeRoutine != null)
-            {
-                StopCoroutine(musicFadeRoutine);
-                musicFadeRoutine = null;
-            }
+            CancelMusicFade();
 
-            if (musicSource.isPlaying && musicSource.clip != null)
-                musicResumePositions[musicSource.clip] = musicSource.time;
-
-            musicSource.clip = entry.clip;
-            musicSource.volume = entry.volume;
-            if (musicResumePositions.TryGetValue(entry.clip, out float resumeTime))
+            AudioSource targetSource = FindPlayingMusicSource(entry.clip);
+            if (targetSource == null)
             {
-                musicSource.time = Mathf.Clamp(resumeTime, 0f, entry.clip.length - 0.01f);
-                musicResumePositions.Remove(entry.clip);
+                StopMusicSource(musicSource, true);
+                StopMusicSource(musicTransitionSource, true);
+                targetSource = musicSource;
+                StartMusicSource(targetSource, entry, entry.volume);
             }
-            musicSource.Play();
+            else
+            {
+                StopMusicSource(GetOtherMusicSource(targetSource), true);
+                targetSource.volume = entry.volume;
+            }
         }
 
         public void CrossfadeToMusic(SoundEntry entry, float fadeDuration = -1f)
@@ -240,53 +248,140 @@ namespace junklite
             if (entry == null || !entry.IsValid) return;
 
             float duration = fadeDuration >= 0f ? fadeDuration : defaultMusicFadeDuration;
-            if (musicFadeRoutine != null)
-                StopCoroutine(musicFadeRoutine);
-            musicFadeRoutine = StartCoroutine(CrossfadeRoutine(entry, duration));
+            if (duration <= 0f)
+            {
+                PlayMusic(entry);
+                return;
+            }
+
+            CancelMusicFade();
+
+            AudioSource incomingSource = FindPlayingMusicSource(entry.clip);
+            if (incomingSource == null)
+            {
+                incomingSource = SelectIncomingMusicSource();
+                StopMusicSource(incomingSource, true);
+                StartMusicSource(incomingSource, entry, 0f);
+            }
+
+            AudioSource outgoingSource = GetOtherMusicSource(incomingSource);
+            musicFadeRoutine = StartCoroutine(CrossfadeRoutine(
+                incomingSource,
+                outgoingSource,
+                entry.volume,
+                duration));
         }
 
         public void StopMusic()
         {
-            if (musicFadeRoutine != null)
-            {
-                StopCoroutine(musicFadeRoutine);
-                musicFadeRoutine = null;
-            }
-            musicSource.Stop();
+            CancelMusicFade();
+            StopMusicSource(musicSource, false);
+            StopMusicSource(musicTransitionSource, false);
         }
 
-        private IEnumerator CrossfadeRoutine(SoundEntry entry, float fadeDuration)
+        private IEnumerator CrossfadeRoutine(
+            AudioSource incomingSource,
+            AudioSource outgoingSource,
+            float targetVolume,
+            float fadeDuration)
         {
-            float half = Mathf.Max(0.01f, fadeDuration * 0.5f);
-            float startVol = musicSource.volume;
+            float incomingStartVolume = incomingSource.volume;
+            float outgoingStartVolume = outgoingSource != null && outgoingSource.isPlaying
+                ? outgoingSource.volume
+                : 0f;
+            float elapsed = 0f;
 
-            if (musicSource.isPlaying && musicSource.clip != null)
-                musicResumePositions[musicSource.clip] = musicSource.time;
-
-            for (float t = 0f; t < half; t += Time.deltaTime)
+            while (elapsed < fadeDuration)
             {
-                musicSource.volume = Mathf.Lerp(startVol, 0f, t / half);
+                elapsed += Time.unscaledDeltaTime;
+                float progress = Mathf.Clamp01(elapsed / fadeDuration);
+
+                // Equal-power curves avoid the audible dip produced by a linear
+                // crossfade when both tracks are at roughly the same level.
+                float fadeIn = Mathf.Sin(progress * Mathf.PI * 0.5f);
+                float fadeOut = Mathf.Cos(progress * Mathf.PI * 0.5f);
+
+                incomingSource.volume = Mathf.Lerp(incomingStartVolume, targetVolume, fadeIn);
+                if (outgoingSource != null && outgoingSource != incomingSource)
+                    outgoingSource.volume = outgoingStartVolume * fadeOut;
+
                 yield return null;
             }
-            musicSource.volume = 0f;
-            musicSource.Stop();
 
-            musicSource.clip = entry.clip;
-            musicSource.volume = 0f;
+            incomingSource.volume = targetVolume;
+            StopMusicSource(outgoingSource, true);
+            musicFadeRoutine = null;
+        }
+
+        private void CancelMusicFade()
+        {
+            if (musicFadeRoutine == null) return;
+
+            StopCoroutine(musicFadeRoutine);
+            musicFadeRoutine = null;
+        }
+
+        private AudioSource FindPlayingMusicSource(AudioClip clip)
+        {
+            if (clip == null) return null;
+            if (musicSource != null && musicSource.isPlaying && musicSource.clip == clip)
+                return musicSource;
+            if (musicTransitionSource != null && musicTransitionSource.isPlaying &&
+                musicTransitionSource.clip == clip)
+            {
+                return musicTransitionSource;
+            }
+
+            return null;
+        }
+
+        private AudioSource SelectIncomingMusicSource()
+        {
+            if (musicSource == null) return musicTransitionSource;
+            if (musicTransitionSource == null) return musicSource;
+            if (!musicSource.isPlaying) return musicSource;
+            if (!musicTransitionSource.isPlaying) return musicTransitionSource;
+
+            // A third request can arrive while two tracks are crossing. Reuse the
+            // quieter source so the dominant track remains the audible outgoing bed.
+            return musicSource.volume <= musicTransitionSource.volume
+                ? musicSource
+                : musicTransitionSource;
+        }
+
+        private AudioSource GetOtherMusicSource(AudioSource source)
+        {
+            if (source == musicSource) return musicTransitionSource;
+            if (source == musicTransitionSource) return musicSource;
+            return null;
+        }
+
+        private void StartMusicSource(AudioSource source, SoundEntry entry, float volume)
+        {
+            if (source == null || entry == null || !entry.IsValid) return;
+
+            source.clip = entry.clip;
+            source.volume = volume;
+            source.pitch = 1f;
+
             if (musicResumePositions.TryGetValue(entry.clip, out float resumeTime))
             {
-                musicSource.time = Mathf.Clamp(resumeTime, 0f, entry.clip.length - 0.01f);
+                source.time = Mathf.Clamp(resumeTime, 0f, entry.clip.length - 0.01f);
                 musicResumePositions.Remove(entry.clip);
             }
-            musicSource.Play();
 
-            for (float t = 0f; t < half; t += Time.deltaTime)
-            {
-                musicSource.volume = Mathf.Lerp(0f, entry.volume, t / half);
-                yield return null;
-            }
-            musicSource.volume = entry.volume;
-            musicFadeRoutine = null;
+            source.Play();
+        }
+
+        private void StopMusicSource(AudioSource source, bool rememberPosition)
+        {
+            if (source == null) return;
+
+            if (rememberPosition && source.isPlaying && source.clip != null)
+                musicResumePositions[source.clip] = source.time;
+
+            source.Stop();
+            source.volume = 0f;
         }
 
         #endregion

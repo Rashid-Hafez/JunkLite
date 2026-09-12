@@ -32,6 +32,8 @@ namespace junklite
         private readonly List<ToolAction> playerActions = new();
         private readonly List<ToolAction> runActions = new();
 
+        private static readonly float[] SpawnSearchOffsets = { 0f, -1.5f, 1.5f, -3f, 3f };
+
         private int spawnSequence;
         private bool enemyAiPaused;
 
@@ -139,12 +141,11 @@ namespace junklite
             if (prefab == null)
                 return $"Missing prefab: {label}";
 
-            GameObject spawned = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
-            if (spawned == null)
-                return $"Could not spawn {label}";
+            if (!TryGetSpawnPlacement(out SpawnPlacement placement))
+                return "No ground found near the player";
 
+            GameObject spawned = InstantiateForCurrentPlane(prefab, placement);
             spawned.name = $"[DEV] {prefab.name}";
-            spawned.transform.SetPositionAndRotation(GetSpawnPosition(), prefab.transform.rotation);
             if (enemyAiPaused)
                 spawned.GetComponent<EnemyCharacter>()?.StateMachine?.Pause();
             return $"Spawned {label}";
@@ -159,16 +160,15 @@ namespace junklite
             GameObject pickupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(pickupPath);
             if (pickupPrefab != null)
             {
-                GameObject spawned = PrefabUtility.InstantiatePrefab(pickupPrefab) as GameObject;
-                if (spawned != null)
-                {
-                    spawned.name = $"[DEV] MOD / {GetModName(mod)}";
-                    spawned.transform.SetPositionAndRotation(GetSpawnPosition(), pickupPrefab.transform.rotation);
-                    WorldModPickup pickup = spawned.GetComponent<WorldModPickup>();
-                    if (pickup != null)
-                        pickup.modData = mod;
-                    return $"Spawned {GetModName(mod)} pickup";
-                }
+                if (!TryGetSpawnPlacement(out SpawnPlacement placement))
+                    return "No ground found near the player";
+
+                GameObject spawned = InstantiateForCurrentPlane(pickupPrefab, placement);
+                spawned.name = $"[DEV] MOD / {GetModName(mod)}";
+                WorldModPickup pickup = spawned.GetComponent<WorldModPickup>();
+                if (pickup != null)
+                    pickup.modData = mod;
+                return $"Spawned {GetModName(mod)} pickup";
             }
 
             PlayerCharacter player = GetPlayer();
@@ -187,38 +187,162 @@ namespace junklite
             if (prefab == null)
                 return $"Missing weapon prefab: {label}";
 
-            GameObject spawned = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
-            if (spawned == null)
-                return $"Could not spawn {label}";
+            if (!TryGetSpawnPlacement(out SpawnPlacement placement))
+                return "No ground found near the player";
 
+            GameObject spawned = InstantiateForCurrentPlane(prefab, placement);
             spawned.name = $"[DEV] WEAPON / {label}";
-            spawned.transform.SetPositionAndRotation(GetSpawnPosition(), prefab.transform.rotation);
             return $"Spawned {label} pickup";
         }
 
-        private Vector3 GetSpawnPosition()
+        private bool TryGetSpawnPlacement(out SpawnPlacement placement)
         {
             PlayerCharacter player = GetPlayer();
-            Vector3 playerPosition = player != null ? player.transform.position : Vector3.zero;
+            if (player == null)
+            {
+                placement = default;
+                return false;
+            }
+
+            Character2D5Controller controller = player.Controller;
+            Vector3 movementAxis = controller != null
+                ? controller.MovementAxis
+                : player.transform.right;
+            movementAxis.y = 0f;
+            if (movementAxis.sqrMagnitude < 0.01f)
+                movementAxis = Vector3.right;
+            movementAxis = SnapToHorizontalAxis(movementAxis);
+
+            int groundMask = controller != null && controller.GroundLayerMask.value != 0
+                ? controller.GroundLayerMask.value
+                : LayerMask.GetMask("Default", "Ground", "Wall");
 
             int lane = spawnSequence % 3;
             float side = (spawnSequence / 3) % 2 == 0 ? 1f : -1f;
             spawnSequence++;
 
-            Vector3 candidate = playerPosition + Vector3.right * side * (4f + lane * 1.75f);
-            Vector3 rayOrigin = candidate + Vector3.up * 8f;
-            if (Physics.Raycast(
-                    rayOrigin,
-                    Vector3.down,
-                    out RaycastHit hit,
-                    30f,
-                    Physics.DefaultRaycastLayers,
-                    QueryTriggerInteraction.Ignore))
+            float preferredDistance = 4f + lane * 1.75f;
+            for (int sidePass = 0; sidePass < 2; sidePass++)
             {
-                candidate.y = hit.point.y + 0.05f;
+                float searchSide = sidePass == 0 ? side : -side;
+                foreach (float offset in SpawnSearchOffsets)
+                {
+                    float distance = Mathf.Max(1.5f, preferredDistance + offset);
+                    Vector3 candidate = player.transform.position +
+                                        movementAxis * (searchSide * distance);
+                    if (!TryFindGround(candidate, player.transform.position.y, groundMask,
+                            out Vector3 groundPoint))
+                    {
+                        continue;
+                    }
+
+                    Quaternion planeRotation = Quaternion.LookRotation(
+                        Vector3.Cross(movementAxis, Vector3.up),
+                        Vector3.up);
+                    placement = new SpawnPlacement(groundPoint, planeRotation);
+                    return true;
+                }
             }
 
-            return candidate;
+            placement = default;
+            return false;
+        }
+
+        private static bool TryFindGround(
+            Vector3 candidate,
+            float playerHeight,
+            int groundMask,
+            out Vector3 groundPoint)
+        {
+            Vector3 rayOrigin = candidate + Vector3.up * 10f;
+            RaycastHit[] hits = Physics.RaycastAll(
+                rayOrigin,
+                Vector3.down,
+                40f,
+                groundMask,
+                QueryTriggerInteraction.Ignore);
+
+            bool found = false;
+            float closestHeight = float.PositiveInfinity;
+            groundPoint = default;
+            foreach (RaycastHit hit in hits)
+            {
+                if (hit.normal.y < 0.55f)
+                    continue;
+
+                float heightDifference = Mathf.Abs(hit.point.y - playerHeight);
+                if (heightDifference >= closestHeight)
+                    continue;
+
+                closestHeight = heightDifference;
+                groundPoint = hit.point;
+                found = true;
+            }
+
+            return found;
+        }
+
+        private static GameObject InstantiateForCurrentPlane(
+            GameObject prefab,
+            SpawnPlacement placement)
+        {
+            Vector3 prefabEuler = prefab.transform.eulerAngles;
+            Quaternion rotation = Quaternion.Euler(
+                prefabEuler.x,
+                placement.PlaneRotation.eulerAngles.y,
+                prefabEuler.z);
+
+            // Position and rotation are supplied to Instantiate so axis-sensitive Awake
+            // methods cache the correct XY or ZY movement plane on their first call.
+            GameObject spawned = UnityEngine.Object.Instantiate(
+                prefab,
+                placement.GroundPoint + Vector3.up * 4f,
+                rotation);
+            PlaceOnGround(spawned, placement.GroundPoint.y);
+            return spawned;
+        }
+
+        private static void PlaceOnGround(GameObject spawned, float groundHeight)
+        {
+            float lowestSolidPoint = float.PositiveInfinity;
+            foreach (Collider collider in spawned.GetComponentsInChildren<Collider>(true))
+            {
+                if (!collider.enabled || collider.isTrigger || !collider.gameObject.activeInHierarchy)
+                    continue;
+
+                lowestSolidPoint = Mathf.Min(lowestSolidPoint, collider.bounds.min.y);
+            }
+
+            const float surfaceClearance = 0.08f;
+            if (float.IsPositiveInfinity(lowestSolidPoint))
+            {
+                Vector3 position = spawned.transform.position;
+                position.y = groundHeight + surfaceClearance;
+                spawned.transform.position = position;
+                return;
+            }
+
+            float verticalAdjustment = groundHeight + surfaceClearance - lowestSolidPoint;
+            spawned.transform.position += Vector3.up * verticalAdjustment;
+        }
+
+        private static Vector3 SnapToHorizontalAxis(Vector3 direction)
+        {
+            return Mathf.Abs(direction.x) >= Mathf.Abs(direction.z)
+                ? new Vector3(Mathf.Sign(direction.x), 0f, 0f)
+                : new Vector3(0f, 0f, Mathf.Sign(direction.z));
+        }
+
+        private readonly struct SpawnPlacement
+        {
+            public SpawnPlacement(Vector3 groundPoint, Quaternion planeRotation)
+            {
+                GroundPoint = groundPoint;
+                PlaneRotation = planeRotation;
+            }
+
+            public Vector3 GroundPoint { get; }
+            public Quaternion PlaneRotation { get; }
         }
 
         private static string HealPlayer()

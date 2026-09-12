@@ -1289,6 +1289,7 @@ MonoBehaviour:
   playerNameText: {fileID: 0}
   healthIconFeedback: {fileID: 8462336898480373002}
   modCombatUI: {fileID: 8615370108159043596}
+  bodyFont: {fileID: 11400000, guid: d420ec421400c4761b6423d19266a147, type: 2}
   inventoryPanel: {fileID: 6949096089251354401}
   inventoryUI: {fileID: 3942245547236276918}
   weaponPickupPanel: {fileID: 9209673182757569138}
@@ -2115,6 +2116,7 @@ MonoBehaviour:
   slot2: {fileID: 3910914186372284105}
   activeModParent: {fileID: 8314804045858316532}
   modSlotPrefab: {fileID: 4882513819511076147, guid: 9515f829429e93a49870d1bfa95a1840, type: 3}
+  bodyFont: {fileID: 11400000, guid: d420ec421400c4761b6423d19266a147, type: 2}
 --- !u!1 &3620941906573541157
 GameObject:
   m_ObjectHideFlags: 0
@@ -4201,6 +4203,11 @@ MonoBehaviour:
   weaponSlot1: {fileID: 1473724409801643684}
   weaponSlot2: {fileID: 3048891878364354007}
   descriptionUI: {fileID: 3897783407409097875}
+  panel: {fileID: 6949096089251354401}
+  characterVisual: {fileID: 6343628995829885454}
+  headingFont: {fileID: 0}
+  bodyFont: {fileID: 11400000, guid: d420ec421400c4761b6423d19266a147, type: 2}
+  headingSourceFont: {fileID: 12800000, guid: 3259a038809934b37b220a603b5b5d04, type: 3}
 --- !u!222 &5641767889167318056
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -4991,6 +4998,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d40a037350a1e9646b1ddc0363eb48a5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponPickupUI
+  panel: {fileID: 9209673182757569138}
+  headingFont: {fileID: 0}
+  bodyFont: {fileID: 11400000, guid: d420ec421400c4761b6423d19266a147, type: 2}
+  headingSourceFont: {fileID: 12800000, guid: 3259a038809934b37b220a603b5b5d04, type: 3}
   newWeaponIcon: {fileID: 421388897646907766}
   newWeaponName: {fileID: 1020183198134093998}
   newWeaponDurabilityFill: {fileID: 8922102820155058044}

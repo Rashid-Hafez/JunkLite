@@ -21,6 +21,9 @@ namespace junklite
         [SerializeField] private Image highlightImage;
         [SerializeField] private GameObject hoverImage;
         [SerializeField] private TMP_Text inputHintText;
+        [SerializeField] private GameObject durabilityTrack;
+        [SerializeField] private TMP_Text emptyLabel;
+        [SerializeField] private TMP_Text lockedLabel;
 
         // Data
         private ModInstance modInstance;
@@ -29,6 +32,8 @@ namespace junklite
         private int slotIndex;
         private SlotType slotType;
         private bool isLocked;
+        private float nextDurabilityRefresh;
+        private const float DurabilityRefreshInterval = 0.1f;
 
         // Drag state
         private static ModSlotUI draggedSlot;
@@ -72,6 +77,30 @@ namespace junklite
 
         #region Binding
 
+        public void Configure(
+            Image icon,
+            Image durability,
+            Image background,
+            Image blockedOverlay,
+            Image validTargetHighlight,
+            GameObject hover,
+            TMP_Text inputHint,
+            GameObject track = null,
+            TMP_Text empty = null,
+            TMP_Text locked = null)
+        {
+            iconImage = icon;
+            durabilityFill = durability;
+            backgroundImage = background;
+            crossIcon = blockedOverlay;
+            highlightImage = validTargetHighlight;
+            hoverImage = hover;
+            inputHintText = inputHint;
+            durabilityTrack = track;
+            emptyLabel = empty;
+            lockedLabel = locked;
+        }
+
         public void Bind(ModInstance mod, InventoryComponent inv, int index)
         {
             modInstance = mod;
@@ -79,6 +108,9 @@ namespace junklite
             modManager = null;
             slotIndex = index;
             slotType = SlotType.Inventory;
+            isLocked = false;
+            if (inputHintText != null)
+                inputHintText.text = "";
             UpdateDisplay();
         }
 
@@ -116,6 +148,17 @@ namespace junklite
                 crossIcon.raycastTarget = false;
             }
 
+
+            if (lockedLabel != null)
+                lockedLabel.gameObject.SetActive(isLocked);
+
+            if (emptyLabel != null)
+                emptyLabel.gameObject.SetActive(!isLocked && modInstance == null);
+
+            Selectable selectable = GetComponent<Selectable>();
+            if (selectable != null)
+                selectable.interactable = !isLocked;
+
             if (highlightImage != null)
             {
                 highlightImage.enabled = false;
@@ -142,10 +185,14 @@ namespace junklite
 
         private void Update()
         {
-            if (modInstance != null && durabilityFill != null && modInstance.Data != null)
+            if (Time.unscaledTime >= nextDurabilityRefresh &&
+                modInstance != null && durabilityFill != null && modInstance.Data != null)
             {
+                nextDurabilityRefresh = Time.unscaledTime + DurabilityRefreshInterval;
                 float max = modInstance.Data.maxDurability;
-                durabilityFill.fillAmount = max > 0f ? modInstance.CurrentDurability / max : 0f;
+                float fill = max > 0f ? modInstance.CurrentDurability / max : 0f;
+                if (!Mathf.Approximately(durabilityFill.fillAmount, fill))
+                    durabilityFill.fillAmount = fill;
             }
 
             UpdateOverlays();
@@ -169,7 +216,13 @@ namespace junklite
                         showCross = !compatible;
                     }
                 }
-                crossIcon.enabled = showCross;
+                if (crossIcon.enabled != showCross)
+                    crossIcon.enabled = showCross;
+                if (lockedLabel != null)
+                {
+                    if (lockedLabel.gameObject.activeSelf != showCross)
+                        lockedLabel.gameObject.SetActive(showCross);
+                }
             }
 
             if (highlightImage != null)
@@ -177,7 +230,8 @@ namespace junklite
                 bool showHighlight = false;
                 if (!isLocked && selectedSlot != null && selectedSlot != this)
                     showHighlight = IsValidTargetFor(selectedSlot);
-                highlightImage.enabled = showHighlight;
+                if (highlightImage.enabled != showHighlight)
+                    highlightImage.enabled = showHighlight;
             }
         }
 
@@ -210,12 +264,14 @@ namespace junklite
             if (modInstance != null)
             {
                 durabilityFill.gameObject.SetActive(true);
+                if (durabilityTrack != null) durabilityTrack.SetActive(true);
                 float max = modInstance.Data.maxDurability;
                 durabilityFill.fillAmount = max > 0f ? modInstance.CurrentDurability / max : 0f;
             }
             else
             {
                 durabilityFill.gameObject.SetActive(false);
+                if (durabilityTrack != null) durabilityTrack.SetActive(false);
             }
         }
 
@@ -265,7 +321,7 @@ namespace junklite
 
         private void HandleSelectionConfirm()
         {
-            if (draggedSlot != null) return;
+            if (draggedSlot != null || isLocked) return;
 
             if (selectedSlot == null)
             {
@@ -331,7 +387,7 @@ namespace junklite
             ClearSelection();
             OnModSelected?.Invoke(null);
 
-            if (IsEmpty)
+            if (IsEmpty || isLocked)
             {
                 eventData.pointerDrag = null;
                 return;

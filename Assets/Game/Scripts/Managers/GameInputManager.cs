@@ -39,6 +39,7 @@ namespace junklite
         public event Action OnUISubmit = delegate { };
         public event Action OnUICancel = delegate { };
         public event Action OnPauseToggle = delegate { };
+        public event Action<bool> OnInputDeviceChanged = delegate { };
 
 
         public Vector2 MoveDirection { get; private set; }
@@ -58,12 +59,49 @@ namespace junklite
         {
             return slotIndex switch
             {
-                0 => controls.Player.ModActivate1.GetBindingDisplayString(bindingMask: InputBinding.MaskByGroup("Keyboard&Mouse")),
-                1 => controls.Player.ModActivate2.GetBindingDisplayString(bindingMask: InputBinding.MaskByGroup("Keyboard&Mouse")),
-                2 => controls.Player.ModActivate3.GetBindingDisplayString(bindingMask: InputBinding.MaskByGroup("Keyboard&Mouse")),
-                3 => controls.Player.ModActivate4.GetBindingDisplayString(bindingMask: InputBinding.MaskByGroup("Keyboard&Mouse")),
+                0 => GetBindingHint(controls.Player.ModActivate1),
+                1 => GetBindingHint(controls.Player.ModActivate2),
+                2 => GetBindingHint(controls.Player.ModActivate3),
+                3 => GetBindingHint(controls.Player.ModActivate4),
                 _ => ""
             };
+        }
+
+        public string ResolveBindingTokens(string text)
+        {
+            if (string.IsNullOrEmpty(text) || controls == null)
+                return text;
+
+            const string tokenPrefix = "{input:";
+            int searchIndex = 0;
+
+            while (searchIndex < text.Length)
+            {
+                int tokenStart = text.IndexOf(tokenPrefix, searchIndex, StringComparison.OrdinalIgnoreCase);
+                if (tokenStart < 0)
+                    break;
+
+                int tokenEnd = text.IndexOf('}', tokenStart + tokenPrefix.Length);
+                if (tokenEnd < 0)
+                    break;
+
+                int actionNameStart = tokenStart + tokenPrefix.Length;
+                string actionName = text.Substring(actionNameStart, tokenEnd - actionNameStart).Trim();
+                InputAction action = controls.asset.FindAction(actionName, throwIfNotFound: false);
+                string bindingHint = GetBindingHint(action);
+
+                if (string.IsNullOrEmpty(bindingHint))
+                {
+                    searchIndex = tokenEnd + 1;
+                    continue;
+                }
+
+                text = text.Remove(tokenStart, tokenEnd - tokenStart + 1)
+                    .Insert(tokenStart, bindingHint);
+                searchIndex = tokenStart + bindingHint.Length;
+            }
+
+            return text;
         }
         public void SetGameplayInputEnabled(bool enabled)
         {
@@ -112,12 +150,92 @@ namespace junklite
             controls.Player.Enable();
         }
 
-        private void TrackInputDevice(InputAction.CallbackContext ctx)
+        private string GetBindingHint(InputAction action)
         {
-            var device = ctx.control?.device;
-            if (device == null) return;
+            if (action == null)
+                return string.Empty;
 
-            IsUsingGamepad = device is Gamepad || device is Joystick;
+            for (int i = 0; i < action.bindings.Count; i++)
+            {
+                InputBinding binding = action.bindings[i];
+                if (binding.isComposite)
+                    continue;
+
+                string path = binding.effectivePath;
+                bool matchesDevice = IsUsingGamepad
+                    ? IsGamepadBinding(path)
+                    : IsKeyboardAndMouseBinding(path);
+                if (string.IsNullOrEmpty(path) || !matchesDevice)
+                    continue;
+
+                return action.GetBindingDisplayString(i);
+            }
+
+            return action.GetBindingDisplayString();
+        }
+
+        private static bool IsGamepadBinding(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            return path.IndexOf("Gamepad", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   path.IndexOf("Joystick", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsKeyboardAndMouseBinding(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            return path.IndexOf("Keyboard", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   path.IndexOf("Mouse", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private void HandleActionChange(object changedObject, InputActionChange change)
+        {
+            if (change != InputActionChange.ActionPerformed ||
+                changedObject is not InputAction action ||
+                action.actionMap?.asset != controls?.asset ||
+                !IsMeaningfulDeviceInput(action))
+            {
+                return;
+            }
+
+            SetInputDevice(action.activeControl?.device);
+        }
+
+        private bool IsMeaningfulDeviceInput(InputAction action)
+        {
+            InputDevice device = action.activeControl?.device;
+            if (device is not Gamepad && device is not Joystick)
+                return true;
+
+            if (action.type != InputActionType.Value)
+                return true;
+
+            if (string.Equals(action.expectedControlType, "Vector2", StringComparison.Ordinal))
+                return action.ReadValue<Vector2>().sqrMagnitude >= gamepadDeadzone * gamepadDeadzone;
+
+            if (string.Equals(action.expectedControlType, "Axis", StringComparison.Ordinal))
+                return Mathf.Abs(action.ReadValue<float>()) >= gamepadDeadzone;
+
+            return true;
+        }
+
+        private void SetInputDevice(InputDevice device)
+        {
+            bool? useGamepad = null;
+            if (device is Gamepad || device is Joystick)
+                useGamepad = true;
+            else if (device is Keyboard || device is Mouse)
+                useGamepad = false;
+
+            if (!useGamepad.HasValue || IsUsingGamepad == useGamepad.Value)
+                return;
+
+            IsUsingGamepad = useGamepad.Value;
+            OnInputDeviceChanged(IsUsingGamepad);
         }
 
         // -----------------------------------------------------------------------
@@ -144,17 +262,19 @@ namespace junklite
             // === MOVE ===
             controls.Player.Move.performed += ctx =>
             {
-                TrackInputDevice(ctx);
                 if (!IsGameplayInputEnabled) return;
 
                 Vector2 raw = ctx.ReadValue<Vector2>();
+                if (raw.sqrMagnitude >= gamepadDeadzone * gamepadDeadzone)
+                    SetInputDevice(ctx.control?.device);
+
                 // Apply hard actuation cut for gamepad/joystick devices so analogue sticks either on or off
-                MoveDirection = InputHelpers.ApplyDeadzoneAndActuation(raw, gamepadDeadzone, gamepadActuation, IsUsingGamepad);
+                bool isGamepadInput = ctx.control?.device is Gamepad || ctx.control?.device is Joystick;
+                MoveDirection = InputHelpers.ApplyDeadzoneAndActuation(raw, gamepadDeadzone, gamepadActuation, isGamepadInput);
                 OnMove(MoveDirection);
             };
             controls.Player.Move.canceled += ctx =>
             {
-                TrackInputDevice(ctx);
                 if (!IsGameplayInputEnabled) return;
                 MoveDirection = Vector2.zero;
                 OnMove(MoveDirection);
@@ -292,19 +412,16 @@ namespace junklite
 
             controls.UI.Navigate.performed += ctx =>
             {
-                TrackInputDevice(ctx);
                 OnUINavigate(ctx.ReadValue<Vector2>());
             };
 
             controls.UI.Submit.performed += ctx =>
             {
-                TrackInputDevice(ctx);
                 OnUISubmit();
             };
 
             controls.UI.Cancel.performed += ctx =>
             {
-                TrackInputDevice(ctx);
                 OnUICancel();
             };
 
@@ -324,6 +441,7 @@ namespace junklite
         {
             if (controls != null)
             {
+                InputSystem.onActionChange += HandleActionChange;
                 // Start with Player map active, UI map disabled
                 controls.Player.Enable();
                 controls.UI.Disable();
@@ -332,6 +450,7 @@ namespace junklite
 
         void OnDisable()
         {
+            InputSystem.onActionChange -= HandleActionChange;
             if (controls != null)
                 controls.Disable();
         }

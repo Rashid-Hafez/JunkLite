@@ -155,6 +155,12 @@ namespace junklite
         public void RestartAtPrimarySpawn()
         {
             currentSpawnIndex = 0;
+            RespawnAtCurrentSpawn();
+        }
+
+        /// <summary>Respawns using the currently selected scene spawn point.</summary>
+        public void RespawnAtCurrentSpawn()
+        {
             currentPlayer?.Deactivate();
             CancelDeathRoutine();
 
@@ -200,6 +206,8 @@ namespace junklite
                 return;
 
             PlayerCharacter deadPlayer = currentPlayer;
+            if (deadPlayer != null)
+                SelectNearestSpawnPoint(deadPlayer.transform.position);
             PlayerDied?.Invoke(deadPlayer);
             deathRoutine = StartCoroutine(CompleteDeathPresentation(deadPlayer));
         }
@@ -328,6 +336,30 @@ namespace junklite
 
             currentSpawnIndex = Mathf.Clamp(currentSpawnIndex, 0, spawnPoints.Count - 1);
             return spawnPoints[currentSpawnIndex];
+        }
+
+        private void SelectNearestSpawnPoint(Vector3 deathPosition)
+        {
+            if (spawnPoints.Count == 0)
+                return;
+
+            int nearestIndex = currentSpawnIndex;
+            float nearestDistance = float.PositiveInfinity;
+            for (int i = 0; i < spawnPoints.Count; i++)
+            {
+                Transform spawn = spawnPoints[i];
+                if (spawn == null)
+                    continue;
+
+                float distance = (spawn.position - deathPosition).sqrMagnitude;
+                if (distance >= nearestDistance)
+                    continue;
+
+                nearestDistance = distance;
+                nearestIndex = i;
+            }
+
+            currentSpawnIndex = nearestIndex;
         }
 
         private void ResetPlayerMovementAxis()

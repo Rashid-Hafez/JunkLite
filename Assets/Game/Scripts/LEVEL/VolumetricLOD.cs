@@ -35,10 +35,7 @@ namespace junklite
          private void OnTriggerEnter(Collider other)
         {
             if (!other.CompareTag("Player"))
-            {
-                Debug.Log("Volumetric LOD: NOT Player entered trigger, highQuality set to false");
                 return;
-            }
 
             playerOverlaps++;
             if (playerOverlaps == 1)
@@ -51,17 +48,13 @@ namespace junklite
         void OnTriggerExit(Collider other)
         {
             if (!other.CompareTag("Player"))
-            {
-                Debug.Log("Volumetric LOD: NOT Player exited trigger, highQuality set to false");
                 return;
-            }
 
             playerOverlaps--;
             if (playerOverlaps <= 0)
             {
                 playerOverlaps = 0;
                 highQuality = false;
-                Debug.Log("Volumetric LOD: Player exited trigger, highQuality set to false");
                 Apply();
             }
         }

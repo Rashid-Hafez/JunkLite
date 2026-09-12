@@ -78,6 +78,11 @@ namespace junklite
             StateMachine.ChangeState<T>();
         }
 
+        protected void RestartState<T>() where T : IState
+        {
+            StateMachine?.RestartState<T>();
+        }
+
         protected bool IsForcedState()
         {
             IState current = StateMachine != null ? StateMachine.CurrentState : null;

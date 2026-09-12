@@ -45,6 +45,14 @@ namespace junklite
 
         // ---------- Public API ----------
 
+        public void Configure(Image fill, TMP_Text text, string format = "{0} / {1}")
+        {
+            fillImage = fill;
+            slider = null;
+            valueText = text;
+            valueFormat = format;
+        }
+
         public void Bind(Attribute attribute)
         {
             Unbind();

@@ -24,7 +24,6 @@ namespace junklite
         [Tooltip("Temporary serialized fallbacks for scenes not yet rebuilt with GameUIManager.")]
         [SerializeField, HideInInspector] private GameObject playerUIPrefab;
         [SerializeField, HideInInspector] private GameObject pauseMenuUIPrefab;
-        [SerializeField, HideInInspector] private GameObject gameOverUIPrefab;
         [SerializeField, HideInInspector] private GameObject loadingScreenUIPrefab;
 
         [Header("Debug")]
@@ -83,7 +82,6 @@ namespace junklite
             gameUIManager.ApplyDefaultsIfMissing(
                 playerUIPrefab,
                 pauseMenuUIPrefab,
-                gameOverUIPrefab,
                 loadingScreenUIPrefab);
 
             SubscribeToPlayerLifecycle();
@@ -140,7 +138,8 @@ namespace junklite
             if (isLoadingScene)
                 return;
 
-            SetGameState(GameState.GameOver);
+            SetGameState(GameState.Playing);
+            playerLifecycle?.RespawnAtCurrentSpawn();
         }
 
         #endregion

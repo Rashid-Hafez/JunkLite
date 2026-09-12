@@ -58,6 +58,7 @@ namespace junklite
         float _pulseTimer;
         bool _isPulsing;
         bool _uiBuilt;
+        int _displayedSecond = -1;
 
         #endregion
 
@@ -157,15 +158,23 @@ namespace junklite
 
         void RefreshTimer(float seconds)
         {
-            if (_timerValue != null)
-                _timerValue.text = LevelStatsTracker.FormatTime(seconds);
+            int elapsedSecond = Mathf.Max(0, Mathf.FloorToInt(seconds));
+            if (_timerValue == null || elapsedSecond == _displayedSecond) return;
+
+            _displayedSecond = elapsedSecond;
+            int minutes = elapsedSecond / 60;
+            int remainingSeconds = elapsedSecond % 60;
+            _timerValue.SetText("{0}:{1:00}", minutes, remainingSeconds);
         }
 
         void RefreshKills(int count)
         {
             if (_killValue == null) return;
             int total = _tracker != null ? _tracker.TotalEnemies : 0;
-            _killValue.text = total > 0 ? $"{count}/{total}" : count.ToString();
+            if (total > 0)
+                _killValue.SetText("{0}/{1}", count, total);
+            else
+                _killValue.SetText("{0}", count);
         }
 
         #endregion

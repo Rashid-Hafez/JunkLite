@@ -19,6 +19,24 @@ namespace junklite
         [SerializeField] private Color notReadyColor = new Color(0.35f, 0.35f, 0.35f, 1f);
 
         private ModInstance boundMod;
+        private float nextDynamicRefresh;
+        private const float DynamicRefreshInterval = 0.1f;
+
+        public void Configure(
+            Image icon,
+            Image durability,
+            TMP_Text inputHint,
+            Image cooldown,
+            Color ready,
+            Color notReady)
+        {
+            iconImage = icon;
+            durabilityFill = durability;
+            inputHintText = inputHint;
+            cooldownFill = cooldown;
+            readyColor = ready;
+            notReadyColor = notReady;
+        }
 
         public void Bind(ModInstance mod, PlayerCharacter player, string inputHint = null)
         {
@@ -65,25 +83,33 @@ namespace junklite
         private void Update()
         {
             if (boundMod == null) return;
+            if (Time.unscaledTime < nextDynamicRefresh) return;
+            nextDynamicRefresh = Time.unscaledTime + DynamicRefreshInterval;
 
             if (durabilityFill != null && durabilityFill.enabled)
             {
                 float max = boundMod.Data.maxDurability;
-                durabilityFill.fillAmount = max > 0f ? boundMod.CurrentDurability / max : 0f;
+                float fill = max > 0f ? boundMod.CurrentDurability / max : 0f;
+                if (!Mathf.Approximately(durabilityFill.fillAmount, fill))
+                    durabilityFill.fillAmount = fill;
             }
 
             if (iconImage != null && iconImage.enabled && boundMod.Data is ActiveModData active)
             {
                 bool isReady = active.CanActivate(boundMod, null);
-                iconImage.color = isReady ? readyColor : notReadyColor;
+                Color color = isReady ? readyColor : notReadyColor;
+                if (iconImage.color != color)
+                    iconImage.color = color;
             }
 
             if (cooldownFill != null)
             {
                 float normalized = boundMod.CooldownNormalized;
                 bool onCooldown = normalized > 0f;
-                cooldownFill.enabled = onCooldown;
-                cooldownFill.fillAmount = normalized;
+                if (cooldownFill.enabled != onCooldown)
+                    cooldownFill.enabled = onCooldown;
+                if (!Mathf.Approximately(cooldownFill.fillAmount, normalized))
+                    cooldownFill.fillAmount = normalized;
             }
         }
     }

@@ -6,7 +6,7 @@ namespace junklite
     /// <summary>
     /// Persistent owner of runtime game UI creation and visibility. GameManager
     /// publishes global state and coordinates scene loading; this component owns
-    /// the HUD, pause menu, game-over presentation, and loading presentation.
+    /// the HUD, pause menu, and loading presentation.
     /// </summary>
     [DefaultExecutionOrder(0)]
     [DisallowMultipleComponent]
@@ -17,14 +17,11 @@ namespace junklite
         [Header("UI Prefabs")]
         [SerializeField] private GameObject playerUIPrefab;
         [SerializeField] private GameObject pauseMenuUIPrefab;
-        [SerializeField] private GameObject gameOverUIPrefab;
         [SerializeField] private GameObject loadingScreenUIPrefab;
 
         private Transform gameplayCanvasTransform;
         private PlayerUI playerUIInstance;
         private PauseMenuUI pauseMenuUIInstance;
-        private GameObject gameOverUIInstance;
-        private Button gameOverRestartButton;
         private LoadingScreenUI loadingScreenUIInstance;
         private GameManager subscribedGameManager;
         private PlayerLifecycle subscribedPlayerLifecycle;
@@ -32,11 +29,9 @@ namespace junklite
 
         public GameObject PlayerUIPrefab => playerUIPrefab;
         public GameObject PauseMenuUIPrefab => pauseMenuUIPrefab;
-        public GameObject GameOverUIPrefab => gameOverUIPrefab;
         public GameObject LoadingScreenUIPrefab => loadingScreenUIPrefab;
         public bool IsPlayerHUDReady => playerUIInstance != null;
         public bool IsPauseMenuReady => pauseMenuUIInstance != null;
-        public bool IsGameOverUIReady => gameOverUIInstance != null;
         public bool IsLoadingScreenReady => loadingScreenUIInstance != null;
         public bool IsLoadingPresentationFinished =>
             loadingScreenUIInstance == null || loadingScreenUIInstance.IsVideoFinished;
@@ -78,9 +73,6 @@ namespace junklite
             UnsubscribeFromGameManager();
             UnsubscribeFromPlayerLifecycle();
 
-            if (gameOverRestartButton != null)
-                gameOverRestartButton.onClick.RemoveListener(HandleRestartRequested);
-
             if (loadingScreenUIInstance != null)
                 Destroy(loadingScreenUIInstance.gameObject);
 
@@ -95,15 +87,12 @@ namespace junklite
         public void ApplyDefaultsIfMissing(
             GameObject fallbackPlayerUI,
             GameObject fallbackPauseMenu,
-            GameObject fallbackGameOver,
             GameObject fallbackLoadingScreen)
         {
             if (playerUIPrefab == null)
                 playerUIPrefab = fallbackPlayerUI;
             if (pauseMenuUIPrefab == null)
                 pauseMenuUIPrefab = fallbackPauseMenu;
-            if (gameOverUIPrefab == null)
-                gameOverUIPrefab = fallbackGameOver;
             if (loadingScreenUIPrefab == null)
                 loadingScreenUIPrefab = fallbackLoadingScreen;
         }
@@ -118,10 +107,8 @@ namespace junklite
             playerHudAllowed = allowPlayerHud;
             EnsureLoadingScreenUI();
             EnsurePauseMenuUI();
-            EnsureGameOverUI();
 
             loadingScreenUIInstance?.Hide();
-            SetGameOverVisible(false);
 
             if (!playerHudAllowed)
             {
@@ -142,7 +129,6 @@ namespace junklite
             ResolveGameplayCanvas();
             EnsureLoadingScreenUI();
             SetPlayerHUDActive(false);
-            SetGameOverVisible(false);
             loadingScreenUIInstance?.Show();
         }
 
@@ -221,7 +207,6 @@ namespace junklite
             switch (state)
             {
                 case GameManager.GameState.Playing:
-                    SetGameOverVisible(false);
                     PlayerCharacter player = subscribedPlayerLifecycle?.Player;
                     SetPlayerHUDActive(playerHudAllowed && player != null && player.IsAlive);
                     break;
@@ -231,14 +216,8 @@ namespace junklite
 
                 case GameManager.GameState.GameOver:
                     SetPlayerHUDActive(false);
-                    SetGameOverVisible(true);
                     break;
             }
-        }
-
-        private void HandleRestartRequested()
-        {
-            GameManager.Instance?.RestartLevel();
         }
 
         private void ResolveGameplayCanvas()
@@ -341,29 +320,6 @@ namespace junklite
             }
         }
 
-        private void EnsureGameOverUI()
-        {
-            if (gameOverUIInstance != null)
-                return;
-
-            if (gameOverUIPrefab == null)
-            {
-                Debug.LogWarning("[GameUIManager] Game-over prefab is not assigned.");
-                return;
-            }
-
-            gameOverUIInstance = Instantiate(gameOverUIPrefab, gameplayCanvasTransform);
-            gameOverUIInstance.name = "Game Over UI";
-            gameOverRestartButton = gameOverUIInstance.GetComponentInChildren<Button>(true);
-
-            if (gameOverRestartButton != null)
-                gameOverRestartButton.onClick.AddListener(HandleRestartRequested);
-            else
-                Debug.LogWarning("[GameUIManager] Game-over prefab has no restart Button.");
-
-            SetGameOverVisible(false);
-        }
-
         private void EnsureLoadingScreenUI()
         {
             if (loadingScreenUIInstance != null)
@@ -393,10 +349,5 @@ namespace junklite
                 playerUIInstance.gameObject.SetActive(active);
         }
 
-        private void SetGameOverVisible(bool visible)
-        {
-            if (gameOverUIInstance != null && gameOverUIInstance.activeSelf != visible)
-                gameOverUIInstance.SetActive(visible);
-        }
     }
 }

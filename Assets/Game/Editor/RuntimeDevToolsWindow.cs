@@ -44,9 +44,6 @@ namespace junklite.Editor
         {
             EditorGUILayout.Space(12f);
             EditorGUILayout.LabelField("Runtime Developer Tools", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField(
-                "Enable a responsive command panel inside the Game view while playing.",
-                EditorStyles.wordWrappedLabel);
 
             EditorGUILayout.Space(12f);
             EditorGUI.BeginChangeCheck();
@@ -61,14 +58,14 @@ namespace junklite.Editor
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
                 string status = !EditorApplication.isPlaying
-                    ? "Ready — the panel will open next time Play Mode starts."
+                    ? IsEnabled ? "Opens when Play Mode starts" : "Tools disabled"
                     : IsEnabled
                         ? EditorRuntimeDevToolsPanel.IsPanelVisible
                             ? "Play Mode: panel visible"
                             : "Play Mode: panel hidden"
                         : "Play Mode: tools disabled";
                 EditorGUILayout.LabelField(status, EditorStyles.wordWrappedLabel);
-                EditorGUILayout.LabelField("F10 hides or reopens the panel during play.", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField("F10: hide / show during play", EditorStyles.miniLabel);
             }
 
             EditorGUILayout.Space(10f);

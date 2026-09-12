@@ -271,11 +271,8 @@ namespace junklite
             RectTransform header = CreateRect("Header", parent);
             Anchor(header, 0.055f, 0.895f, 0.965f, 0.985f);
 
-            TMP_Text eyebrow = CreateText("Eyebrow", header, "JUNKLITE // EDITOR", 15f, Acid, FontStyles.Bold);
-            Anchor(eyebrow.rectTransform, 0f, 0.56f, 0.72f, 1f);
-
             TMP_Text title = CreateText("Title", header, "DEV CONSOLE", 26f, Paper, FontStyles.Bold);
-            Anchor(title.rectTransform, 0f, 0f, 0.7f, 0.64f);
+            Anchor(title.rectTransform, 0f, 0.17f, 0.7f, 0.9f);
 
             CreateButton(header, "HIDE", () => SetPanelVisibleInternal(false), true,
                 new Vector2(0.76f, 0.17f), new Vector2(1f, 0.78f));
@@ -449,7 +446,7 @@ namespace junklite
             IReadOnlyList<PanelAction> actions)
         {
             TMP_Text heading = CreateText(title + " Heading", parent,
-                $"{title}  /  {actions.Count:00}", 16f, Paper, FontStyles.Bold);
+                title, 16f, Paper, FontStyles.Bold);
             heading.gameObject.AddComponent<LayoutElement>().preferredHeight = 27f;
 
             RectTransform grid = CreateRect(title + " Grid", parent);

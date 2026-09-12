@@ -115,7 +115,6 @@ namespace junklite.Editor
                     uiManager.ApplyDefaultsIfMissing(
                         serializedManager.FindProperty("playerUIPrefab").objectReferenceValue as GameObject,
                         serializedManager.FindProperty("pauseMenuUIPrefab").objectReferenceValue as GameObject,
-                        serializedManager.FindProperty("gameOverUIPrefab").objectReferenceValue as GameObject,
                         serializedManager.FindProperty("loadingScreenUIPrefab").objectReferenceValue as GameObject);
                 }
 
@@ -446,9 +445,6 @@ namespace junklite.Editor
                 throw new MissingReferenceException(
                     "GameUIManager needs a pause menu prefab with PauseMenuUI.");
             }
-
-            if (uiManager.GameOverUIPrefab == null)
-                throw new MissingReferenceException("GameUIManager has no game-over prefab assigned.");
 
             if (uiManager.LoadingScreenUIPrefab == null ||
                 uiManager.LoadingScreenUIPrefab.GetComponent<LoadingScreenUI>() == null)

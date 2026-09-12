@@ -1,11 +1,15 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Buffers;
+using UnityEngine.Pool;
 
 namespace junklite
 {
     [CreateAssetMenu(fileName = "ElectricMod", menuName = "Junklite/Mods/Electric")]
     public class ElectricModData : PassiveModData
     {
+        private const int MaxOverlapCapacity = 256;
+
         [Header("Zap Effect")]
         [SerializeField] private StatusEffectDefinition electricStatusEffect;
         public float zapDamage = 3f;
@@ -60,17 +64,43 @@ namespace junklite
         private void ZapNearbyEnemies(EnemyCharacter origin, GameObject source)
         {
             float areaDamage = zapDamage * areaDamageMultiplier;
-            Collider[] hits = Physics.OverlapSphere(origin.transform.position, zapRadius);
-            var affectedEnemies = new HashSet<EnemyCharacter>();
+            Collider[] overlapBuffer = ArrayPool<Collider>.Shared.Rent(64);
+            HashSet<EnemyCharacter> affectedEnemies = HashSetPool<EnemyCharacter>.Get();
 
-            foreach (var hit in hits)
+            try
             {
-                var nearbyEnemy = hit.GetComponentInParent<EnemyCharacter>();
-                if (nearbyEnemy == null || nearbyEnemy == origin) continue;
-                if (!nearbyEnemy.IsAlive || nearbyEnemy.StatusEffects == null) continue;
-                if (!affectedEnemies.Add(nearbyEnemy)) continue;
+                int hitCount;
+                while (true)
+                {
+                    hitCount = Physics.OverlapSphereNonAlloc(
+                        origin.transform.position,
+                        zapRadius,
+                        overlapBuffer);
+                    if (hitCount < overlapBuffer.Length || overlapBuffer.Length >= MaxOverlapCapacity)
+                        break;
 
-                ApplyZap(nearbyEnemy, areaDamage, source);
+                    Collider[] largerBuffer = ArrayPool<Collider>.Shared.Rent(
+                        Mathf.Min(overlapBuffer.Length * 2, MaxOverlapCapacity));
+                    ArrayPool<Collider>.Shared.Return(overlapBuffer, clearArray: true);
+                    overlapBuffer = largerBuffer;
+                }
+
+                for (int i = 0; i < hitCount; i++)
+                {
+                    Collider hit = overlapBuffer[i];
+                    if (hit == null) continue;
+                    var nearbyEnemy = hit.GetComponentInParent<EnemyCharacter>();
+                    if (nearbyEnemy == null || nearbyEnemy == origin) continue;
+                    if (!nearbyEnemy.IsAlive || nearbyEnemy.StatusEffects == null) continue;
+                    if (!affectedEnemies.Add(nearbyEnemy)) continue;
+
+                    ApplyZap(nearbyEnemy, areaDamage, source);
+                }
+            }
+            finally
+            {
+                ArrayPool<Collider>.Shared.Return(overlapBuffer, clearArray: true);
+                HashSetPool<EnemyCharacter>.Release(affectedEnemies);
             }
         }
 

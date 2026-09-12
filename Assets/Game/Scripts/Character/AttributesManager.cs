@@ -16,6 +16,7 @@ namespace junklite
         [Header("Runtime Attributes (read-only)")]
         [SerializeField] private List<Attribute> allRuntimeAttributes = new List<Attribute>(); // for inspector/UI
         private readonly Dictionary<AttributeType, Attribute> map = new Dictionary<AttributeType, Attribute>();
+        private readonly List<Attribute> regeneratingAttributes = new List<Attribute>();
         private CharacterStats initializedSource;
         private bool isInitialized;
 
@@ -52,6 +53,7 @@ namespace junklite
             UnhookHealthDeath();
             map.Clear();
             allRuntimeAttributes.Clear();
+            regeneratingAttributes.Clear();
 
             if (source?.attributes != null)
             {
@@ -73,20 +75,23 @@ namespace junklite
                     // Track
                     map[s.type] = runtime;
                     allRuntimeAttributes.Add(runtime);
+                    if (runtime.hasRegeneration)
+                        regeneratingAttributes.Add(runtime);
                 }
             }
 
             initializedSource = source;
             isInitialized = true;
             HookHealthDeath();
+            enabled = regeneratingAttributes.Count > 0 && IsAlive;
         }
 
         private void Update()
         {
             // Per-frame regeneration tick
             var dt = Time.deltaTime;
-            for (int i = 0; i < allRuntimeAttributes.Count; i++)
-                allRuntimeAttributes[i].UpdateRegen(dt);
+            for (int i = 0; i < regeneratingAttributes.Count; i++)
+                regeneratingAttributes[i].UpdateRegen(dt);
         }
 
         /// <summary>Typed getter. Returns null if the attribute isn't defined in stats.</summary>
@@ -132,9 +137,14 @@ namespace junklite
         {
             for (int i = 0; i < allRuntimeAttributes.Count; i++)
                 allRuntimeAttributes[i].SetToMax();
+            enabled = regeneratingAttributes.Count > 0 && IsAlive;
         }
 
-        public void RestoreHealthToMax() => Health?.SetToMax();
+        public void RestoreHealthToMax()
+        {
+            Health?.SetToMax();
+            enabled = regeneratingAttributes.Count > 0 && IsAlive;
+        }
 
         #endregion
 
@@ -154,7 +164,11 @@ namespace junklite
                 health.OnDeath -= RaiseDeath;
         }
 
-        private void RaiseDeath() => OnDeath?.Invoke();
+        private void RaiseDeath()
+        {
+            enabled = false;
+            OnDeath?.Invoke();
+        }
 
         private void OnDestroy()
         {

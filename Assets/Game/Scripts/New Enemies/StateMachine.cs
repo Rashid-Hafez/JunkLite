@@ -76,6 +76,32 @@ namespace junklite
             ChangeState(newState);
         }
 
+        /// <summary>
+        /// Exits and re-enters a registered state. Unlike ChangeState, this is
+        /// intentionally allowed when the requested state is already current.
+        /// </summary>
+        public void RestartState<T>() where T : IState
+        {
+            var type = typeof(T);
+            if (!states.TryGetValue(type, out var stateToRestart))
+            {
+                Debug.LogError($"State {type.Name} not registered!");
+                return;
+            }
+
+            if (currentState != stateToRestart)
+            {
+                ChangeState(stateToRestart);
+                return;
+            }
+
+            previousState = currentState;
+            currentState.Exit();
+            currentState.Enter();
+
+            OnStateChanged?.Invoke(previousState, currentState);
+        }
+
         public void ChangeState(IState newState)
         {
             if (newState == null)

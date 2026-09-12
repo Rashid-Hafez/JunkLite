@@ -31,6 +31,8 @@ namespace junklite
         [SerializeField] private ParticleSystem particleDashBurst;
         [SerializeField] private TrailRenderer dashTrail;
         [SerializeField] private Transform feet;
+        [SerializeField, Min(0.033f)] private float minimumDashGhostSpawnInterval = 0.06f;
+        [SerializeField, Range(1, 8)] private int maximumDashGhosts = 4;
 
         [Header("Respawn Settings")]
         [SerializeField] private float reviveInvulnerability = 1.25f;
@@ -135,6 +137,10 @@ namespace junklite
             if (skeletonGhost == null)
             {
                 Debug.LogError("SkeletonGhost component not found on player character!", this);
+            }
+            else
+            {
+                ConfigureDashGhost();
             }
 
             inputManager = GameInputManager.Instance;
@@ -269,11 +275,13 @@ namespace junklite
         public virtual void Deactivate()
         {
             IsActive = false;
+            ResetDashVFX();
             CancelGrab(stopCoroutine: true);
             UnsubscribeFromInput();
 
             if (Controller != null)
             {
+                Controller.InterruptSpecialMovement();
                 Controller.SetLocomotionEnabled(false);
                 Controller.StopAllVelocity();
             }
@@ -319,11 +327,16 @@ namespace junklite
 
         public void ReviveAt(Vector3 position)
         {
+            // The same player object is reused across deaths. Clear transient dash
+            // presentation in case deactivation interrupted its end callback.
+            ResetDashVFX();
+
             if (attributes != null)
                 attributes.RestoreHealthToMax();
 
             if (Controller != null)
             {
+                Controller.InterruptSpecialMovement();
                 Controller.TeleportTo(position);
                 Controller.SetMovementInput(0f);
                 Controller.SetLocomotionEnabled(false);
@@ -344,6 +357,7 @@ namespace junklite
         //  void OnEnable() => SubscribeToInput();
         void OnDisable()
         {
+            ResetDashVFX();
             UnsubscribeFromInput();
             CancelGrab(stopCoroutine: true);
         }
@@ -813,7 +827,18 @@ namespace junklite
                 if (damageHitVFXPrefab != null)
                 {
                     Vector3 spawnPos = transform.position + damageVFXOffset;
-                    Instantiate(damageHitVFXPrefab, spawnPos, Quaternion.identity);
+                    if (damageHitVFXLifetime > 0f)
+                    {
+                        VFXPool.SpawnTimed(
+                            damageHitVFXPrefab,
+                            spawnPos,
+                            Quaternion.identity,
+                            damageHitVFXLifetime);
+                    }
+                    else
+                    {
+                        Instantiate(damageHitVFXPrefab, spawnPos, Quaternion.identity);
+                    }
                 }
 
                 if (feedbackManager != null)
@@ -895,22 +920,44 @@ namespace junklite
                 return;
             }
 
-            // Ensure the GameObject is active
-            if (!skeletonGhost.gameObject.activeInHierarchy)
+            if (skeletonGhost.ghostingEnabled == activate)
+                return;
+
+            skeletonGhost.ghostingEnabled = activate;
+        }
+
+        private void ConfigureDashGhost()
+        {
+            // SkeletonGhost clones a mesh for every after-image. Cap both the spawn
+            // rate and pool size before its Start method allocates the pool.
+            skeletonGhost.ghostingEnabled = false;
+            skeletonGhost.enabled = true;
+            skeletonGhost.spawnInterval = Mathf.Max(
+                skeletonGhost.spawnInterval,
+                minimumDashGhostSpawnInterval);
+            skeletonGhost.maximumGhosts = Mathf.Clamp(
+                skeletonGhost.maximumGhosts,
+                1,
+                Mathf.Max(1, maximumDashGhosts));
+        }
+
+        private void ResetDashVFX()
+        {
+            if (dashTrail != null)
             {
-                Debug.LogWarning("[PlayerCharacter] SkeletonGhost GameObject is inactive, activating it...", this);
-                skeletonGhost.gameObject.SetActive(true);
+                dashTrail.emitting = false;
+                dashTrail.Clear();
             }
 
-            // Ensure the component is enabled
-            skeletonGhost.enabled = true;
+            if (particleDashBurst != null)
+            {
+                particleDashBurst.Stop(
+                    true,
+                    ParticleSystemStopBehavior.StopEmittingAndClear);
+            }
 
-            // Ensure it's initialized (in case Start() hasn't run yet)
-            skeletonGhost.Initialize(false);
-
-            // Toggle ghosting
-            skeletonGhost.ghostingEnabled = activate;
-
+            if (skeletonGhost != null)
+                skeletonGhost.ghostingEnabled = false;
         }
 
         #endregion
