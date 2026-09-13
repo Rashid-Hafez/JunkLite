@@ -13,6 +13,22 @@ namespace junklite
         {
             base.Awake();
             enemyType = EnemyType.Grunt;
+
+            if (Movement != null)
+                Movement.BlockTargetMovementAgainstEnemies = true;
+
+            EnableEnemyBodyCollisions();
+        }
+
+        private void EnableEnemyBodyCollisions()
+        {
+            int enemiesLayer = LayerMask.NameToLayer("Enemies");
+            Collider bodyCollider = GetComponent<Collider>();
+            if (enemiesLayer < 0 || bodyCollider == null || bodyCollider.isTrigger)
+                return;
+
+            int excludeLayers = bodyCollider.excludeLayers;
+            bodyCollider.excludeLayers = excludeLayers & ~(1 << enemiesLayer);
         }
     }
 }
