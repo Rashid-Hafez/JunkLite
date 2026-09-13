@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using Unity.Cinemachine;
 
@@ -76,6 +77,11 @@ namespace junklite
         // Push-over-time state (parry pushback etc.)
         private bool isPushActive;
 
+        // Optional contact-based blocking for ground enemies that should queue instead
+        // of continuously driving their Rigidbody into another enemy.
+        private readonly List<EnemyMovement> contactedEnemies = new List<EnemyMovement>(4);
+        private bool blockTargetMovementAgainstEnemies;
+
         // Ground state
         private bool isGrounded;
         private int settledGroundCheckCounter;
@@ -103,6 +109,16 @@ namespace junklite
         public bool IsGrounded => isGrounded;
         public bool IsInKnockback => isInKnockback;
         public bool IgnoreKnockback { get => ignoreKnockback; set => ignoreKnockback = value; }
+        public bool BlockTargetMovementAgainstEnemies
+        {
+            get => blockTargetMovementAgainstEnemies;
+            set
+            {
+                blockTargetMovementAgainstEnemies = value;
+                if (!value)
+                    contactedEnemies.Clear();
+            }
+        }
 
         private void Awake()
         {
@@ -351,8 +367,75 @@ namespace junklite
             Vector3 direction = (targetPosition - rb.position).normalized;
             Vector3 planarDir = GetPlanarDirection(direction);
 
+            float desiredHorizontal = Vector3.Dot(planarDir, horizontalAxis);
+            if (IsTargetMovementBlockedByEnemy(desiredHorizontal))
+                return Vector3.zero;
+
             float speed = currentSpeed > 0f ? currentSpeed : moveSpeed;
             return planarDir * speed * statusMoveSpeedMultiplier;
+        }
+
+        private bool IsTargetMovementBlockedByEnemy(float desiredHorizontal)
+        {
+            if (!blockTargetMovementAgainstEnemies || Mathf.Abs(desiredHorizontal) < 0.001f)
+                return false;
+
+            for (int i = contactedEnemies.Count - 1; i >= 0; i--)
+            {
+                EnemyMovement other = contactedEnemies[i];
+                if (other == null || !other.isActiveAndEnabled)
+                {
+                    contactedEnemies.RemoveAt(i);
+                    continue;
+                }
+
+                float otherSide = Vector3.Dot(other.rb.position - rb.position, horizontalAxis);
+                if (Mathf.Abs(otherSide) < 0.001f)
+                {
+                    // Give coincident bodies a stable ordering so they do not both
+                    // choose a different side on successive physics steps.
+                    otherSide = GetInstanceID() < other.GetInstanceID() ? 1f : -1f;
+                }
+
+                if (desiredHorizontal * otherSide > 0f)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (!blockTargetMovementAgainstEnemies)
+                return;
+
+            EnemyMovement other = GetOtherEnemyMovement(collision);
+            if (other != null && other != this && !contactedEnemies.Contains(other))
+                contactedEnemies.Add(other);
+        }
+
+        private void OnCollisionExit(Collision collision)
+        {
+            if (!blockTargetMovementAgainstEnemies)
+                return;
+
+            EnemyMovement other = GetOtherEnemyMovement(collision);
+            if (other != null)
+                contactedEnemies.Remove(other);
+        }
+
+        private static EnemyMovement GetOtherEnemyMovement(Collision collision)
+        {
+            Rigidbody otherBody = collision.rigidbody;
+            if (otherBody != null)
+                return otherBody.GetComponent<EnemyMovement>();
+
+            return collision.collider.GetComponentInParent<EnemyMovement>();
+        }
+
+        private void OnDisable()
+        {
+            contactedEnemies.Clear();
         }
 
         private Vector3 CalculateDashVelocity()
