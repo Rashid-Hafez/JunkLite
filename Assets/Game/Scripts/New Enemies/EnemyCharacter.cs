@@ -78,10 +78,15 @@ namespace junklite
         [SerializeField] protected DropTable customDropTable;
         [SerializeField][Range(0f, 1f)] protected float dropChance = 1f;
 
+        [Header("Death Sequence")]
+        [Tooltip("Max seconds to wait for the corpse to touch the ground before forcing cleanup. Prevents a stuck corpse from lingering forever.")]
+        [SerializeField] protected float deathGroundTimeout = 3f;
+        [Tooltip("Seconds the corpse stays visible after it lands, so the death animation can finish playing before the body is removed.")]
+        [SerializeField] protected float deathLinger = 1.25f;
+
         protected EnemyType enemyType;
 
         // Damage flash state
-        private Coroutine damageFlashCoroutine;
         private Coroutine attackNotifyCoroutine;
         private bool tutorialFrozen;
         private bool tutorialPreviousKinematic;
@@ -649,10 +654,6 @@ namespace junklite
             deathHandled = true;
             LevelStatsTracker.Instance?.NotifyEnemyKilled(this);
 
-            SpawnDeathParticles();
-            DisableEnemyVisual();
-            DisablePhysics();
-
             if (DropManager.Instance != null)
             {
                 if (customDropTable != null)
@@ -664,15 +665,8 @@ namespace junklite
             if (statusEffects != null)
                 statusEffects.ClearAllEffects();
 
-            if (damageFlashCoroutine != null)
-            {
-                StopCoroutine(damageFlashCoroutine);
-                damageFlashCoroutine = null;
-            }
-
-            if (movement != null)
-                movement.Stop();
-
+            // Stop AI decision-making immediately, but leave the Rigidbody physics
+            // active so the corpse keeps falling under gravity and lands naturally.
             if (detectionZone != null)
             {
                 detectionZone.ClearTarget();
@@ -683,16 +677,51 @@ namespace junklite
 
             isInCombat = false;
 
+            // Entering DeadState makes the animation presenter play the death
+            // animation. The visual and physics stay active so the animation is
+            // actually rendered and the body can settle on the ground.
             if (stateMachine != null)
                 stateMachine.ChangeState<DeadState>();
 
             Died?.Invoke(this);
             base.HandleDeath();
+
+            // Defer the visual/physics teardown until the corpse has landed and the
+            // death animation has had time to play. Teardown happens in DeathSequence.
+            StartCoroutine(DeathSequence());
+        }
+
+        /// <summary>
+        /// Waits for the corpse to touch the ground (or a timeout), lets the death
+        /// animation linger, then tears down visuals, physics and deactivates the
+        /// enemy root. Runs on the still-active enemy so the animation is visible.
+        /// </summary>
+        protected virtual IEnumerator DeathSequence()
+        {
+            // Wait for the body to hit the ground before removing it. Flying enemies
+            // (no EnemyMovement) skip straight to the linger.
+            float elapsed = 0f;
+            while (movement != null && !movement.IsGrounded && elapsed < deathGroundTimeout)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            if (deathLinger > 0f)
+                yield return new WaitForSeconds(deathLinger);
+
+            SpawnDeathParticles();
+            DisableEnemyVisual();
+            DisablePhysics();
+
+            if (movement != null)
+                movement.Stop();
+
             enabled = false;
 
-            // The death presentation is detached (drops and particles own their own
-            // objects), so keeping the enemy root active only leaves its remaining
-            // MonoBehaviours receiving no-op Update/FixedUpdate callbacks.
+            // Now that the death presentation has finished, keeping the enemy root
+            // active only leaves its remaining MonoBehaviours receiving no-op
+            // Update/FixedUpdate callbacks, so it is deactivated.
             gameObject.SetActive(false);
         }
 

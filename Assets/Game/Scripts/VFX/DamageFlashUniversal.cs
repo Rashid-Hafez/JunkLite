@@ -49,6 +49,8 @@ namespace junklite
 
         public void Flash()
         {
+            if (!gameObject.activeInHierarchy) return;
+
             if (_flashCoroutine != null)
                 StopCoroutine(_flashCoroutine);
             _flashCoroutine = StartCoroutine(FlashCoroutine());
