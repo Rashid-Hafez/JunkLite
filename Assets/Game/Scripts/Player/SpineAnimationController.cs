@@ -94,6 +94,7 @@ namespace junklite
         private Character2D5Controller controller;
         private PlayerAudioHandler audioHandler;
         private WeaponManager weaponManager;
+        private PlayerCharacter playerCharacter;
 
         // State tracking
         private bool wasAirborne = false;
@@ -130,6 +131,7 @@ namespace junklite
             controller = GetComponentInParent<Character2D5Controller>();
             audioHandler = GetComponentInParent<PlayerAudioHandler>() ?? GetComponent<PlayerAudioHandler>();
             weaponManager = GetComponentInParent<WeaponManager>();
+            playerCharacter = GetComponentInParent<PlayerCharacter>();
 
             if (skeletonAnimation != null)
             {
@@ -159,6 +161,9 @@ namespace junklite
             playerState.OnAttackingChanged += OnAttackingChanged;
 
             playerState.OnAttackAnimationRequested += OnAttackAnimationRequested; // new
+
+            if (playerCharacter != null)
+                playerCharacter.OnRevived += OnRevived;
 
             if (skeletonAnimation != null)
                 skeletonAnimation.AnimationState.Event += HandleSpineEvent;
@@ -199,6 +204,9 @@ namespace junklite
                 playerState.OnAttackingChanged -= OnAttackingChanged;
                 playerState.OnAttackAnimationRequested -= OnAttackAnimationRequested;
             }
+
+            if (playerCharacter != null)
+                playerCharacter.OnRevived -= OnRevived;
 
             if (controller != null)
                 controller.OnDoubleJumpPerformed -= OnControllerDoubleJumpPerformed;
@@ -667,9 +675,13 @@ namespace junklite
         private void OnDoubleJumpChanged(bool doubleJumping)
         {
             if (!doubleJumping) return;
-            if (!playerState.IsJumping && !playerState.IsFalling)
+            // Airborne is the real precondition. The previous guard checked
+            // IsJumping/IsFalling, which could both be momentarily false during a
+            // falling double jump (state-set ordering), causing the animation to be
+            // dropped intermittently. Grounded is the only state that should skip it.
+            if (playerState.IsGrounded)
             {
-                ClearDoubleJumpFlag(); // e.g. stunned or not airborne - don't leave flag set without playing
+                ClearDoubleJumpFlag(); // not airborne - don't leave flag set without playing
                 return;
             }
 
@@ -752,6 +764,37 @@ namespace junklite
                 skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
                 PlayLocomotion(death, false);
             }
+        }
+
+        /// <summary>
+        /// Re-primes the presentation layer when the player respawns. The controller
+        /// listens for OnDeath but nothing previously told it the player revived, so
+        /// transient flags and the frozen death animation stayed stuck - which
+        /// swallowed subsequent double-jump requests. This clears that state.
+        /// </summary>
+        private void OnRevived()
+        {
+            // Clear transient presentation flags
+            attackActive = false;
+            currentAttackEntry = null;
+            forceOverrideActive = false;
+            waitingForParryEnd = false;
+            wasAirborne = false;
+
+            if (skeletonAnimation != null)
+            {
+                // Drop any overlay attack and unfreeze the locomotion track
+                // (OnJumpAirComplete may have set TimeScale = 0 to hold a frame).
+                skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
+
+                var current = skeletonAnimation.AnimationState.GetCurrent(locomotionTrack);
+                if (current != null)
+                    current.TimeScale = 1f;
+            }
+
+            // Restore a clean idle baseline so locomotion fallbacks take over normally.
+            currentLocomotionAnim = "";
+            PlayLocomotion(idle, true);
         }
 
         #endregion

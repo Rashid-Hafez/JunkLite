@@ -582,10 +582,15 @@ namespace junklite
             // Refund one air attack if scheduled (e.g. pogo hit) so player can pogo again after double jump
             playerState?.TryRefundAirAttackAfterDoubleJump();
 
-            // Double jump: clear falling, set jumping and double jumping
+            // Double jump: clear falling, set jumping BEFORE double jumping.
+            // Order matters: OnDoubleJumpChanged fires synchronously from
+            // SetDoubleJumping(true), and the Spine controller's guard requires a
+            // valid airborne state (IsJumping/IsFalling) at that instant. Setting
+            // jumping first prevents the animation from being swallowed when double
+            // jumping while falling.
             playerState?.SetFalling(false);       // Clear falling first
-            playerState?.SetDoubleJumping(true);  // Mark as double jumping
-            playerState?.SetJumping(true);        // Also set regular jumping
+            playerState?.SetJumping(true);        // Set regular jumping first
+            playerState?.SetDoubleJumping(true);  // Now fire double jump with valid state
             StartCoroutine(ResetDoubleJumpFlag());
         }
 
