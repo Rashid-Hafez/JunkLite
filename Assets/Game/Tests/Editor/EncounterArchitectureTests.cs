@@ -11,7 +11,7 @@ namespace junklite.Tests
 {
     public sealed class EncounterArchitectureTests
     {
-        private const string EnemyPrefabPath = "Assets/Game/Prefabs/Enemies/Grunt Enemy.prefab";
+        private const string EnemyPrefabPath = "Assets/Game/ENEMIES/Grunt/Grunt Enemy.prefab";
         private readonly HashSet<GameObject> cleanupObjects = new();
 
         [TearDown]

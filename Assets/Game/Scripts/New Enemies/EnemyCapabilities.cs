@@ -159,6 +159,21 @@ namespace junklite
     }
 
     /// <summary>
+    /// Optional policy used by ChaseState when an enemy should approach an
+    /// assigned engagement position instead of driving directly at the target.
+    /// </summary>
+    public interface IChaseDestinationProvider
+    {
+        bool TryGetChaseDestination(
+            Vector3 targetPosition,
+            float defaultStopDistance,
+            out Vector3 destination,
+            out float destinationStopDistance);
+
+        void OnChaseDestinationReached();
+    }
+
+    /// <summary>
     /// Enemy can perform ranged attacks.
     /// Used by: RangedAttackState (future)
     /// </summary>

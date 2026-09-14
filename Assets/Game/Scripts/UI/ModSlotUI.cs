@@ -33,6 +33,7 @@ namespace junklite
         private SlotType slotType;
         private bool isLocked;
         private float nextDurabilityRefresh;
+        private GameInputManager subscribedInputManager;
         private const float DurabilityRefreshInterval = 0.1f;
 
         // Drag state
@@ -109,8 +110,7 @@ namespace junklite
             slotIndex = index;
             slotType = SlotType.Inventory;
             isLocked = false;
-            if (inputHintText != null)
-                inputHintText.text = "";
+            RefreshInputHint();
             UpdateDisplay();
         }
 
@@ -123,15 +123,49 @@ namespace junklite
             slotType = isActiveMod ? SlotType.ActiveMod : SlotType.PassiveMod;
             isLocked = locked;
 
-            if (inputHintText != null)
-            {
-                if (isActiveMod && GameInputManager.Instance != null)
-                    inputHintText.text = GameInputManager.Instance.GetModActivateHint(index);
-                else
-                    inputHintText.text = "";
-            }
+            RefreshInputHint();
 
             UpdateDisplay();
+        }
+
+        private void OnEnable()
+        {
+            RebindInputManager();
+            RefreshInputHint();
+        }
+
+        private void RebindInputManager()
+        {
+            GameInputManager input = GameInputManager.Instance;
+            if (subscribedInputManager == input)
+                return;
+
+            UnbindInputManager();
+            subscribedInputManager = input;
+            if (subscribedInputManager != null)
+                subscribedInputManager.OnInputDeviceChanged += HandleInputDeviceChanged;
+        }
+
+        private void UnbindInputManager()
+        {
+            if (subscribedInputManager == null)
+                return;
+
+            subscribedInputManager.OnInputDeviceChanged -= HandleInputDeviceChanged;
+            subscribedInputManager = null;
+        }
+
+        private void HandleInputDeviceChanged(bool _) => RefreshInputHint();
+
+        private void RefreshInputHint()
+        {
+            if (inputHintText == null)
+                return;
+
+            GameInputManager input = subscribedInputManager ?? GameInputManager.Instance;
+            inputHintText.text = slotType == SlotType.ActiveMod && input != null
+                ? input.GetModActivateHint(slotIndex)
+                : "";
         }
 
         private void UpdateDisplay()
@@ -563,12 +597,14 @@ namespace junklite
 
         private void OnDisable()
         {
+            UnbindInputManager();
             if (draggedSlot == this) CleanupDrag();
             if (selectedSlot == this) ClearSelection();
         }
 
         private void OnDestroy()
         {
+            UnbindInputManager();
             if (draggedSlot == this) CleanupDrag();
             if (selectedSlot == this) ClearSelection();
         }

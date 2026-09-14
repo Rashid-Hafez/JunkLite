@@ -29,6 +29,7 @@ namespace junklite
         private RobotDashGrabCapability dashGrabCapability;
         private NoHitstunBehavior interruptRecovery = new();
         private bool returningToPassive;
+        private bool stateChangeSubscribed;
 
         public bool OwnsSerializedConfiguration => ownsSerializedConfiguration;
 
@@ -42,11 +43,18 @@ namespace junklite
         protected override void OnEnable()
         {
             base.OnEnable();
+            SubscribeToStateChanges();
             InitializeCapabilities();
+
+            if (Actor != null && Actor.HasTarget)
+                EnemyEngagementDirector.Register(Actor);
         }
 
         protected override void OnDisable()
         {
+            UnsubscribeFromStateChanges();
+            EnemyEngagementDirector.ReleaseAttack(Actor);
+            EnemyEngagementDirector.Unregister(Actor);
             UninitializeCapabilities();
             base.OnDisable();
         }
@@ -56,6 +64,7 @@ namespace junklite
             StateMachine.RegisterStates(
                 new PatrolState(Actor),
                 new IdleState(Actor),
+                new WaitForOpeningState(Actor),
                 new ChargeState(Actor),
                 new DashState(Actor),
                 new GrabState(Actor),
@@ -74,17 +83,25 @@ namespace junklite
         {
             if (current != null)
             {
-                bool wasInCombat = Actor.IsInCombat;
                 Actor.EnterCombat();
+                EnemyEngagementDirector.Register(Actor);
 
-                if (!wasInCombat && !IsDecisionLocked())
-                    ChangeState<ChargeState>();
+                if (!IsDecisionLocked())
+                    TryBeginAttack();
 
                 return;
             }
 
-            if (!Actor.IsInCombat && !IsDecisionLocked())
+            EnemyEngagementDirector.ReleaseAttack(Actor);
+            EnemyEngagementDirector.Unregister(Actor);
+            if (!IsDecisionLocked())
                 ReturnToPassive();
+        }
+
+        protected override void TickBrain()
+        {
+            if (Actor.IsInCombat && Actor.HasTarget && !IsDecisionLocked())
+                TryBeginAttack();
         }
 
         protected override void EvaluateNextAction(bool actionCompleted = false)
@@ -95,7 +112,7 @@ namespace junklite
                 return;
 
             if (Actor.HasTarget)
-                ChangeState<ChargeState>();
+                TryBeginAttack();
             else
                 ReturnToPassive();
         }
@@ -155,6 +172,8 @@ namespace junklite
                 return;
 
             returningToPassive = true;
+            EnemyEngagementDirector.ReleaseAttack(Actor);
+            EnemyEngagementDirector.Unregister(Actor);
             Actor.ExitCombat();
 
             if (patrol.HasPatrol)
@@ -218,7 +237,10 @@ namespace junklite
         private void HandleDashCompleted()
         {
             if (Actor.IsAlive)
+            {
+                EnemyEngagementDirector.ReleaseAttack(Actor);
                 ChangeState<RecoverState>();
+            }
         }
 
         private void HandleGrabStarted()
@@ -230,11 +252,55 @@ namespace junklite
         private void HandleGrabCompleted()
         {
             if (Actor.IsAlive)
+            {
+                EnemyEngagementDirector.ReleaseAttack(Actor);
                 ChangeState<RecoverState>();
+            }
         }
 
         private void HandleRecoveryCompleted() => EvaluateNextAction(true);
         private void HandleForcedInterruptCompleted() => EvaluateNextAction(true);
+
+        private void TryBeginAttack()
+        {
+            EnemyEngagementDirector.Register(Actor);
+            if (EnemyEngagementDirector.TryAcquireAttack(Actor, false))
+                ChangeState<ChargeState>();
+            else
+                ChangeState<WaitForOpeningState>();
+        }
+
+        private void SubscribeToStateChanges()
+        {
+            if (stateChangeSubscribed || StateMachine == null)
+                return;
+
+            StateMachine.OnStateChanged += HandleStateChanged;
+            stateChangeSubscribed = true;
+        }
+
+        private void UnsubscribeFromStateChanges()
+        {
+            if (!stateChangeSubscribed || StateMachine == null)
+                return;
+
+            StateMachine.OnStateChanged -= HandleStateChanged;
+            stateChangeSubscribed = false;
+        }
+
+        private void HandleStateChanged(IState from, IState to)
+        {
+            if (!EnemyEngagementDirector.HoldsAttack(Actor))
+                return;
+
+            if (IsAttackCommitment(from) && !IsAttackCommitment(to))
+                EnemyEngagementDirector.ReleaseAttack(Actor);
+        }
+
+        private static bool IsAttackCommitment(IState state)
+        {
+            return state is ChargeState || state is DashState || state is GrabState;
+        }
 
 #if UNITY_EDITOR
         private void OnDrawGizmosSelected() => patrol?.DrawGizmos(transform);
@@ -313,10 +379,10 @@ namespace junklite
 
         private void HandleHit(Collider other, Hitbox sourceHitbox)
         {
-            sourceHitbox?.Deactivate();
-            if (owner == null || !DamageReceiverUtility.IsAlive(other))
+            if (!EnemyAttackTargetFilter.CanDamage(owner, other))
                 return;
 
+            sourceHitbox?.Deactivate();
             int throwDirection = movement != null ? movement.FacingDirection : 1;
             if (grab != null && grab.RollForGrab())
             {

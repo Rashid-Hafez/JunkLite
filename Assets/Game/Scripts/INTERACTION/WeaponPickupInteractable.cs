@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 using DG.Tweening;
 
 namespace junklite
@@ -27,6 +28,9 @@ namespace junklite
         private WorldWeaponPickup weaponPickup;
         private CanvasGroup canvasGroup;
         private Tween activeTween;
+        private GameInputManager subscribedInputManager;
+        private Image legacyKeyImage;
+        private TMP_Text generatedKeyText;
 
         #endregion
 
@@ -52,17 +56,23 @@ namespace junklite
                     canvasGroup = promptRoot.AddComponent<CanvasGroup>();
             }
 
+            EnsureDynamicKeyVisual();
             HideInstant();
         }
 
         private void OnEnable()
         {
+            RebindInputManager();
             RefreshPromptText();
             HideInstant();
         }
 
+        private void Start() => RebindInputManager();
+
         private void OnDisable()
         {
+            UnbindInputManager();
+
             if (Current == this)
             {
                 Current = null;
@@ -71,7 +81,11 @@ namespace junklite
             }
         }
 
-        private void OnDestroy() => KillTween();
+        private void OnDestroy()
+        {
+            UnbindInputManager();
+            KillTween();
+        }
 
         private void LateUpdate()
         {
@@ -159,7 +173,84 @@ namespace junklite
             }
 
             if (weaponNameText != null) weaponNameText.text = weaponName;
-            if (interactHintText != null) interactHintText.text = $"{interactKeyLabel} Pick Up";
+            string bindingHint = GetInteractBindingHint();
+            if (interactHintText != null)
+                interactHintText.text = $"{FormatKeyLabel(bindingHint)} Pick Up";
+            if (generatedKeyText != null)
+                generatedKeyText.text = bindingHint;
+        }
+
+        private string GetInteractBindingHint()
+        {
+            string hint = GameInputManager.Instance?.GetBindingHint("Player/Interact");
+            if (!string.IsNullOrEmpty(hint))
+                return hint;
+
+            return string.IsNullOrEmpty(interactKeyLabel)
+                ? "E"
+                : interactKeyLabel.Trim('[', ']');
+        }
+
+        private static string FormatKeyLabel(string hint) => $"[{hint}]";
+
+        private void RebindInputManager()
+        {
+            GameInputManager inputManager = GameInputManager.Instance;
+            if (subscribedInputManager == inputManager)
+                return;
+
+            UnbindInputManager();
+            subscribedInputManager = inputManager;
+            if (subscribedInputManager != null)
+                subscribedInputManager.OnInputDeviceChanged += HandleInputDeviceChanged;
+
+            RefreshPromptText();
+        }
+
+        private void UnbindInputManager()
+        {
+            if (subscribedInputManager != null)
+                subscribedInputManager.OnInputDeviceChanged -= HandleInputDeviceChanged;
+            subscribedInputManager = null;
+        }
+
+        private void HandleInputDeviceChanged(bool _) => RefreshPromptText();
+
+        private void EnsureDynamicKeyVisual()
+        {
+            if (promptRoot == null || interactHintText != null || generatedKeyText != null)
+                return;
+
+            Image[] images = promptRoot.GetComponentsInChildren<Image>(true);
+            foreach (Image image in images)
+            {
+                if (image != null && image.gameObject.name == "Letter")
+                {
+                    legacyKeyImage = image;
+                    break;
+                }
+            }
+
+            if (legacyKeyImage == null)
+                return;
+
+            legacyKeyImage.enabled = false;
+            GameObject textObject = new("Dynamic Input Hint", typeof(RectTransform));
+            textObject.layer = legacyKeyImage.gameObject.layer;
+            RectTransform rect = (RectTransform)textObject.transform;
+            rect.SetParent(legacyKeyImage.transform, false);
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+
+            generatedKeyText = textObject.AddComponent<TextMeshProUGUI>();
+            generatedKeyText.font = TMP_Settings.defaultFontAsset;
+            generatedKeyText.alignment = TextAlignmentOptions.Center;
+            generatedKeyText.enableAutoSizing = true;
+            generatedKeyText.fontSizeMin = 0.05f;
+            generatedKeyText.fontSizeMax = 1f;
+            generatedKeyText.color = Color.white;
+            generatedKeyText.raycastTarget = false;
         }
 
         #endregion

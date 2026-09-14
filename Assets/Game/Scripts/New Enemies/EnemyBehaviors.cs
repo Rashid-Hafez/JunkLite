@@ -2,7 +2,26 @@ using UnityEngine;
 
 namespace junklite
 {
- 
+    /// <summary>
+    /// Shared validation for damage initiated by an enemy. Layer masks are not
+    /// sufficient because some enemy child colliders intentionally use Default.
+    /// </summary>
+    internal static class EnemyAttackTargetFilter
+    {
+        public static bool CanDamage(GameObject owner, Collider target)
+        {
+            if (owner == null || target == null)
+                return false;
+
+            EnemyCharacter sourceEnemy = owner.GetComponentInParent<EnemyCharacter>();
+            EnemyCharacter targetEnemy = target.GetComponentInParent<EnemyCharacter>();
+            if (sourceEnemy != null && targetEnemy != null)
+                return false;
+
+            return DamageReceiverUtility.IsAlive(target);
+        }
+    }
+
     /// <summary>
     /// Reusable patrol implementation.
     /// </summary>
@@ -187,10 +206,10 @@ namespace junklite
 
         private void OnHitboxHit(Collider other, Hitbox hitbox)
         {
-            hitbox?.Deactivate();
-            if (owner == null || !DamageReceiverUtility.IsAlive(other))
+            if (!EnemyAttackTargetFilter.CanDamage(owner, other))
                 return;
 
+            hitbox?.Deactivate();
             DamageResult result = DamageReceiverUtility.Receive(other, new DamageRequest(
                 dashDamage,
                 owner,
@@ -336,7 +355,7 @@ namespace junklite
 
         private void OnHitboxHit(Collider other, Hitbox sourceHitbox)
         {
-            if (owner == null || !DamageReceiverUtility.IsAlive(other))
+            if (!EnemyAttackTargetFilter.CanDamage(owner, other))
                 return;
 
             DamageReceiverUtility.Receive(other, new DamageRequest(
