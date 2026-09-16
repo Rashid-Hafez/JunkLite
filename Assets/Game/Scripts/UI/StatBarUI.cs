@@ -126,10 +126,10 @@ namespace junklite
 
         private void ApplyToUI(float current, float max)
         {
-            float pct = max > 0f ? current / max : 0f;
+            float pct = max > 0f ? Mathf.Clamp01(current / max) : 0f;
 
             if (fillImage != null)
-                fillImage.fillAmount = pct;
+                ApplyFill(pct);
 
             if (slider != null)
             {
@@ -144,6 +144,31 @@ namespace junklite
                 int m = Mathf.CeilToInt(max);
                 valueText.text = string.Format(valueFormat, c, m);
             }
+        }
+
+        private void ApplyFill(float percentage)
+        {
+            // Unity only applies Image.fillAmount geometry when the Image has a
+            // sprite. Runtime-built HUD bars use a solid, sprite-less Image, so
+            // resize that image from the left instead.
+            if (fillImage.sprite != null && fillImage.type == Image.Type.Filled)
+            {
+                fillImage.fillAmount = percentage;
+                return;
+            }
+
+            RectTransform fillRect = fillImage.rectTransform;
+            Vector2 anchorMax = fillRect.anchorMax;
+            anchorMax.x = percentage;
+            fillRect.anchorMax = anchorMax;
+
+            Vector2 offsetMin = fillRect.offsetMin;
+            offsetMin.x = 0f;
+            fillRect.offsetMin = offsetMin;
+
+            Vector2 offsetMax = fillRect.offsetMax;
+            offsetMax.x = 0f;
+            fillRect.offsetMax = offsetMax;
         }
 
         private void StartTween(float fromValue, float fromMax, float toValue, float toMax, float time)
@@ -190,7 +215,7 @@ namespace junklite
                 {
                     // If not animating text, animate bar only; freeze text at target at the end.
                     float pct = max > 0f ? cur / max : 0f;
-                    if (fillImage != null) fillImage.fillAmount = pct;
+                    if (fillImage != null) ApplyFill(Mathf.Clamp01(pct));
                     if (slider != null) { slider.maxValue = max; slider.value = cur; }
                 }
 

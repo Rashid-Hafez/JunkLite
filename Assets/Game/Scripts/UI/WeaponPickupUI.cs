@@ -61,6 +61,7 @@ namespace junklite
         private TMP_Text slot1ActionText;
         private TMP_Text slot2ActionText;
         private TMP_FontAsset generatedHeadingFont;
+        private GameInputManager subscribedInputManager;
 
         private SlotHoverHelper slot1Hover;
         private SlotHoverHelper slot2Hover;
@@ -144,10 +145,7 @@ namespace junklite
                 slot2DurabilityFill, w2);
 
             UpdateHighlight();
-
-            if (inputHintsText != null)
-                inputHintsText.text =
-                    "LEFT / RIGHT  SELECT     E / A / ENTER  ASSIGN     ESC / B  CANCEL";
+            RefreshInputHints();
         }
 
         private void SetWeaponDisplay(Image icon, TMP_Text nameText, WeaponData data)
@@ -249,22 +247,45 @@ namespace junklite
 
         private void SubscribeInput()
         {
-            var input = GameInputManager.Instance;
-            if (input == null) return;
+            UnsubscribeInput();
 
-            input.OnUINavigate += HandleNavigate;
-            input.OnUISubmit += HandleSubmit;
-            input.OnUICancel += HandleCancel;
+            subscribedInputManager = GameInputManager.Instance;
+            if (subscribedInputManager == null) return;
+
+            subscribedInputManager.OnUINavigate += HandleNavigate;
+            subscribedInputManager.OnUISubmit += HandleSubmit;
+            subscribedInputManager.OnUICancel += HandleCancel;
+            subscribedInputManager.OnInputDeviceChanged += HandleInputDeviceChanged;
+            RefreshInputHints();
         }
 
         private void UnsubscribeInput()
         {
-            var input = GameInputManager.Instance;
-            if (input == null) return;
+            if (subscribedInputManager == null) return;
 
-            input.OnUINavigate -= HandleNavigate;
-            input.OnUISubmit -= HandleSubmit;
-            input.OnUICancel -= HandleCancel;
+            subscribedInputManager.OnUINavigate -= HandleNavigate;
+            subscribedInputManager.OnUISubmit -= HandleSubmit;
+            subscribedInputManager.OnUICancel -= HandleCancel;
+            subscribedInputManager.OnInputDeviceChanged -= HandleInputDeviceChanged;
+            subscribedInputManager = null;
+        }
+
+        private void HandleInputDeviceChanged(bool _) => RefreshInputHints();
+
+        private void RefreshInputHints()
+        {
+            if (inputHintsText == null)
+                return;
+
+            GameInputManager input = subscribedInputManager ?? GameInputManager.Instance;
+            if (input == null)
+                return;
+
+            string navigation = input.IsUsingGamepad ? "STICK / D-PAD" : "ARROWS / WASD";
+            string submit = input.GetBindingHint("UI/Submit").ToUpperInvariant();
+            string cancel = input.GetBindingHint("UI/Cancel").ToUpperInvariant();
+            inputHintsText.text =
+                $"{navigation}  SELECT     {submit}  ASSIGN     {cancel}  CANCEL";
         }
 
         private void HandleNavigate(Vector2 dir)
@@ -543,7 +564,7 @@ namespace junklite
         {
             RectImage("Footer Rule", frameTransform, Line, 40, 602, 1100, 1);
             inputHintsText = TextAt("Input Hints", frameTransform,
-                "LEFT / RIGHT  SELECT     E / A / ENTER  ASSIGN     ESC / B  CANCEL",
+                "",
                 14f, Muted, 40, 620, 1100, 30);
         }
 

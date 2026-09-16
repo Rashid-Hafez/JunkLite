@@ -9,7 +9,7 @@ namespace junklite.Tests
 {
     public sealed class EnemyArchitectureTests
     {
-        private const string GruntPrefabPath = "Assets/Game/Prefabs/Enemies/Grunt Enemy.prefab";
+        private const string GruntPrefabPath = "Assets/Game/ENEMIES/Grunt/Grunt Enemy.prefab";
         private const string RobotPrefabPath = "Assets/Game/Prefabs/Enemies/Robot Enemy.prefab";
         private const string FlyingPrefabPath = "Assets/Game/Prefabs/Enemies/Flying Dummy.prefab";
         private const string PatrolPrefabPath = "Assets/Game/Prefabs/Enemies/Patrol Dummy.prefab";

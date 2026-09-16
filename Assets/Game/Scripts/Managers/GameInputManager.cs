@@ -67,6 +67,15 @@ namespace junklite
             };
         }
 
+        public string GetBindingHint(string actionNameOrPath)
+        {
+            if (string.IsNullOrWhiteSpace(actionNameOrPath) || controls == null)
+                return string.Empty;
+
+            InputAction action = controls.asset.FindAction(actionNameOrPath, throwIfNotFound: false);
+            return GetBindingHint(action);
+        }
+
         public string ResolveBindingTokens(string text)
         {
             if (string.IsNullOrEmpty(text) || controls == null)

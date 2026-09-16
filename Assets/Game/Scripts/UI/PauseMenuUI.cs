@@ -41,6 +41,7 @@ namespace junklite
         private GameObject editorPage;
         private TMP_Text sceneStatusText;
         private TMP_Text playerStatusText;
+        private TMP_Text inputHintsText;
         private CanvasGroup panelCanvasGroup;
         private RectTransform frameTransform;
         private Coroutine revealRoutine;
@@ -201,6 +202,8 @@ namespace junklite
             subscribedInput.OnUINavigate += HandleNavigate;
             subscribedInput.OnUISubmit += HandleSubmit;
             subscribedInput.OnUICancel += HandleCancel;
+            subscribedInput.OnInputDeviceChanged += HandleInputDeviceChanged;
+            RefreshInputHints();
         }
 
         private void UnsubscribeInput()
@@ -210,7 +213,24 @@ namespace junklite
             subscribedInput.OnUINavigate -= HandleNavigate;
             subscribedInput.OnUISubmit -= HandleSubmit;
             subscribedInput.OnUICancel -= HandleCancel;
+            subscribedInput.OnInputDeviceChanged -= HandleInputDeviceChanged;
             subscribedInput = null;
+        }
+
+        private void HandleInputDeviceChanged(bool _) => RefreshInputHints();
+
+        private void RefreshInputHints()
+        {
+            if (inputHintsText == null || subscribedInput == null)
+                return;
+
+            string navigation = subscribedInput.IsUsingGamepad
+                ? "D-PAD / STICK"
+                : "ARROWS / WASD";
+            string cancel = subscribedInput.GetBindingHint("UI/Cancel").ToUpperInvariant();
+            string submit = subscribedInput.GetBindingHint("UI/Submit").ToUpperInvariant();
+            inputHintsText.text =
+                $"{cancel}  RESUME     {navigation}  NAVIGATE     {submit}  SELECT";
         }
 
         private void HandleNavigate(Vector2 direction)
@@ -341,8 +361,8 @@ namespace junklite
         private void BuildFooter()
         {
             RectImage("Footer Rule", frameTransform, Line, 44, 735, 1272, 1);
-            TextAt("Input Hints", frameTransform,
-                "ESC / B  RESUME     UP / DOWN  NAVIGATE     ENTER / A  SELECT", 14f, Muted,
+            inputHintsText = TextAt("Input Hints", frameTransform,
+                "", 14f, Muted,
                 44, 749, 920, 30);
         }
 

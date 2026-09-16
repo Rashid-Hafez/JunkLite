@@ -8,7 +8,7 @@ namespace junklite.Editor
     {
         private static readonly string[] MeleeEnemyPrefabs =
         {
-            "Assets/Game/Prefabs/Enemies/Grunt Enemy.prefab",
+            "Assets/Game/ENEMIES/Grunt/Grunt Enemy.prefab",
             "Assets/Game/Prefabs/Enemies/Hyena.prefab",
             "Assets/Game/Prefabs/Enemies/Hyena EASY.prefab",
             "Assets/Game/Prefabs/Enemies/Hyena Blue.prefab",

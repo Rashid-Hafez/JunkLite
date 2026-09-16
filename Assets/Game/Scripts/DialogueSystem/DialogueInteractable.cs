@@ -13,7 +13,7 @@ public class DialogueInteractable : MonoBehaviour
             {
                 DialogueManager.instance.StartDialogue(sequence);
             }
-            
+
         }
         
     }
@@ -50,6 +50,7 @@ namespace junklite
 
         private CanvasGroup canvasGroup;
         private Tween activeTween;
+        private GameInputManager subscribedInputManager;
 
         #endregion
 
@@ -77,12 +78,17 @@ namespace junklite
 
         private void OnEnable()
         {
+            RebindInputManager();
             RefreshPromptText();
             HideInstant();
         }
 
+        private void Start() => RebindInputManager();
+
         private void OnDisable()
         {
+            UnbindInputManager();
+
             if (Current == this)
             {
                 Current = null;
@@ -91,15 +97,10 @@ namespace junklite
             }
         }
 
-        private void OnDestroy() => KillTween();
-
-        private void Update()
+        private void OnDestroy()
         {
-            // Handle interaction input
-            if (Current == this && Input.GetKeyDown(KeyCode.E))
-            {
-                TryStartDialogue();
-            }
+            UnbindInputManager();
+            KillTween();
         }
 
         private void LateUpdate()
@@ -184,8 +185,50 @@ namespace junklite
                 speakerText.text = dialogue != null ? dialogue.dialogueLines[0].speakerName : "Dialogue";
 
             if (interactHintText != null)
-                interactHintText.text = $"{interactKeyLabel} Talk";
+            {
+                string hint = GameInputManager.Instance?.GetBindingHint("Player/Interact");
+                string label = !string.IsNullOrEmpty(hint)
+                    ? $"[{hint}]"
+                    : interactKeyLabel;
+                interactHintText.text = $"{label} Talk";
+            }
         }
+
+        private void RebindInputManager()
+        {
+            GameInputManager inputManager = GameInputManager.Instance;
+            if (subscribedInputManager == inputManager)
+                return;
+
+            UnbindInputManager();
+            subscribedInputManager = inputManager;
+            if (subscribedInputManager != null)
+            {
+                subscribedInputManager.OnInteract += HandleInteract;
+                subscribedInputManager.OnInputDeviceChanged += HandleInputDeviceChanged;
+            }
+
+            RefreshPromptText();
+        }
+
+        private void UnbindInputManager()
+        {
+            if (subscribedInputManager != null)
+            {
+                subscribedInputManager.OnInteract -= HandleInteract;
+                subscribedInputManager.OnInputDeviceChanged -= HandleInputDeviceChanged;
+            }
+
+            subscribedInputManager = null;
+        }
+
+        private void HandleInteract()
+        {
+            if (Current == this)
+                TryStartDialogue();
+        }
+
+        private void HandleInputDeviceChanged(bool _) => RefreshPromptText();
 
         #endregion
 

@@ -6,7 +6,7 @@ namespace junklite
     /// Reusable decision loop for enemies that wait or patrol, chase the player,
     /// perform one melee action, and then evaluate again.
     /// </summary>
-    public class MeleeChaserBrain : EnemyBrain, IEnemyCapabilityProvider
+    public class MeleeChaserBrain : EnemyBrain, IEnemyCapabilityProvider, IChaseDestinationProvider
     {
         [Header("Passive")]
         [SerializeField] protected bool patrolWhenPassive;
@@ -15,6 +15,7 @@ namespace junklite
         [Header("Chase")]
         [SerializeField] protected ChaseBehavior chase = new();
         [SerializeField] protected float pursuitRadius = 12f;
+        [SerializeField, Min(0.01f)] protected float queueArrivalDistance = 0.12f;
 
         [Header("Melee Attack")]
         [SerializeField] protected MeleeAttackBehavior melee = new();
@@ -23,6 +24,7 @@ namespace junklite
         [SerializeField] protected StunBehavior stun = new();
 
         private bool returningToPassive;
+        private bool stateChangeSubscribed;
 
         protected override void Awake()
         {
@@ -34,11 +36,18 @@ namespace junklite
         protected override void OnEnable()
         {
             base.OnEnable();
+            SubscribeToStateChanges();
             InitializeBaseCapabilities();
+
+            if (Actor != null && Actor.HasTarget)
+                EnemyEngagementDirector.Register(Actor);
         }
 
         protected override void OnDisable()
         {
+            UnsubscribeFromStateChanges();
+            ReleaseAttackPermission();
+            EnemyEngagementDirector.Unregister(Actor);
             UninitializeBaseCapabilities();
             base.OnDisable();
         }
@@ -49,6 +58,7 @@ namespace junklite
                 new PatrolState(Actor),
                 new IdleState(Actor),
                 new ChaseState(Actor),
+                new WaitForOpeningState(Actor),
                 new MeleeAttackState(Actor),
                 new StunnedState(Actor),
                 new ParriedState(Actor),
@@ -76,6 +86,12 @@ namespace junklite
                     return;
                 }
 
+                if (StateMachine.CurrentState is WaitForOpeningState)
+                {
+                    EvaluateNextAction();
+                    return;
+                }
+
                 if (StateMachine.CurrentState is ChaseState && IsTargetInMeleeRange())
                     EvaluateNextAction();
             }
@@ -92,12 +108,15 @@ namespace junklite
                 chase.UpdateLastKnownPosition(current.transform.position);
                 Actor.EnterCombat();
                 Perception?.SetRadius(pursuitRadius);
+                EnemyEngagementDirector.Register(Actor);
 
                 if (!IsDecisionLocked())
                     EvaluateNextAction();
                 return;
             }
 
+            ReleaseAttackPermission();
+            EnemyEngagementDirector.Unregister(Actor);
             if (!IsDecisionLocked())
                 EvaluateNextAction();
         }
@@ -111,17 +130,39 @@ namespace junklite
 
             if (Actor.HasTarget)
             {
-                if (IsTargetInMeleeRange())
+                EnemyEngagementDirector.Register(Actor);
+                if (!EnemyEngagementDirector.TryGetAssignment(
+                        Actor,
+                        out EnemyEngagementAssignment assignment))
                 {
-                    // A completed melee state has shut down its update loop. Re-enter
-                    // it explicitly so a consecutive attack starts a fresh wind-up.
-                    if (actionCompleted && StateMachine.CurrentState is MeleeAttackState)
-                        RestartState<MeleeAttackState>();
-                    else
+                    ChangeState<ChaseState>();
+                    return;
+                }
+
+                if (assignment.IsFront)
+                {
+                    if (!IsTargetInMeleeRange())
+                    {
+                        ChangeState<ChaseState>();
+                    }
+                    else if (TryAcquireAttackPermission())
+                    {
                         ChangeState<MeleeAttackState>();
+                    }
+                    else
+                    {
+                        ChangeState<WaitForOpeningState>();
+                    }
+                }
+                else if (IsAtAssignedDestination(assignment))
+                {
+                    ChangeState<WaitForOpeningState>();
                 }
                 else
+                {
                     ChangeState<ChaseState>();
+                }
+
                 return;
             }
 
@@ -158,6 +199,8 @@ namespace junklite
                 return;
 
             returningToPassive = true;
+            ReleaseAttackPermission();
+            EnemyEngagementDirector.Unregister(Actor);
             chase.ClearLastKnownPosition();
             Actor.ExitCombat();
             Perception?.ResetRadius();
@@ -175,7 +218,9 @@ namespace junklite
 
         public virtual bool TryGetCapability<T>(out T capability) where T : class
         {
-            if (patrol is T patrolCapability)
+            if (this is T brainCapability)
+                capability = brainCapability;
+            else if (patrol is T patrolCapability)
                 capability = patrolCapability;
             else if (chase is T chaseCapability)
                 capability = chaseCapability;
@@ -235,8 +280,102 @@ namespace junklite
             EvaluateNextAction(true);
         }
 
-        private void HandleMeleeCompleted() => EvaluateNextAction(true);
+        public bool TryGetChaseDestination(
+            Vector3 targetPosition,
+            float defaultStopDistance,
+            out Vector3 destination,
+            out float destinationStopDistance)
+        {
+            if (EnemyEngagementDirector.TryGetAssignment(
+                    Actor,
+                    out EnemyEngagementAssignment assignment))
+            {
+                // The front enemy must use the original target-relative stop
+                // check. Stopping at an assigned point with queue tolerance can
+                // leave it just outside melee range and waiting forever.
+                if (assignment.IsFront)
+                {
+                    destination = targetPosition;
+                    destinationStopDistance = defaultStopDistance;
+                }
+                else
+                {
+                    destination = assignment.Destination;
+                    destinationStopDistance = queueArrivalDistance;
+                }
+
+                return true;
+            }
+
+            destination = targetPosition;
+            destinationStopDistance = defaultStopDistance;
+            return false;
+        }
+
+        public void OnChaseDestinationReached()
+        {
+            EvaluateNextAction(true);
+        }
+
+        protected bool TryAcquireAttackPermission()
+        {
+            return EnemyEngagementDirector.TryAcquireAttack(Actor, true);
+        }
+
+        protected void ReleaseAttackPermission()
+        {
+            EnemyEngagementDirector.ReleaseAttack(Actor);
+        }
+
+        private bool IsAtAssignedDestination(EnemyEngagementAssignment assignment)
+        {
+            return Movement.GetAbsAxisDistance(
+                transform.position,
+                assignment.Destination) <= queueArrivalDistance;
+        }
+
+        private void HandleMeleeCompleted()
+        {
+            ReleaseAttackPermission();
+            EvaluateNextAction(true);
+        }
+
         private void HandleStunCompleted() => EvaluateNextAction(true);
+
+        private void SubscribeToStateChanges()
+        {
+            if (stateChangeSubscribed || StateMachine == null)
+                return;
+
+            StateMachine.OnStateChanged += HandleStateChanged;
+            stateChangeSubscribed = true;
+        }
+
+        private void UnsubscribeFromStateChanges()
+        {
+            if (!stateChangeSubscribed || StateMachine == null)
+                return;
+
+            StateMachine.OnStateChanged -= HandleStateChanged;
+            stateChangeSubscribed = false;
+        }
+
+        private void HandleStateChanged(IState from, IState to)
+        {
+            if (!EnemyEngagementDirector.HoldsAttack(Actor))
+                return;
+
+            if (IsAttackCommitment(from) && !IsAttackCommitment(to))
+                ReleaseAttackPermission();
+        }
+
+        private static bool IsAttackCommitment(IState state)
+        {
+            return state is MeleeAttackState
+                || state is ChargeState
+                || state is DashState
+                || state is GrabState;
+        }
 
 #if UNITY_EDITOR
         protected virtual void OnDrawGizmosSelected()

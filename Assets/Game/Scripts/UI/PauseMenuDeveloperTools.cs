@@ -54,7 +54,7 @@ namespace junklite
 
         private void BuildEnemyActions()
         {
-            AddEnemy("GRUNT", "Assets/Game/Prefabs/Enemies/Grunt Enemy.prefab");
+            AddEnemy("GRUNT", "Assets/Game/ENEMIES/Grunt/Grunt Enemy.prefab");
             AddEnemy("HYENA", "Assets/Game/Prefabs/Enemies/Hyena.prefab");
             AddEnemy("HYENA / EASY", "Assets/Game/Prefabs/Enemies/Hyena EASY.prefab");
             AddEnemy("HYENA / BLUE", "Assets/Game/Prefabs/Enemies/Hyena Blue.prefab");

@@ -50,6 +50,7 @@ namespace junklite
                 new PatrolState(Actor),
                 new IdleState(Actor),
                 new ChaseState(Actor),
+                new WaitForOpeningState(Actor),
                 new MeleeAttackState(Actor),
                 new DodgeState(Actor),
                 new ChargeState(Actor),
@@ -139,7 +140,8 @@ namespace junklite
             if (dodgeWasReactive
                 && Actor.HasTarget
                 && Actor.DistanceToTarget <= maxCounterDashRange
-                && Random.value <= dashChance)
+                && Random.value <= dashChance
+                && TryAcquireAttackPermission())
             {
                 dodgeWasReactive = false;
                 ChangeState<ChargeState>();
@@ -163,6 +165,8 @@ namespace junklite
         {
             if (!Actor.IsAlive)
                 return;
+
+            ReleaseAttackPermission();
 
             if (!Actor.HasTarget)
             {

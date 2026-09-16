@@ -34,6 +34,8 @@ public class DialogueManager : MonoBehaviour
     private string currentDisplayText = string.Empty;
     private float lastContinueTime = -10f;
     private float continueDebounce = 0.12f; // seconds, uses unscaled time so it works during freezes
+    private GameInputManager subscribedInputManager;
+    private TMP_Text continueIndicatorText;
 
 
     public event Action OnDialogueContinue = delegate { };
@@ -57,7 +59,7 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
-        private void Start()
+    private void Start()
     {
         // Do not subscribe NextLine to the OnDialogueContinue event to avoid
         // re-entrancy/duplicate calls when input triggers the event. Input is
@@ -66,24 +68,33 @@ public class DialogueManager : MonoBehaviour
 
         dialogueBox.SetActive(false);
         if (continueIndicator) continueIndicator.SetActive(false);
-            // Route continue input through a single handler that:
-            // - ignores input when globally suppressed
-            // - ignores input for unskippable lines
-            // - when typing, reveals the full line on first press
-            // - only advances when the line is revealed and ready to advance
-            playerContinueCallback = _ => ProcessContinueInput();
-            uiContinueCallback = _ => ProcessContinueInput();
+        // Route continue input through a single handler that:
+        // - ignores input when globally suppressed
+        // - ignores input for unskippable lines
+        // - when typing, reveals the full line on first press
+        // - only advances when the line is revealed and ready to advance
+        playerContinueCallback = _ => ProcessContinueInput();
+        uiContinueCallback = _ => ProcessContinueInput();
 
-            GameInputManager.Instance.controls.Player.DialogueContinue.performed += playerContinueCallback;
-            GameInputManager.Instance.controls.UI.DialogueContinue.performed += uiContinueCallback;
+        subscribedInputManager = GameInputManager.Instance;
+        if (subscribedInputManager == null)
+        {
+            Debug.LogError("DialogueManager requires a GameInputManager in the scene.", this);
+            return;
+        }
 
-            // Listen for parry input so that when the player parries during a
-            // freeze (timeScale == 0) we can advance dialogue appropriately.
-            if (GameInputManager.Instance != null)
-            {
-                parryCallback = () => { if (IsInDialogue) ParryAdvance(); };
-                GameInputManager.Instance.OnParry += parryCallback;
-            }
+        subscribedInputManager.controls.Player.DialogueContinue.performed += playerContinueCallback;
+        subscribedInputManager.controls.UI.DialogueContinue.performed += uiContinueCallback;
+        subscribedInputManager.OnInputDeviceChanged += HandleInputDeviceChanged;
+        continueIndicatorText = continueIndicator != null
+            ? continueIndicator.GetComponent<TMP_Text>() ?? continueIndicator.GetComponentInChildren<TMP_Text>(true)
+            : null;
+        RefreshContinueIndicator();
+
+        // Listen for parry input so that when the player parries during a
+        // freeze (timeScale == 0) we can advance dialogue appropriately.
+        parryCallback = () => { if (IsInDialogue) ParryAdvance(); };
+        subscribedInputManager.OnParry += parryCallback;
     }
 
     private void OnDestroy()
@@ -92,11 +103,16 @@ public class DialogueManager : MonoBehaviour
             instance = null;
 
 
-        //if (GameInputManager.Instance == null) return;
-        GameInputManager.Instance.controls.Player.DialogueContinue.performed -= playerContinueCallback;
-        GameInputManager.Instance.controls.UI.DialogueContinue.performed -= uiContinueCallback;
-        if (GameInputManager.Instance != null && parryCallback != null)
-            GameInputManager.Instance.OnParry -= parryCallback;
+        if (subscribedInputManager != null)
+        {
+            subscribedInputManager.controls.Player.DialogueContinue.performed -= playerContinueCallback;
+            subscribedInputManager.controls.UI.DialogueContinue.performed -= uiContinueCallback;
+            subscribedInputManager.OnInputDeviceChanged -= HandleInputDeviceChanged;
+            if (parryCallback != null)
+                subscribedInputManager.OnParry -= parryCallback;
+        }
+
+        subscribedInputManager = null;
     }
 
     #endregion
@@ -195,6 +211,7 @@ public class DialogueManager : MonoBehaviour
 
         var line = currentSequence.dialogueLines[currentIndex];
         currentDisplayText = ResolveInputBindings(line.dialogueText);
+        RefreshContinueIndicator();
 
         speakerText.text = line.speakerName;
         if (portraitImage)
@@ -333,6 +350,59 @@ public class DialogueManager : MonoBehaviour
         return inputManager != null
             ? inputManager.ResolveBindingTokens(sourceText)
             : sourceText;
+    }
+
+    private void HandleInputDeviceChanged(bool _)
+    {
+        RefreshContinueIndicator();
+
+        if (currentSequence == null || currentIndex < 0 ||
+            currentIndex >= currentSequence.dialogueLines.Length)
+        {
+            return;
+        }
+
+        DialogueLine line = currentSequence.dialogueLines[currentIndex];
+        string resolvedText = ResolveInputBindings(line.dialogueText);
+        if (resolvedText == currentDisplayText)
+            return;
+
+        currentDisplayText = resolvedText;
+
+        if (isTyping)
+        {
+            if (typingCoroutine != null)
+                StopCoroutine(typingCoroutine);
+
+            typingCoroutine = null;
+            isTyping = false;
+            revealedCurrentLine = true;
+            waitingForInput = line.requiresPlayerInput;
+            dialogueText.text = currentDisplayText;
+            if (continueIndicator != null)
+                continueIndicator.SetActive(waitingForInput);
+            return;
+        }
+
+        if (revealedCurrentLine && dialogueText != null)
+            dialogueText.text = currentDisplayText;
+    }
+
+    private void RefreshContinueIndicator()
+    {
+        if (continueIndicatorText == null && continueIndicator != null)
+            continueIndicatorText = continueIndicator.GetComponent<TMP_Text>()
+                ?? continueIndicator.GetComponentInChildren<TMP_Text>(true);
+
+        if (continueIndicatorText == null)
+            return;
+
+        GameInputManager inputManager = GameInputManager.Instance;
+        string hint = inputManager != null
+            ? inputManager.GetBindingHint("Player/DialogueContinue")
+            : string.Empty;
+        if (!string.IsNullOrEmpty(hint))
+            continueIndicatorText.text = $"[{hint}] >>";
     }
 
     private void EndDialogue()

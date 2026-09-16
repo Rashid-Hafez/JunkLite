@@ -126,7 +126,7 @@ namespace junklite
             skeletonAnimation.Skeleton.SetToSetupPose();
             state.ClearTrack(0);
 
-            if (to is IdleState)
+            if (to is IdleState || to is WaitForOpeningState)
                 state.SetAnimation(0, idle, true);
             else if (to is PatrolState)
                 state.SetAnimation(0, walk, true);
