@@ -275,8 +275,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.6756545, w: 0.73721844}
-  m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: -0.464}
+  m_LocalRotation: {x: 0, y: 0, z: -0.74973565, w: 0.66173744}
+  m_LocalPosition: {x: -0.50937307, y: 1.1497306, z: -0.464}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -632,8 +632,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5313947137746381582}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.6350002, w: 0.77251196}
-  m_LocalPosition: {x: 0.12740609, y: 1.2658193, z: -0.0696}
+  m_LocalRotation: {x: 0, y: 0, z: -0.6171586, w: 0.78683877}
+  m_LocalPosition: {x: 0.15407515, y: 1.2052822, z: -0.0696}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -964,7 +964,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   baseStats: {fileID: 11400000, guid: adaa8433c252acc46a3253234b8ce0dd, type: 2}
-  attributes: {fileID: 0}
   soundProfile: {fileID: 11400000, guid: 02c65cf062cddfb4b81d2c3777e6c1bd, type: 2}
   particleJumpUp: {fileID: 9027087665219420547}
   particleJumpDown: {fileID: 9027087665219420547}
@@ -972,14 +971,18 @@ MonoBehaviour:
   particleDashBurst: {fileID: 0}
   dashTrail: {fileID: 0}
   feet: {fileID: 3315158317788349695}
+  minimumDashGhostSpawnInterval: 0.06
+  maximumDashGhosts: 4
   reviveInvulnerability: 1.25
   disableCollidersOnDeactivate: 0
   reloadSceneOnDeathTemp: 0
   damageInvulnerability: 0.3
+  defaultHitstunDuration: 0.25
   damageHitVFXPrefab: {fileID: 5435998012328932994, guid: d8703a33a4eb0b84a875202fde23e8f7, type: 3}
   damageHitVFXLifetime: 1
   cameraShakeOnHit: 5
   damageImpulseSource: {fileID: 6805497694060457123}
+  attributes: {fileID: 0}
 --- !u!114 &5058750099860732212
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1030,12 +1033,14 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 6144
   impulseSource: {fileID: 0}
-  enemyHitHitstopDuration: 0.09
-  enemyHitShakeForce: 0.5
+  enemyHitHitstopDuration: 0.11
+  enemyHitShakeForce: 1
+  attackCooldown: 0.1
+  comboWindow: 0.2
+  bufferDuration: 0.2
   delayBeforeAttack: 0.08
   animationLeadTime: 0.05
   attackOpenWindow: 0.28
-  BUFFER_DURATION: 0.3
   downAttackFloatNormalized: 0.5
   facingLockDuration: 0.25
   inputThreshold: 0.5
@@ -1047,7 +1052,6 @@ MonoBehaviour:
     pitchMax: 0.91
     effects: []
   lockMovementDuringAttack: 1
-  logAttacks: 0
 --- !u!114 &8123627017812205419
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1058,7 +1062,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3d4fe0aa64714639a0ab23f93672c433, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerWeaponLoadout
   weaponHolder: {fileID: 4764703469501611834}
 --- !u!114 &7181291251784971520
@@ -1393,8 +1397,6 @@ MonoBehaviour:
   footstepEvent: {fileID: 11400000, guid: 2657d9f265aa59446b055dc0c1018419, type: 2}
   footstepSource: {fileID: 0}
   footstepPitchOffset: 0.2
-  logStateChanges: 0
-  logAttacks: 1
 --- !u!114 &-8791361905287476187
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1447,13 +1449,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c2991485d67c69042a3c4855176eb1a0, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.StatusEffectHandler
   burnVFX: {fileID: 0}
   poisonVFX: {fileID: 0}
   bleedVFX: {fileID: 0}
   electricVFX: {fileID: 0}
-  showDebugLogs: 0
 --- !u!114 &2356093748291057342
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1464,7 +1465,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2a54fb91f22a73a409555312ae61116a, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.ModExecutionRunner
 --- !u!1 &7404579367925327084
 GameObject:
