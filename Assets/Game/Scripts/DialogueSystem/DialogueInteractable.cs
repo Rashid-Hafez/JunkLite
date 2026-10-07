@@ -73,6 +73,7 @@ namespace junklite
                     canvasGroup = promptRoot.AddComponent<CanvasGroup>();
             }
 
+            UIFonts.ApplyWorldTree(promptRoot != null ? promptRoot.transform : null);
             HideInstant();
         }
 

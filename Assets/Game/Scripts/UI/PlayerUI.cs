@@ -61,7 +61,7 @@ namespace junklite
         private void Awake()
         {
             if (bodyFont == null)
-                bodyFont = TMP_Settings.defaultFontAsset;
+                bodyFont = UIFonts.HudBody;
 
             BuildVitalsInterface();
         }

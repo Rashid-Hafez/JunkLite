@@ -57,6 +57,7 @@ namespace junklite
             }
 
             EnsureDynamicKeyVisual();
+            UIFonts.ApplyWorldTree(promptRoot != null ? promptRoot.transform : null);
             HideInstant();
         }
 
@@ -244,9 +245,10 @@ namespace junklite
             rect.offsetMin = rect.offsetMax = Vector2.zero;
 
             generatedKeyText = textObject.AddComponent<TextMeshProUGUI>();
-            generatedKeyText.font = TMP_Settings.defaultFontAsset;
+            UIFonts.ApplyWorld(generatedKeyText);
             generatedKeyText.alignment = TextAlignmentOptions.Center;
-            generatedKeyText.enableAutoSizing = true;
+            generatedKeyText.enableAutoSizing = false;
+            generatedKeyText.fontSize = 2f;
             generatedKeyText.fontSizeMin = 0.05f;
             generatedKeyText.fontSizeMax = 1f;
             generatedKeyText.color = Color.white;

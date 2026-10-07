@@ -14,6 +14,7 @@ namespace junklite
         private void Awake()
         {
             textMesh = GetComponent<TextMeshPro>();
+            UIFonts.ApplyWorld(textMesh);
         }
 
         public void Setup(float damageAmount)

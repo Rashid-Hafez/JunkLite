@@ -1,0 +1,57 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [5 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+4 0 obj << /Length 3214 >> stream
+BT /F1 18 Tf 72 720 Td (UI INSTRUCTIONS FOR AI AGENTS) Tj ET
+BT /F1 11 Tf 72 692 Td (Assets/Game/New UI/) Tj ET
+BT /F1 11 Tf 72 668 Td (JunkLite UI setup. Read this before creating or editing any UI or in-world text.) Tj ET
+BT /F1 11 Tf 72 652 Td ( ) Tj ET
+BT /F1 11 Tf 72 636 Td (1. TEXT STACK) Tj ET
+BT /F1 11 Tf 72 620 Td (Inventory and all HUD menus use TextMesh Pro UGUI \(TextMeshProUGUI / TMP_Text\)) Tj ET
+BT /F1 11 Tf 72 604 Td (on Unity UI canvases. That is the standard for every new screen, card, button,) Tj ET
+BT /F1 11 Tf 72 588 Td (tooltip, and overlay.) Tj ET
+BT /F1 11 Tf 72 572 Td (Use 3D TextMeshPro \(not UGUI\) only when there is no canvas: floating world) Tj ET
+BT /F1 11 Tf 72 556 Td (numbers, damage popups, labels parented to a mesh. World-space canvases still) Tj ET
+BT /F1 11 Tf 72 540 Td (use TextMeshProUGUI. Do not use Unity UI.Text, legacy TextMesh, or UI Toolkit.) Tj ET
+BT /F1 11 Tf 72 524 Td ( ) Tj ET
+BT /F1 11 Tf 72 508 Td (2. FONTS  \(files in Assets/Game/New UI/Fonts/\)) Tj ET
+BT /F1 11 Tf 72 492 Td (World interactables and any in-world text that is not HUD: PLAY.) Tj ET
+BT /F1 11 Tf 72 476 Td (  TMP asset: Play-Regular SDF.asset   source: Play-Regular.ttf) Tj ET
+BT /F1 11 Tf 72 460 Td (Main HUD titles, cards, submenus: ZUUME EDGE.) Tj ET
+BT /F1 11 Tf 72 444 Td (  TMP asset: ZuumeEdge-Regular SDF.asset   source: ZuumeEdge-Regular.ttf) Tj ET
+BT /F1 11 Tf 72 428 Td (All other HUD text \(body, labels, hints, stats\): SATOSHI.) Tj ET
+BT /F1 11 Tf 72 412 Td (  TMP asset: Satoshi-Variable SDF TMP.asset   source: Satoshi-Variable.ttf) Tj ET
+BT /F1 11 Tf 72 396 Td (Do not use Lekton, Clash Display, Bebas Neue, LiberationSans, or TMP samples.) Tj ET
+BT /F1 11 Tf 72 380 Td (Satoshi-Variable SDF.asset is Unity TextCore, not TextMesh Pro. Ignore it for TMP.) Tj ET
+BT /F1 11 Tf 72 364 Td ( ) Tj ET
+BT /F1 11 Tf 72 348 Td (3. DEFAULT FONT MATERIAL  \(mandatory\)) Tj ET
+BT /F1 11 Tf 72 332 Td (Only use Assets/Game/New UI/Default Font Material.mat for font/text style.) Tj ET
+BT /F1 11 Tf 72 316 Td (It is bland overlay TMP: no glow, outline, underlay, fog, or pattern shaders.) Tj ET
+BT /F1 11 Tf 72 300 Td (World pickup prompts were rendering a foggy LiberationSans material; overlay) Tj ET
+BT /F1 11 Tf 72 284 Td (avoids volumetric fog on in-world text.) Tj ET
+BT /F1 11 Tf 72 268 Td (Do NOT assign Default Font Material as the only material on a TMP component.) Tj ET
+BT /F1 11 Tf 72 252 Td (Its atlas slot is empty. Assign the correct TMP font asset, then copy this) Tj ET
+BT /F1 11 Tf 72 236 Td (material shader and bland settings onto the font atlas material \(keep _MainTex\).) Tj ET
+BT /F1 11 Tf 72 220 Td (Runtime: UIFonts.ApplyWorld, ApplyHudTitle, ApplyHudBody, ApplyWorldTree.) Tj ET
+BT /F1 11 Tf 72 204 Td (Catalog: Assets/Game/New UI/Resources/UIFontCatalog.asset) Tj ET
+BT /F1 11 Tf 72 188 Td (Never use TMP_Settings.defaultFontAsset.) Tj ET
+BT /F1 11 Tf 72 172 Td ( ) Tj ET
+BT /F1 11 Tf 72 156 Td (4. PATHS AND REBUILD) Tj ET
+BT /F1 11 Tf 72 140 Td (UI root: Assets/Game/New UI/) Tj ET
+BT /F1 11 Tf 72 124 Td (Helper: Assets/Game/Scripts/UI/UIFonts.cs) Tj ET
+BT /F1 11 Tf 72 108 Td (If glyphs are missing: JunkLite > UI > Rebuild New UI Font Assets) Tj ET
+endstream endobj
+5 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 3 0 R >> >> >> endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000003451 00000 n 
+trailer << /Size 6 /Root 1 0 R >>
+startxref
+3577
+%%EOF

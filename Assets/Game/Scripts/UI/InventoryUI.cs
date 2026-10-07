@@ -90,9 +90,9 @@ namespace junklite
             }
 
             if (bodyFont == null)
-                bodyFont = TMP_Settings.defaultFontAsset;
+                bodyFont = UIFonts.HudBody;
             if (headingFont == null)
-                headingFont = bodyFont;
+                headingFont = UIFonts.HudTitle;
 
             BuildInterface();
         }
