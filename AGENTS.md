@@ -2,6 +2,18 @@
 
 **Every AI agent working in this repo (Claude Code, Codex, Cursor, Copilot, Gemini, etc.) must read this file before making changes.** It applies to every contributor's agent, not just one machine. `CLAUDE.md` and `.github/copilot-instructions.md` point here, so keep the rules in this file only.
 
+## Unity CLI setup (do this first)
+
+Agents edit scenes, prefabs, and assets through the **Unity CLI** connected to the running Editor, not by hand-editing `.unity`/`.prefab`/`.asset` YAML.
+
+1. Install the CLI (macOS): `curl -fsSL https://public-cdn.cloud.unity3d.com/hub/prod/cli/install.sh | UNITY_CLI_CHANNEL=beta bash`
+2. Put it on PATH for **all** shells (the installer only edits `~/.zshrc`, which agent shells don't load). Add this to `~/.zshenv`:
+   `[ -f "$HOME/.unity/env" ] && . "$HOME/.unity/env"`
+   Then restart your terminal or agent session.
+3. With the JunkLite Editor open, check the connection: `unity status` should show state `ready`. If it won't connect, run `unity pipeline list`. Safe Mode means there are compile errors to fix first.
+
+Agent rules: run `unity status` before editing any scene or asset. Use `unity command` to list what the Editor exposes. Ask the user before saving scenes or making large changes. Only edit scene files directly if no Editor is reachable, and say so.
+
 JunkLite is a **single-player** Unity 6 (6000.3.x) URP game. First-party code lives in `Assets/Game/Scripts/`.
 
 ## Read first
