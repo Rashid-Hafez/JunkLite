@@ -1,6 +1,6 @@
 # JunkLite agent notes
 
-**Every AI agent working in this repo (Claude Code, Codex, Cursor, Copilot, Gemini, etc.) must read this file before making changes.** It applies to every contributor's agent, not just one machine. `CLAUDE.md` and `.github/copilot-instructions.md` point here, so keep the rules in this file only.
+**Every AI agent working in this repo (Claude Code, Codex, Cursor, Copilot, Gemini, etc.) must read this file before making changes.** It applies to every contributor's agent, not just one machine. `CLAUDE.md`, `GEMINI.md`, and `.github/copilot-instructions.md` are one-line pointers to this file, so keep the rules in this file only.
 
 ## Unity CLI setup (do this first)
 
@@ -21,7 +21,7 @@ JunkLite is a **single-player** Unity 6 (6000.3.x) URP game. First-party code li
 | Task | Read |
 | --- | --- |
 | Any architecture, combat, mod, manager, camera, enemy, or encounter work | `ARCHITECTURE_HANDOFF.md` (source of truth: status, known gaps, safe next steps) |
-| UI, fonts, HUD, in-world prompts | `Assets/Game/New UI/AGENTS.md` and `Assets/Game/New UI/UI INSTRUCTIONS FOR AI AGENTS.pdf` |
+| UI, fonts, HUD, in-world prompts | The **UI rules** section below (full copy: `Assets/Game/New UI/UI INSTRUCTIONS FOR AI AGENTS.pdf`) |
 
 If you change an architectural boundary, update `ARCHITECTURE_HANDOFF.md` in the same change.
 
@@ -54,6 +54,22 @@ Producers (weapons, hazards, mods, status effects) build a `DamageRequest` and s
 - `CameraManager` is scene-local and rebinds every registered camera on `PlayerSpawned`.
 - Duplicate singletons must remove **only their own component**, never `Destroy(gameObject)`. Doing that once destroyed the whole Game Root.
 
+## UI rules
+
+**Stack.** Every HUD screen, menu, card, button, tooltip, and overlay uses **TextMesh Pro UGUI** (`TextMeshProUGUI` / `TMP_Text`) on Unity UI canvases. World-space canvases also use `TextMeshProUGUI`. Use 3D `TextMeshPro` only when there is no canvas, for example damage popups or labels parented to a mesh. Never use legacy `UI.Text`, legacy TextMesh, or UI Toolkit for game UI.
+
+**Fonts.** Only these three, all in `Assets/Game/New UI/Fonts/`:
+
+| Use | Font | TMP asset |
+| --- | --- | --- |
+| World interactables and any in-world text | Play | `Play-Regular SDF.asset` |
+| Main HUD: titles, cards, submenus | ZuumeEdge | `ZuumeEdge-Regular SDF.asset` |
+| All other HUD text: body, labels, hints, stats | Satoshi | `Satoshi-Variable SDF TMP.asset` |
+
+Don't use Lekton, Clash Display, Bebas Neue, LiberationSans, or the TMP example fonts. `Satoshi-Variable SDF.asset` (without "TMP") is a TextCore font, so ignore it for TMP.
+
+**Material.** The only text style is `Assets/Game/New UI/Default Font Material.mat`: a plain overlay with no glow, outline, underlay, or fog. Don't assign it directly, because its `_MainTex` is empty. Use the helpers in `Assets/Game/Scripts/UI/UIFonts.cs`, which put the right font and material settings on the text for you: `UIFonts.ApplyWorld`, `ApplyHudTitle`, `ApplyHudBody`, and `ApplyWorldTree`. The font list they use is `Assets/Game/New UI/Resources/UIFontCatalog.asset`. Never use `TMP_Settings.defaultFontAsset`, which is LiberationSans with glow and fog. If glyphs are missing in the Editor, run **JunkLite > UI > Rebuild New UI Font Assets**.
+
 ## Do
 
 - Prefer composition and small, concrete boundaries. Split a manager only at a real lifecycle or scene boundary.
@@ -69,4 +85,4 @@ Producers (weapons, hazards, mods, status effects) build a `DamageRequest` and s
 - Don't add service locators, global event buses, empty interfaces, ECS, or multiplayer/replication patterns.
 - Don't make broad scene edits or modify third-party/plugin code. `Tools > JunkLite > Systems > Rebuild` rewrites V2.5, so run it only when the user explicitly asks.
 - Don't hand-write `.meta` files. Let Unity generate them.
-- Don't use legacy `UI.Text`, UI Toolkit, or unapproved fonts for game UI (see the UI docs above).
+- Don't use legacy `UI.Text`, UI Toolkit, or unapproved fonts for game UI (see **UI rules** above).
