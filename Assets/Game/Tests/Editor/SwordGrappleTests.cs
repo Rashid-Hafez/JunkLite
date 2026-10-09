@@ -147,6 +147,124 @@ namespace junklite.Tests
                 QueryTriggerInteraction.Ignore), Is.False);
         }
 
+        [TestCase(90f, 1f, true)]
+        [TestCase(90f, -1f, false)]
+        [TestCase(-90f, 1f, false)]
+        [TestCase(-90f, -1f, true)]
+        public void RotatedPlaneSupportsPointerAimFlightPullHoldAndJump(float yaw, float side, bool trigger)
+        {
+            var (keyboard, mouse) = CreateInputDevices();
+            var grapple = CreateGrapple();
+            boundGrapple = grapple;
+            Invoke(grapple, "OnEnable");
+            EquipSword(grapple, 1);
+            var controller = grapple.GetComponent<Character2D5Controller>();
+            controller.RotatePLayer(yaw);
+            controller.FreezePerpendicularAxis();
+            Physics.SyncTransforms();
+            Vector3 axis = controller.MovementAxis;
+            Vector3 normal = Vector3.Cross(axis, Vector3.up).normalized;
+            var wall = CreateBox(axis * side * 5f + Vector3.up * 2f, new Vector3(1f, 20f, 4f), 12);
+            wall.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            wall.isTrigger = trigger;
+            var camera = Camera.main;
+            camera.transform.SetPositionAndRotation(testOrigin + Vector3.up * 2f - normal * 10f,
+                Quaternion.LookRotation(normal, Vector3.up));
+            camera.pixelRect = new Rect(0f, 0f, 800f, 600f);
+            Physics.SyncTransforms();
+            Vector2 pointer = camera.WorldToScreenPoint(testOrigin + axis * side * 4.5f + Vector3.up * 1.5f);
+            InputSystem.QueueStateEvent(mouse, new MouseState { position = pointer });
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.LeftCtrl, side > 0f ? Key.D : Key.A));
+            InputSystem.Update();
+            Assert.That(grapple.HasValidAim, Is.True, grapple.AimFailure);
+            Assert.That(grapple.AimHitCollider, Is.SameAs(wall));
+            Assert.That(Vector3.Dot(grapple.PreviewEnd - testOrigin, normal), Is.EqualTo(0f).Within(0.01f));
+
+            InputSystem.QueueStateEvent(mouse, new MouseState { position = pointer }.WithButton(MouseButton.Left));
+            InputSystem.Update();
+            Assert.That(grapple.Phase, Is.EqualTo(SwordGrapplePhase.Flying));
+            for (int i = 0; i < 150 && !grapple.IsHolding; i++)
+            {
+                AdvanceGrapple(grapple);
+                Assert.That(Vector3.Dot(controller.GetComponent<Rigidbody>().position - testOrigin, normal),
+                    Is.EqualTo(0f).Within(0.01f), "Flight/pulling must stay in the new movement plane.");
+            }
+            Assert.That(grapple.IsHolding, Is.True);
+            Assert.That(Vector3.Dot(controller.GetComponent<Rigidbody>().position - testOrigin, axis) * side,
+                Is.GreaterThan(3f));
+            Assert.That(grapple.ReleaseFromJump(), Is.True);
+            Assert.That(Vector3.Dot(controller.Velocity, axis),
+                Is.EqualTo(-side * settings.wallJumpAwaySpeed).Within(0.01f));
+            Assert.That(controller.Velocity.y, Is.EqualTo(settings.wallJumpUpSpeed));
+            Assert.That(Vector3.Dot(controller.Velocity, normal), Is.EqualTo(0f).Within(0.01f));
+        }
+
+        [TestCase(SwordGrapplePhase.Aiming)]
+        [TestCase(SwordGrapplePhase.Flying)]
+        [TestCase(SwordGrapplePhase.ImpactDelay)]
+        [TestCase(SwordGrapplePhase.Pulling)]
+        [TestCase(SwordGrapplePhase.Holding)]
+        public void CameraAxisSwitchCancelsEveryGrapplePhaseAndAllowsNewPlaneGrapple(SwordGrapplePhase phase)
+        {
+            var grapple = CreateGrapple();
+            boundGrapple = grapple;
+            Invoke(grapple, "OnEnable");
+            EquipSword(grapple, 1);
+            CreateWall();
+            if (phase == SwordGrapplePhase.Holding) ReachWall(grapple);
+            else if (phase == SwordGrapplePhase.Aiming) grapple.BeginAim();
+            else
+            {
+                StartThrow(grapple, Vector3.right);
+                for (int i = 0; i < 100 && grapple.Phase != phase; i++) AdvanceGrapple(grapple);
+            }
+            Assert.That(grapple.Phase, Is.EqualTo(phase));
+            Invoke(grapple, "LateUpdate");
+
+            var controller = grapple.GetComponent<Character2D5Controller>();
+            capsule.tag = "Player";
+            CreateObject("BODY SPINE", Vector3.zero).transform.SetParent(capsule.transform, true);
+            var trigger = CreateObject("Axis switch", Vector3.zero).AddComponent<CameraSwitchTrigger>();
+            trigger.gameObject.AddComponent<BoxCollider>().isTrigger = true;
+            CreateObject("A", Vector3.zero).transform.SetParent(trigger.transform, true);
+            CreateObject("B", new Vector3(10f, 0f, 10f)).transform.SetParent(trigger.transform, true);
+            trigger.rotateOnTrigger = true;
+            trigger.rotationA = 0f;
+            trigger.rotationB = 90f;
+            Invoke(trigger, "Awake");
+            typeof(CameraSwitchTrigger).GetMethod("OnTriggerEnter", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(trigger, new object[] { capsule });
+            Physics.SyncTransforms();
+
+            Assert.That(grapple.Phase, Is.EqualTo(SwordGrapplePhase.Idle));
+            Assert.That(controller.MovementLockCount, Is.Zero);
+            Assert.That(controller.PhysicsOverrideCount, Is.Zero);
+            Assert.That(grapple.GetComponent<PlayerState>().IsGrappleActive, Is.False);
+            Assert.That(GetField<WeaponInstance>(grapple.GetComponent<PlayerWeaponLoadout>(), "grappleHiddenWeapon"), Is.Null);
+            Assert.That(controller.GetComponent<Rigidbody>().constraints.HasFlag(RigidbodyConstraints.FreezePositionX), Is.True);
+            var visuals = GetField<SwordGrappleVisuals>(grapple, "visuals");
+            Assert.That(GetField<LineRenderer>(visuals, "rope").enabled, Is.False);
+            Assert.That(GetField<LineRenderer>(visuals, "reticle").enabled, Is.False);
+
+            Vector3 start = controller.GetComponent<Rigidbody>().position;
+            Vector3 axis = controller.MovementAxis;
+            var newWall = CreateBox(start - testOrigin + axis * 5f + Vector3.up * 2f,
+                new Vector3(4f, 20f, 1f), 12);
+            newWall.isTrigger = true;
+            ReachWall(grapple, axis);
+            Assert.That(controller.GetComponent<Rigidbody>().position.x, Is.EqualTo(start.x).Within(0.01f));
+            Assert.That(Vector3.Dot(controller.GetComponent<Rigidbody>().position - start, axis), Is.GreaterThan(3f));
+
+            // The same trigger switches back to XY and releases the ZY hold.
+            typeof(CameraSwitchTrigger).GetMethod("OnTriggerEnter", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(trigger, new object[] { capsule });
+            Physics.SyncTransforms();
+            Assert.That(grapple.IsActive, Is.False);
+            Assert.That(controller.GetComponent<Rigidbody>().constraints.HasFlag(RigidbodyConstraints.FreezePositionZ), Is.True);
+            ReachWall(grapple, Vector3.right);
+            Assert.That(controller.GetComponent<Rigidbody>().position.z, Is.EqualTo(testOrigin.z).Within(0.01f));
+        }
+
         [TestCase(-15f)]
         [TestCase(15f)]
         public void SlopedWallMaintainsConfiguredCapsuleClearance(float tilt)
