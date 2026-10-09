@@ -30,6 +30,7 @@ namespace junklite
         private Phase phase;
         private float timer;
         private bool released;
+        private bool caught;
 
         public BruteGrabState(EnemyCharacter enemy) : base(enemy) { }
 
@@ -48,6 +49,7 @@ namespace junklite
             movement = enemy.Movement;
             held = null;
             released = false;
+            caught = false;
 
             movement?.Stop();
             if (HasTarget)
@@ -95,7 +97,11 @@ namespace junklite
                     if (!released && timer >= grab.ThrowDuration * grab.ThrowReleaseNormalized)
                         Release();
                     if (timer >= grab.ThrowDuration)
+                    {
+                        if (!released)
+                            Release();
                         Finish();
+                    }
                     break;
 
                 case Phase.Missed:
@@ -135,6 +141,7 @@ namespace junklite
 
             target.GetGrabbed(info);
             held = target;
+            caught = true;
             enemy.GetComponentInChildren<EnemyAudioHandler>()?.PlayGrab();
             presenter?.PlayGrabHold();
             SetPhase(Phase.Hold);
@@ -157,7 +164,7 @@ namespace junklite
                 return;
 
             phase = Phase.Done;
-            grab.OnGrabComplete();
+            grab.OnGrabComplete(caught);
         }
 
         private void SetPhase(Phase next)

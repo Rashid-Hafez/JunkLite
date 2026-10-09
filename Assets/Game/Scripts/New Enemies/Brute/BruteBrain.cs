@@ -49,6 +49,7 @@ namespace junklite
         private Move pendingMove;
         private float nextDecisionTime;
         private bool phaseTwoActive;
+        private float nextPerceptionRefresh;
 
         public bool IsPhaseTwo => phaseTwoActive;
 
@@ -96,8 +97,17 @@ namespace junklite
                 Perception?.SetRadius(pursuitRadius);
                 chase.UpdateLastKnownPosition(current.transform.position);
             }
+            else
+            {
+                // Target lost (death, respawn): shrink back so re-entering the
+                // detection zone re-acquires the player.
+                Actor.ExitCombat();
+                Perception?.ResetRadius();
+                pendingMove = Move.None;
+            }
 
-            if (!IsDecisionLocked())
+            // Respect the post-slam breather even if the target is re-acquired.
+            if (!IsDecisionLocked() && Time.time >= nextDecisionTime)
                 EvaluateNextAction();
         }
 
@@ -105,7 +115,19 @@ namespace junklite
         {
             UpdatePhase();
 
-            if (!Actor.HasTarget || IsDecisionLocked())
+            if (!Actor.HasTarget)
+            {
+                // The player may already be inside the sensor (released from a
+                // grab, revived in place) where no trigger-enter will fire.
+                if (Time.time >= nextPerceptionRefresh)
+                {
+                    nextPerceptionRefresh = Time.time + 0.25f;
+                    Perception?.RefreshOverlap();
+                }
+                return;
+            }
+
+            if (IsDecisionLocked())
                 return;
 
             chase.UpdateLastKnownPosition(Actor.Target.position);
@@ -327,7 +349,19 @@ namespace junklite
                 ChangeState<RecoverState>();
         }
 
-        private void HandleGrabCompleted() => EvaluateNextAction(true);
+        private void HandleGrabCompleted(bool caught)
+        {
+            if (!caught)
+            {
+                EvaluateNextAction(true);
+                return;
+            }
+
+            // Breather after the slam: idle, then decide again.
+            pendingMove = Move.None;
+            nextDecisionTime = Time.time + grab.PostSlamIdleTime;
+            ChangeState<IdleState>();
+        }
 
         // Stun and parry both end in the StandUp recovery.
         private void HandleStunCompleted()

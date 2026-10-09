@@ -24,8 +24,10 @@ namespace junklite
         [SerializeField] private float holdTime = 0.8f;
         [Tooltip("Gameplay length of the throw animation.")]
         [SerializeField] private float throwDuration = 0.7f;
-        [Tooltip("Point in the throw (0-1) where the player is released.")]
-        [SerializeField][Range(0f, 1f)] private float throwReleaseNormalized = 0.5f;
+        [Tooltip("Point in the slam (0-1) where the player is released. 1 = when the slam animation ends.")]
+        [SerializeField][Range(0f, 1f)] private float throwReleaseNormalized = 1f;
+        [Tooltip("Idle time after a successful grab slam before the next move.")]
+        [SerializeField] private float postSlamIdleTime = 1f;
         [Tooltip("Recovery after a missed grab.")]
         [SerializeField] private float missRecoveryTime = 0.6f;
 
@@ -35,7 +37,8 @@ namespace junklite
         [SerializeField] private Transform grabAnchor;
         [SerializeField] private Vector3 grabOffset = Vector3.zero;
         [SerializeField, Min(1f)] private float grabDamage = 5f;
-        [SerializeField] private Vector2 throwForce = new Vector2(25f, 12f);
+        [Tooltip("Push applied on release. Zero = slam: the player drops where the hand is.")]
+        [SerializeField] private Vector2 throwForce = Vector2.zero;
         [SerializeField] private float throwDamage = 20f;
 
         private GameObject owner;
@@ -44,7 +47,8 @@ namespace junklite
 
         /// <summary>Raised when the grab hitbox catches a grabbable target.</summary>
         public event Action<IGrabbable> Caught;
-        public event Action Completed;
+        /// <summary>Raised when the grab ends. True if the player was caught and slammed.</summary>
+        public event Action<bool> Completed;
 
         public float GrabRange => grabRange;
         public float WarningTime => warningTime;
@@ -53,6 +57,7 @@ namespace junklite
         public float ThrowDuration => throwDuration;
         public float ThrowReleaseNormalized => throwReleaseNormalized;
         public float MissRecoveryTime => missRecoveryTime;
+        public float PostSlamIdleTime => postSlamIdleTime;
         public Hitbox GrabHitbox => grabHitbox;
         public Transform GrabAnchor => grabAnchor;
         public Vector3 GrabOffset => grabOffset;
@@ -85,7 +90,7 @@ namespace junklite
         }
 
         public void StartCooldown(float multiplier) => readyTime = Time.time + cooldown * multiplier;
-        public void OnGrabComplete() => Completed?.Invoke();
+        public void OnGrabComplete(bool caught) => Completed?.Invoke(caught);
 
         private void HandleHit(Collider other, Hitbox sourceHitbox)
         {

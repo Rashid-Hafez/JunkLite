@@ -18,7 +18,6 @@ namespace junklite
         private IDisposable physicsLock;
         private IDisposable kinematicLock;
 
-        private const float PostThrowStun = 0.5f;
         private GameObject activeSource;
         private bool releaseRequested;
         private int releaseDirection;
@@ -96,10 +95,13 @@ namespace junklite
             float throwDamage = info.ThrowDamage;
             if (releaseRequested)
             {
+                // Grabber-owned release: control returns immediately. Clear the
+                // hold stun and any carried velocity so nothing drags the player.
                 throwDirection = releaseDirection;
                 throwForce = releaseForce;
                 throwDamage = releaseDamage;
-                state?.ApplyStun(PostThrowStun);
+                state?.ApplyStun(0f);
+                controller?.StopAllVelocity();
             }
 
             // Return physics ownership before damage and the throw impulse. The
