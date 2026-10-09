@@ -190,10 +190,6 @@ namespace junklite
         public System.Action OnFallStarted;              // airborne began
         public System.Action OnFallEnded;                // landed after falling
 
-        //Coroutines
-        private Coroutine dashRoutine;
-
-
         // Properties
         public bool IsGrounded => isGrounded;
         /// <summary>
@@ -269,7 +265,9 @@ namespace junklite
             : Mathf.Abs(transform.eulerAngles.y) < 90f;
 
         public bool IsDashing => isDashing;
-        public bool CanDash => dashCooldownTimer <= 0f && (isGrounded || canDashInAir) && CanMove;
+        public bool CanDash => isActiveAndEnabled && !isDashing && rb != null &&
+                               !rb.isKinematic && !IsPhysicsOverridden && dashDuration > 0f &&
+                               dashCooldownTimer <= 0f && (isGrounded || canDashInAir) && CanMove;
         public bool IsFacingLocked => facingLocked;
 
         /// <summary>
@@ -441,10 +439,18 @@ namespace junklite
             }
         }
 
+        private void OnDisable()
+        {
+            InterruptSpecialMovement();
+        }
+
         private void FixedUpdate()
         {
-            if (IsPhysicsOverridden)
+            if (IsPhysicsOverridden || rb.isKinematic)
+            {
+                InterruptSpecialMovement();
                 return;
+            }
 
             if (!IsGrounded)
                 coyoteTimer -= Time.fixedDeltaTime;
@@ -478,8 +484,7 @@ namespace junklite
 
             if (isDashing)
             {
-                if (dashRoutine == null)
-                    dashRoutine = StartCoroutine(DashCoroutine());
+                ApplyDashFixed();
             }
             else if (isWallJumping)
             {
@@ -504,6 +509,8 @@ namespace junklite
         public void SetLocomotionEnabled(bool enabled)
         {
             canMove = enabled;
+            if (!enabled)
+                InterruptSpecialMovement();
         }
 
         /// <summary>
@@ -514,6 +521,7 @@ namespace junklite
         {
             int id = ++nextControlLockId;
             movementLocks.Add(id);
+            InterruptSpecialMovement();
 
             if (stopVelocity)
                 StopAllVelocity();
@@ -529,6 +537,7 @@ namespace junklite
         {
             int id = ++nextControlLockId;
             physicsOverrideLocks.Add(id);
+            InterruptSpecialMovement();
             return new ControlLock(() => physicsOverrideLocks.Remove(id));
         }
 
@@ -542,6 +551,7 @@ namespace junklite
                 return ControlLock.Empty;
 
             int id = ++nextControlLockId;
+            InterruptSpecialMovement();
             if (kinematicLocks.Count == 0)
             {
                 rigidbodyWasKinematicBeforeLocks = rb.isKinematic;
@@ -719,7 +729,7 @@ namespace junklite
             ForceMode mode = ForceMode.VelocityChange,
             bool interruptSpecialMovement = true)
         {
-            if (rb == null || worldImpulse.sqrMagnitude <= 0f)
+            if (rb == null || rb.isKinematic || worldImpulse.sqrMagnitude <= 0f)
                 return;
 
             if (interruptSpecialMovement)
@@ -777,7 +787,7 @@ namespace junklite
         {
             if (snapToZPosition) position.z = fixedZPosition;
             transform.position = position;
-            rb.linearVelocity = Vector3.zero;
+            StopAllVelocity();
         }
 
         public void SetFacingDirection(bool facingRight)
@@ -1084,50 +1094,31 @@ namespace junklite
         }
 
 
-        private IEnumerator DashCoroutine()
+        private void ApplyDashFixed()
         {
-            isDashing = true;
-            dashEndTime = Time.time + dashDuration;
-            dashCooldownTimer = dashCooldown;
-
-            while (Time.time < dashEndTime)
+            if (Time.time >= dashEndTime || dashDuration <= 0f)
             {
-                float t = 1f - Mathf.Clamp01((dashEndTime - Time.time) / dashDuration);
-                float curve = dashCurve.Evaluate(t);
-                float dashSpeed = dashForce * curve;
-
-                Vector3 right = transform.right;
-                Vector3 up = transform.up;
-
-                float dir = IsFacingRight ? 1f : -1f;
-
-                Vector3 dashVel = right * dashSpeed * dir;
-
-                if (dashResetsGravity)
-                    rb.linearVelocity = dashVel;
-                else
-                    rb.linearVelocity = dashVel + up * Vector3.Dot(rb.linearVelocity, up);
-
-                yield return null;
+                EndDash();
+                return;
             }
 
-            isDashing = false;
-            dashRoutine = null;
+            // Dash shares the controller's fixed-step ownership checks. A cinematic,
+            // grab or ability cannot leave a render-frame coroutine writing velocity.
+            float t = 1f - Mathf.Clamp01((dashEndTime - Time.time) / dashDuration);
+            float dashSpeed = dashForce * dashCurve.Evaluate(t);
+            Vector3 up = transform.up;
+            float dir = IsFacingRight ? 1f : -1f;
+            Vector3 dashVel = transform.right * dashSpeed * dir;
 
-            OnDashEnded?.Invoke();
+            rb.linearVelocity = dashResetsGravity
+                ? dashVel
+                : dashVel + up * Vector3.Dot(rb.linearVelocity, up);
         }
 
 
         private void EndDash()
         {
-            bool wasDashing = isDashing || dashRoutine != null;
-            if (!wasDashing) return;
-
-            if (dashRoutine != null)
-            {
-                StopCoroutine(dashRoutine);
-                dashRoutine = null;
-            }
+            if (!isDashing) return;
 
             isDashing = false;
             OnDashEnded?.Invoke();
@@ -1220,7 +1211,7 @@ namespace junklite
             transform.eulerAngles = new Vector3(0f, yRotation, 0f);
 
             // Rotate current velocity to match new orientation
-            rb.linearVelocity = Quaternion.Euler(0f, deltaVel, 0f) * rb.linearVelocity;
+            SetVelocity(Quaternion.Euler(0f, deltaVel, 0f) * rb.linearVelocity);
         }
 
 

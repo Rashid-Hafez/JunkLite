@@ -103,8 +103,10 @@ namespace junklite
             if (durabilityFill != null)
             {
                 durabilityFill.enabled = hasWeapon;
-                if (hasWeapon && weapon.MaxDurability > 0f)
-                    durabilityFill.fillAmount = weapon.CurrentDurability / weapon.MaxDurability;
+                float fill = hasWeapon && weapon.MaxDurability > 0f
+                    ? weapon.CurrentDurability / weapon.MaxDurability
+                    : 0f;
+                UIFillUtility.SetHorizontalFill(durabilityFill, fill);
             }
 
             if (durabilityTrack != null)

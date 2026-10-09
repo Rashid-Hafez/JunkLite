@@ -72,6 +72,7 @@ namespace junklite
 
             SetActive(false);
             SetMousePressed(false);
+            RefreshDurability();
         }
 
         /// <summary>
@@ -139,11 +140,17 @@ namespace junklite
             if (Time.unscaledTime < nextDurabilityRefresh) return;
             nextDurabilityRefresh = Time.unscaledTime + DurabilityRefreshInterval;
 
+            RefreshDurability();
+        }
+
+        private void RefreshDurability()
+        {
+            if (weapon == null || durabilityFill == null || !showDurability) return;
+
             float fill = weapon.MaxDurability > 0f
                 ? weapon.CurrentDurability / weapon.MaxDurability
                 : 0f;
-            if (!Mathf.Approximately(durabilityFill.fillAmount, fill))
-                durabilityFill.fillAmount = fill;
+            UIFillUtility.SetHorizontalFill(durabilityFill, fill);
         }
 
         #endregion

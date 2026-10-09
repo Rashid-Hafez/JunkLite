@@ -44,6 +44,9 @@ namespace junklite
         private PlayerCombatTracker subscribedCombatTracker;
         private EncounterController subscribedEncounter;
         private PlayerLifecycle subscribedPlayerLifecycle;
+        private Coroutine billboardRoutine;
+        private Transform billboardTarget;
+        private Quaternion billboardRestRotation;
 
         [Header("Culling Objects")]
         private bool hidden = false;
@@ -67,6 +70,7 @@ namespace junklite
 
         private void OnDisable()
         {
+            CancelBillboardRotation();
             UnsubscribeFromCombatTracker();
             UnsubscribeFromEncounter();
             UnsubscribeFromPlayerLifecycle();
@@ -76,7 +80,8 @@ namespace junklite
         {
             triggerCollider = GetComponent<BoxCollider>();
             arrowPropertyBlock = new MaterialPropertyBlock();
-            cinemachineBrain = FindAnyObjectByType<CinemachineBrain>();
+            if (cinemachineBrain == null)
+                cinemachineBrain = FindAnyObjectByType<CinemachineBrain>();
             pointA = transform.Find("A");
             pointB = transform.Find("B");
 
@@ -265,6 +270,7 @@ namespace junklite
         /// </summary>
         private void ResetToDefaultState()
         {
+            CancelBillboardRotation();
             usingFirstState = false;
             hasSwitched = false;
             oneWayLocked = false;
@@ -274,7 +280,10 @@ namespace junklite
             if (objectsToHide != null && objectsToHide.Length > 0 && hidden)
             {
                 foreach (var obj in objectsToHide)
-                    obj.SetActive(true);
+                {
+                    if (obj != null)
+                        obj.SetActive(true);
+                }
 
                 hidden = false;
             }
@@ -331,7 +340,7 @@ namespace junklite
 
         private void OnTriggerEnter(Collider other)
         {
-            if (!other.CompareTag("Player"))
+            if (locked || !other.CompareTag("Player"))
                 return;
 
             Character2D5Controller controller = other.GetComponent<Character2D5Controller>();
@@ -339,6 +348,9 @@ namespace junklite
 
             if (controller != null && playerSpine != null)
             {
+                if (rotateOnTrigger && (pointA == null || pointB == null))
+                    return;
+
                 SwitchCamera();
                 RotateCharacter(controller, playerSpine);
                 usingFirstState = !usingFirstState;
@@ -363,7 +375,10 @@ namespace junklite
                 controller.RotatePLayer(usingFirstState ? rotationA : rotationB);
                 controller.FreezePerpendicularAxis();
 
-                StartCoroutine(BillboardRotate(playerSpine));
+                CancelBillboardRotation();
+                if (cinemachineBrain != null && switchCameras && cameraBlendDuration > 0f &&
+                    cameraA != null && cameraB != null && cameraA != cameraB)
+                    billboardRoutine = StartCoroutine(BillboardRotate(playerSpine));
             }
         }
 
@@ -384,7 +399,8 @@ namespace junklite
                         cameraB.Prioritize();
                         nextCam = cameraB;
                     }
-                    cinemachineBrain.DefaultBlend.Time = cameraBlendDuration;
+                    if (cinemachineBrain != null)
+                        cinemachineBrain.DefaultBlend.Time = cameraBlendDuration;
 
                     CameraManager.Instance?.SetActiveCamera(nextCam);
                 }
@@ -414,17 +430,23 @@ namespace junklite
 
         private void HideObjects()
         {
-            if (objectsToHide.Length > 0)
+            if (objectsToHide != null && objectsToHide.Length > 0)
             {
                 if (!hidden)
                 {
                     foreach (var obj in objectsToHide)
-                        obj.SetActive(false);
+                    {
+                        if (obj != null)
+                            obj.SetActive(false);
+                    }
                 }
                 else
                 {
                     foreach (var obj in objectsToHide)
-                        obj.SetActive(true);
+                    {
+                        if (obj != null)
+                            obj.SetActive(true);
+                    }
                 }
 
                 hidden = !hidden;
@@ -433,16 +455,53 @@ namespace junklite
 
         public IEnumerator BillboardRotate(Transform playerSpine)
         {
-            playerSpine.localRotation = Quaternion.Euler(0f, ccwAB ? 90f : -90f, 0f);
-            yield return null;
-            while (cinemachineBrain.ActiveBlend.BlendWeight < 0.9f && cinemachineBrain.ActiveBlend != null)
+            if (playerSpine == null)
+                yield break;
+
+            billboardTarget = playerSpine;
+            billboardRestRotation = playerSpine.localRotation;
+            Quaternion offset = Quaternion.Euler(0f, ccwAB ? 90f : -90f, 0f);
+
+            try
             {
-                float progress = cinemachineBrain.ActiveBlend.BlendWeight;
-                playerSpine.localRotation = Quaternion.Euler(0f, Mathf.Lerp(ccwAB ? 90f : -90f, 0f, progress), 0f);
+                playerSpine.localRotation = billboardRestRotation * offset;
                 yield return null;
+
+                while (playerSpine != null && cinemachineBrain != null)
+                {
+                    var blend = cinemachineBrain.ActiveBlend;
+                    if (blend == null || blend.BlendWeight >= 0.9f)
+                        break;
+
+                    playerSpine.localRotation = billboardRestRotation * Quaternion.Slerp(
+                        offset, Quaternion.identity, blend.BlendWeight);
+                    yield return null;
+                }
+            }
+            finally
+            {
+                RestoreBillboardRotation();
+                billboardRoutine = null;
+            }
+        }
+
+        private void CancelBillboardRotation()
+        {
+            if (billboardRoutine != null)
+            {
+                StopCoroutine(billboardRoutine);
+                billboardRoutine = null;
             }
 
-            playerSpine.localRotation = Quaternion.Euler(0f, 0f, 0f);
+            RestoreBillboardRotation();
+        }
+
+        private void RestoreBillboardRotation()
+        {
+            if (billboardTarget != null)
+                billboardTarget.localRotation = billboardRestRotation;
+
+            billboardTarget = null;
         }
 
         private void OnDrawGizmos()

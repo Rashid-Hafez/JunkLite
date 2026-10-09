@@ -19,8 +19,8 @@ The goal is better modularity and easier feature development without building a 
 - JunkLite is a **single-player game**. Do not design combat, abilities, state, or managers around multiplayer authority or replication.
 - The project uses Unity 6000 with URP.
 - First-party gameplay code currently lives primarily under `Assets/Game/Scripts/`.
-- Refactoring should remain inside first-party scripts, small prefabs, and ScriptableObject assets.
-- Avoid broad scene changes and third-party modifications. Report required Inspector work to the user.
+- Refactoring should focus on first-party scripts, prefabs, and ScriptableObject assets; targeted scene edits are allowed when requested by the user.
+- Preserve scene layout, visuals, gameplay references, and unrelated overrides. Prefer scene-instance overrides over third-party asset modifications, and report any remaining Inspector work to the user.
 - Unity should create `.meta` files where possible.
 
 ## Architectural Principles
