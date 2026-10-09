@@ -331,6 +331,23 @@ namespace junklite
         }
 
         /// <summary>
+        /// Places the character on a lane: exact position, lane Y rotation, zero velocity,
+        /// and the perpendicular axis locked. Used by LaneEntryTrigger.
+        /// </summary>
+        public void SnapToLane(Vector3 position, float laneYRotation)
+        {
+            StopAllVelocity();
+
+            Quaternion rotation = Quaternion.Euler(0f, laneYRotation, 0f);
+            rb.position = position;
+            rb.rotation = rotation;
+            transform.SetPositionAndRotation(position, rotation);
+            fixedZPosition = position.z;
+
+            FreezePerpendicularAxis();
+        }
+
+        /// <summary>
         /// Immediately unlocks facing direction.
         /// </summary>
         public void UnlockFacing()

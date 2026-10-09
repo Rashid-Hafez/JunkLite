@@ -21,11 +21,34 @@ JunkLite is a **single-player** Unity 6 (6000.3.x) URP game. First-party code li
 | Task | Read |
 | --- | --- |
 | Any architecture, combat, mod, manager, camera, enemy, or encounter work | `ARCHITECTURE_HANDOFF.md` (source of truth: status, known gaps, safe next steps) |
+| Onboarding overview for humans (dev tools, ScriptableObjects, mod system, lane setup) | `PROGRAMMER_AND_DESIGNER_GUIDE.md` (keep it in sync when those systems change) |
+| Any level, scene, collider, camera, lane, or world-rotation work | `MAIN_MECHANICS.md` (how the game plays: 2.5D lanes, world rotation, Camera Switch Triggers, level rules) |
 | UI, fonts, HUD, in-world prompts | The **UI rules** section below (full copy: `Assets/Game/New UI/UI INSTRUCTIONS FOR AI AGENTS.pdf`) |
 
 If you change an architectural boundary, update `ARCHITECTURE_HANDOFF.md` in the same change.
 
 ## Key architecture
+
+**Gameplay mechanics come first.** JunkLite is 2.5D: 2D characters on axis-aligned lanes in a 3D world that rotates 90° at Camera Switch Triggers. Read `MAIN_MECHANICS.md` before editing any level so scene changes don't break lanes, cameras, or rotation.
+
+**Lanes and pathing (pressing E to proceed).**
+- **A lane is not a spline.** `LanePath` (`Scripts/LEVEL/LanePath.cs`) is a chain of straight segments. Its waypoints are its child transforms, in hierarchy order, and every segment must run along world X or world Z (non-aligned segments draw red and log a warning).
+- **The path is data, not motion.** It is used to place characters on the lane. The movement itself is the controller's job: `Character2D5Controller` moves along `transform.right` and locks the perpendicular Rigidbody axis (`FreezePerpendicularAxis`). Enemies do the same from their Y rotation.
+- **Free-move room → lane.**
+  - A `LaneEntryTrigger` box sits in front of the room's exit door.
+  - While the player is inside it, an on-screen "E to proceed" prompt shows (the Interact binding).
+  - On Interact, `LanePath.TryGetClosestPoint` finds the nearest lane point and lane Y rotation, and `Character2D5Controller.SnapToLane(point, yRotation)` places the player there with zero velocity and the axis locked.
+  - The trigger's `gateDoor` (a `SlidingDoor`) stays `Locked` until that snap happens, and relocks on every `PlayerSpawned`, so the player can't skip it.
+- **Corners.** At a 90° turn, a `CameraSwitchTrigger` does the rotation (camera swap, teleport to its `A`/`B` point, new yaw, axis relock). The lane continues by adding the next waypoint to the same `LanePath`, and the trigger's `A`/`B` points must sit on the two segments.
+- **Doors.** Use `Prefabs/Environment/Doors/Door4_Sliding.prefab` (`SlidingDoor`):
+  - It opens while the player is inside the root trigger.
+  - Its `Blocker` collider turns off when the door is fully open.
+  - Door4.1 uses the cut mesh `Door4.1_Cut.asset`, which has the walk-through hole.
+- **Tools** (`Tools > JunkLite > Level`, each one Undo step): *Snap Selected / Snap All Enemies To Lane Path*, *Replace Mesh Colliders With Boxes*, *Remove Mesh Colliders*.
+- **Rules.**
+  - Level collision lives under the `Colliders` root. Keep it to a few large boxes: floor strips along the lane path, one square per free-move room, ramps, room perimeters, and lane-end walls. Art meshes get no colliders (doors excepted), and mesh colliders are never used.
+  - Put gameplay objects (spawn, lane paths, entry triggers, camera switch triggers) under `[Gameplay]`, not in the art hierarchy.
+  - Curved paths (arcs, spiral stairs) are not supported. Build them from straight segments and 90° corners, or extend the controller first.
 
 **Damage: one path only.**
 Producers (weapons, hazards, mods, status effects) build a `DamageRequest` and send it to an `IDamageReceiver`. `Damageable` validates, applies armor, changes health through `AttributesManager`, and returns a `DamageResult` with an outcome and the amount actually applied. See `Character/DamageContracts.cs`.
