@@ -29,6 +29,8 @@ namespace junklite
         [Header("Identity")]
         public string weaponId;
         public string displayName;
+        [Tooltip("Allows this equipped weapon to be used for sword grappling.")]
+        public bool enablesSwordGrapple;
         public WeaponType type;
         public Rarity rarity;
         public Sprite icon;

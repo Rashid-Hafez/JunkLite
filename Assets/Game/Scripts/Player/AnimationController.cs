@@ -37,7 +37,8 @@ namespace junklite
                 characterSystem.OnAttackingChanged += OnAttackingChanged;
                 characterSystem.OnRollingChanged += OnRollingChanged;
                 characterSystem.OnDeath += OnDeath;
-                characterSystem.OnWallSlideChanged += OnWallSlideChanged;
+                characterSystem.OnWallAttachedChanged += OnWallAttachedChanged;
+                characterSystem.OnWallSlidingChanged += OnWallAttachedChanged;
                 characterSystem.OnLedgeDetectedChanged += OnLedgeDetectedChanged;
                 characterSystem.OnParryChanged += OnParryChanged;
                 characterSystem.OnJumpStateChanged += OnJumpStateChanged;
@@ -67,7 +68,7 @@ namespace junklite
             // These are now properly managed by CharacterState with mutual exclusivity
             animator.SetBool("IsJumping", characterSystem.IsJumping);
             animator.SetBool("IsFalling", characterSystem.IsFalling);
-            animator.SetBool("IsWallSliding", characterSystem.IsWallSliding);
+            animator.SetBool("IsWallSliding", characterSystem.IsWallAttached || characterSystem.IsWallSliding);
             animator.SetBool("IsLedgeDetected", characterSystem.IsLedgeDetected);
 
             // --- Optional landing trigger ---
@@ -112,10 +113,10 @@ namespace junklite
                 animator.SetTrigger("Attack");
         }
 
-        private void OnWallSlideChanged(bool wallSliding)
+        private void OnWallAttachedChanged(bool wallSliding)
         {
             // Handled in Update() for consistency, but also respond to events for immediate feedback
-            animator.SetBool("IsWallSliding", wallSliding);
+            animator.SetBool("IsWallSliding", characterSystem.IsWallAttached || characterSystem.IsWallSliding);
         }
 
         private void OnLedgeDetectedChanged(bool detected)
@@ -174,7 +175,8 @@ namespace junklite
             characterSystem.OnAttackingChanged -= OnAttackingChanged;
             characterSystem.OnRollingChanged -= OnRollingChanged;
             characterSystem.OnDeath -= OnDeath;
-            characterSystem.OnWallSlideChanged -= OnWallSlideChanged;
+            characterSystem.OnWallAttachedChanged -= OnWallAttachedChanged;
+            characterSystem.OnWallSlidingChanged -= OnWallAttachedChanged;
             characterSystem.OnLedgeDetectedChanged -= OnLedgeDetectedChanged;
             characterSystem.OnParryChanged -= OnParryChanged;
             characterSystem.OnJumpStateChanged -= OnJumpStateChanged;

@@ -50,14 +50,14 @@ namespace junklite
             {
                 controller.OnJumpStarted += OnJump;
                 controller.OnDoubleJumpPerformed += OnDoubleJump;
-                controller.OnWallJumped += OnWallJump;
                 controller.OnFallEnded += OnLand;
                 controller.OnDashStarted += OnDash;
-                controller.OnWallSlideChanged += OnWallSlide;
             }
 
             if (state != null)
             {
+                state.OnWallAttachedChanged += OnWallAttached;
+                state.OnWallSlidingChanged += OnWallAttached;
                 state.OnDeath += OnDeath;
                 state.OnAttackingChanged += OnAttackingChanged;
             }
@@ -75,14 +75,14 @@ namespace junklite
             {
                 controller.OnJumpStarted -= OnJump;
                 controller.OnDoubleJumpPerformed -= OnDoubleJump;
-                controller.OnWallJumped -= OnWallJump;
                 controller.OnFallEnded -= OnLand;
                 controller.OnDashStarted -= OnDash;
-                controller.OnWallSlideChanged -= OnWallSlide;
             }
 
             if (state != null)
             {
+                state.OnWallAttachedChanged -= OnWallAttached;
+                state.OnWallSlidingChanged -= OnWallAttached;
                 state.OnDeath -= OnDeath;
                 state.OnAttackingChanged -= OnAttackingChanged;
             }
@@ -102,14 +102,13 @@ namespace junklite
         // Event handlers
         private void OnJump() => Play(GetVariantOrFallback(sounds?.jumpVariants, sounds?.jump));
         private void OnDoubleJump() => Play(sounds?.doubleJump);
-        private void OnWallJump() => Play(sounds?.wallJump);
         private void OnLand() => Play(sounds?.land);
         private void OnDash() => Play(sounds?.dash);
         private void OnDeath() => Play(sounds?.death);
         private void OnEnemyHit(EnemyCharacter _, float __) => Play(sounds?.hit);
         private void OnEnvironmentHit() => Play(sounds?.environmentHit);
         private void OnAttackingChanged(bool attacking) { if (attacking) PlayAttack(); }
-        private void OnWallSlide(bool sliding) { if (sliding) Play(sounds?.wallSlide); }
+        private void OnWallAttached(bool sliding) { if (sliding) Play(sounds?.wallSlide); }
 
         private void Play(SoundEntry entry)
         {

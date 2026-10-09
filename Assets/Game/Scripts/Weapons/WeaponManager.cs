@@ -275,6 +275,7 @@ namespace junklite
 
         public bool TryToggleCombatMode()
         {
+            if (playerState != null && playerState.IsGrappleActive) return false;
             if (isAttacking) return false;
             if (spineController != null && spineController.IsForceOverrideActive) return false;
 
@@ -364,6 +365,7 @@ namespace junklite
 
         public void Attack(int weaponSlot, Vector2 moveInput, bool isGrounded)
         {
+            if (playerState != null && playerState.IsGrappleActive) return;
             var combat = GetCombatStateForSlot(weaponSlot);
             if (combat == null) return;
 
@@ -490,8 +492,11 @@ namespace junklite
             bufferTimer = bufferDuration;
         }
 
+        public void CancelBufferedAttack() => hasBufferedInput = false;
+
         private void StartAttack(int slot, AttackDirection dir)
         {
+            if (playerState != null && playerState.IsGrappleActive) return;
             var combat = GetCombatStateForSlot(slot);
             var data = GetWeaponDataForSlot(slot);
             if (combat == null || data == null) return;

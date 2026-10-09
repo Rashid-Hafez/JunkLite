@@ -18,6 +18,9 @@ namespace junklite
         private WeaponInstance weaponSlot2;
         private WorldWeaponPickup storedPickup1;
         private WorldWeaponPickup storedPickup2;
+        private WeaponInstance grappleHiddenWeapon;
+        private bool weaponsVisible;
+        private bool GrappleLocked => TryGetComponent<PlayerSwordGrapple>(out var grapple) && grapple.IsActive;
 
         public WeaponInstance WeaponSlot1 => weaponSlot1;
         public WeaponInstance WeaponSlot2 => weaponSlot2;
@@ -63,7 +66,7 @@ namespace junklite
             Vector3 displacedWeaponDropPosition,
             bool weaponsVisible)
         {
-            if (!IsValidSlot(slot) || pickup == null || pickup.weaponInstance == null)
+            if (GrappleLocked || !IsValidSlot(slot) || pickup == null || pickup.weaponInstance == null)
                 return false;
 
             // Replacement is one atomic loadout change. The displaced weapon still
@@ -73,6 +76,7 @@ namespace junklite
                 !TryDropWeaponInternal(slot, displacedWeaponDropPosition, false))
                 return false;
 
+            this.weaponsVisible = weaponsVisible;
             WeaponInstance weapon = pickup.weaponInstance;
             bool isRanged = weapon.weaponData is RangedWeaponData;
 
@@ -93,12 +97,12 @@ namespace junklite
 
         public bool TryDropWeapon(int slot, Vector3 dropPosition)
         {
-            return TryDropWeaponInternal(slot, dropPosition, true);
+            return !GrappleLocked && TryDropWeaponInternal(slot, dropPosition, true);
         }
 
         public bool TrySwapSlots()
         {
-            if (weaponSlot1 == weaponSlot2)
+            if (GrappleLocked || weaponSlot1 == weaponSlot2)
                 return false;
 
             (weaponSlot1, weaponSlot2) = (weaponSlot2, weaponSlot1);
@@ -110,8 +114,16 @@ namespace junklite
             return true;
         }
 
+        public void SetGrappleWeaponHidden(WeaponInstance weapon)
+        {
+            if (grappleHiddenWeapon == weapon) return;
+            grappleHiddenWeapon = weapon;
+            SetWeaponsVisible(weaponsVisible);
+        }
+
         public void SetWeaponsVisible(bool visible)
         {
+            weaponsVisible = visible;
             SetWeaponVisible(weaponSlot1, visible);
             SetWeaponVisible(weaponSlot2, visible);
         }
@@ -231,12 +243,12 @@ namespace junklite
             return slot == 1 || slot == 2;
         }
 
-        private static void SetWeaponVisible(WeaponInstance weapon, bool visible)
+        private void SetWeaponVisible(WeaponInstance weapon, bool visible)
         {
             if (weapon == null)
                 return;
 
-            if (weapon.weaponData is RangedWeaponData)
+            if (weapon == grappleHiddenWeapon || weapon.weaponData is RangedWeaponData)
                 visible = false;
 
             SpriteRenderer[] renderers = weapon.GetComponentsInChildren<SpriteRenderer>(true);

@@ -818,6 +818,7 @@ GameObject:
   - component: {fileID: 2356093748291057341}
   - component: {fileID: 2356093748291057342}
   - component: {fileID: 2597051752003655520}
+  - component: {fileID: 2597051752003655521}
   m_Layer: 16
   m_Name: Player_2.2
   m_TagString: Player
@@ -916,17 +917,6 @@ MonoBehaviour:
     m_RotationOrder: 4
   dashReadyVFXPrefab: {fileID: 3022102558446658867, guid: cd3d579a2d65b3241a1812f639db37ec, type: 3}
   dashReadyVFXSpawnPoint: {fileID: 3708428653336801813}
-  wallSlideSpeed: 2
-  wallCheckRadius: 0.3
-  wallCheckTransform: {fileID: 1814897658590377715}
-  wallLayer:
-    serializedVersion: 2
-    m_Bits: 4096
-  wallJumpForce: 10
-  wallJumpHorizontalForce: 8
-  wallJumpDuration: 0.2
-  wallJumpUpwardBonus: 2
-  doubleJumpLockoutAfterWallJump: 0.2
   ledgeCheckTransform: {fileID: 711466271944293612}
   ledgeCheckSize: {x: 0.5, y: 0.2}
   groundSnapMaxDistance: 0.4
@@ -1356,6 +1346,7 @@ MonoBehaviour:
   landing: Jump_3_Land
   doubleJump: Jump_2_Air_Double
   wallSlide: Jump_Wall
+  wallPoseForwardOffset: 0.345
   dash: Dash
   stun: Hurt
   death: Death
@@ -7125,3 +7116,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8440532677286299246, guid: 2f535f73932c2804c9c6efcb03d0a707, type: 3}
   m_PrefabInstance: {fileID: 7613686829493379929}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &2597051752003655521
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7038683931279381878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1420c9206fa040daa3e04924c0b75379, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  settings: {fileID: 11400000, guid: d345c6cd6ac749a69326b9d6746a24aa, type: 2}
+  visualsPrefab: {fileID: 7870487630159371362, guid: 7ca5f518a8dc5d940a138b351866342f, type: 3}

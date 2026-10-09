@@ -4,6 +4,8 @@ using System.Reflection;
 using NUnit.Framework;
 using Unity.Cinemachine;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
@@ -12,10 +14,31 @@ namespace junklite.Tests
     public sealed class MovementAndCameraRegressionTests
     {
         private readonly List<GameObject> cleanupObjects = new();
+        private GameInputManager testInput;
+        private Keyboard keyboard;
+        private InputSettings previousInputSettings;
+        private HideFlags previousInputSettingsFlags;
+        private InputSettings temporaryInputSettings;
 
         [TearDown]
         public void TearDown()
         {
+            if (testInput != null)
+            {
+                Invoke(testInput, "OnDisable");
+                Object.DestroyImmediate(testInput.controls.asset);
+            }
+            if (keyboard != null) InputSystem.RemoveDevice(keyboard);
+            if (previousInputSettings != null)
+            {
+                InputSystem.settings = previousInputSettings;
+                previousInputSettings.hideFlags = previousInputSettingsFlags;
+            }
+            if (temporaryInputSettings != null) Object.DestroyImmediate(temporaryInputSettings);
+            testInput = null;
+            keyboard = null;
+            previousInputSettings = temporaryInputSettings = null;
+
             for (int i = cleanupObjects.Count - 1; i >= 0; i--)
             {
                 if (cleanupObjects[i] != null)
@@ -23,6 +46,48 @@ namespace junklite.Tests
             }
 
             cleanupObjects.Clear();
+        }
+
+        [TestCase(Key.D, Key.W, 1f, 1f)]
+        [TestCase(Key.D, Key.S, 1f, -1f)]
+        [TestCase(Key.A, Key.W, -1f, 1f)]
+        [TestCase(Key.A, Key.S, -1f, -1f)]
+        [TestCase(Key.RightArrow, Key.UpArrow, 1f, 1f)]
+        [TestCase(Key.LeftArrow, Key.DownArrow, -1f, -1f)]
+        public void KeyboardAttackAimDoesNotReduceRunningSpeed(Key horizontal, Key vertical,
+            float expectedX, float expectedY)
+        {
+            CreateKeyboardInput();
+            Character2D5Controller controller = CreateController();
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(horizontal));
+            InputSystem.Update();
+            controller.SetMovementInput(testInput.MoveDirection.x);
+            Invoke(controller, "FixedUpdate");
+            float runningSpeed = Vector3.Dot(controller.Velocity, controller.MovementAxis);
+            Assert.That(runningSpeed, Is.EqualTo(expectedX * controller.EffectiveMoveSpeed).Within(0.001f));
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(horizontal, vertical));
+            InputSystem.Update();
+            Assert.That(testInput.MoveDirection, Is.EqualTo(new Vector2(expectedX, expectedY)),
+                "Vertical attack intent must leave the horizontal keyboard axis at full strength.");
+            controller.SetMovementInput(testInput.MoveDirection.x);
+            Invoke(controller, "FixedUpdate");
+            Assert.That(Vector3.Dot(controller.Velocity, controller.MovementAxis),
+                Is.EqualTo(runningSpeed).Within(0.001f));
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(vertical));
+            InputSystem.Update();
+            Assert.That(testInput.MoveDirection, Is.EqualTo(new Vector2(0f, expectedY)));
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.A, Key.D, vertical));
+            InputSystem.Update();
+            Assert.That(testInput.MoveDirection, Is.EqualTo(new Vector2(0f, expectedY)),
+                "Opposing horizontal keys must still cancel.");
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+            InputSystem.Update();
+            Assert.That(testInput.MoveDirection, Is.EqualTo(Vector2.zero));
         }
 
         [Test]
@@ -180,6 +245,24 @@ namespace junklite.Tests
 
             SetField(trigger, "objectsToHide", null);
             Assert.DoesNotThrow(() => Invoke(trigger, "HideObjects"));
+        }
+
+        private void CreateKeyboardInput()
+        {
+            previousInputSettings = InputSystem.settings;
+            previousInputSettingsFlags = previousInputSettings.hideFlags;
+            // Preserve temporary defaults, which Input System otherwise destroys on replacement.
+            if (previousInputSettingsFlags == HideFlags.HideAndDontSave)
+                previousInputSettings.hideFlags = HideFlags.None;
+            temporaryInputSettings = Object.Instantiate(previousInputSettings);
+            temporaryInputSettings.hideFlags = HideFlags.HideAndDontSave;
+            InputSystem.settings = temporaryInputSettings;
+            temporaryInputSettings.SetInternalFeatureFlag("RUN_PLAYER_UPDATES_IN_EDIT_MODE", true);
+            keyboard = InputSystem.AddDevice<Keyboard>();
+            testInput = CreateObject("Movement Test Input").AddComponent<GameInputManager>();
+            Invoke(testInput, "Awake");
+            testInput.controls.asset.devices = new InputDevice[] { keyboard };
+            Invoke(testInput, "OnEnable");
         }
 
         private Character2D5Controller CreateController()

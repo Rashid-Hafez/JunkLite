@@ -409,8 +409,8 @@ namespace junklite
         {
             if (playerState == null || Controller == null) return;
 
-            // Only process when airborne and not wall sliding
-            if (playerState.IsGrounded || playerState.IsWallSliding) return;
+            // Wall attachment owns its airborne pose.
+            if (playerState.IsGrounded || playerState.IsWallAttached || playerState.IsWallSliding) return;
 
             float yVel = Controller.Velocity.y;
 
@@ -426,7 +426,7 @@ namespace junklite
                 playerState.SetFalling(true);
             }
             // If going up but not marked as jumping (e.g. launched by something), set jumping
-            else if (yVel > 0.1f && !playerState.IsJumping && !playerState.IsWallJumping && !playerState.IsDoubleJumping)
+            else if (yVel > 0.1f && !playerState.IsJumping && !playerState.IsDoubleJumping)
             {
                 // Only auto-set jumping if we're clearly going upward
                 // This handles edge cases like external forces
@@ -477,9 +477,7 @@ namespace junklite
                 Controller.OnDashEnded += HandleDashEnded;
 
                 // === NEW MOVEMENT STATES ===
-                Controller.OnWallSlideChanged += HandleWallSlideChanged;
                 Controller.OnLedgeDetectedChanged += HandleLedgeDetectedChanged;
-                Controller.OnWallJumped += HandleWallJumped;
                 Controller.OnDoubleJumpPerformed += HandleDoubleJump;
                 Controller.OnJumpStarted += HandleJumpStarted;
                 Controller.OnFallStarted += HandleFallStarted;
@@ -519,9 +517,7 @@ namespace junklite
                 Controller.OnDashEnded -= HandleDashEnded;
 
                 // New movement unsubscriptions
-                Controller.OnWallSlideChanged -= HandleWallSlideChanged;
                 Controller.OnLedgeDetectedChanged -= HandleLedgeDetectedChanged;
-                Controller.OnWallJumped -= HandleWallJumped;
                 Controller.OnDoubleJumpPerformed -= HandleDoubleJump;
                 Controller.OnJumpStarted -= HandleJumpStarted;
                 Controller.OnFallStarted -= HandleFallStarted;
@@ -550,31 +546,9 @@ namespace junklite
         // NEW MOVEMENT STATE HOOKS
         // =======================
 
-        void HandleWallSlideChanged(bool sliding)
-        {
-            playerState?.SetWallSliding(sliding);
-        }
-
         void HandleLedgeDetectedChanged(bool detected)
         {
             playerState?.SetLedgeDetected(detected);
-        }
-
-        void HandleWallJumped()
-        {
-            // Wall jump: first clear wall sliding, then set wall jumping, then set jumping
-            // Order matters for proper state transitions!
-            playerState?.SetWallSliding(false);  // Clear wall slide first
-            playerState?.SetWallJumping(true);   // Mark as wall jumping
-            playerState?.SetJumping(true);       // Now we're also jumping
-            playerState?.SetFalling(false);      // Not falling while going up
-            StartCoroutine(ResetWallJumpFlag());
-        }
-
-        IEnumerator ResetWallJumpFlag()
-        {
-            yield return new WaitForSeconds(0.20f);
-            playerState?.SetWallJumping(false);
         }
 
         void HandleDoubleJump()
@@ -625,7 +599,6 @@ namespace junklite
         {
             playerState?.SetFalling(false);
             playerState?.SetJumping(false);
-            playerState?.SetWallJumping(false);
             playerState?.SetDoubleJumping(false);
 
             if (particleJumpDown != null)
@@ -638,6 +611,8 @@ namespace junklite
         #region Input Actions
         void OnJumpPressed()
         {
+            if (playerState == null || !playerState.CanJump || Time.timeScale <= 0f) return;
+            if (TryGetComponent<PlayerSwordGrapple>(out var grapple) && grapple.ReleaseFromJump()) return;
             if (playerState != null && playerState.CanJump && Controller != null)
             {
                 Controller.SetJumpHeld(true);

@@ -60,28 +60,6 @@ namespace junklite
         [SerializeField] private GameObject dashReadyVFXPrefab;
         [SerializeField] private Transform dashReadyVFXSpawnPoint;
 
-        // --- Wall Slide ---
-        [Header("Wall Slide Settings")]
-        [SerializeField] private float wallSlideSpeed = -2f;           // negative = downward
-        [SerializeField] private float wallCheckRadius = 0.3f;
-        [SerializeField] private Transform wallCheckTransform;
-        [SerializeField] private LayerMask wallLayer;
-
-        private bool isWallSliding;
-        private int wallDirection; // +1 = right wall, -1 = left wall
-
-        // --- Wall Jump ---
-        [Header("Wall Jump Settings")]
-        [SerializeField] private float wallJumpForce = 15f;
-        [SerializeField] private float wallJumpHorizontalForce = 7f;
-        [SerializeField] private float wallJumpDuration = 0.18f;
-        [SerializeField] private float wallJumpUpwardBonus = 2f;
-        [SerializeField] private float doubleJumpLockoutAfterWallJump = 0.2f;
-
-        private bool isWallJumping = false;
-        private float wallJumpEndTime = 0f;
-        private float lastWallJumpTime = float.NegativeInfinity;
-
         [Header("Ledge Detection Settings")]
         [SerializeField] private Transform ledgeCheckTransform;
         [SerializeField] private Vector2 ledgeCheckSize = new Vector2(0.5f, 1f);
@@ -183,8 +161,6 @@ namespace junklite
         public System.Action OnSlamStarted;
         public System.Action OnSlamEnded;
 
-        public System.Action<bool> OnWallSlideChanged;   // true = started, false = ended
-        public System.Action OnWallJumped;               // fired when wall jump begins
         public System.Action OnDoubleJumpPerformed;      // fired when double jump is triggered
         public System.Action OnJumpStarted;              // fired on ground jump
         public System.Action OnFallStarted;              // airborne began
@@ -200,10 +176,63 @@ namespace junklite
                                (playerState == null || playerState.CanMove);
 
         public bool IsPhysicsOverridden => physicsOverrideLocks.Count > 0;
+        public int MovementLockCount => movementLocks.Count;
+        public int PhysicsOverrideCount => physicsOverrideLocks.Count;
+        public bool IsLocomotionEnabled => canMove && isActiveAndEnabled;
+        public event Action ExternalRepositioned;
         public Vector3 Velocity => rb.linearVelocity;
         public float MoveSpeed { get => moveSpeed; set => moveSpeed = value; }
         public float EffectiveMoveSpeed => moveSpeed * statusMoveSpeedMultiplier;
         public Vector3 MovementAxis => transform.right.normalized;
+        // Keep intent even while a grapple owns movement and clears moveInput.
+        public float HorizontalInput { get; private set; }
+        private PlayerSwordGrapple wallTraversal;
+        private CapsuleCollider wallCapsule;
+        private float wallJumpTimeRemaining;
+        private Vector3 wallJumpHorizontalVelocity;
+
+        public void ConfigureWallTraversal(PlayerSwordGrapple grapple)
+        {
+            wallTraversal = grapple;
+            wallCapsule = GetComponent<CapsuleCollider>();
+        }
+
+        private float WallInput => GameInputManager.Instance != null
+            ? GameInputManager.Instance.MoveDirection.x : HorizontalInput;
+
+        private bool TryGetDirectionalWall(out RaycastHit hit)
+        {
+            hit = default;
+            return wallTraversal != null && !wallTraversal.IsActive && CanMove && !IsGrounded &&
+                   !isDashing && !isDoubleJumpStalling && wallJumpTimeRemaining <= 0f &&
+                   (playerState == null || !playerState.IsRolling) &&
+                   SwordGrappleTargeting.TryGetNearbyWall(wallCapsule, MovementAxis, WallInput, wallTraversal.Settings, out hit);
+        }
+
+        public bool JumpFromWall(Vector3 normal)
+        {
+            if (wallTraversal == null || wallTraversal.Settings == null || !CanMove || IsPhysicsOverridden ||
+                rb == null || rb.isKinematic || Time.timeScale <= 0f || (playerState != null && !playerState.CanJump)) return false;
+            var settings = wallTraversal.Settings;
+            InterruptSpecialMovement();
+            CancelSmoothStop();
+            playerState?.SetWallSliding(false);
+            FaceForTraversal(Vector3.Dot(normal, MovementAxis) > 0f);
+            wallJumpHorizontalVelocity = MovementAxis * Mathf.Sign(Vector3.Dot(normal, MovementAxis)) * settings.wallJumpAwaySpeed;
+            wallJumpTimeRemaining = settings.wallJumpPushOffTime;
+            SetVelocity(wallJumpHorizontalVelocity + Vector3.up * settings.wallJumpUpSpeed);
+            isGrounded = false;
+            coyoteTimer = jumpBufferTimer = 0f;
+            airJumpCount = 0;
+            isExternalBounce = isPogoBounce = hasJumpBeenCut = false;
+            JumpHeldExternally = true;
+            StartMinJumpHoldWindow();
+            playerState?.SetGrounded(false);
+            playerState?.SetFalling(false);
+            playerState?.SetJumping(true);
+            OnJumpStarted?.Invoke();
+            return true;
+        }
         public float JumpForce { get => jumpForce; set => jumpForce = value; }
         public float DashForce { get => dashForce; set => dashForce = value; }
         public float DashDuration { get => dashDuration; set => dashDuration = value; }
@@ -219,7 +248,8 @@ namespace junklite
         /// </summary>
         public bool TrySnapToGround()
         {
-            if (!ledgeDetected)
+            if (IsPhysicsOverridden || !CanMove || !ledgeDetected || wallJumpTimeRemaining > 0f ||
+                (playerState != null && playerState.IsWallSliding))
                 return false;
 
             if (rb == null)
@@ -317,6 +347,7 @@ namespace junklite
         /// </summary>
         public void ResetToSpawnOrientation(float spawnYRotation)
         {
+            ExternalRepositioned?.Invoke();
             // Clear any residual horizontal momentum from the previous run
             StopAllVelocity();
 
@@ -446,8 +477,10 @@ namespace junklite
 
         private void FixedUpdate()
         {
+            if (Time.timeScale <= 0f) return;
             if (IsPhysicsOverridden || rb.isKinematic)
             {
+                playerState?.SetWallSliding(false);
                 InterruptSpecialMovement();
                 return;
             }
@@ -455,13 +488,36 @@ namespace junklite
             if (!IsGrounded)
                 coyoteTimer -= Time.fixedDeltaTime;
 
-            // Hard control has authority over dash, jump stalls and wall jumps.
+            // Hard control has authority over dash and jump stalls.
             // Gravity still runs and an external impulse remains untouched.
             if (playerState != null && playerState.IsStunned)
             {
+                playerState.SetWallSliding(false);
                 InterruptSpecialMovement();
                 ApplyGravityFixed();
                 ClampFallSpeedFixed();
+                return;
+            }
+
+            if (wallJumpTimeRemaining > 0f && CanMove)
+            {
+                wallJumpTimeRemaining = Mathf.Max(0f, wallJumpTimeRemaining - Time.fixedDeltaTime);
+                SetVelocity(wallJumpHorizontalVelocity + Vector3.up * rb.linearVelocity.y);
+                ApplyGravityFixed();
+                ClampFallSpeedFixed();
+                return;
+            }
+
+            bool wallContact = TryGetDirectionalWall(out _);
+            playerState?.SetWallSliding(wallContact && rb.linearVelocity.y <= 0f);
+            if (wallContact)
+            {
+                FaceForTraversal(WallInput > 0f);
+                // Ordinary contact never becomes a grapple hold. Stop input
+                // pushing through a trigger wall; keep rising, or slide down.
+                float vertical = rb.linearVelocity.y;
+                SetVelocity(Vector3.up * (vertical <= 0f ? -wallTraversal.Settings.wallSlideSpeed : vertical));
+                if (vertical > 0f) ApplyGravityFixed();
                 return;
             }
 
@@ -486,14 +542,9 @@ namespace junklite
             {
                 ApplyDashFixed();
             }
-            else if (isWallJumping)
-            {
-                ApplyWallJumpFixed();
-            }
             else
             {
                 ApplyMovementFixed();
-                HandleWallSlide();
                 ApplyGravityFixed();
             }
 
@@ -622,16 +673,11 @@ namespace junklite
 
         public void SetMovementInput(float horizontal, float vertical = 0f)
         {
+            HorizontalInput = horizontal;
             if (!CanMove)
             {
                 moveInput = Vector3.zero;
                 OnMovementChanged?.Invoke(moveInput);
-                return;
-            }
-
-            if (isWallJumping)
-            {
-                moveInput = Vector3.zero;
                 return;
             }
 
@@ -653,15 +699,14 @@ namespace junklite
         }
 
         /// <summary>
-        /// Jump entry point. Decides between wall jump and normal jump.
+        /// Queues a ground jump or uses the remaining air jump.
         /// </summary>
         public void Jump()
         {
-            if (isWallSliding)
-            {
-                StartWallJump();
-                return;
-            }
+            if (!CanMove || IsPhysicsOverridden || rb == null || rb.isKinematic) return;
+
+            if (wallTraversal != null && wallTraversal.HasUsableSword() && TryGetDirectionalWall(out var wall) &&
+                JumpFromWall(wall.normal)) return;
 
             // Ground jump - queue into fixed-step buffer
             if (coyoteTimer > 0f)
@@ -672,8 +717,7 @@ namespace junklite
 
             // Air jump - direct, no buffer
             bool canAirJump = airJumpCount < maxAirJumps
-                && Time.time >= becameAirborneTime + minAirtimeForDoubleJump
-                && Time.time >= lastWallJumpTime + doubleJumpLockoutAfterWallJump;
+                && Time.time >= becameAirborneTime + minAirtimeForDoubleJump;
 
             if (canAirJump)
             {
@@ -769,22 +813,18 @@ namespace junklite
 
         public void InterruptSpecialMovement()
         {
+            wallJumpTimeRemaining = 0f;
+            playerState?.SetWallSliding(false);
             EndDash();
             CancelSmoothStop();
             isDoubleJumpStalling = false;
-            isWallJumping = false;
-
-            if (isWallSliding)
-            {
-                isWallSliding = false;
-                OnWallSlideChanged?.Invoke(false);
-            }
 
             jumpBufferTimer = 0f;
         }
 
         public void TeleportTo(Vector3 position)
         {
+            ExternalRepositioned?.Invoke();
             if (snapToZPosition) position.z = fixedZPosition;
             transform.position = position;
             StopAllVelocity();
@@ -805,6 +845,15 @@ namespace junklite
                     transform.eulerAngles = e;
                     break;
             }
+        }
+
+        public void FaceForTraversal(bool facingRight)
+        {
+            if (col is not CapsuleCollider capsule) { SetFacingDirection(facingRight); return; }
+            Vector3 center = transform.TransformPoint(capsule.center);
+            SetFacingDirection(facingRight);
+            // Mirroring the offset player capsule must not move it into its wall.
+            rb.position += center - transform.TransformPoint(capsule.center);
         }
 
         /// <summary>
@@ -907,128 +956,10 @@ namespace junklite
 
         #endregion
 
-        #region Wall Slide & Wall Jump
-
-        private bool CheckWall()
-        {
-            if (wallCheckTransform == null) return false;
-            return Physics.CheckSphere(wallCheckTransform.position, wallCheckRadius, wallLayer);
-        }
-
-        private void HandleWallSlide()
-        {
-            bool previous = isWallSliding;
-
-            if (isGrounded || isWallJumping)
-            {
-                isWallSliding = false;
-                if (previous != isWallSliding)
-                    OnWallSlideChanged?.Invoke(false);
-                return;
-            }
-
-            bool touchingWall = CheckWall();
-            if (!touchingWall)
-            {
-                isWallSliding = false;
-                if (previous != isWallSliding)
-                    OnWallSlideChanged?.Invoke(false);
-                return;
-            }
-
-            // Determine wall direction
-            wallDirection = IsFacingRight ? +1 : -1;
-
-            bool holdingTowardWall =
-                Mathf.Abs(moveInput.x) > 0.1f &&
-                Mathf.Sign(moveInput.x) == wallDirection;
-
-            if (!holdingTowardWall)
-            {
-                isWallSliding = false;
-                if (previous != isWallSliding)
-                    OnWallSlideChanged?.Invoke(false);
-                return;
-            }
-
-            // success → wall sliding
-            isWallSliding = true;
-
-            // slow downward speed
-            Vector3 v = rb.linearVelocity;
-            if (v.y < wallSlideSpeed)
-                v.y = -wallSlideSpeed;
-            rb.linearVelocity = v;
-
-            if (previous != isWallSliding)
-                OnWallSlideChanged?.Invoke(true);
-
-            // Turn off jumping while wall sliding
-            coyoteTimer = 0f;
-            jumpBufferTimer = 0f;
-        }
-
-
-        private void StartWallJump()
-        {
-            // Ensure wall sliding is cleared before starting wall jump
-            if (isWallSliding)
-            {
-                isWallSliding = false;
-                OnWallSlideChanged?.Invoke(false);
-            }
-
-            isWallJumping = true;
-            wallJumpEndTime = Time.time + wallJumpDuration;
-            lastWallJumpTime = Time.time;
-
-            // Jump away from the wall
-            int jumpDir = -wallDirection;
-
-            // Wall jump refreshes the air jump and gets a little extra vertical pop.
-            airJumpCount = 0;
-            rb.linearVelocity = transform.right * jumpDir * wallJumpHorizontalForce
-                + transform.up * (wallJumpForce + wallJumpUpwardBonus);
-
-            StartMinJumpHoldWindow();
-
-            // Clear timers so a ground jump isn't consumed
-            coyoteTimer = 0f;
-            jumpBufferTimer = 0f;
-
-            // Face the jump direction
-            SetFacingDirection(jumpDir > 0);
-
-            OnWallJumped?.Invoke();
-        }
-
-        private void ApplyWallJumpFixed()
-        {
-            // Let gravity act during wall jump
-            if (!isGrounded)
-            {
-                float currentGravityMultiplier = gravityMultiplierOverride >= 0f
-                    ? gravityMultiplierOverride
-                    : gravityMultiplier;
-                rb.AddForce(Physics.gravity * currentGravityMultiplier, ForceMode.Acceleration);
-            }
-
-            // After duration, hand control back to normal movement
-            if (Time.time >= wallJumpEndTime)
-                isWallJumping = false;
-        }
-
-        #endregion
 
         // ===== Fixed-step writers =====
         private void ApplyMovementFixed()
         {
-            // Don't apply player input changes during dash or wall jump - movement is locked to a specific velocity
-
-            // --- Wall Jump Movement Lock ---
-            if (isWallJumping)
-                return;
-
             // --- Stunned - don't override velocity (let knockback play out) ---
             if (playerState != null && playerState.IsStunned)
                 return;
@@ -1038,7 +969,7 @@ namespace junklite
                 return;
 
             // --- Ground Jump via Buffer + Coyote ---
-            if (jumpBufferTimer > 0f && CanMove && !isDashing && !isWallSliding)
+            if (jumpBufferTimer > 0f && CanMove && !isDashing)
             {
                 if (coyoteTimer > 0f)
                 {
@@ -1152,14 +1083,6 @@ namespace junklite
                 yVel = rb.linearVelocity.y;
             }
 
-            // --- WALL COLLISION: Extra gravity when hitting wall while jumping ---
-            bool touchingWall = CheckWall();
-            if (yVel > 0f && touchingWall && JumpHeldExternally && !isExternalBounce)
-            {
-                rb.AddForce(Physics.gravity * currentGravityMultiplier * lowJumpMultiplier * 1.5f, ForceMode.Acceleration);
-                return;
-            }
-
             // --- GRAVITY ---
             if (yVel < apexThreshold)
             {
@@ -1189,6 +1112,7 @@ namespace junklite
         /// </summary>
         public void RotatePLayer(float yRotation)
         {
+            ExternalRepositioned?.Invoke();
             // Clear horizontal velocity so we don't "carry" motion across axes
             Vector3 up = transform.up;
             float verticalVel = Vector3.Dot(rb.linearVelocity, up);
@@ -1241,7 +1165,7 @@ namespace junklite
 
         private void ClampFallSpeedFixed()
         {
-            if (isWallSliding || IsPhysicsOverridden) return;
+            if (IsPhysicsOverridden) return;
 
             if (rb.linearVelocity.y < maxFallSpeed)
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, maxFallSpeed, rb.linearVelocity.z);

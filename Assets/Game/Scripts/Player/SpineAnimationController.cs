@@ -13,6 +13,9 @@ namespace junklite
     {
         [Header("Spine")]
         [SerializeField] private SkeletonAnimation skeletonAnimation;
+        [Tooltip("Local forward offset of the Spine artwork during a wall hold/slide. Aligns the hand pose without moving the physics capsule.")]
+        [SerializeField] private float wallPoseForwardOffset;
+        private Vector3 appliedWallPoseOffset;
 
         [Header("Tracks")]
         [SerializeField] private int locomotionTrack = 0;
@@ -25,7 +28,7 @@ namespace junklite
         [SerializeField] private string jumpAir = "Jump_2_Air";
         [SerializeField] private string landing = "Jump_3_Land";
         [SerializeField] private string doubleJump = "doubleJump";
-        [SerializeField] private string wallSlide = "wallSlide";
+        [SerializeField, InspectorName("Wall Attach")] private string wallSlide = "wallSlide";
         [SerializeField] private string dash = "dash";
         [SerializeField] private string stun = "stun";
         [SerializeField] private string death = "death";
@@ -37,7 +40,7 @@ namespace junklite
         [SerializeField] private bool jumpAirLoop = false;
         [SerializeField] private bool landingLoop = false;
         [SerializeField] private bool doubleJumpLoop = false;
-        [SerializeField] private bool wallSlideLoop = false;
+        [SerializeField, InspectorName("Wall Attach Loop")] private bool wallSlideLoop = false;
         [SerializeField] private bool dashLoop = false;
         [SerializeField] private bool stunLoop = false;
         [SerializeField] private bool deathLoop = false;
@@ -49,7 +52,7 @@ namespace junklite
         [SerializeField, Range(0.1f, 3f)] private float jumpAirTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float landingTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float doubleJumpTimeScale = 1f;
-        [SerializeField, Range(0.1f, 3f)] private float wallSlideTimeScale = 1f;
+        [SerializeField, InspectorName("Wall Attach Time Scale"), Range(0.1f, 3f)] private float wallSlideTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float dashTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float stunTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float deathTimeScale = 1f;
@@ -152,7 +155,8 @@ namespace junklite
             playerState.OnGroundedChanged += OnGroundedChanged;
             playerState.OnJumpStateChanged += OnJumpStateChanged;
             playerState.OnDashingChanged += OnDashingChanged;
-            playerState.OnWallSlideChanged += OnWallSlideChanged;
+            playerState.OnWallAttachedChanged += OnWallAttachedChanged;
+            playerState.OnWallSlidingChanged += OnWallAttachedChanged;
             playerState.OnLedgeDetectedChanged += OnLedgeDetectedChanged;
             playerState.OnParryChanged += OnParryChanged;
             playerState.OnDoubleJumpChanged += OnDoubleJumpChanged;
@@ -182,10 +186,32 @@ namespace junklite
             if (skeletonAnimation == null || controller == null || playerState == null)
                 return;
 
+            if ((playerState.IsWallAttached || playerState.IsWallSliding) && playerState.IsAlive && !playerState.IsStunned)
+            {
+                PlayWallAttachment();
+                return;
+            }
+
             SyncCurrentLocomotion();
             ApplyAnyStateFallbacks();
             UpdateLocomotionFromSpeed();
             UpdateRunSpeed();
+        }
+
+        private void LateUpdate()
+        {
+            if (skeletonAnimation == null || skeletonAnimation.transform == transform) return;
+            bool wallPose = playerState != null && playerState.IsAlive && !playerState.IsStunned &&
+                           (playerState.IsWallAttached || playerState.IsWallSliding);
+            Vector3 offset = wallPose ? Vector3.right * wallPoseForwardOffset : Vector3.zero;
+            skeletonAnimation.transform.localPosition += offset - appliedWallPoseOffset;
+            appliedWallPoseOffset = offset;
+        }
+
+        private void OnDisable()
+        {
+            if (skeletonAnimation != null) skeletonAnimation.transform.localPosition -= appliedWallPoseOffset;
+            appliedWallPoseOffset = Vector3.zero;
         }
 
         private void OnDestroy()
@@ -195,7 +221,8 @@ namespace junklite
                 playerState.OnGroundedChanged -= OnGroundedChanged;
                 playerState.OnJumpStateChanged -= OnJumpStateChanged;
                 playerState.OnDashingChanged -= OnDashingChanged;
-                playerState.OnWallSlideChanged -= OnWallSlideChanged;
+                playerState.OnWallAttachedChanged -= OnWallAttachedChanged;
+                playerState.OnWallSlidingChanged -= OnWallAttachedChanged;
                 playerState.OnLedgeDetectedChanged -= OnLedgeDetectedChanged;
                 playerState.OnParryChanged -= OnParryChanged;
                 playerState.OnDoubleJumpChanged -= OnDoubleJumpChanged;
@@ -601,11 +628,28 @@ namespace junklite
             }
         }
 
-        private void OnWallSlideChanged(bool sliding)
+        private void PlayWallAttachment()
         {
-            if (sliding)
+            if (!HasAnimation(wallSlide)) return;
+            var entry = skeletonAnimation.AnimationState.GetCurrent(locomotionTrack);
+            if (entry?.Animation?.Name != wallSlide)
             {
-                PlayLocomotion(wallSlide, false);
+                entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, wallSlide, wallSlideLoop);
+                entry.MixDuration = locomotionBlend;
+            }
+            // Non-looping Spine entries keep their final pose. Reuse this entry
+            // throughout the hold (including re-aiming), without restarting it.
+            entry.Loop = wallSlideLoop;
+            entry.TimeScale = wallSlideTimeScale;
+            currentLocomotionAnim = wallSlide;
+        }
+
+        private void OnWallAttachedChanged(bool attached)
+        {
+            if (!playerState.IsAlive || playerState.IsStunned) return;
+            if (playerState.IsWallAttached || playerState.IsWallSliding)
+            {
+                PlayWallAttachment();
             }
             else
             {
@@ -803,6 +847,11 @@ namespace junklite
 
         private void PlayLocomotion(string animName, bool loop)
         {
+            if ((playerState.IsWallAttached || playerState.IsWallSliding) && playerState.IsAlive && !playerState.IsStunned)
+            {
+                PlayWallAttachment();
+                return;
+            }
             if (!HasAnimation(animName) || GetCurrentLocomotionName() == animName)
                 return;
 
@@ -832,6 +881,11 @@ namespace junklite
 
         private void PlayJumpAir()
         {
+            if ((playerState.IsWallAttached || playerState.IsWallSliding) && playerState.IsAlive && !playerState.IsStunned)
+            {
+                PlayWallAttachment();
+                return;
+            }
             if (!HasAnimation(jumpAir)) return;
 
             var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false));

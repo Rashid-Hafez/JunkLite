@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System;
 
 namespace junklite
@@ -192,6 +192,7 @@ namespace junklite
         /// </summary>
         public bool TryActivateMod(int activeSlotIndex)
         {
+            if (playerCharacter != null && playerCharacter.TryGetComponent<PlayerSwordGrapple>(out var grapple) && grapple.IsActive) return false;
             if (!isActive) return false;
             if (activeSlotIndex < 0 || activeSlotIndex >= unlockedActiveSlots) return false;
             var mod = activeSlots[activeSlotIndex];

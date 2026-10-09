@@ -15,6 +15,14 @@ namespace junklite
         [SerializeField] private float gamepadActuation = 0.6f;
         // Gameplay events (gated by IsGameplayInputEnabled)
         public event Action<Vector2> OnMove = delegate { };
+        public event Action OnGrappleAim = delegate { };
+        public event Action OnGrappleAimReleased = delegate { };
+        public Func<bool> PrimaryAttackConsumer { get; set; }
+        private int primaryConsumedFrame = -1;
+        public Vector2 GrapplePointerPosition => Pointer.current != null
+            ? Pointer.current.position.ReadValue() : controls.Player.GrapplePoint.ReadValue<Vector2>();
+        public bool IsGrappleAimHeld => controls != null && controls.Player.GrappleAim.IsPressed();
+
         public event Action OnJump = delegate { };
         public event Action OnJumpReleased = delegate { };
         public event Action OnAttack = delegate { };
@@ -268,6 +276,13 @@ namespace junklite
             // PLAYER ACTION MAP
             // ===================================================================
 
+            controls.Player.GrappleAim.performed += _ =>
+            {
+                if (IsGameplayInputEnabled) OnGrappleAim();
+            };
+            // Release must reach the owner even if gameplay was disabled by a menu.
+            controls.Player.GrappleAim.canceled += _ => OnGrappleAimReleased();
+
             // === MOVE ===
             controls.Player.Move.performed += ctx =>
             {
@@ -277,9 +292,13 @@ namespace junklite
                 if (raw.sqrMagnitude >= gamepadDeadzone * gamepadDeadzone)
                     SetInputDevice(ctx.control?.device);
 
-                // Apply hard actuation cut for gamepad/joystick devices so analogue sticks either on or off
+                // Keyboard axes are independent: W/S aim attacks and must not
+                // reduce A/D running speed through radial normalization.
+                // Analogue sticks retain their existing deadzone/actuation.
                 bool isGamepadInput = ctx.control?.device is Gamepad || ctx.control?.device is Joystick;
-                MoveDirection = InputHelpers.ApplyDeadzoneAndActuation(raw, gamepadDeadzone, gamepadActuation, isGamepadInput);
+                MoveDirection = ctx.control?.device is Keyboard
+                    ? raw
+                    : InputHelpers.ApplyDeadzoneAndActuation(raw, gamepadDeadzone, gamepadActuation, isGamepadInput);
                 OnMove(MoveDirection);
             };
             controls.Player.Move.canceled += ctx =>
@@ -309,6 +328,7 @@ namespace junklite
             {
                 if (!IsGameplayInputEnabled) return;
                 if (IsDevConsoleClick(ctx)) return;
+                if (ConsumePrimaryAttack()) return;
                 IsAttackHeld = true;
                 OnAttack();
             };
@@ -379,6 +399,7 @@ namespace junklite
             {
                 if (!IsGameplayInputEnabled) return;
                 if (IsDevConsoleClick(ctx)) return;
+                if (ConsumePrimaryAttack()) return;
                 OnWeapon1Attack();
             };
 
@@ -435,6 +456,15 @@ namespace junklite
             };
 
 
+        }
+
+        private bool ConsumePrimaryAttack()
+        {
+            if (primaryConsumedFrame == Time.frameCount) return true;
+            if (PrimaryAttackConsumer?.Invoke() != true) return false;
+            primaryConsumedFrame = Time.frameCount;
+            IsAttackHeld = false;
+            return true;
         }
 
         private static bool IsDevConsoleClick(InputAction.CallbackContext context)

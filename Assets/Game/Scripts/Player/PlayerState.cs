@@ -13,10 +13,43 @@ namespace junklite
         // Capability checks
         public override bool CanMove => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Move) && !IsInputLocked && !IsAttacking && !IsParrying;
         public override bool CanJump => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Jump) && !IsInputLocked && !IsParrying;
-        public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsActionBlocked(StatusActionBlock.Dash) && !IsInputLocked;
-        public override bool CanAttack => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Attack) && (!IsInputLocked || IsAttacking) && !IsWallSliding && !IsParrying; // Allows buffering during attack execution
-        public bool CanRoll => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Roll) && !IsRolling && !IsInputLocked;
+        public bool CanDash => !IsGrappleActive && IsAlive && !IsDashing && !IsStunned && !IsActionBlocked(StatusActionBlock.Dash) && !IsInputLocked;
+        public override bool CanAttack => !IsGrappleActive && IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Attack) && (!IsInputLocked || IsAttacking) && !IsParrying; // Allows buffering during attack execution
+        public bool CanRoll => !IsGrappleActive && IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Roll) && !IsRolling && !IsInputLocked;
         public override bool CanTakeDamage => base.CanTakeDamage && damageImmunityLocks.Count == 0;
+
+        public bool IsGrappleActive { get; private set; }
+        public bool IsWallAttached { get; private set; }
+        public event Action<bool> OnWallAttachedChanged;
+        public bool IsWallSliding { get; private set; }
+        public event Action<bool> OnWallSlidingChanged;
+
+        public void SetWallSliding(bool sliding)
+        {
+            if (IsWallSliding == sliding) return;
+            IsWallSliding = sliding;
+            if (sliding)
+            {
+                SetJumping(false);
+                SetFalling(false);
+                SetDoubleJumping(false);
+            }
+            OnWallSlidingChanged?.Invoke(sliding);
+        }
+
+        public void SetGrappleState(bool active, bool attached)
+        {
+            IsGrappleActive = active;
+            if (IsWallAttached == attached) return;
+            IsWallAttached = attached;
+            if (attached)
+            {
+                SetJumping(false);
+                SetFalling(false);
+                SetDoubleJumping(false);
+            }
+            OnWallAttachedChanged?.Invoke(attached);
+        }
 
         // State flags
         public bool IsDashing { get; private set; }
@@ -36,8 +69,6 @@ namespace junklite
 
 
         // Movement states
-        public bool IsWallSliding { get; private set; }
-        public bool IsWallJumping { get; private set; }
         public bool IsDoubleJumping { get; private set; }
 
         // ledge detection
@@ -49,7 +80,7 @@ namespace junklite
         public event Action<bool> OnParryChanged;
 
         /// <summary>True when player is allowed to initiate a parry (grounded, alive, not stunned/attacking/etc).</summary>
-        public bool CanParry => IsAlive && IsGrounded && !IsFalling && !IsStunned && !IsActionBlocked(StatusActionBlock.Parry) && !IsInputLocked && !IsAttacking;
+        public bool CanParry => !IsGrappleActive && IsAlive && IsGrounded && !IsFalling && !IsStunned && !IsActionBlocked(StatusActionBlock.Parry) && !IsInputLocked && !IsAttacking;
 
         /// <summary>How many air attacks have been used this air time.</summary>
         public int AirAttacksUsed { get; private set; }
@@ -70,8 +101,6 @@ namespace junklite
         public event Action<bool> OnDashingChanged;
         public event Action<bool> OnRollingChanged;
         public event Action<bool> OnInputLockedChanged;
-        public event Action<bool> OnWallSlideChanged;
-        public event Action<bool> OnWallJumpChanged;
         public event Action<bool> OnDoubleJumpChanged;
         public event Action<int> OnComboAttackTriggered;
         public event Action<string> OnAttackAnimationRequested;
@@ -89,10 +118,10 @@ namespace junklite
 
         public override void ResetForRespawn()
         {
+            SetGrappleState(false, false);
+            SetWallSliding(false);
             statusEffects?.ClearAllEffects();
             base.ResetForRespawn();
-            SetWallSliding(false);
-            SetWallJumping(false);
             SetDoubleJumping(false);
             ClearAbilityLocks();
             SetInputLocked(false);
@@ -146,7 +175,6 @@ namespace junklite
             base.ClearTransient();
             SetDashing(false);
             SetRolling(false);
-            SetWallJumping(false);
             SetDoubleJumping(false);
             SetParrying(false);
         }
@@ -160,10 +188,9 @@ namespace junklite
 
             if (grounded)
             {
+                SetWallSliding(false);
                 SetJumping(false);
                 SetFalling(false);
-                SetWallSliding(false);
-                SetWallJumping(false);
                 SetDoubleJumping(false);
                 AirAttacksUsed = 0;
                 refundAirAttackAfterNextDoubleJump = false;
@@ -279,20 +306,6 @@ namespace junklite
             }
         }
 
-        public void SetWallSliding(bool sliding)
-        {
-            if (IsWallSliding == sliding) return;
-
-            if (sliding)
-            {
-                if (IsJumping) { IsJumping = false; InvokeJumpStateChanged(false); }
-                if (IsFalling) { IsFalling = false; InvokeFallStateChanged(false); }
-            }
-
-            IsWallSliding = sliding;
-            OnWallSlideChanged?.Invoke(sliding);
-        }
-
         public void SetLedgeDetected(bool detected)
         {
             if (IsLedgeDetected == detected) return;
@@ -308,20 +321,6 @@ namespace junklite
             OnParryChanged?.Invoke(parrying);
         }
 
-        public void SetWallJumping(bool jumping)
-        {
-            if (IsWallJumping == jumping) return;
-
-            if (jumping && IsWallSliding)
-            {
-                IsWallSliding = false;
-                OnWallSlideChanged?.Invoke(false);
-            }
-
-            IsWallJumping = jumping;
-            OnWallJumpChanged?.Invoke(jumping);
-        }
-
         public void SetDoubleJumping(bool jumping)
         {
             if (IsDoubleJumping == jumping) return;
@@ -331,7 +330,7 @@ namespace junklite
 
         public override void SetJumping(bool jumping)
         {
-            if (jumping && IsWallSliding) return;
+            if (jumping && IsWallAttached) return;
             if (IsJumping == jumping) return;
 
             if (jumping && IsFalling)
@@ -377,8 +376,9 @@ namespace junklite
             if (IsMoving) list.Add("Moving");
             if (IsJumping) list.Add("Jumping");
             if (IsFalling) list.Add("Falling");
+            if (IsGrappleActive) list.Add("SwordGrapple");
+            if (IsWallAttached) list.Add("WallAttached");
             if (IsWallSliding) list.Add("WallSliding");
-            if (IsWallJumping) list.Add("WallJumping");
             if (IsDoubleJumping) list.Add("DoubleJumping");
             if (IsLedgeDetected) list.Add("LedgeDetected");
             if (IsParrying) list.Add("Parrying");
