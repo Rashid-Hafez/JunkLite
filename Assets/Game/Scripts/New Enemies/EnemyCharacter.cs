@@ -505,6 +505,21 @@ namespace junklite
             }
         }
 
+        private void IgnoreEnemyBodyCollisionsOnDeath()
+        {
+            int enemyLayers = LayerMask.GetMask("Enemies");
+            Collider[] colliders = GetComponentsInChildren<Collider>(true);
+            foreach (Collider bodyCollider in colliders)
+            {
+                if (bodyCollider == null || bodyCollider.isTrigger)
+                    continue;
+
+                // Keep the corpse solid against the level while other enemies
+                // can pass through it during the landing/death animation.
+                bodyCollider.excludeLayers |= enemyLayers;
+            }
+        }
+
         #endregion
 
         #region Combat & Death
@@ -652,6 +667,7 @@ namespace junklite
                 return;
 
             deathHandled = true;
+            IgnoreEnemyBodyCollisionsOnDeath();
             LevelStatsTracker.Instance?.NotifyEnemyKilled(this);
 
             if (DropManager.Instance != null)

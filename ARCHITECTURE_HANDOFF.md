@@ -268,6 +268,7 @@ The current ownership boundaries are:
 Implemented details:
 
 - `EnemyCharacter.Died` is exact-once and `Level 0 Sequence Manager` now tracks wave deaths through that lifecycle event instead of inspecting `DeadState`.
+- On death, enemy body colliders immediately exclude the `Enemies` layer while retaining their existing world collision settings. Corpses can land and play their death animation without being pushed by other enemies; the existing delayed teardown still disables all colliders afterward.
 - `EnemyPerception` replaces detection logic while `DetectionZone` remains a thin compatibility subclass, preserving existing prefab script references and serialized sensor fields.
 - The sensor safely tracks multiple colliders for the single player, rejects dead targets, retains the existing optional LOS/reachability rules, and resets expanded pursuit radius when disabled.
 - `EnemyMovement` no longer references `StateMachine` or `StunnedState`; states stop or command movement explicitly.

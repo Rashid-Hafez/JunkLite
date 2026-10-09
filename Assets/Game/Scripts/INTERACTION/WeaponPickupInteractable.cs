@@ -29,8 +29,14 @@ namespace junklite
         private CanvasGroup canvasGroup;
         private Tween activeTween;
         private GameInputManager subscribedInputManager;
-        private Image legacyKeyImage;
         private TMP_Text generatedKeyText;
+
+        // Match the weapon assignment menu while using the world-space Play font.
+        private static readonly Color PromptPanel = new(0.032f, 0.045f, 0.087f, 0.96f);
+        private static readonly Color PromptLine = new(0.18f, 0.27f, 0.38f, 1f);
+        private static readonly Color PromptCyan = new(0.24f, 0.91f, 0.98f, 1f);
+        private static readonly Color PromptMagenta = new(0.86f, 0.25f, 0.89f, 1f);
+        private static readonly Color PromptPaper = new(0.9f, 0.94f, 1f, 1f);
 
         #endregion
 
@@ -56,7 +62,7 @@ namespace junklite
                     canvasGroup = promptRoot.AddComponent<CanvasGroup>();
             }
 
-            EnsureDynamicKeyVisual();
+            EnsurePromptVisual();
             UIFonts.ApplyWorldTree(promptRoot != null ? promptRoot.transform : null);
             HideInstant();
         }
@@ -217,42 +223,97 @@ namespace junklite
 
         private void HandleInputDeviceChanged(bool _) => RefreshPromptText();
 
-        private void EnsureDynamicKeyVisual()
+        private void EnsurePromptVisual()
         {
             if (promptRoot == null || interactHintText != null || generatedKeyText != null)
                 return;
 
+            Image legacyKeyImage = null;
+            Image legacyBackground = null;
             Image[] images = promptRoot.GetComponentsInChildren<Image>(true);
             foreach (Image image in images)
             {
-                if (image != null && image.gameObject.name == "Letter")
-                {
+                if (image == null) continue;
+                if (image.gameObject.name == "Letter")
                     legacyKeyImage = image;
-                    break;
-                }
+                else if (image.gameObject.name == "BG")
+                    legacyBackground = image;
             }
 
             if (legacyKeyImage == null)
                 return;
 
+            // Build once in the existing canvas so both pickup prefabs inherit the styling.
             legacyKeyImage.enabled = false;
-            GameObject textObject = new("Dynamic Input Hint", typeof(RectTransform));
-            textObject.layer = legacyKeyImage.gameObject.layer;
-            RectTransform rect = (RectTransform)textObject.transform;
-            rect.SetParent(legacyKeyImage.transform, false);
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            if (legacyBackground != null)
+                legacyBackground.enabled = false;
 
-            generatedKeyText = textObject.AddComponent<TextMeshProUGUI>();
-            UIFonts.ApplyWorld(generatedKeyText);
-            generatedKeyText.alignment = TextAlignmentOptions.Center;
-            generatedKeyText.enableAutoSizing = false;
-            generatedKeyText.fontSize = 2f;
+            RectTransform card = CreatePromptRect("Weapon Pickup Prompt", legacyKeyImage.transform,
+                0f, 0f, 3.15f, 0.94f);
+            card.anchorMin = card.anchorMax = card.pivot = new Vector2(0.5f, 0.5f);
+            card.anchoredPosition = new Vector2(0f, 0.85f);
+            card.localScale = Vector3.one * 0.8f;
+            Image border = card.gameObject.AddComponent<Image>();
+            border.color = PromptLine;
+            border.raycastTarget = false;
+
+            PromptImage("Panel", card, PromptPanel, 0.012f, 0.012f, 3.126f, 0.916f);
+            PromptImage("Cyan Accent", card, PromptCyan, 0f, 0f, 0.82f, 0.025f);
+            PromptImage("Magenta Accent", card, PromptMagenta, 2.82f, 0.915f, 0.33f, 0.025f);
+            PromptImage("Key Border", card, PromptCyan, 0.14f, 0.14f, 0.66f, 0.66f);
+            PromptImage("Key Fill", card, PromptPanel, 0.154f, 0.154f, 0.632f, 0.632f);
+            PromptImage("Divider", card, PromptLine, 0.96f, 0.17f, 0.012f, 0.6f);
+
+            generatedKeyText = PromptText("Input Binding", card, "", PromptCyan,
+                0.46f, 0.19f, 0.19f, 0.56f, 0.56f);
+            generatedKeyText.alignment = TextAlignmentOptions.Midline;
+            // Longer keyboard/controller labels shrink inside the badge.
             generatedKeyText.fontSizeMin = 0.05f;
-            generatedKeyText.fontSizeMax = 1f;
-            generatedKeyText.color = Color.white;
-            generatedKeyText.raycastTarget = false;
+            PromptText("Action", card, "PICK UP", PromptCyan,
+                0.2f, 1.13f, 0.16f, 1.86f, 0.25f);
+            weaponNameText = PromptText("Weapon Name", card, "Weapon", PromptPaper,
+                0.31f, 1.13f, 0.43f, 1.86f, 0.34f);
+        }
+
+        private static RectTransform CreatePromptRect(
+            string name, Transform parent, float x, float y, float width, float height)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.layer = parent.gameObject.layer;
+            RectTransform rect = (RectTransform)go.transform;
+            rect.SetParent(parent, false);
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(x, -y);
+            rect.sizeDelta = new Vector2(width, height);
+            return rect;
+        }
+
+        private static void PromptImage(
+            string name, Transform parent, Color color, float x, float y, float width, float height)
+        {
+            Image image = CreatePromptRect(name, parent, x, y, width, height).gameObject.AddComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
+        }
+
+        private static TMP_Text PromptText(
+            string name, Transform parent, string value, Color color, float size,
+            float x, float y, float width, float height)
+        {
+            TMP_Text text = CreatePromptRect(name, parent, x, y, width, height)
+                .gameObject.AddComponent<TextMeshProUGUI>();
+            UIFonts.ApplyWorld(text);
+            text.text = value;
+            text.color = color;
+            text.fontSize = text.fontSizeMax = size;
+            text.fontSizeMin = size * 0.7f;
+            text.enableAutoSizing = true;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+            text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.richText = false;
+            text.raycastTarget = false;
+            return text;
         }
 
         #endregion
@@ -265,7 +326,7 @@ namespace junklite
 
             KillTween();
             promptRoot.SetActive(true);
-            promptRoot.transform.localScale = Vector3.zero;
+            promptRoot.transform.localScale = Vector3.one * 0.92f;
             if (canvasGroup != null) canvasGroup.alpha = 0f;
 
             activeTween = DOTween.Sequence()
@@ -284,7 +345,7 @@ namespace junklite
             KillTween();
 
             activeTween = DOTween.Sequence()
-                .Join(promptRoot.transform.DOScale(Vector3.zero, popDuration * 0.7f).SetEase(popOutEase))
+                .Join(promptRoot.transform.DOScale(Vector3.one * 0.96f, popDuration * 0.7f).SetEase(popOutEase))
                 .Join(canvasGroup != null
                     ? canvasGroup.DOFade(0f, popDuration * 0.5f)
                     : DOTween.Sequence())
@@ -298,7 +359,7 @@ namespace junklite
             if (promptRoot == null) return;
 
             KillTween();
-            promptRoot.transform.localScale = Vector3.zero;
+            promptRoot.transform.localScale = Vector3.one;
             if (canvasGroup != null) canvasGroup.alpha = 0f;
             promptRoot.SetActive(false);
         }

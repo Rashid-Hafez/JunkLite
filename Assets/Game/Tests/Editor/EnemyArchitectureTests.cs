@@ -3,7 +3,9 @@ using System.IO;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace junklite.Tests
 {
@@ -173,6 +175,81 @@ namespace junklite.Tests
             finally
             {
                 UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        [Test]
+        public void DeadGruntLandsOnGroundWithoutBeingPushedByEnemies()
+        {
+            Scene scene = SceneManager.CreateScene(
+                "Enemy Corpse Collision Test",
+                new CreateSceneParameters(LocalPhysicsMode.Physics3D));
+            GameObject corpse = null;
+            GameObject ground = null;
+            GameObject otherEnemy = null;
+
+            try
+            {
+                corpse = UnityEngine.Object.Instantiate(LoadPrefab(GruntPrefabPath));
+                SceneManager.MoveGameObjectToScene(corpse, scene);
+                corpse.transform.SetPositionAndRotation(new Vector3(0f, 4f, 0f), Quaternion.identity);
+                corpse.transform.localScale = Vector3.one;
+
+                ground = new GameObject("Ground", typeof(BoxCollider));
+                ground.layer = LayerMask.NameToLayer("Ground");
+                SceneManager.MoveGameObjectToScene(ground, scene);
+                ground.transform.position = Vector3.down * 0.5f;
+                ground.GetComponent<BoxCollider>().size = new Vector3(20f, 1f, 20f);
+
+                EnemyCharacter enemy = corpse.GetComponent<EnemyCharacter>();
+                corpse.GetComponent<StateMachine>().RegisterState(new DeadState(enemy));
+                MethodInfo handleDeath = typeof(EnemyCharacter).GetMethod(
+                    "HandleDeath",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(handleDeath, Is.Not.Null);
+                handleDeath.Invoke(enemy, null);
+
+                Rigidbody body = corpse.GetComponent<Rigidbody>();
+                CapsuleCollider capsule = corpse.GetComponent<CapsuleCollider>();
+                Assert.That(capsule.enabled, Is.True);
+                Assert.That(capsule.isTrigger, Is.False);
+                Assert.That(body.isKinematic, Is.False);
+                Assert.That(body.useGravity, Is.True);
+
+                PhysicsScene physicsScene = scene.GetPhysicsScene();
+                Physics.SyncTransforms();
+                for (int tick = 0; tick < 150; tick++)
+                    physicsScene.Simulate(0.02f);
+
+                Assert.That(body.position.y, Is.LessThan(3f), "The corpse should fall under gravity.");
+                Assert.That(capsule.bounds.min.y, Is.InRange(-0.05f, 0.1f),
+                    "The corpse should land on the ground instead of falling through it.");
+
+                otherEnemy = new GameObject("Moving Enemy", typeof(BoxCollider), typeof(Rigidbody));
+                otherEnemy.layer = LayerMask.NameToLayer("Enemies");
+                SceneManager.MoveGameObjectToScene(otherEnemy, scene);
+                Rigidbody otherBody = otherEnemy.GetComponent<Rigidbody>();
+                otherBody.isKinematic = true;
+                otherBody.position = new Vector3(-3f, body.position.y, 0f);
+                Physics.SyncTransforms();
+
+                Vector3 settledPosition = body.position;
+                for (int tick = 1; tick <= 100; tick++)
+                {
+                    otherBody.MovePosition(new Vector3(-3f + tick * 0.06f, settledPosition.y, 0f));
+                    physicsScene.Simulate(0.02f);
+                }
+
+                Assert.That(Mathf.Abs(body.position.x - settledPosition.x), Is.LessThan(0.05f),
+                    "An enemy moving through the corpse should not push it.");
+                Assert.That(capsule.bounds.min.y, Is.InRange(-0.05f, 0.1f));
+            }
+            finally
+            {
+                if (otherEnemy != null) UnityEngine.Object.DestroyImmediate(otherEnemy);
+                if (ground != null) UnityEngine.Object.DestroyImmediate(ground);
+                if (corpse != null) UnityEngine.Object.DestroyImmediate(corpse);
+                EditorSceneManager.CloseScene(scene, true);
             }
         }
 
