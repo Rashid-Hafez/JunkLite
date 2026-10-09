@@ -18,6 +18,13 @@ namespace junklite
         private IDisposable physicsLock;
         private IDisposable kinematicLock;
 
+        private const float PostThrowStun = 0.5f;
+        private GameObject activeSource;
+        private bool releaseRequested;
+        private int releaseDirection;
+        private Vector2 releaseForce;
+        private float releaseDamage;
+
         public bool IsGrabbed { get; private set; }
         public bool CanBeGrabbed => player != null && player.IsActive && player.IsAlive && !IsGrabbed;
 
@@ -48,16 +55,22 @@ namespace junklite
                 yield break;
             }
 
+            activeSource = info.Source;
+            releaseRequested = false;
             state?.ApplyStun(info.Duration + 0.5f);
 
             movementLock = controller?.AcquireMovementLock();
             physicsLock = controller?.AcquirePhysicsOverride();
             kinematicLock = controller?.AcquireKinematicLock();
 
-            Transform enemyTransform = info.Source != null ? info.Source.transform : null;
+            Transform follow = info.Anchor != null
+                ? info.Anchor
+                : info.Source != null ? info.Source.transform : null;
             float timer = 0f;
 
-            while (timer < info.Duration)
+            // Timed grabs throw when Duration ends. Grabber-owned grabs wait for
+            // ReleaseGrab; Duration is then only a safety timeout.
+            while (!releaseRequested && timer < info.Duration)
             {
                 if (!IsGrabbed || !player.IsAlive)
                 {
@@ -66,10 +79,27 @@ namespace junklite
                 }
 
                 timer += Time.deltaTime;
-                if (enemyTransform != null)
-                    player.transform.position = enemyTransform.position + info.GrabOffset;
+                if (follow != null)
+                    player.transform.position = follow.position + info.GrabOffset;
 
                 yield return null;
+            }
+
+            if (!IsGrabbed || !player.IsAlive)
+            {
+                Cancel();
+                yield break;
+            }
+
+            int throwDirection = info.ThrowDirection;
+            Vector2 throwForce = info.ThrowForce;
+            float throwDamage = info.ThrowDamage;
+            if (releaseRequested)
+            {
+                throwDirection = releaseDirection;
+                throwForce = releaseForce;
+                throwDamage = releaseDamage;
+                state?.ApplyStun(PostThrowStun);
             }
 
             // Return physics ownership before damage and the throw impulse. The
@@ -79,9 +109,9 @@ namespace junklite
             physicsLock?.Dispose();
             physicsLock = null;
 
-            if (info.ThrowDamage > 0f)
+            if (throwDamage > 0f)
             {
-                player.ReceiveDamage(DamageRequest.Forced(info.ThrowDamage, info.Source)
+                player.ReceiveDamage(DamageRequest.Forced(throwDamage, info.Source)
                     .WithHitReaction(HitReactionRequest.None));
             }
 
@@ -91,15 +121,30 @@ namespace junklite
                 yield break;
             }
 
-            if (controller != null && info.ThrowForce.sqrMagnitude > 0f)
+            if (controller != null && throwForce.sqrMagnitude > 0f)
             {
-                Vector3 throwImpulse = controller.MovementAxis * info.ThrowDirection * info.ThrowForce.x
-                                     + Vector3.up * info.ThrowForce.y;
+                Vector3 throwImpulse = controller.MovementAxis * throwDirection * throwForce.x
+                                     + Vector3.up * throwForce.y;
                 controller.ApplyExternalImpulse(throwImpulse);
             }
 
             Cancel();
         }
+
+        /// <summary>Requests the throw for a grab held by source.</summary>
+        public void RequestRelease(GameObject source, int throwDirection, Vector2 throwForce, float throwDamage)
+        {
+            if (!IsGrabbed || source != activeSource)
+                return;
+
+            releaseDirection = throwDirection;
+            releaseForce = throwForce;
+            releaseDamage = throwDamage;
+            releaseRequested = true;
+        }
+
+        /// <summary>True when source currently holds the player.</summary>
+        public bool IsHeldBy(GameObject source) => IsGrabbed && source != null && source == activeSource;
 
         public void Cancel()
         {
@@ -110,6 +155,8 @@ namespace junklite
             kinematicLock = null;
             physicsLock = null;
             movementLock = null;
+            activeSource = null;
+            releaseRequested = false;
             IsGrabbed = false;
         }
     }

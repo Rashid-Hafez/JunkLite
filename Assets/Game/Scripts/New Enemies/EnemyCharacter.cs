@@ -30,7 +30,8 @@ namespace junklite
         Robot,
         Hyena,
         FlyingDummy,
-        Grunt
+        Grunt,
+        Brute
     }
 
     [RequireComponent(typeof(StateMachine))]

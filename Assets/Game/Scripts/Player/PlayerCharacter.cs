@@ -792,7 +792,7 @@ namespace junklite
 
             if (!request.BypassesDefenses)
             {
-                if (parryHandler != null && parryHandler.HandleIncomingHit(request.Source))
+                if (!request.Unparryable && parryHandler != null && parryHandler.HandleIncomingHit(request.Source))
                     return DamageResult.Rejected(DamageOutcome.Parried, originallyRequested);
 
                 if (playerState != null && (!playerState.CanTakeDamage || playerState.IsInvincible))
@@ -868,6 +868,20 @@ namespace junklite
                 return;
 
             grabRoutine = StartCoroutine(RunGrab(info));
+        }
+
+        public void ReleaseGrab(GameObject source, int throwDirection, Vector2 throwForce, float throwDamage)
+        {
+            grabController?.RequestRelease(source, throwDirection, throwForce, throwDamage);
+        }
+
+        public void CancelGrab(GameObject source)
+        {
+            if (grabController == null || !grabController.IsHeldBy(source))
+                return;
+
+            CancelGrab(stopCoroutine: true);
+            playerState?.ApplyStun(0f);
         }
 
         private IEnumerator RunGrab(GrabInfo info)

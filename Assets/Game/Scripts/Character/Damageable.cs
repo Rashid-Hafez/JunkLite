@@ -6,6 +6,14 @@ namespace junklite
     {
         void GetGrabbed(GrabInfo info);
         bool CanBeGrabbed { get; }
+
+        /// <summary>
+        /// Ends a HoldUntilReleased grab with a throw. Ignored by timed grabs.
+        /// </summary>
+        void ReleaseGrab(GameObject source, int throwDirection, Vector2 throwForce, float throwDamage);
+
+        /// <summary>Drops an active grab held by source without throwing.</summary>
+        void CancelGrab(GameObject source);
     }
 
     public enum DamageType { Physical, Fire, Magic, Electric }
@@ -22,6 +30,15 @@ namespace junklite
         public float ThrowDamage;
         public int ThrowDirection; // 1 = right, -1 = left
 
+        /// <summary>Optional follow point (e.g. a hand bone). GrabOffset is applied on top.</summary>
+        public Transform Anchor;
+
+        /// <summary>
+        /// When true the grabber owns the timing: the hold lasts until ReleaseGrab
+        /// or CancelGrab. Duration is then only a safety timeout.
+        /// </summary>
+        public bool HoldUntilReleased;
+
         public GrabInfo(GameObject source, float duration, Vector3 grabOffset, Vector2 throwForce, float throwDamage, int throwDirection)
         {
             Source = source;
@@ -30,6 +47,8 @@ namespace junklite
             ThrowForce = throwForce;
             ThrowDamage = throwDamage;
             ThrowDirection = throwDirection;
+            Anchor = null;
+            HoldUntilReleased = false;
         }
     }
 

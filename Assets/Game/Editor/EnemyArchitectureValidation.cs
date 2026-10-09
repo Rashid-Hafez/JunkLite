@@ -19,6 +19,7 @@ namespace junklite.Editor
         private const string FlyingPrefab = "Assets/Game/Prefabs/Enemies/Flying Dummy.prefab";
         private const string PatrolPrefab = "Assets/Game/Prefabs/Enemies/Patrol Dummy.prefab";
         private const string DummyPrefab = "Assets/Game/Prefabs/Enemies/Dummy.prefab";
+        private const string BrutePrefab = "Assets/Game/ENEMIES/Brute/Brute Boss.prefab";
 
         [MenuItem("Tools/JunkLite/Systems/Validate Enemies")]
         public static void ValidateMigratedEnemyPrefabs()
@@ -32,8 +33,9 @@ namespace junklite.Editor
             errors += ValidateFlyingDummy();
             errors += ValidatePassiveDummy(PatrolPrefab, true);
             errors += ValidatePassiveDummy(DummyPrefab, false);
+            errors += ValidateBrute();
 
-            int count = MeleeEnemyPrefabs.Length + 4;
+            int count = MeleeEnemyPrefabs.Length + 5;
             if (errors == 0)
                 Debug.Log($"[EnemyValidation] Passed for {count} migrated enemy prefabs.");
             else
@@ -88,6 +90,29 @@ namespace junklite.Editor
                 errors += ValidateOwnedConfiguration(RobotPrefab, brain, prefab);
                 errors += ValidateObjectReference(RobotPrefab, brain, "dash", "dashHitbox", prefab);
             }
+
+            return errors;
+        }
+
+        private static int ValidateBrute()
+        {
+            if (!TryLoad(BrutePrefab, out GameObject prefab, out EnemyCharacter enemy))
+                return 1;
+
+            int errors = ValidateCore(BrutePrefab, prefab, enemy, true);
+            if (enemy is not BruteEnemy)
+                errors += Error(BrutePrefab, "is missing BruteEnemy", prefab);
+
+            BruteBrain brain = prefab.GetComponent<BruteBrain>();
+            if (brain == null)
+                return errors + Error(BrutePrefab, "is missing BruteBrain", prefab);
+
+            errors += ValidateObjectReference(BrutePrefab, brain, "melee", "hitbox", prefab);
+            errors += ValidateObjectReference(BrutePrefab, brain, "dash", "dashHitbox", prefab);
+            errors += ValidateObjectReference(BrutePrefab, brain, "grab", "grabHitbox", prefab);
+            errors += ValidateObjectReference(BrutePrefab, brain, "grab", "grabAnchor", prefab);
+            if (prefab.GetComponent<BruteAnimationPresenter>() == null)
+                errors += Error(BrutePrefab, "is missing BruteAnimationPresenter", prefab);
 
             return errors;
         }
@@ -166,9 +191,11 @@ namespace junklite.Editor
             if (component == null)
                 return Error(path, "is missing its configuration owner", context);
 
+            // Brains without the legacy flag (e.g. MeleeChaserBrain after the
+            // legacy bridge was removed) always own their serialized tuning.
             SerializedProperty property = new SerializedObject(component)
                 .FindProperty("ownsSerializedConfiguration");
-            return property == null || !property.boolValue
+            return property != null && !property.boolValue
                 ? Error(path, $"{component.GetType().Name} does not own its serialized tuning", context)
                 : 0;
         }
