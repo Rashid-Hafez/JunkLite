@@ -15,7 +15,7 @@ namespace junklite
         public int chargesRequired = 0;
 
         [Header("Cooldown")]
-        [Tooltip("Cooldown in seconds after activation before mod can be used again (0 = no cooldown)")]
+        [Tooltip("Cooldown after the active effect/execution ends. Instant abilities start it immediately (0 = no cooldown).")]
         public float cooldown = 0f;
 
         [Header("Slot UI")]
@@ -33,7 +33,7 @@ namespace junklite
         /// <summary>Whether the mod can be activated right now.</summary>
         public virtual bool CanActivate(ModInstance instance, PlayerCharacter player)
         {
-            if (instance == null || instance.IsExecuting) return false;
+            if (instance == null || instance.IsBroken || instance.IsExecuting || instance.HasActiveEffect) return false;
             if (instance.IsOnCooldown) return false;
             if (chargesRequired <= 0) return true;
             return instance.CurrentCharges >= chargesRequired;

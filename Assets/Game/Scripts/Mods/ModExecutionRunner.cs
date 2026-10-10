@@ -55,12 +55,14 @@ namespace junklite
             catch (Exception exception)
             {
                 Debug.LogException(exception, this);
+                context.Finish(wasCancelled: true);
                 instance.EndExecution();
                 return false;
             }
 
             if (routine == null)
             {
+                context.Finish(wasCancelled: true);
                 instance.EndExecution();
                 return false;
             }
@@ -176,6 +178,7 @@ namespace junklite
     {
         private readonly ModExecutionRunner runner;
         private readonly List<Action> cleanupActions = new();
+        private bool ownsActiveDuration;
 
         internal ModExecutionContext(
             ModExecutionRunner runner,
@@ -192,6 +195,23 @@ namespace junklite
         public PlayerCharacter Player { get; }
         public bool IsRunning { get; private set; }
         public bool WasCancelled { get; private set; }
+
+        /// <summary>Displays this execution's lifetime; cleanup ends it even on cancellation.</summary>
+        public void ShowActiveDuration(float duration)
+        {
+            if (!IsRunning) return;
+            if (!ownsActiveDuration)
+            {
+                ownsActiveDuration = true;
+                Instance.BeginActiveDuration(duration);
+                AddCleanup(Instance.EndActiveDuration);
+            }
+            else
+            {
+                // Correct a remaining-time estimate after a variable phase (e.g. a slam).
+                Instance.SetActiveDurationRemaining(duration);
+            }
+        }
 
         public void AddCleanup(Action cleanup)
         {

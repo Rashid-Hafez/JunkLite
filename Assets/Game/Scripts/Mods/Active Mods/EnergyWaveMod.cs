@@ -100,7 +100,7 @@ namespace junklite
                 spineAnim.ForcePlayOverride(firingAnimationName, true, () => { });
 
             // Spawn the pulse
-            SpawnPulse(player);
+            SpawnPulse(player, context.Instance);
 
             // Hold the lock for cast duration
             yield return new WaitForSeconds(castLockDuration);
@@ -109,7 +109,7 @@ namespace junklite
                 playerState.ApplyInvulnerability(castInvulnerability);
         }
 
-        private void SpawnPulse(PlayerCharacter player)
+        private void SpawnPulse(PlayerCharacter player, ModInstance instance)
         {
             float facing = Mathf.Sign(player.transform.localScale.x);
             Vector3 spawnPos = player.transform.position
@@ -134,7 +134,8 @@ namespace junklite
                     enemyLayerMask,
                     player.gameObject,
                     hitShakeIntensity,
-                    dragDurationRatio
+                    dragDurationRatio,
+                    instance
                 );
             }
             else

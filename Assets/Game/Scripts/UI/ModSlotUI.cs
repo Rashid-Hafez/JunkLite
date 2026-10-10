@@ -25,6 +25,11 @@ namespace junklite
         [SerializeField] private TMP_Text emptyLabel;
         [SerializeField] private TMP_Text lockedLabel;
 
+        [Header("Cooldown")]
+        [Tooltip("Optional override. All slots otherwise use the shared ModCooldownStyle resource.")]
+        [SerializeField] private ModCooldownStyle cooldownStyle;
+        private ModCooldownUI cooldownUI;
+
         // Data
         private ModInstance modInstance;
         private InventoryComponent inventory;
@@ -215,10 +220,12 @@ namespace junklite
             }
 
             UpdateDurabilityBar();
+            RefreshCooldown();
         }
 
         private void Update()
         {
+            RefreshCooldown();
             if (Time.unscaledTime >= nextDurabilityRefresh &&
                 modInstance != null && durabilityFill != null && modInstance.Data != null)
             {
@@ -230,6 +237,13 @@ namespace junklite
             }
 
             UpdateOverlays();
+        }
+
+        private void RefreshCooldown()
+        {
+            if (cooldownUI == null && iconImage != null)
+                cooldownUI = new ModCooldownUI(iconImage, cooldownStyle);
+            cooldownUI?.Refresh(isLocked ? null : modInstance);
         }
 
         private void UpdateOverlays()
@@ -597,6 +611,7 @@ namespace junklite
 
         private void OnDisable()
         {
+            cooldownUI?.Reset();
             UnbindInputManager();
             if (draggedSlot == this) CleanupDrag();
             if (selectedSlot == this) ClearSelection();

@@ -60,6 +60,7 @@ namespace junklite
 
         private IEnumerator CoExecutePulse(ModExecutionContext context, PlayerCharacter player)
         {
+            context.ShowActiveDuration(pulseDuration);
             Vector3 origin = player.transform.position;
             var hitEnemies = HashSetPool<EnemyCharacter>.Get();
             Collider[] pushBuffer = ArrayPool<Collider>.Shared.Rent(64);

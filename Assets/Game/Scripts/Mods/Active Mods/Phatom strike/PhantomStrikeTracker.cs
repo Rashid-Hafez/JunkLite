@@ -140,6 +140,9 @@ namespace junklite
                 yield break;
 
             isExecutingSpecial = true;
+            context.ShowActiveDuration(Mathf.Max(0f, modData.driftUpDuration)
+                + Mathf.Max(0f, modData.spawnHeight + modData.driftUpHeight) / Mathf.Max(1f, modData.slamDescentSpeed)
+                + Mathf.Max(0f, modData.recoveryTime));
             Vector3 startPosition = player.transform.position;
 
             context.LockPlayerControl(overridePhysics: true);
@@ -203,6 +206,7 @@ namespace junklite
             // Slam down
             float currentY = player.transform.position.y;
             float speed = Mathf.Max(modData.slamDescentSpeed, 1f);
+            context.ShowActiveDuration(Mathf.Max(0f, currentY - groundY) / speed + Mathf.Max(0f, modData.recoveryTime));
             while (currentY > groundY)
             {
                 currentY -= speed * Time.deltaTime;
@@ -234,6 +238,7 @@ namespace junklite
             }
 
             // Recovery
+            context.ShowActiveDuration(modData.recoveryTime);
             yield return new WaitForSeconds(modData.recoveryTime);
 
             playerState.ApplyInvulnerability(0.2f);
