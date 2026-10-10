@@ -102,6 +102,8 @@ namespace junklite
                 throwDamage = releaseDamage;
                 state?.ApplyStun(0f);
                 controller?.StopAllVelocity();
+                // Slam: land on the floor before the damage, not mid-air at the hand.
+                SnapToGround();
             }
 
             // Return physics ownership before damage and the throw impulse. The
@@ -131,6 +133,20 @@ namespace junklite
             }
 
             Cancel();
+        }
+
+        private void SnapToGround()
+        {
+            if (controller == null || !player.TryGetComponent(out Collider col))
+                return;
+
+            Vector3 pos = player.transform.position;
+            float feetOffset = pos.y - col.bounds.min.y;
+            if (Physics.Raycast(pos + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 10f,
+                    controller.GroundLayerMask, QueryTriggerInteraction.Ignore))
+            {
+                player.transform.position = new Vector3(pos.x, hit.point.y + feetOffset, pos.z);
+            }
         }
 
         /// <summary>Requests the throw for a grab held by source.</summary>
