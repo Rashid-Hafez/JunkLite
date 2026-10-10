@@ -486,6 +486,16 @@ Their matching `.meta` files were removed with them. Runtime and editor assembli
 
 Legacy-looking scripts with active serialized consumers were deliberately retained. In particular, `DetectionZone`, `ActivateTestManager`, `TestManager`, `UIManager`, older level UI components, and scene-specific trigger scripts must not be deleted until their referenced scenes/prefabs are explicitly migrated or retired.
 
+### 16. Brute boss (first boss) and grabber-owned grabs
+
+- `Scripts/New Enemies/Brute/`: `BruteEnemy` (identity, charge armor, long stun when the dash is parried), `BruteBrain` (weighted Taunt+Attack / Charge+Dash with cooldowns, a close-range grab, and phase two at 50% HP via phase-aware capability wrappers; the serialized tuning is never mutated), `BruteGrabState` (warning, reach, hold, throw), and `BruteAnimationPresenter` (reuses the Enemy_3 clips by holding single frames; no Spine edits).
+- **Armor:** while in `ChargeState`, `BruteEnemy.ReceiveDamage` returns `DamageOutcome.Blocked` and plays its own feedback (spark, `EnemySoundProfile.armorClank`, camera shake, flash, jitter).
+- **`DamageRequest.Unparryable`** (set with `AsUnparryable()`): `PlayerCharacter` skips parry for these hits, while i-frames and shields still apply. Used by the Brute grab.
+- **Grabs:** `GrabInfo.Anchor` (follow a bone) and `GrabInfo.HoldUntilReleased` let the grabber own the timing through `IGrabbable.ReleaseGrab` / `CancelGrab`. The Robot keeps the timed path. `BruteGrabState.Exit` always cancels a held grab, so stunning or killing the boss frees the player.
+- **Optional `IMeleeLunge`:** `MeleeAttackState` glides toward the target during the swing. Enemies without it are unchanged.
+- **Prefab:** `ENEMIES/Brute/Brute Boss.prefab` (with `Brute Stats.asset` and `Brute Sound.asset`). It is checked by Validate Enemies and `BruteBossTests`.
+- **Verified in Play Mode (Service Floor):** armor blocks, charge → dash, a parried dash gives a 2.5 s stun, grab → hold → throw, stun mid-hold frees the player, phase two multipliers apply, 0 console errors. **Pending:** feel tuning, the clank clip, and a real player parry and dash-through.
+
 ## Verification Recorded
 
 On 2026-08-26 with Unity 6000.3.22f1:

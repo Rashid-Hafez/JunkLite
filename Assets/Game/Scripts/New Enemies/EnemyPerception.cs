@@ -36,6 +36,7 @@ namespace junklite
         private float originalRadius;
         private Coroutine validationRoutine;
         private WaitForSeconds validationWait;
+        private readonly Collider[] overlapBuffer = new Collider[8];
 
         /// <summary>Fires after the current target changes. Arguments are previous and current.</summary>
         public event Action<PlayerCharacter, PlayerCharacter> TargetChanged;
@@ -94,6 +95,32 @@ namespace junklite
         {
             if (sphereCollider != null)
                 sphereCollider.radius = originalRadius;
+        }
+
+        /// <summary>
+        /// Re-scans the sensor volume with a physics query. Trigger enter events are
+        /// missed when a target is already inside the sphere (e.g. it was released
+        /// from a grab or revived in place), so brains can call this while targetless.
+        /// </summary>
+        public void RefreshOverlap()
+        {
+            if (sphereCollider == null || !isActiveAndEnabled || HasTarget)
+                return;
+
+            Vector3 scale = transform.lossyScale;
+            float worldRadius = sphereCollider.radius
+                * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
+            Vector3 center = transform.TransformPoint(sphereCollider.center);
+
+            int count = Physics.OverlapSphereNonAlloc(center, worldRadius, overlapBuffer, targetLayers, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+            {
+                TryTrackCollider(overlapBuffer[i]);
+                if (HasTarget)
+                    break;
+            }
+
+            EnsureValidationRunning();
         }
 
         /// <summary>
