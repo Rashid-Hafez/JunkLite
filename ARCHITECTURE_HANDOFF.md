@@ -143,6 +143,8 @@ player input
 
 ### 5. Explicit mod lifecycle
 
+As of 2026-10-10, mod slot timers follow **active effect -> cooldown -> ready**. `ModInstance` holds active time and queues the full configured cooldown until both execution and any independent effect have ended. `ModExecutionContext.ShowActiveDuration` owns the display lifetime of coroutine abilities and clears it on completion/cancellation. Pulse Barrier uses shield duration (ending early on break), Social Distance uses pulse duration, and blink/slam sequences report their current remaining execution time. `EnergyWavePulse` owns its lifetime separately from the short casting lock and releases it on expiry, disable, or destruction. Instant abilities start cooldown immediately; zero-cooldown abilities return directly to their existing readiness/charge checks. HUD and inventory share a dark full-square timer background with a lighter overlay that clears radially clockwise and cyan ACTIVE / magenta COOLDOWN accents. The dark background keeps the numbers readable through the final fraction of either phase and disappears when timing ends. Both layers use the shared `ModCooldownStyle` asset. Overlay size, opacity, tint, wipe direction, labels, and ready feedback are Inspector-adjustable. No scene wiring is required.
+
 The ambiguous `OnEquip`/`OnUnequip` callbacks were replaced with:
 
 - `OnInstalled`: a runtime instance entered a slot.

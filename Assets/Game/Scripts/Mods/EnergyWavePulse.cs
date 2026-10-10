@@ -22,6 +22,7 @@ namespace junklite
         private float elapsed;
         private bool initialized;
         private bool released;
+        private ModInstance activeMod;
 
         // Track which enemies were already captured (one capture per enemy)
         private readonly HashSet<int> hitEnemyIDs = new();
@@ -60,8 +61,12 @@ namespace junklite
             LayerMask enemyLayerMask,
             GameObject pulseOwner,
             float hitShakeIntensity,
-            float dragDurationRatio)
+            float dragDurationRatio,
+            ModInstance modInstance = null)
         {
+            EndModDuration();
+            activeMod = modInstance;
+            activeMod?.BeginActiveDuration(pulseLifetime);
             direction = moveDirection.normalized;
             speed = moveSpeed;
             lifetime = pulseLifetime;
@@ -101,6 +106,7 @@ namespace junklite
             if (elapsed >= lifetime)
             {
                 ReleaseAll();
+                EndModDuration();
                 Destroy(gameObject);
                 return;
             }
@@ -292,8 +298,23 @@ namespace junklite
 
         #region Cleanup
 
+        private void EndModDuration()
+        {
+            activeMod?.EndActiveDuration();
+            activeMod = null;
+        }
+
+        private void OnDisable()
+        {
+            EndModDuration();
+            if (!released)
+                ReleaseAll();
+            initialized = false;
+        }
+
         private void OnDestroy()
         {
+            EndModDuration();
             // Safety net: release anyone still dragged if pulse is destroyed early
             if (!released)
                 ReleaseAll();

@@ -5,7 +5,7 @@ namespace junklite
     /// <summary>
     /// Pulse Barrier Mod - When activated, protects Cas with a shield that absorbs damage.
     /// Shield lasts for a set duration or until its HP is depleted.
-    /// Cooldown begins immediately on activation.
+    /// Cooldown begins when the shield expires, breaks, or is cancelled.
     /// No charges required - activate on demand.
     /// </summary>
     [CreateAssetMenu(fileName = "PulseBarrierMod", menuName = "Junklite/Mods/Pulse Barrier")]
@@ -62,6 +62,7 @@ namespace junklite
             PlayerCharacter player,
             DamageShield shield)
         {
+            context.ShowActiveDuration(shieldDuration);
             bool shieldEnded = false;
             GameObject activateVFX = null;
             GameObject loopVFX = null;

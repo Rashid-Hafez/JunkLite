@@ -408,14 +408,6 @@ namespace junklite
             icon.preserveAspect = true;
             icon.raycastTarget = false;
 
-            Image cooldown = CreateImage("Cooldown", root, new Color(0.01f, 0.02f, 0.045f, 0.76f));
-            Place(cooldown.rectTransform, 7f, 7f, 52f, 52f);
-            cooldown.type = Image.Type.Filled;
-            cooldown.fillMethod = Image.FillMethod.Radial360;
-            cooldown.fillOrigin = 2;
-            cooldown.fillClockwise = false;
-            cooldown.raycastTarget = false;
-
             TMP_Text hint = TextAt("Input Hint", root, "", 11f, Paper,
                 4f, 2f, 58f, 18f, FontStyles.Bold);
             hint.horizontalAlignment = HorizontalAlignmentOptions.Right;
@@ -429,8 +421,9 @@ namespace junklite
             durability.raycastTarget = false;
 
             CombatModSlotUI slot = root.gameObject.AddComponent<CombatModSlotUI>();
-            slot.Configure(icon, durability, hint, cooldown, Color.white,
-                new Color(Muted.r, Muted.g, Muted.b, 0.55f));
+            slot.Configure(icon, durability, hint, null, Color.white,
+                new Color(Muted.r, Muted.g, Muted.b, 0.55f),
+                modSlotPrefab != null ? modSlotPrefab.CooldownStyle : null);
             return slot;
         }
 

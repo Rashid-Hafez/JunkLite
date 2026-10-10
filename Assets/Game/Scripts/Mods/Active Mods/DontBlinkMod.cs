@@ -89,6 +89,7 @@ namespace junklite
             PlayerCharacter player,
             EnemyCharacter enemy)
         {
+            context.ShowActiveDuration(Mathf.Max(0f, vanishDuration) + Mathf.Max(0f, strikeDelay) + Mathf.Max(0f, recoveryTime));
             var playerState = player.PlayerState;
             var spineAnim = player.GetComponent<SpineAnimationController>();
 
@@ -140,6 +141,7 @@ namespace junklite
             if (spineAnim != null && !string.IsNullOrEmpty(strikeAnimationName))
                 spineAnim.ForcePlayOverride(strikeAnimationName, false, () => { });
 
+            context.ShowActiveDuration(Mathf.Max(0f, strikeDelay) + Mathf.Max(0f, recoveryTime));
             yield return new WaitForSeconds(strikeDelay);
 
             if (enemy != null && enemy.IsAlive)
@@ -169,6 +171,7 @@ namespace junklite
                     Instantiate(strikeVFX, enemy.transform.position, Quaternion.identity);
             }
 
+            context.ShowActiveDuration(recoveryTime);
             yield return new WaitForSeconds(recoveryTime);
 
             if (playerState != null)
