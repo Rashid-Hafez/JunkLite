@@ -75,6 +75,7 @@ namespace junklite
         public void PlayCharge() => Play(sounds?.charge);
         public void PlayGrab() => Play(sounds?.grab);
         public void PlayDash() => Play(sounds?.dash);
+        public void PlayArmorClank() => Play(sounds?.armorClank);
         public void PlayFootstep() => Play(sounds?.footstep);
 
         private void Play(SoundEntry entry)

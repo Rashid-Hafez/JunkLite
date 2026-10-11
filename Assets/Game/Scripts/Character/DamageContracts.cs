@@ -76,6 +76,8 @@ namespace junklite
         public bool BypassesDefenses;
         public bool BypassesMitigation;
         public DamageScaling Scaling;
+        /// <summary>Parry cannot catch this hit; i-frames and shields still apply.</summary>
+        public bool Unparryable;
 
         public Vector2 KnockbackForce
         {
@@ -106,6 +108,7 @@ namespace junklite
             BypassesDefenses = bypassesDefenses;
             BypassesMitigation = bypassesMitigation;
             Scaling = scaling;
+            Unparryable = false;
             HitReaction = hitReaction ?? (isTickDamage
                 ? HitReactionRequest.None
                 : HitReactionRequest.DefaultHit(knockback));
@@ -129,6 +132,13 @@ namespace junklite
         {
             var copy = this;
             copy.Amount = amount;
+            return copy;
+        }
+
+        public DamageRequest AsUnparryable()
+        {
+            var copy = this;
+            copy.Unparryable = true;
             return copy;
         }
 

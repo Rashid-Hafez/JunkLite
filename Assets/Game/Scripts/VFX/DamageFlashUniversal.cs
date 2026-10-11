@@ -56,12 +56,24 @@ namespace junklite
             _flashCoroutine = StartCoroutine(FlashCoroutine());
         }
 
-        private IEnumerator FlashCoroutine()
+        /// <summary>One-off flash with custom settings (e.g. a full-white charge flash).</summary>
+        public void Flash(Color color, float amount, float duration)
+        {
+            if (!gameObject.activeInHierarchy) return;
+
+            if (_flashCoroutine != null)
+                StopCoroutine(_flashCoroutine);
+            _flashCoroutine = StartCoroutine(FlashCoroutine(color, amount, duration));
+        }
+
+        private IEnumerator FlashCoroutine() => FlashCoroutine(flashColor, flashAmount, flashDuration);
+
+        private IEnumerator FlashCoroutine(Color color, float amount, float duration)
         {
             if (_renderers == null || _renderers.Length == 0) yield break;
-            SetFlashProperties(flashAmount, flashColor);
+            SetFlashProperties(amount, color);
 
-            yield return new WaitForSeconds(flashDuration);
+            yield return new WaitForSeconds(duration);
             ResetFlash();
             _flashCoroutine = null;
         }

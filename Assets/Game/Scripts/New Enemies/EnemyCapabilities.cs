@@ -117,6 +117,16 @@ namespace junklite
     }
 
     /// <summary>
+    /// Optional: enemy glides toward its target during the melee swing.
+    /// Used by: MeleeAttackState (ignored when absent or speed is 0)
+    /// </summary>
+    public interface IMeleeLunge
+    {
+        float LungeSpeed { get; }
+        float LungeDuration { get; }
+    }
+
+    /// <summary>
     /// Enemy can dodge/evade.
     /// Used by: DodgeState
     /// </summary>

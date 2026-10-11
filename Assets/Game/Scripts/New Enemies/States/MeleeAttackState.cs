@@ -7,6 +7,8 @@ namespace junklite
         private enum Phase { WindUp, Attack, Cooldown }
 
         private IMeleeAttacker meleeAttacker;
+        private IMeleeLunge lunge;
+        private bool lunging;
         private EnemyMovement movement;
         private Hitbox hitbox;
 
@@ -30,6 +32,8 @@ namespace junklite
 
             movement = enemy.Movement;
             hitbox = meleeAttacker.MeleeHitbox;
+            lunge = GetCapability<IMeleeLunge>();
+            lunging = false;
             isInitialized = true;
 
             movement?.Stop();
@@ -84,6 +88,25 @@ namespace junklite
             hitboxDeactivated = false;
 
             enemy.AnimationPresenter?.PlayMeleeAttack(attackDuration);
+            BeginLunge();
+        }
+
+        private void BeginLunge()
+        {
+            if (lunge == null || lunge.LungeSpeed <= 0f || lunge.LungeDuration <= 0f
+                || !HasTarget || movement == null)
+                return;
+
+            float sign = Mathf.Sign(movement.GetSignedAxisDistance(Transform.position, Target.position));
+            movement.MoveInDirection(movement.MovementAxis * sign, lunge.LungeSpeed);
+            lunging = true;
+        }
+
+        private void EndLunge()
+        {
+            if (!lunging) return;
+            lunging = false;
+            movement?.Stop();
         }
 
         // =============================================================
@@ -93,6 +116,9 @@ namespace junklite
         private void UpdateAttack()
         {
             float progress = Mathf.Clamp01(timer / attackDuration);
+
+            if (lunging && timer >= lunge.LungeDuration)
+                EndLunge();
 
             if (!hitboxActivated && progress >= meleeAttacker.MeleeHitStartNormalized)
             {
@@ -108,6 +134,7 @@ namespace junklite
 
             if (progress >= 1f)
             {
+                EndLunge();
                 hitbox?.Deactivate();
                 FaceTarget();
 
@@ -146,6 +173,7 @@ namespace junklite
 
         public override void Exit()
         {
+            EndLunge();
             hitbox?.Deactivate();
             isInitialized = false;
         }
