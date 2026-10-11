@@ -43,6 +43,7 @@ namespace junklite
         private TMP_Text feedbackText;
         private bool infiniteAmmo;
         private bool infiniteDurability;
+        private float nextWorldWeaponRefresh;
         private int lastScreenWidth;
         private int lastScreenHeight;
         private Rect lastSafeArea;
@@ -174,7 +175,7 @@ namespace junklite
             UpdatePresentation();
 
             if (infiniteAmmo || infiniteDurability)
-                ApplyDurabilityOverrides();
+                ApplyDurabilityOverrides(Time.unscaledTime >= nextWorldWeaponRefresh);
         }
 
         private void OnDestroy()
@@ -507,9 +508,21 @@ namespace junklite
 
         private void Execute(PanelAction action)
         {
-            string result = action.Execute != null ? action.Execute() : "Command complete";
-            SetFeedback(result);
-            RefreshToggleVisuals();
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
+            {
+                string result = action.Execute != null ? action.Execute() : "Command complete";
+                if (infiniteAmmo || infiniteDurability)
+                    ApplyDurabilityOverrides();
+                SetFeedback(result);
+                RefreshToggleVisuals();
+            }
+            finally
+            {
+                double milliseconds = (System.Diagnostics.Stopwatch.GetTimestamp() - started) *
+                                      1000d / System.Diagnostics.Stopwatch.Frequency;
+                PerformanceOverlay.RecordDeveloperCommand(action.Label, milliseconds);
+            }
         }
 
         private string ToggleInfiniteAmmo()
@@ -530,21 +543,18 @@ namespace junklite
                 : "Infinite weapon and mod durability disabled";
         }
 
-        private void ApplyDurabilityOverrides()
+        private void ApplyDurabilityOverrides(bool refreshWorldWeapons = true)
         {
-            WeaponInstance[] weapons = FindObjectsByType<WeaponInstance>(
-                FindObjectsInactive.Include,
-                FindObjectsSortMode.None);
-            foreach (WeaponInstance weapon in weapons)
+            // World pickups only need periodic discovery. Equipped weapons and mods
+            // still receive overrides every frame, including newly equipped items.
+            if (refreshWorldWeapons)
             {
-                if (weapon == null)
-                    continue;
-
-                bool isRanged = weapon.weaponData is RangedWeaponData;
-                bool shouldLock = infiniteDurability || (infiniteAmmo && isRanged);
-                weapon.EditorInfiniteDurability = shouldLock;
-                if (shouldLock)
-                    weapon.EditorRestoreDurability();
+                nextWorldWeaponRefresh = Time.unscaledTime + 0.25f;
+                WeaponInstance[] weapons = FindObjectsByType<WeaponInstance>(
+                    FindObjectsInactive.Include,
+                    FindObjectsSortMode.None);
+                foreach (WeaponInstance weapon in weapons)
+                    ApplyWeaponOverride(weapon);
             }
 
             PlayerCharacter player = PlayerLifecycle.Instance != null
@@ -552,6 +562,13 @@ namespace junklite
                 : FindFirstObjectByType<PlayerCharacter>();
             if (player == null)
                 return;
+
+            PlayerWeaponLoadout loadout = player.GetComponent<PlayerWeaponLoadout>();
+            if (loadout != null)
+            {
+                ApplyWeaponOverride(loadout.WeaponSlot1);
+                ApplyWeaponOverride(loadout.WeaponSlot2);
+            }
 
             ModManager modManager = player.GetComponent<ModManager>();
             if (modManager != null)
@@ -577,6 +594,14 @@ namespace junklite
             mod.EditorInfiniteDurability = infiniteDurability;
             if (infiniteDurability)
                 mod.EditorRestoreDurability();
+        }
+
+        private void ApplyWeaponOverride(WeaponInstance weapon)
+        {
+            if (weapon == null) return;
+            bool shouldLock = infiniteDurability || (infiniteAmmo && weapon.weaponData is RangedWeaponData);
+            weapon.EditorInfiniteDurability = shouldLock;
+            if (shouldLock) weapon.EditorRestoreDurability();
         }
 
         private void SetPanelVisibleInternal(bool visible)

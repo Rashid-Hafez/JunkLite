@@ -36,6 +36,7 @@ namespace junklite
 
         private int spawnSequence;
         private bool enemyAiPaused;
+        private GameObject modPickupPrefab;
 
         public IReadOnlyList<ToolAction> EnemyActions => enemyActions;
         public IReadOnlyList<ToolAction> WeaponActions => weaponActions;
@@ -66,7 +67,9 @@ namespace junklite
 
         private void AddEnemy(string label, string assetPath)
         {
-            enemyActions.Add(new ToolAction(label, () => SpawnEnemy(label, assetPath)));
+            // Resolve dependencies while the console is built, not on the spawn click.
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            enemyActions.Add(new ToolAction(label, () => SpawnEnemy(label, prefab)));
         }
 
         private void BuildWeaponActions()
@@ -77,11 +80,14 @@ namespace junklite
 
         private void AddWeapon(string label, string assetPath)
         {
-            weaponActions.Add(new ToolAction(label, () => SpawnWeapon(label, assetPath)));
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            weaponActions.Add(new ToolAction(label, () => SpawnWeapon(label, prefab)));
         }
 
         private void BuildModActions()
         {
+            modPickupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Game/Prefabs/Mods/Mod pick up prefab.prefab");
             string[] guids = AssetDatabase.FindAssets(
                 "t:ModData",
                 new[] { "Assets/Game/New Prefabs/Mods" });
@@ -138,9 +144,8 @@ namespace junklite
             runActions.Add(new ToolAction("RESET GAME", ResetGame));
         }
 
-        private string SpawnEnemy(string label, string assetPath)
+        private string SpawnEnemy(string label, GameObject prefab)
         {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
             if (prefab == null)
                 return $"Missing prefab: {label}";
 
@@ -159,8 +164,7 @@ namespace junklite
             if (mod == null)
                 return "Mod asset is missing";
 
-            const string pickupPath = "Assets/Game/Prefabs/Mods/Mod pick up prefab.prefab";
-            GameObject pickupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(pickupPath);
+            GameObject pickupPrefab = modPickupPrefab;
             if (pickupPrefab != null)
             {
                 if (!TryGetSpawnPlacement(out SpawnPlacement placement))
@@ -184,9 +188,8 @@ namespace junklite
             return "No drop manager or inventory available";
         }
 
-        private string SpawnWeapon(string label, string assetPath)
+        private string SpawnWeapon(string label, GameObject prefab)
         {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
             if (prefab == null)
                 return $"Missing weapon prefab: {label}";
 

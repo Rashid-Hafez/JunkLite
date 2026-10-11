@@ -96,6 +96,10 @@ Place them roughly on the lane, then run **Tools > JunkLite > Level > Snap All E
 
 ⚠️ **Tools > JunkLite > Systems > Rebuild** rewrites the V2.5 scene. Only run it on purpose.
 
+**Investigating stutters:** reproduce with F10 and movement, then open the latest frame-spike CSV after leaving Play Mode. The `frame` column identifies the preceding completed gameplay frame. New captures include the last F10 command, its duration and age in frames, GC collection time, synchronous audio/asset loading, and logger disk I/O. `-1` means a counter is unavailable. `delayed_*` CPU/GPU timings arrive several frames late and are context only; they do not identify the cause of that row's hitch. Allocation volume alone does not prove a collection. Subsystem timings can overlap (physics includes trigger callbacks); compare candidates with the Unity Profiler timeline. Severe consecutive hitches (100 ms+) bypass the normal log cooldown.
+
+The console resolves its spawn prefabs when it is created. Infinite ammo/durability still updates equipped items each frame, but world-weapon discovery runs four times per second and immediately after commands/toggles. Level startup prepares the combat music and initializes DOTween so first contact does not pay those initialization costs. These changes require no Inspector wiring.
+
 ---
 
 ## 6. ScriptableObjects: config, never state

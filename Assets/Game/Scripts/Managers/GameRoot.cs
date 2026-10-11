@@ -26,6 +26,14 @@ namespace junklite
 
         private EventSystem ownedEventSystem;
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void InitializePresentation()
+        {
+            // Avoid creating DOTween's runner from the first pickup trigger.
+            // Init is idempotent and uses the project's existing DOTween settings.
+            DG.Tweening.DOTween.Init();
+        }
+
         private void Awake()
         {
             DetachLegacyBundledLevelContexts();

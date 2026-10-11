@@ -670590,8 +670590,8 @@ Camera:
   m_Iso: 800
   m_ShutterSpeed: 50
   m_Aperture: 2.8
-  m_FocusDistance: 0.1
-  m_FocalLength: 40
+  m_FocusDistance: 50
+  m_FocalLength: 55.499996
   m_BladeCount: 6
   m_Curvature: {x: 7, y: 15.515409}
   m_BarrelClipping: 0.25
@@ -670606,7 +670606,7 @@ Camera:
     height: 1
   near clip plane: 0.01
   far clip plane: 500
-  field of view: 32.095764
+  field of view: 23.424751
   orthographic: 0
   orthographic size: 10
   m_Depth: 0
@@ -764761,8 +764761,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1475170997830509475}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 164.01709, y: 2.72, z: -0.40000153}
+  m_LocalRotation: {x: 0.06668484, y: 0.02696963, z: 0.0018031393, w: 0.997408}
+  m_LocalPosition: {x: 90.72, y: 6.59, z: -141.84}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

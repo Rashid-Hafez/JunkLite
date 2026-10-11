@@ -442,6 +442,13 @@ namespace junklite
 
         private void PlayLevelMusic()
         {
+            // First enemy detection switches music from a physics trigger. Prepare
+            // the combat track alongside level music, before that gameplay callback
+            // can synchronously decompress an entire song on the movement frame.
+            AudioClip combatClip = GetCombatMusicEntry()?.clip;
+            if (combatClip != null && combatClip.loadState == AudioDataLoadState.Unloaded)
+                combatClip.LoadAudioData();
+
             var entry = GetLevelMusicEntry();
             if (entry != null && entry.IsValid)
                 AudioManager.Instance?.CrossfadeToMusic(entry);

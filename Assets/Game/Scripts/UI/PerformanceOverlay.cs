@@ -54,7 +54,11 @@ namespace junklite
         private bool isVisible = true;
         private int observedFrameCount;
         private int spikeLogCount;
-        private int ignoreSpikeFrames;
+        private string lastCommand;
+        private int lastCommandFrame = -1;
+        private double lastCommandMilliseconds;
+        private int lastLogWriteFrame = -1;
+        private double lastLogWriteMilliseconds;
         private string fpsText = "FPS  --";
         private string frameText = "FRAME  -- ms";
         private string spikeText = "Collecting frame history...";
@@ -65,11 +69,22 @@ namespace junklite
         private ProfilerRecorder physicsRecorder;
         private ProfilerRecorder animationRecorder;
         private ProfilerRecorder renderRecorder;
+        private ProfilerRecorder gcCollectRecorder;
+        private ProfilerRecorder audioLoadRecorder;
+        private ProfilerRecorder assetLoadRecorder;
         private ProfilerRecorder drawCallsRecorder;
         private ProfilerRecorder setPassCallsRecorder;
         private ProfilerRecorder trianglesRecorder;
         private StreamWriter spikeLogWriter;
         private string spikeLogPath;
+
+        public static void RecordDeveloperCommand(string label, double milliseconds)
+        {
+            if (instance == null) return;
+            instance.lastCommand = label;
+            instance.lastCommandFrame = Time.frameCount;
+            instance.lastCommandMilliseconds = milliseconds;
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -118,11 +133,7 @@ namespace junklite
             observedFrameCount++;
 
             FrameTimingManager.CaptureFrameTimings();
-            if (ignoreSpikeFrames > 0)
-            {
-                ignoreSpikeFrames--;
-            }
-            else if (ShouldRecordSpike(frameMilliseconds, baselineMilliseconds))
+            if (ShouldRecordSpike(frameMilliseconds, baselineMilliseconds))
             {
                 RecordSpike(frameMilliseconds, baselineMilliseconds);
             }
@@ -178,9 +189,12 @@ namespace junklite
         {
             gcAllocationRecorder = StartRecorder(ProfilerCategory.Memory, "GC Allocated In Frame");
             scriptUpdateRecorder = StartRecorder(ProfilerCategory.Scripts, "BehaviourUpdate");
-            physicsRecorder = StartRecorder(ProfilerCategory.Physics, "Physics.FixedUpdate");
-            animationRecorder = StartRecorder(ProfilerCategory.Animation, "Animator.Update");
-            renderRecorder = StartRecorder(ProfilerCategory.Render, "Camera.Render");
+            physicsRecorder = StartTimer("FixedUpdate.PhysicsFixedUpdate");
+            animationRecorder = StartTimer("PreLateUpdate.DirectorUpdateAnimationBegin");
+            renderRecorder = StartTimer("Inl_UniversalRenderTotal");
+            gcCollectRecorder = StartTimer("GC.Collect");
+            audioLoadRecorder = StartTimer("SoundManager.LoadFMODSound");
+            assetLoadRecorder = StartTimer("Loading.ReadObject");
             drawCallsRecorder = StartRecorder(ProfilerCategory.Render, "Draw Calls Count");
             setPassCallsRecorder = StartRecorder(ProfilerCategory.Render, "SetPass Calls Count");
             trianglesRecorder = StartRecorder(ProfilerCategory.Render, "Triangles Count");
@@ -196,13 +210,13 @@ namespace junklite
                     spikeLogPath,
                     false,
                     new UTF8Encoding(false),
-                    4096);
+                    16384);
                 spikeLogWriter.WriteLine(
-                    "timestamp,frame,scene,frame_ms,baseline_ms,cpu_main_ms,cpu_render_ms,gpu_ms," +
-                    "gc_alloc_bytes,script_update_ms,physics_ms,animation_ms,render_cpu_ms," +
-                    "draw_calls,setpass_calls,triangles,quality,likely_cause");
+                    "timestamp,frame,scene,frame_ms,baseline_ms,delayed_cpu_main_ms,delayed_cpu_render_ms,delayed_gpu_ms," +
+                    "gc_alloc_bytes,script_update_ms,physics_ms,animation_ms,render_phase_ms," +
+                    "draw_calls,setpass_calls,triangles,quality,likely_cause," +
+                    "gc_collect_ms,audio_load_ms,asset_load_ms,last_dev_command,dev_command_age_frames,dev_command_ms,logger_io_ms");
                 spikeLogWriter.Flush();
-                ignoreSpikeFrames = 2;
                 Debug.Log($"[PerformanceOverlay] Recording frame spikes to: {spikeLogPath}", this);
             }
             catch (Exception exception)
@@ -230,11 +244,26 @@ namespace junklite
             }
         }
 
+        private static ProfilerRecorder StartTimer(string markerName)
+        {
+            try
+            {
+                // The constructor resolves the marker's category. Restrict durations
+                // to this thread so background worker totals cannot look like a stall.
+                return new ProfilerRecorder(markerName, 1,
+                    ProfilerRecorderOptions.StartImmediately |
+                    ProfilerRecorderOptions.CollectOnlyOnCurrentThread |
+                    ProfilerRecorderOptions.WrapAroundWhenCapacityReached |
+                    ProfilerRecorderOptions.SumAllSamplesInFrame);
+            }
+            catch { return default; }
+        }
+
         private bool ShouldRecordSpike(float frameMilliseconds, float baselineMilliseconds)
         {
             if (spikeLogWriter == null || observedFrameCount <= FramesBeforeLogging)
                 return false;
-            if (Time.realtimeSinceStartup < nextSpikeLogTime)
+            if (frameMilliseconds < 100f && Time.realtimeSinceStartup < nextSpikeLogTime)
                 return false;
 
             bool exceedsBudget = frameMilliseconds >= SpikeThresholdMs;
@@ -249,39 +278,45 @@ namespace junklite
 
             frameTimings[0] = default;
             uint timingCount = FrameTimingManager.GetLatestTimings(1, frameTimings);
-            double cpuMainMilliseconds = timingCount > 0 ? frameTimings[0].cpuMainThreadFrameTime : 0d;
-            double cpuRenderMilliseconds = timingCount > 0 ? frameTimings[0].cpuRenderThreadFrameTime : 0d;
-            double gpuMilliseconds = timingCount > 0 ? frameTimings[0].gpuFrameTime : 0d;
+            // FrameTimingManager arrives several frames late. These columns provide
+            // context only; never use them to attribute the current wall-clock hitch.
+            double cpuMainMilliseconds = timingCount > 0 ? frameTimings[0].cpuMainThreadFrameTime : -1d;
+            double cpuRenderMilliseconds = timingCount > 0 ? frameTimings[0].cpuRenderThreadFrameTime : -1d;
+            double gpuMilliseconds = timingCount > 0 ? frameTimings[0].gpuFrameTime : -1d;
 
             long gcAllocationBytes = ReadCounter(gcAllocationRecorder);
             double scriptMilliseconds = ReadMilliseconds(scriptUpdateRecorder);
             double physicsMilliseconds = ReadMilliseconds(physicsRecorder);
             double animationMilliseconds = ReadMilliseconds(animationRecorder);
             double renderMilliseconds = ReadMilliseconds(renderRecorder);
+            double gcCollectMilliseconds = ReadMilliseconds(gcCollectRecorder);
+            double audioLoadMilliseconds = ReadMilliseconds(audioLoadRecorder);
+            double assetLoadMilliseconds = ReadMilliseconds(assetLoadRecorder);
+            double loggerMilliseconds = lastLogWriteFrame == Time.frameCount - 1 ? lastLogWriteMilliseconds : 0d;
             long drawCalls = ReadCounter(drawCallsRecorder);
             long setPassCalls = ReadCounter(setPassCallsRecorder);
             long triangles = ReadCounter(trianglesRecorder);
             string likelyCause = DetermineLikelyCause(
                 frameMilliseconds,
                 gcAllocationBytes,
-                cpuMainMilliseconds,
-                cpuRenderMilliseconds,
-                gpuMilliseconds,
+                gcCollectMilliseconds,
+                audioLoadMilliseconds,
+                assetLoadMilliseconds,
                 scriptMilliseconds,
                 physicsMilliseconds,
                 animationMilliseconds,
                 renderMilliseconds,
-                drawCalls,
-                setPassCalls);
+                loggerMilliseconds);
 
             string sceneName = EscapeCsv(SceneManager.GetActiveScene().name);
             string cause = EscapeCsv(likelyCause);
             string line = string.Format(
                 CultureInfo.InvariantCulture,
                 "{0:O},{1},\"{2}\",{3:0.000},{4:0.000},{5:0.000},{6:0.000},{7:0.000}," +
-                "{8},{9:0.000},{10:0.000},{11:0.000},{12:0.000},{13},{14},{15},\"{16}\",\"{17}\"",
+                "{8},{9:0.000},{10:0.000},{11:0.000},{12:0.000},{13},{14},{15},\"{16}\",\"{17}\"," +
+                "{18:0.000},{19:0.000},{20:0.000},\"{21}\",{22},{23:0.000},{24:0.000}",
                 DateTime.Now,
-                Time.frameCount,
+                Time.frameCount - 1,
                 sceneName,
                 frameMilliseconds,
                 baselineMilliseconds,
@@ -297,20 +332,28 @@ namespace junklite
                 setPassCalls,
                 triangles,
                 EscapeCsv(QualitySettings.names[QualitySettings.GetQualityLevel()]),
-                cause);
+                cause,
+                gcCollectMilliseconds,
+                audioLoadMilliseconds,
+                assetLoadMilliseconds,
+                EscapeCsv(lastCommand),
+                lastCommandFrame >= 0 ? Time.frameCount - 1 - lastCommandFrame : -1,
+                lastCommandMilliseconds,
+                loggerMilliseconds);
 
             try
             {
+                long started = System.Diagnostics.Stopwatch.GetTimestamp();
                 spikeLogWriter.WriteLine(line);
                 spikeLogCount++;
 
-                // Keep disk I/O out of normal spike frames. Flush occasionally for
-                // crash resilience, then ignore the flush's following frame.
+                // Keep periodic persistence, but measure it rather than hiding the
+                // following frames (which could contain real, adjacent gameplay stalls).
                 if (spikeLogCount % 10 == 0)
-                {
                     spikeLogWriter.Flush();
-                    ignoreSpikeFrames = 2;
-                }
+                lastLogWriteFrame = Time.frameCount;
+                lastLogWriteMilliseconds = (System.Diagnostics.Stopwatch.GetTimestamp() - started) *
+                                          1000d / System.Diagnostics.Stopwatch.Frequency;
             }
             catch (Exception exception)
             {
@@ -321,36 +364,40 @@ namespace junklite
 
         private static long ReadCounter(ProfilerRecorder recorder)
         {
-            return recorder.Valid && recorder.Count > 0 ? recorder.LastValue : 0L;
+            // -1 means unavailable, 0 means a supported marker had no work this frame.
+            return !recorder.Valid ? -1L : recorder.Count > 0 ? recorder.LastValue : 0L;
         }
 
         private static double ReadMilliseconds(ProfilerRecorder recorder)
         {
-            return ReadCounter(recorder) * 0.000001d;
+            long value = ReadCounter(recorder);
+            return value < 0 ? -1d : value * 0.000001d;
         }
 
         private static string DetermineLikelyCause(
             float frameMilliseconds,
             long gcAllocationBytes,
-            double cpuMainMilliseconds,
-            double cpuRenderMilliseconds,
-            double gpuMilliseconds,
+            double gcCollectMilliseconds,
+            double audioLoadMilliseconds,
+            double assetLoadMilliseconds,
             double scriptMilliseconds,
             double physicsMilliseconds,
             double animationMilliseconds,
             double renderMilliseconds,
-            long drawCalls,
-            long setPassCalls)
+            double loggerMilliseconds)
         {
-            if (gcAllocationBytes >= AllocationWarningBytes)
-                return "Allocation pressure / possible GC";
+            double significant = Math.Max(4d, frameMilliseconds * 0.25d);
+            if (audioLoadMilliseconds >= significant) return "Synchronous audio loading candidate";
+            if (assetLoadMilliseconds >= significant) return "Asset loading candidate";
+            if (gcCollectMilliseconds >= significant) return "Measured garbage collection candidate";
+            if (loggerMilliseconds >= significant) return "Spike-log disk I/O candidate";
 
             double largestSubsystem = scriptMilliseconds;
             string subsystem = "Script update";
             if (physicsMilliseconds > largestSubsystem)
             {
                 largestSubsystem = physicsMilliseconds;
-                subsystem = "Physics";
+                subsystem = "Physics / trigger callbacks";
             }
             if (animationMilliseconds > largestSubsystem)
             {
@@ -360,22 +407,13 @@ namespace junklite
             if (renderMilliseconds > largestSubsystem)
             {
                 largestSubsystem = renderMilliseconds;
-                subsystem = "CPU rendering";
+                subsystem = "Render phase / waits";
             }
             if (largestSubsystem >= 4d && largestSubsystem >= frameMilliseconds * 0.25d)
                 return $"{subsystem} candidate";
 
-            if (gpuMilliseconds > 0d &&
-                gpuMilliseconds >= frameMilliseconds * 0.65d &&
-                gpuMilliseconds > cpuMainMilliseconds * 1.15d)
-                return "GPU-bound candidate";
-
-            if (cpuRenderMilliseconds >= frameMilliseconds * 0.5d)
-                return "Render-thread candidate";
-            if (drawCalls >= 1500 || setPassCalls >= 500)
-                return "Draw-call / material-state candidate";
-            if (cpuMainMilliseconds >= frameMilliseconds * 0.5d)
-                return "CPU main-thread candidate";
+            if (gcAllocationBytes >= AllocationWarningBytes)
+                return "High allocation volume; collection not established as cause";
 
             return "Unclassified - inspect this frame in Unity Profiler";
         }
@@ -548,6 +586,9 @@ namespace junklite
             DisposeRecorder(ref physicsRecorder);
             DisposeRecorder(ref animationRecorder);
             DisposeRecorder(ref renderRecorder);
+            DisposeRecorder(ref gcCollectRecorder);
+            DisposeRecorder(ref audioLoadRecorder);
+            DisposeRecorder(ref assetLoadRecorder);
             DisposeRecorder(ref drawCallsRecorder);
             DisposeRecorder(ref setPassCallsRecorder);
             DisposeRecorder(ref trianglesRecorder);
