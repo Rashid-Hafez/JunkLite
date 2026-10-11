@@ -5,7 +5,7 @@ using UnityEngine;
 namespace junklite
 {
     /// <summary>
-    /// Centralized manager for spawning damage popups with object pooling.
+    /// Centralized pool for damage numbers and player XP rewards.
     /// </summary>
     public class DamagePopupManager : MonoBehaviour
     {
@@ -87,19 +87,33 @@ namespace junklite
         /// </summary>
         public void SpawnPopup(Vector3 position, float damage)
         {
-            if (popupPrefab == null)
-                return;
+            DamagePopup popup = PreparePopup(position, new Vector2(spawnOffset.x, spawnOffset.y), randomOffsetRange);
+            if (popup != null) popup.Setup(damage);
+        }
 
+        public void SpawnExperiencePopup(Vector3 position, long amount, PlayerProgressionConfig config)
+        {
+            if (amount <= 0 || config == null || !config.showXpPopups) return;
+            DamagePopup popup = PreparePopup(position, config.xpPopupOffset, config.xpPopupHorizontalSpread);
+            if (popup != null) popup.SetupExperience(amount, config);
+        }
+
+        private DamagePopup PreparePopup(Vector3 position, Vector2 offset, float spread)
+        {
+            if (popupPrefab == null) return null;
             DamagePopup popup = GetPopup();
+            if (popup == null) return null;
 
-            // Position with offset and randomness
-
-            popup.transform.rotation = CinemachineCore.GetVirtualCamera(0).transform.rotation; // Face camera
-            Vector3 spawnPos = position + popup.transform.right * spawnOffset.x + popup.transform.up * spawnOffset.y; // Offset relative to local right and up
-            spawnPos += popup.transform.right * Random.Range(-randomOffsetRange, randomOffsetRange); // Random horizontal offset
-            popup.transform.position = spawnPos; 
+            // The rendering camera includes Cinemachine blends; some test scenes have no virtual camera.
+            Camera camera = Camera.main;
+            var virtualCamera = camera == null && CinemachineCore.VirtualCameraCount > 0
+                ? CinemachineCore.GetVirtualCamera(0) : null;
+            popup.transform.rotation = camera != null ? camera.transform.rotation
+                : virtualCamera != null ? virtualCamera.transform.rotation : Quaternion.identity;
+            popup.transform.position = position + popup.transform.right * (offset.x + Random.Range(-spread, spread))
+                + popup.transform.up * offset.y;
             popup.gameObject.SetActive(true);
-            popup.Setup(damage);
+            return popup;
         }
 
         private DamagePopup GetPopup()

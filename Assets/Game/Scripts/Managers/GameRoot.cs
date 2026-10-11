@@ -41,6 +41,8 @@ namespace junklite
             transform.localScale = Vector3.one;
             DontDestroyOnLoad(gameObject);
 
+            PlayerProgression.Ensure(transform);
+
             EnsureGameplayUIRoot();
             EnsureEventSystem();
             RemoveDuplicateEventSystems();

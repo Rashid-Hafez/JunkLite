@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 498257921127036517}
   - component: {fileID: 7433742776496313932}
   - component: {fileID: 6193730749670565681}
+  - component: {fileID: 8123456789012345678}
   m_Layer: 0
   m_Name: Game Manager
   m_TagString: Untagged
@@ -22,6 +23,19 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &8123456789012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8053377969660216567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a40e1597e00dc54684201655814ef2b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerProgression
+  config: {fileID: 11400000, guid: 7916ad4de4ed46145875ef71da4ff75b, type: 2}
 --- !u!4 &7724700367755847198
 Transform:
   m_ObjectHideFlags: 0

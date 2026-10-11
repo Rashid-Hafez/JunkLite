@@ -80,6 +80,7 @@ namespace junklite
         public PlayerState PlayerState => playerState;
         public PlayerState State => playerState;
         public CharacterStats Stats => baseStats;
+        public PlayerRuntimeStats RuntimeStats { get; private set; }
         public StatusEffectHandler StatusEffects => statusEffects;
         public Attribute Health => attributes ? attributes.Health : null;
         public bool IsAlive => attributes ? attributes.IsAlive : true;
@@ -126,6 +127,10 @@ namespace junklite
 
             if (attributes != null && baseStats != null)
                 attributes.Initialize(baseStats);
+
+            RuntimeStats = GetComponent<PlayerRuntimeStats>();
+            if (RuntimeStats == null) RuntimeStats = gameObject.AddComponent<PlayerRuntimeStats>();
+            RuntimeStats.Initialize(baseStats, attributes, PlayerProgression.Ensure());
 
             if (damageable != null)
                 damageable.Bind(baseStats, attributes, playerState);
@@ -327,6 +332,7 @@ namespace junklite
 
         public void ReviveAt(Vector3 position)
         {
+            RuntimeStats?.Refresh(false);
             // The same player object is reused across deaths. Clear transient dash
             // presentation in case deactivation interrupted its end callback.
             ResetDashVFX();
@@ -866,6 +872,7 @@ namespace junklite
 
         protected virtual void HandleDeath()
         {
+            RuntimeStats?.Progression?.Flush();
             IsActive = false;
             // Stop all movement and velocity on death
             if (controller != null)

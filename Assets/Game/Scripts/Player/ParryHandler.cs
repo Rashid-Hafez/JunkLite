@@ -44,6 +44,8 @@ namespace junklite
         private const int MaxParryOverlapCapacity = 256;
 
         public bool IsParrying => parryActive;
+        // Other rewards can clone this authored distortion without triggering a parry or its gameplay effects.
+        public GameObject ScreenPulseTemplate => VisualEffectParry;
 
         private void Awake()
         {

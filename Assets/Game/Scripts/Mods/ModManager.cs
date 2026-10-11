@@ -26,6 +26,7 @@ namespace junklite
         private ModExecutionRunner executionRunner;
 
         private bool isActive;
+        private bool developerSlotOverride;
 
         #endregion
 
@@ -53,6 +54,8 @@ namespace junklite
             if (executionRunner == null)
                 executionRunner = gameObject.AddComponent<ModExecutionRunner>();
 
+            // Four input actions are supported. Correct legacy prefab/scene limits before allocation.
+            maxActiveSlots = 4;
             activeSlots = new ModInstance[maxActiveSlots];
             passiveSlots = new ModInstance[maxPassiveSlots];
 
@@ -334,6 +337,7 @@ namespace junklite
 
         public void UnlockActiveSlot()
         {
+            developerSlotOverride = true;
             if (unlockedActiveSlots < maxActiveSlots)
             {
                 unlockedActiveSlots++;
@@ -348,6 +352,42 @@ namespace junklite
                 unlockedPassiveSlots++;
                 OnModSlotsChanged?.Invoke();
             }
+        }
+
+        public int GetActiveSlotUnlockLevel(int index)
+        {
+            var progression = playerCharacter != null ? playerCharacter.RuntimeStats?.Progression : null;
+            progression ??= PlayerProgression.Instance;
+            return progression != null && progression.Config != null ? progression.Config.SlotUnlockLevel(index) : 0;
+        }
+
+        public void ApplyProgressionSlots(int count)
+        {
+            if (developerSlotOverride || activeSlots == null) return;
+            count = Mathf.Clamp(count, 0, maxActiveSlots);
+            if (count == unlockedActiveSlots) return;
+            // Retain installed items during a developer preview or configuration rebalance,
+            // but suspend executions/bonuses in slots that become locked.
+            for (int i = count; i < unlockedActiveSlots; i++)
+            {
+                var mod = activeSlots[i];
+                if (mod == null) continue;
+                executionRunner?.Cancel(mod);
+                if (isActive) mod.Data.OnCombatModeExited(mod, playerCharacter);
+            }
+            if (isActive)
+                for (int i = unlockedActiveSlots; i < count; i++)
+                    if (activeSlots[i] != null && !activeSlots[i].IsBroken)
+                        activeSlots[i].Data.OnCombatModeEntered(activeSlots[i], playerCharacter);
+            unlockedActiveSlots = count;
+            OnModSlotsChanged?.Invoke();
+        }
+
+        public void ClearDeveloperSlotOverride()
+        {
+            developerSlotOverride = false;
+            if (PlayerProgression.Instance != null)
+                ApplyProgressionSlots(PlayerProgression.Instance.Config.ActiveSlotsAt(PlayerProgression.Instance.Level));
         }
 
         #endregion

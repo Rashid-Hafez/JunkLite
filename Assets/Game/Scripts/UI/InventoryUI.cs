@@ -62,6 +62,16 @@ namespace junklite
         private WeaponManager weaponManager;
         private PlayerWeaponLoadout weaponLoadout;
         private ModManager modManager;
+        private PlayerProgression progression;
+        private PlayerCharacter player;
+        private Attribute playerHealth;
+        private Attribute playerArmor;
+        private Button characterButton;
+        private GameObject characterSelection;
+        private Sprite characterPortrait;
+        private bool playerDetailsSelected;
+        private bool showingItemPreview;
+        private bool playerDetailsDirty;
 
         private readonly List<ModSlotUI> inventorySlots = new();
         private readonly List<ModSlotUI> activeModSlots = new();
@@ -100,7 +110,10 @@ namespace junklite
         private void LateUpdate()
         {
             if (panel != null && panel.activeInHierarchy)
+            {
                 FitFrame();
+                if (playerDetailsDirty) RefreshPlayerDetails();
+            }
         }
 
         #endregion
@@ -116,6 +129,15 @@ namespace junklite
             weaponManager = wm;
             weaponLoadout = wm != null ? wm.Loadout : null;
             modManager = wm != null ? wm.GetComponent<ModManager>() : null;
+            progression = wm != null ? wm.GetComponent<PlayerRuntimeStats>()?.Progression : null;
+            player = wm != null ? wm.GetComponent<PlayerCharacter>() : null;
+            if (characterButton != null) characterButton.interactable = player != null;
+            playerHealth = player != null ? player.Health : null;
+            playerArmor = player != null ? player.RuntimeStats?.ArmorDisplay : null;
+            if (playerHealth != null) playerHealth.OnValueAndMaxChanged += HandlePlayerStatChanged;
+            if (playerArmor != null) playerArmor.OnValueAndMaxChanged += HandlePlayerStatChanged;
+            if (progression != null) progression.Changed += RefreshProgression;
+            RefreshProgression(default);
 
             if (inventory != null)
                 inventory.OnInventoryChanged += RefreshInventory;
@@ -129,6 +151,7 @@ namespace junklite
             ModSlotUI.OnModHovered += HandleModHovered;
             ModSlotUI.OnModHoverExit += HandleHoverExit;
             ModSlotUI.OnModSelected += HandleModSelected;
+            ModSlotUI.OnLockedSlotSelected += HandleLockedSlotSelected;
             InventoryWeaponSlotUI.OnWeaponHovered += HandleWeaponHovered;
             InventoryWeaponSlotUI.OnWeaponHoverExit += HandleHoverExit;
 
@@ -150,6 +173,14 @@ namespace junklite
 
         public void Unbind()
         {
+            if (playerHealth != null) playerHealth.OnValueAndMaxChanged -= HandlePlayerStatChanged;
+            if (playerArmor != null) playerArmor.OnValueAndMaxChanged -= HandlePlayerStatChanged;
+            playerHealth = playerArmor = null;
+            player = null;
+            if (characterButton != null) characterButton.interactable = false;
+            ClearPlayerSelection();
+            if (progression != null) progression.Changed -= RefreshProgression;
+            progression = null;
             if (inventory != null)
                 inventory.OnInventoryChanged -= RefreshInventory;
 
@@ -162,6 +193,7 @@ namespace junklite
             ModSlotUI.OnModHovered -= HandleModHovered;
             ModSlotUI.OnModHoverExit -= HandleHoverExit;
             ModSlotUI.OnModSelected -= HandleModSelected;
+            ModSlotUI.OnLockedSlotSelected -= HandleLockedSlotSelected;
             InventoryWeaponSlotUI.OnWeaponHovered -= HandleWeaponHovered;
             InventoryWeaponSlotUI.OnWeaponHoverExit -= HandleHoverExit;
 
@@ -197,6 +229,11 @@ namespace junklite
             RefreshModSlots();
         }
 
+        private void RefreshProgression(ProgressionChange change)
+        {
+            playerDetailsDirty = true;
+        }
+
         #endregion
 
 
@@ -204,6 +241,7 @@ namespace junklite
 
         private void ShowInventoryTab()
         {
+            ClearPlayerSelection();
             activeTab = Tab.Inventory;
 
             inventoryTabButton?.SetSelected(true);
@@ -220,6 +258,7 @@ namespace junklite
 
         private void ShowInfoTab()
         {
+            ClearPlayerSelection();
             activeTab = Tab.Info;
 
             inventoryTabButton?.SetSelected(false);
@@ -235,6 +274,7 @@ namespace junklite
 
         private void ShowMissionsTab()
         {
+            ClearPlayerSelection();
             activeTab = Tab.Missions;
 
             inventoryTabButton?.SetSelected(false);
@@ -253,26 +293,62 @@ namespace junklite
 
         #region Description Box Handlers
 
+        private void ShowPlayerDetails()
+        {
+            if (player == null || activeTab != Tab.Inventory) return;
+            playerDetailsSelected = true;
+            showingItemPreview = false;
+            if (characterSelection != null) characterSelection.SetActive(true);
+            RefreshPlayerDetails();
+        }
+
+        private void RefreshPlayerDetails()
+        {
+            playerDetailsDirty = false;
+            if (playerDetailsSelected && !showingItemPreview && activeTab == Tab.Inventory)
+                descriptionUI?.ShowPlayer(player, characterPortrait);
+        }
+
+        private void HandlePlayerStatChanged(float current, float maximum) => playerDetailsDirty = true;
+
+        private void ClearPlayerSelection()
+        {
+            playerDetailsSelected = showingItemPreview = playerDetailsDirty = false;
+            if (characterSelection != null) characterSelection.SetActive(false);
+        }
+
         private void HandleModHovered(ModInstance mod)
         {
-            if (mod == null) descriptionUI?.Clear();
+            showingItemPreview = mod != null;
+            if (mod == null) HandleHoverExit();
             else descriptionUI?.ShowMod(mod);
+        }
+
+        private void HandleLockedSlotSelected(ModSlotUI slot)
+        {
+            if (slot == null || !slot.transform.IsChildOf(transform) || activeTab != Tab.Inventory) return;
+            showingItemPreview = true;
+            descriptionUI?.ShowLockedSlot(slot.RequiredLevel);
         }
 
         private void HandleWeaponHovered(WeaponInstance weapon)
         {
-            if (weapon == null) descriptionUI?.Clear();
+            showingItemPreview = weapon != null;
+            if (weapon == null) HandleHoverExit();
             else descriptionUI?.ShowWeapon(weapon);
         }
 
         private void HandleHoverExit()
         {
-            descriptionUI?.Clear();
+            showingItemPreview = false;
+            if (playerDetailsSelected) RefreshPlayerDetails();
+            else descriptionUI?.Clear();
         }
 
         private void HandleModSelected(ModInstance selectedMod)
         {
             if (selectedMod == null) return;
+            ClearPlayerSelection();
             if (EventSystem.current == null) return;
 
             var preferredTarget = GetPreferredTargetSlotFor(selectedMod);
@@ -334,6 +410,7 @@ namespace junklite
 
         private void RefreshWeapons()
         {
+            playerDetailsDirty = true;
             if (weaponManager == null || weaponLoadout == null) return;
 
             weaponSlot1?.Bind(weaponManager, 1);
@@ -353,6 +430,7 @@ namespace junklite
 
         private void RefreshModSlots()
         {
+            playerDetailsDirty = true;
             ClearSlots(activeModSlots);
             ClearSlots(passiveModSlots);
 
@@ -528,8 +606,25 @@ namespace junklite
 
             if (characterVisual != null)
             {
-                characterVisual.SetParent(loadoutCard.transform, false);
-                Place(characterVisual, 126f, 50f, 178f, 494f);
+                Image target = RectImage("Player Stats Button", loadoutCard.transform, Color.clear, 126f, 50f, 178f, 494f);
+                target.raycastTarget = true;
+                characterButton = target.gameObject.AddComponent<Button>();
+                characterButton.targetGraphic = target;
+                ColorBlock colors = characterButton.colors;
+                colors.normalColor = Color.clear;
+                colors.highlightedColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.08f);
+                colors.selectedColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.12f);
+                colors.pressedColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.2f);
+                characterButton.colors = colors;
+                // The tint needs a white source graphic; Button supplies its transparent idle color.
+                target.color = Color.white;
+                characterButton.onClick.AddListener(ShowPlayerDetails);
+                var trigger = target.gameObject.AddComponent<EventTrigger>();
+                var select = new EventTrigger.Entry { eventID = EventTriggerType.Select };
+                select.callback.AddListener(_ => ShowPlayerDetails());
+                trigger.triggers.Add(select);
+                characterVisual.SetParent(target.transform, false);
+                Stretch(characterVisual);
                 characterVisual.localScale = Vector3.one;
                 characterVisual.gameObject.SetActive(true);
                 Image characterImage = characterVisual.GetComponent<Image>();
@@ -537,7 +632,15 @@ namespace junklite
                 {
                     characterImage.preserveAspect = true;
                     characterImage.raycastTarget = false;
+                    characterPortrait = characterImage.sprite;
                 }
+                characterSelection = CreateRect("Selected Player", target.transform).gameObject;
+                Stretch((RectTransform)characterSelection.transform);
+                AddBorder((RectTransform)characterSelection.transform, Cyan);
+                characterSelection.SetActive(false);
+                TMP_Text hint = TextAt("Player Stats Hint", target.transform, "CASSIDY", 11f, Cyan,
+                    8f, 466f, 162f, 22f, false, FontStyles.Bold);
+                hint.horizontalAlignment = HorizontalAlignmentOptions.Center;
             }
 
             weaponSlot1 = CreateWeaponSlot(loadoutCard.transform, "SLOT 01", 16f, 62f, Cyan);
@@ -612,7 +715,7 @@ namespace junklite
             Image card = RectImage("Item Details", page, Card, 1034f, 0f, 326f, 568f);
             AddBorder(card.rectTransform, Line);
             RectImage("Details Accent", card.transform, Magenta, 0f, 0f, 3f, 568f);
-            TextAt("Details Label", card.transform, "ITEM DETAILS", 14f, Magenta,
+            TMP_Text title = TextAt("Details Label", card.transform, "ITEM DETAILS", 14f, Magenta,
                 16f, 12f, 220f, 24f, false, FontStyles.Bold);
 
             Image iconWell = RectImage("Icon Well", card.transform, Well, 20f, 54f, 92f, 92f);
@@ -629,7 +732,7 @@ namespace junklite
             description.textWrappingMode = TextWrappingModes.Normal;
             description.verticalAlignment = VerticalAlignmentOptions.Top;
 
-            RectImage("Details Rule", card.transform, Line, 20f, 328f, 286f, 1f);
+            Image rule = RectImage("Details Rule", card.transform, Line, 20f, 328f, 286f, 1f);
             TMP_Text stats = TextAt("Stats", card.transform, "", 13f, Paper,
                 20f, 344f, 286f, 180f);
             stats.textWrappingMode = TextWrappingModes.Normal;
@@ -641,6 +744,16 @@ namespace junklite
 
             descriptionUI = card.gameObject.AddComponent<ItemDescriptionUI>();
             descriptionUI.Configure(icon, name, description, stats, emptyText.gameObject);
+            RectTransform progressionPanel = CreateRect("Character Progression", card.transform);
+            Place(progressionPanel, 124f, 54f, 182f, 92f);
+            TMP_Text level = TextAt("Level", progressionPanel, "", 23f, Cyan, 0, 0, 182, 30, true);
+            TMP_Text xp = TextAt("Experience", progressionPanel, "", 12f, Paper, 0, 32, 182, 20);
+            TMP_Text next = TextAt("Next Level", progressionPanel, "", 11f, Muted, 0, 76, 182, 18);
+            Image xpTrack = RectImage("XP Track", progressionPanel, Line, 0, 60, 182, 8);
+            Image xpFill = CreateImage("XP Fill", xpTrack.transform, Cyan);
+            Stretch(xpFill.rectTransform);
+            xpFill.raycastTarget = false;
+            descriptionUI.ConfigurePlayerProgression(progressionPanel.gameObject, level, xp, next, xpFill, title, rule.rectTransform);
             descriptionUI.Clear();
         }
 
@@ -737,7 +850,7 @@ namespace junklite
         {
             RectImage("Footer Rule", frameTransform, Line, 40f, 760f, 1360f, 1f);
             TextAt("Input Hints", frameTransform,
-                "DRAG / CLICK  MOVE MOD     HOVER  DETAILS     I / ESC  CLOSE",
+                "DRAG / CLICK  MOVE MOD     HOVER  DETAILS     CLICK CASSIDY  STATS     I / ESC  CLOSE",
                 13f, Muted, 40f, 775f, 1100f, 24f);
         }
 
@@ -879,7 +992,8 @@ namespace junklite
             {
                 if (slot == null) continue;
                 slot.gameObject.SetActive(false);
-                Destroy(slot.gameObject);
+                if (Application.isPlaying) Destroy(slot.gameObject);
+                else DestroyImmediate(slot.gameObject);
             }
             slots.Clear();
         }
@@ -914,7 +1028,8 @@ namespace junklite
             var currentSelected = EventSystem.current.currentSelectedGameObject;
             if (currentSelected != null &&
                 currentSelected.activeInHierarchy &&
-                currentSelected.GetComponent<ModSlotUI>() != null)
+                (currentSelected.GetComponent<ModSlotUI>() != null ||
+                 (characterButton != null && currentSelected == characterButton.gameObject)))
             {
                 return;
             }
@@ -979,18 +1094,18 @@ namespace junklite
         private bool TryMoveSelection(Vector2 direction)
         {
             var currentObj = EventSystem.current.currentSelectedGameObject;
-            var currentSlot = currentObj != null ? currentObj.GetComponent<ModSlotUI>() : null;
+            var currentSlot = currentObj != null ? currentObj.GetComponent<Selectable>() : null;
             var allSlots = GetAllNavigableSlots();
             if (allSlots.Count == 0) return false;
 
-            if (currentSlot == null || !IsSlotSelectable(currentSlot))
+            if (currentSlot == null || !allSlots.Contains(currentSlot))
             {
                 EventSystem.current.SetSelectedGameObject(allSlots[0].gameObject);
                 return true;
             }
 
             var currentPos = (Vector2)currentSlot.transform.position;
-            ModSlotUI bestCandidate = null;
+            Selectable bestCandidate = null;
             float bestScore = float.NegativeInfinity;
 
             foreach (var candidate in allSlots)
@@ -1019,21 +1134,23 @@ namespace junklite
             return true;
         }
 
-        private List<ModSlotUI> GetAllNavigableSlots()
+        private List<Selectable> GetAllNavigableSlots()
         {
-            var result = new List<ModSlotUI>(activeModSlots.Count + passiveModSlots.Count + inventorySlots.Count);
+            var result = new List<Selectable>(activeModSlots.Count + passiveModSlots.Count + inventorySlots.Count + 1);
             AddNavigableSlots(activeModSlots, result);
             AddNavigableSlots(passiveModSlots, result);
             AddNavigableSlots(inventorySlots, result);
+            if (characterButton != null && characterButton.gameObject.activeInHierarchy && characterButton.IsInteractable())
+                result.Add(characterButton);
             return result;
         }
 
-        private static void AddNavigableSlots(List<ModSlotUI> source, List<ModSlotUI> target)
+        private static void AddNavigableSlots(List<ModSlotUI> source, List<Selectable> target)
         {
             foreach (var slot in source)
             {
-                if (IsSlotSelectable(slot))
-                    target.Add(slot);
+                if (IsSlotSelectable(slot) && slot.TryGetComponent<Selectable>(out var selectable))
+                    target.Add(selectable);
             }
         }
 

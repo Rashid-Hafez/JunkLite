@@ -67,6 +67,7 @@ namespace junklite
         public static event Action<ModInstance> OnModSelected;
         public static event Action<ModInstance> OnModHovered;
         public static event Action OnModHoverExit;
+        public static event Action<ModSlotUI> OnLockedSlotSelected;
 
         #endregion
 
@@ -77,6 +78,8 @@ namespace junklite
         public SlotType Type => slotType;
         public int SlotIndex => slotIndex;
         public bool IsLocked => isLocked;
+        public int RequiredLevel => slotType == SlotType.ActiveMod && modManager != null
+            ? modManager.GetActiveSlotUnlockLevel(slotIndex) : 0;
         public bool IsModSlot => slotType == SlotType.ActiveMod || slotType == SlotType.PassiveMod;
 
         #endregion
@@ -189,14 +192,20 @@ namespace junklite
 
 
             if (lockedLabel != null)
+            {
+                int level = RequiredLevel;
+                lockedLabel.text = level > 0 ? $"LV {level}" : "LOCKED";
+                lockedLabel.fontSize = 13f;
                 lockedLabel.gameObject.SetActive(isLocked);
+            }
 
             if (emptyLabel != null)
                 emptyLabel.gameObject.SetActive(!isLocked && modInstance == null);
 
             Selectable selectable = GetComponent<Selectable>();
             if (selectable != null)
-                selectable.interactable = !isLocked;
+                // Locked slots still accept focus/clicks to explain their unlock requirement.
+                selectable.interactable = true;
 
             if (highlightImage != null)
             {
@@ -357,6 +366,7 @@ namespace junklite
         public void OnSelect(BaseEventData eventData)
         {
             if (hoverImage != null) hoverImage.SetActive(true);
+            if (isLocked) { OnLockedSlotSelected?.Invoke(this); return; }
             if (modInstance == null) return;
             OnModHovered?.Invoke(modInstance);
         }
@@ -369,7 +379,8 @@ namespace junklite
 
         private void HandleSelectionConfirm()
         {
-            if (draggedSlot != null || isLocked) return;
+            if (draggedSlot != null) return;
+            if (isLocked) { OnLockedSlotSelected?.Invoke(this); return; }
 
             if (selectedSlot == null)
             {

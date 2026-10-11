@@ -119,6 +119,9 @@ namespace junklite
             playerActions.Add(new ToolAction("HEAL TO FULL", HealPlayer));
             playerActions.Add(new ToolAction("TOGGLE INVINCIBLE", ToggleInvincibility));
             playerActions.Add(new ToolAction("UNLOCK MOD SLOTS", UnlockModSlots));
+            playerActions.Add(new ToolAction("PREVIEW +100 XP", PreviewExperience));
+            playerActions.Add(new ToolAction("PREVIEW NEXT LEVEL", PreviewNextLevel));
+            playerActions.Add(new ToolAction("END LEVEL PREVIEW", EndLevelPreview));
             playerActions.Add(new ToolAction("CLEAR INVENTORY", ClearInventory));
             playerActions.Add(new ToolAction("DEFEAT PLAYER", DefeatPlayer));
             playerActions.Add(new ToolAction("RESPAWN AT ENTRY", RespawnPlayer));
@@ -377,6 +380,31 @@ namespace junklite
                 manager.UnlockPassiveSlot();
 
             return "All mod slots unlocked";
+        }
+
+        private static string PreviewExperience()
+        {
+            var progression = PlayerProgression.Instance;
+            if (progression == null) return "Progression is unavailable";
+            if (!progression.IsPreviewing) progression.PreviewLevel(progression.Level);
+            progression.AddExperience(100);
+            return $"Temporary XP preview: level {progression.Level} (not saved)";
+        }
+
+        private static string PreviewNextLevel()
+        {
+            var progression = PlayerProgression.Instance;
+            if (progression == null) return "Progression is unavailable";
+            if (!progression.IsPreviewing) progression.PreviewLevel(progression.Level);
+            progression.AddExperience((int)progression.ExperienceForNextLevel);
+            return $"Temporary level {progression.Level} (not saved)";
+        }
+
+        private static string EndLevelPreview()
+        {
+            PlayerProgression.Instance?.EndPreview();
+            GetPlayer()?.GetComponent<ModManager>()?.ClearDeveloperSlotOverride();
+            return "Saved progression restored; active slot override cleared";
         }
 
         private static string ClearInventory()

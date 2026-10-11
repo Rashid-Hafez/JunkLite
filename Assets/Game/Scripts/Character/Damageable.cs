@@ -43,6 +43,7 @@ namespace junklite
         AttributeManager attributes;
         CharacterState state;
         TeamMember myTeam;
+        PlayerRuntimeStats runtimeStats;
 
         public event System.Action<DamageResult, DamageRequest> OnDamageResolved;
 
@@ -50,6 +51,7 @@ namespace junklite
         {
             stats = s; attributes = a; state = st;
             if (myTeam == null) myTeam = GetComponent<TeamMember>();
+            runtimeStats = GetComponent<PlayerRuntimeStats>();
         }
 
         public bool TryValidateRequest(
@@ -102,10 +104,16 @@ namespace junklite
             if (!TryValidateRequest(request, out var rejection))
                 return rejection;
 
-            float armor = stats != null ? stats.armor : 0f;
+            float amount = request.Amount;
+            if (request.Scaling == DamageScaling.SourceStats && request.Source != null)
+            {
+                var sourceStats = request.Source.GetComponentInParent<PlayerRuntimeStats>(true);
+                if (sourceStats != null) amount = sourceStats.ScaleDamage(amount);
+            }
+            float armor = runtimeStats != null ? runtimeStats.Armor : stats != null ? stats.armor : 0f;
             float finalDamage = request.BypassesMitigation
-                ? request.Amount
-                : Mathf.Max(1f, request.Amount - armor);
+                ? amount
+                : Mathf.Max(1f, amount - armor);
 
             float appliedDamage = attributes.ApplyDamage(finalDamage);
             if (appliedDamage <= 0f)

@@ -2,6 +2,8 @@ using UnityEngine;
 
 namespace junklite
 {
+    // Fixed is for forced damage or a proc derived from an already-scaled hit.
+    public enum DamageScaling { SourceStats, Fixed }
     public enum DamageOutcome
     {
         Applied,
@@ -73,6 +75,7 @@ namespace junklite
         public bool IsTickDamage;
         public bool BypassesDefenses;
         public bool BypassesMitigation;
+        public DamageScaling Scaling;
 
         public Vector2 KnockbackForce
         {
@@ -93,7 +96,8 @@ namespace junklite
             bool isTickDamage = false,
             bool bypassesDefenses = false,
             bool bypassesMitigation = false,
-            HitReactionRequest? hitReaction = null)
+            HitReactionRequest? hitReaction = null,
+            DamageScaling scaling = DamageScaling.SourceStats)
         {
             Amount = amount;
             Source = source;
@@ -101,6 +105,7 @@ namespace junklite
             IsTickDamage = isTickDamage;
             BypassesDefenses = bypassesDefenses;
             BypassesMitigation = bypassesMitigation;
+            Scaling = scaling;
             HitReaction = hitReaction ?? (isTickDamage
                 ? HitReactionRequest.None
                 : HitReactionRequest.DefaultHit(knockback));
@@ -116,7 +121,8 @@ namespace junklite
                 source,
                 type,
                 bypassesDefenses: true,
-                bypassesMitigation: true);
+                bypassesMitigation: true,
+                scaling: DamageScaling.Fixed);
         }
 
         public DamageRequest WithAmount(float amount)

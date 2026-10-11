@@ -13,6 +13,11 @@ namespace junklite
         [Header("Config")]
         [SerializeField] protected CharacterStats baseStats;
 
+        [Header("Progression Reward")]
+        [Tooltip("XP for a player-attributed lethal hit. Use 0 for training targets or scripted enemies.")]
+        [SerializeField, Min(0)] private int experienceReward = 25;
+        public int ExperienceReward => experienceReward;
+
         [HideInInspector] public AttributeManager attributes;
         protected Damageable damageable;
 
@@ -45,9 +50,18 @@ namespace junklite
 
         public virtual DamageResult ReceiveDamage(DamageRequest request)
         {
-            return damageable != null
+            bool wasAlive = IsAlive;
+            DamageResult result = damageable != null
                 ? damageable.ReceiveDamage(request)
                 : DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
+            // Resolve after health/death callbacks, using this lethal request's source.
+            // Dead receivers reject subsequent hits; despawns and forced source-less deaths never reward XP.
+            if (wasAlive && !IsAlive && result.WasApplied && experienceReward > 0 && request.Source != null)
+            {
+                var owner = request.Source.GetComponentInParent<PlayerRuntimeStats>(true);
+                owner?.Progression?.AddExperience(experienceReward);
+            }
+            return result;
         }
 
         public void Heal(float amount)

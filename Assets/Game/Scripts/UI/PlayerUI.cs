@@ -51,10 +51,14 @@ namespace junklite
         private bool isWeaponPickupOpen;
         private WeaponPickupInteractable activeInteractable;
         private PlayerLifecycle subscribedPlayerLifecycle;
+        private PlayerLevelUI levelUI;
 
         // -----------------------------------------------------------------------
 
         public bool IsInventoryOpen => isInventoryOpen;
+
+        public void HighlightUnlockedModSlots(int first, int count, Color color) =>
+            modCombatUI?.HighlightUnlockedSlots(first, count, color);
 
         // -----------------------------------------------------------------------
 
@@ -102,7 +106,7 @@ namespace junklite
 
             if (armorBar != null)
             {
-                var armorAttr = attributes.Get(AttributeType.Armor);
+                var armorAttr = player.RuntimeStats?.ArmorDisplay ?? attributes.Get(AttributeType.Armor);
                 if (armorAttr != null)
                 {
                     armorBar.gameObject.SetActive(true);
@@ -113,6 +117,7 @@ namespace junklite
             }
 
             attributes.OnDeath += HandlePlayerDeath;
+            levelUI?.Bind(player);
 
             _weaponManager = player.GetComponent<WeaponManager>();
             _modManager = player.GetComponent<ModManager>();
@@ -128,6 +133,7 @@ namespace junklite
 
         public void Unbind()
         {
+            levelUI?.Unbind();
             if (attributes != null)
                 attributes.OnDeath -= HandlePlayerDeath;
 
@@ -438,6 +444,8 @@ namespace junklite
                 healthIcon.raycastTarget = false;
                 healthIcon.transform.SetAsLastSibling();
             }
+
+            levelUI = PlayerLevelUI.Create(iconWell.rectTransform, (RectTransform)transform);
 
             RectTransform healthRow = CreateRect("Health", root);
             Place(healthRow, 98f, 18f, 220f, 42f);

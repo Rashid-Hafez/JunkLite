@@ -278,6 +278,12 @@ namespace junklite
             lastActiveCount = 0;
         }
 
+        public void HighlightUnlockedSlots(int first, int count, Color color)
+        {
+            for (int i = Mathf.Max(0, first); i < Mathf.Min(first + count, activeSlotUIs.Count); i++)
+                activeSlotUIs[i].FlashUnlock(color);
+        }
+
         #endregion
 
 

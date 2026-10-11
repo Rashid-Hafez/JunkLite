@@ -6,6 +6,46 @@ namespace junklite
 {
     public class CombatModSlotUI : MonoBehaviour
     {
+        private GameObject unlockFlash;
+        private Coroutine unlockFlashRoutine;
+
+        public void FlashUnlock(Color color)
+        {
+            if (!isActiveAndEnabled) return;
+            ClearUnlockFlash();
+            unlockFlashRoutine = StartCoroutine(UnlockFlash(color));
+        }
+
+        private System.Collections.IEnumerator UnlockFlash(Color color)
+        {
+            var go = new GameObject("Slot Unlocked", typeof(RectTransform), typeof(Image));
+            unlockFlash = go;
+            go.layer = gameObject.layer;
+            go.transform.SetParent(transform, false);
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            var image = go.GetComponent<Image>();
+            image.raycastTarget = false;
+            for (float time = 0; time < 1.2f; time += Time.unscaledDeltaTime)
+            {
+                color.a = 0.35f * (1f - time / 1.2f);
+                image.color = color;
+                yield return null;
+            }
+            Destroy(go);
+            unlockFlash = null;
+            unlockFlashRoutine = null;
+        }
+
+        private void ClearUnlockFlash()
+        {
+            if (unlockFlashRoutine != null) StopCoroutine(unlockFlashRoutine);
+            unlockFlashRoutine = null;
+            if (unlockFlash != null) Destroy(unlockFlash);
+            unlockFlash = null;
+        }
         [Header("References")]
         [SerializeField] private Image iconImage;
         [SerializeField] private Image durabilityFill;
@@ -136,6 +176,10 @@ namespace junklite
             cooldownUI?.Refresh(boundMod, isReady);
         }
 
-        private void OnDisable() => cooldownUI?.Reset();
+        private void OnDisable()
+        {
+            cooldownUI?.Reset();
+            ClearUnlockFlash();
+        }
     }
 }

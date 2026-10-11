@@ -95,6 +95,9 @@ namespace junklite.Editor
                 if (root.GetComponent<GameRoot>() == null)
                     root.AddComponent<GameRoot>();
 
+                if (root.GetComponent<PlayerProgression>() == null)
+                    root.AddComponent<PlayerProgression>();
+
                 PlayerLifecycle lifecycle = root.GetComponent<PlayerLifecycle>();
                 if (lifecycle == null)
                     lifecycle = root.AddComponent<PlayerLifecycle>();
@@ -426,6 +429,8 @@ namespace junklite.Editor
                 throw new MissingReferenceException("Game Root prefab has no PlayerLifecycle component.");
             if (prefab.GetComponent<GameUIManager>() == null)
                 throw new MissingReferenceException("Game Root prefab has no GameUIManager component.");
+            if (prefab.GetComponent<PlayerProgression>() == null)
+                throw new MissingReferenceException("Game Root prefab has no PlayerProgression component.");
             if (prefab.GetComponentInChildren<LevelContext>(true) != null)
                 throw new System.InvalidOperationException("Game Root prefab still contains scene-local LevelContext data.");
         }
