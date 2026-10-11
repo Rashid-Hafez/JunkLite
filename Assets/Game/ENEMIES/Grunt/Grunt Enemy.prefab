@@ -4972,6 +4972,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GruntEnemy
   baseStats: {fileID: 11400000, guid: b5724a9977ebfe14d8322c712134d296, type: 2}
+  experienceReward: 25
   attributes: {fileID: 0}
   config: {fileID: 11400000, guid: c5c0ff987fbdb654dbb975aa3831b41d, type: 2}
   soundProfile: {fileID: 11400000, guid: 8ea661e92a2b9cc48aa6bfa6c75a470e, type: 2}
@@ -4991,6 +4992,8 @@ MonoBehaviour:
   enemyVisual: {fileID: 0}
   customDropTable: {fileID: 0}
   dropChance: 1
+  deathGroundTimeout: 3
+  deathLinger: 1.25
 --- !u!114 &2618858191006285992
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5015,6 +5018,7 @@ MonoBehaviour:
   groundLayers:
     serializedVersion: 2
     m_Bits: 2048
+  settledGroundCheckInterval: 3
 --- !u!114 &3043498055550172741
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5247,6 +5251,7 @@ MonoBehaviour:
     chaseSpeed: 7
     chaseStopDistance: 2
   pursuitRadius: 12
+  queueArrivalDistance: 0.12
   melee:
     windUpDuration: 0.3
     attackDuration: 0.5
@@ -5259,7 +5264,7 @@ MonoBehaviour:
     hitEndNormalized: 0.6
   stun:
     staggerDuration: 1
-    stunVFXObject: {fileID: 2068128790961816558}
+    stunVFXObject: {fileID: 0}
 --- !u!1 &2049112635380343708
 GameObject:
   m_ObjectHideFlags: 0
@@ -34679,6 +34684,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   minVerticalDifferenceToCheck: 0.5
+  validationInterval: 0.2
   showGizmos: 1
 --- !u!1001 &825562034911378609
 PrefabInstance:

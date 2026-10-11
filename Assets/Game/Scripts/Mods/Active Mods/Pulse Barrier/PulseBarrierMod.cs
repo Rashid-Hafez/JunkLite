@@ -21,6 +21,9 @@ namespace junklite
         public float shieldDuration = 10f;
 
         [Header("VFX")]
+        [Tooltip("Custom pulse arcs. When assigned, replaces all legacy sphere/absorb prefabs below.")]
+        public PulseBarrierVisualProfile pulseArcVisuals;
+
         [Tooltip("VFX spawned on the player when shield activates (parent to player)")]
         public GameObject shieldActivateVFX;
 
@@ -66,10 +69,11 @@ namespace junklite
             bool shieldEnded = false;
             GameObject activateVFX = null;
             GameObject loopVFX = null;
+            PulseBarrierVisual arcs = null;
 
             System.Action<float, float> onShieldDamaged = (_, _) =>
             {
-                SpawnVFX(shieldAbsorbVFX, player);
+                if (arcs == null) SpawnVFX(shieldAbsorbVFX, player);
             };
             System.Action onShieldBroken = () =>
             {
@@ -81,6 +85,8 @@ namespace junklite
 
             context.AddCleanup(() =>
             {
+                if (arcs != null)
+                    arcs.Stop(context.WasCancelled || player == null || !player.IsAlive);
                 if (shield != null)
                 {
                     shield.OnShieldDamaged -= onShieldDamaged;
@@ -97,8 +103,19 @@ namespace junklite
             });
 
             shield.Activate(shieldHP, shieldDuration);
-            activateVFX = SpawnVFX(shieldActivateVFX, player);
-            loopVFX = SpawnVFX(shieldLoopVFXPrefab, player);
+            if (pulseArcVisuals != null)
+            {
+                arcs = player.GetComponent<PulseBarrierVisual>();
+                if (arcs == null) arcs = player.gameObject.AddComponent<PulseBarrierVisual>();
+                Transform body = player.transform.Find("BODY SPINE");
+                if (!arcs.Show(shield, pulseArcVisuals, body, player.VFXCenter - player.transform.position))
+                    arcs = null;
+            }
+            if (arcs == null)
+            {
+                activateVFX = SpawnVFX(shieldActivateVFX, player);
+                loopVFX = SpawnVFX(shieldLoopVFXPrefab, player);
+            }
 
             while (!shieldEnded && shield.IsActive && player != null && player.IsAlive)
                 yield return null;

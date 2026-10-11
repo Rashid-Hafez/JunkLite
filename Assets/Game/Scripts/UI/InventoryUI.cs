@@ -309,6 +309,13 @@ namespace junklite
                 descriptionUI?.ShowPlayer(player, characterPortrait);
         }
 
+        private void HidePlayerDetails()
+        {
+            playerDetailsSelected = playerDetailsDirty = false;
+            if (characterSelection != null) characterSelection.SetActive(false);
+            if (!showingItemPreview) descriptionUI?.Clear();
+        }
+
         private void HandlePlayerStatChanged(float current, float maximum) => playerDetailsDirty = true;
 
         private void ClearPlayerSelection()
@@ -623,6 +630,15 @@ namespace junklite
                 var select = new EventTrigger.Entry { eventID = EventTriggerType.Select };
                 select.callback.AddListener(_ => ShowPlayerDetails());
                 trigger.triggers.Add(select);
+                var enter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+                enter.callback.AddListener(_ => ShowPlayerDetails());
+                trigger.triggers.Add(enter);
+                var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+                exit.callback.AddListener(_ => HidePlayerDetails());
+                trigger.triggers.Add(exit);
+                var deselect = new EventTrigger.Entry { eventID = EventTriggerType.Deselect };
+                deselect.callback.AddListener(_ => HidePlayerDetails());
+                trigger.triggers.Add(deselect);
                 characterVisual.SetParent(target.transform, false);
                 Stretch(characterVisual);
                 characterVisual.localScale = Vector3.one;

@@ -122,6 +122,30 @@ Place them roughly on the lane, then run **Tools > JunkLite > Level > Snap All E
 
 ## 7. Mod system
 
+### Damage numbers
+
+Enemy damage numbers use the applied hit's damage type: **physical = pale white, fire = orange, electric = blue, magic = violet**. A burning enemy can still show white physical hits; only its fire damage ticks are orange. Larger hits grow without changing element color. Damage-over-time ticks use smaller upright numbers, while direct hits use bold slanted Play digits, a short pop, a readable hold and a smooth upward fade.
+
+Tune the existing **Damage Popup Manager** component's **Damage Type Colors** and **Damage Typography & Motion**: digit height (relative to a 1080p viewport), tick scale, medium/high damage thresholds, horizontal travel and hit separation. **Popup Behavior** still controls speed and lifetime. Numbers face the rendering camera and adjust their size through zooms, within world-size limits. XP keeps its progression-profile color and sizing. No new scene or prefab wiring is required.
+
+### Pulse Barrier visuals
+
+Pulse Barrier uses cyan segmented arcs with two tilted energy orbits around Cassidy. The effect stays centered on the visible Spine body through animation, facing flips and lane turns. Absorbed hits send a bright pulse through the arcs, low shield health flickers, shield depletion scatters sparks, and timed expiry contracts the effect. Cancellation and player disable/death remove it immediately. Its existing 100 shield HP, 10-second duration and cooldown settings are unchanged.
+
+Tune **Pulse Barrier Visual Profile** under `Assets/Game/VFX/Pulse Barrier/`: Color, Radius Scale (relative to half the player collider's height), Ribbon Width, Orbit Speed, Opacity, Activation Duration, Break Duration and Expiry Duration. The `Pulse Arc Visuals` reference on the current mod replaces its legacy activation/loop/absorb prefabs. No Inspector wiring is required. If the assets are missing, run **Tools > JunkLite > VFX > Install Pulse Barrier Arcs**. The effect reuses one GPU-animated mesh, follows the player's Spine orientation through camera turns, and keeps gameplay shield behavior separate from presentation.
+
+### Enemy fire visuals
+
+Fire hits already apply a timed Burn through the status system. Enemies automatically receive a `StatusEffectVisuals` presenter at runtime: a bright orange animated heat layer follows the sprite/Spine body, small amber embers drift outward and upward from across the body, and successful burn damage ticks pulse the heat. Refreshing burn reuses the same visuals; expiry, death and disable clean them up. Larger flame tongues are optional and disabled in the default profile.
+
+Tune the shared **Burn Visual Profile** in `Assets/Game/Resources/`: Heat Color/Strength, Tick Pulse Strength/Duration, Ember Color/Opacity/Size and Show Embers. Flame Opacity and Show Flames control the optional larger flames independently. Flame Scale scales both flames and embers; **Flame Max Width To Height** limits their spread from wide attack poses or transparent sprite padding. This profile is visual configuration only and does not change burn damage or duration. The two materials and small noise texture live in `Assets/Game/VFX/Burn/`. If these assets are missing, run **Tools > JunkLite > VFX > Install Burn Visual Assets**.
+
+No scene wiring is needed. For unusual enemies, add **Status Effect Visuals** to the enemy root before Play mode and assign **Visual Root** or **Body Renderers** explicitly. Automatic discovery supports ordinary SpriteRenderers and Spine SkeletonRenderers; custom mesh bodies can be assigned explicitly. **Flame Anchor** is optional: its origin is the flame base, local X is width, local Y is upward, and its local XY plane should match the body. Without an anchor, the largest body renderer supplies placement and size. **Flame Scale** is a per-enemy multiplier.
+
+The heat layer leaves the character's materials and damage flash intact. The presenter stops and clears the legacy burn child at initialization and keeps it disabled, including when the presenter is disabled or removed; poison/electric/bleed effects are unchanged. The additional cost is one heat draw per body submesh and one combined flame/ember draw per burning enemy. Twenty small embers animate on the GPU without a ParticleSystem simulation. Disable both Show Flames and Show Embers for a cheaper heat-only setting; check the target encounter on the target hardware before increasing overlap or adding smoke/distortion.
+
+Grunt's **Melee Chaser Brain > Stun > Stun VFX Object** is intentionally empty. Its old **Debuff (1)** child produced a separate smoke aura on every hit-stun, overlapping fire visuals. Leave that reference empty to keep the aura disabled; hit-stun still works.
+
 **Concepts**
 - A **mod** is a ScriptableObject (`ModData`) plus a runtime `ModInstance` per equipped slot.
 - **Passive mods** run automatically while you're in mod (combat) mode, e.g. Fire, Electric, Lifesteal, Pogo.

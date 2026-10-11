@@ -147,6 +147,13 @@ namespace junklite
             movement = GetComponent<EnemyMovement>();
             statusEffects = GetComponent<StatusEffectHandler>();
             statusEffects?.BindTarget(this);
+            if (statusEffects != null)
+            {
+                var statusVisuals = GetComponent<StatusEffectVisuals>();
+                if (statusVisuals == null) statusVisuals = gameObject.AddComponent<StatusEffectVisuals>();
+                statusVisuals.Initialize(statusEffects, enemyVisual != null ? enemyVisual.transform : transform,
+                    attackWarningVfx != null ? attackWarningVfx.transform : null);
+            }
             brain = GetComponent<EnemyBrain>();
 
             if (detectionZone == null)
@@ -763,8 +770,9 @@ namespace junklite
 
         protected virtual void OnDamageResolvedVFX(DamageResult result, DamageRequest request)
         {
-            if (DamagePopupManager.Instance != null)
-                DamagePopupManager.Instance.SpawnPopup(transform.position, result.AppliedDamage);
+            if (result.WasApplied && DamagePopupManager.Instance != null)
+                DamagePopupManager.Instance.SpawnPopup(transform.position, result.AppliedDamage,
+                    request.Type, request.IsTickDamage);
 
             if (damageFlashUniversal != null)
             {

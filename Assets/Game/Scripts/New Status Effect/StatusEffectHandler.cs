@@ -11,7 +11,7 @@ namespace junklite
     public class StatusEffectHandler : MonoBehaviour
     {
         [Header("Legacy VFX References (Disabled by Default)")]
-        [Tooltip("Kept so existing enemy prefabs retain their current presentation. New presentation should subscribe to the status events.")]
+        [Tooltip("Legacy burn particles. StatusEffectVisuals permanently disables these on enemies at initialization.")]
         [SerializeField] private GameObject burnVFX;
         [SerializeField] private GameObject poisonVFX;
         [SerializeField] private GameObject bleedVFX;
@@ -24,6 +24,7 @@ namespace junklite
         private IStatusEffectTarget target;
         private IDamageReceiver damageReceiver;
         private StatusEffectSnapshot snapshot = StatusEffectSnapshot.Clear;
+        private bool legacyBurnVisualsDisabled;
 
         public event Action<StatusEffectType> OnEffectApplied;
         public event Action<StatusEffectType> OnEffectRemoved;
@@ -362,7 +363,18 @@ namespace junklite
         {
             GameObject vfx = GetVFXForType(type);
             if (vfx != null)
-                vfx.SetActive(active);
+                vfx.SetActive(active && !(type == StatusEffectType.Burn && legacyBurnVisualsDisabled));
+        }
+
+        // Disable before the first Apply, rather than briefly starting play-on-awake particles
+        // and suppressing them in OnEffectApplied. Never restore the retired effect on disable.
+        internal void DisableLegacyBurnVisuals()
+        {
+            legacyBurnVisualsDisabled = true;
+            if (burnVFX == null) return;
+            foreach (ParticleSystem particles in burnVFX.GetComponentsInChildren<ParticleSystem>(true))
+                particles.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+            burnVFX.SetActive(false);
         }
 
         private GameObject GetVFXForType(StatusEffectType type)
