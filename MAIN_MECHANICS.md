@@ -81,7 +81,7 @@ The trigger flips state every time it's crossed, so the same corner works in bot
 ## Level layout rules
 
 - **Rooms** are named `Room 0 … Room N` under `[Environment]`, laid out along the lane in order.
-- **Room 0** is the planned **3D exploration** hub. It has one box collider covering the whole floor, so the player can later walk into the foreground and background (via `allowZMovement`). It still needs a wall on its left side, so the player can't walk off the start of the level.
+- **Room 0** is the planned **3D exploration** hub. It has one box collider covering the whole floor, so the player can later walk into the foreground and background (via `allowZMovement`). Its left (west) wall is closed off by `Walls/WestWall` (art) and `Colliders/Walls/Wall_Room0_West`.
 - **Rooms 1+** are **lane-only**: left and right movement on one lane.
 - **Level collision lives under the `Colliders` root, not on art.**
   - Meshes in `[Environment]` have **no colliders**. The only exceptions are door prefabs, which need their trigger, blocker and frame colliders.
@@ -121,11 +121,29 @@ Done:
 - **Doors.** All doors are `Door4_Sliding`: 8 bay doors, `Door_Entry`, `Door_Hazard` and `Door_Turn`.
 - **Stairs (Room 5).** The player climbs on `Colliders/Floors/Ramp_Room5_Stairs`, whose slope sign was fixed to +14°. The steps are visual only.
 - **Verified in Play mode.** Spawn → prompt → E → snap → walk through every door, up the ramp, to x = 139.5.
+- **Art pass (service dressing).** All of it is visual only, with colliders stripped from every instance:
+  - Room 0 has a modular west wall (`Walls/WestWall`) and a lattice ceiling.
+  - Rooms 2–8 use the patterned Modular SciFi floor (`Floors/Floor_Pattern`). Tile tops sit 0.01 above `Floor_Main` (y 0), or above `Floor_Upper` (y 1.5) in rooms 6–8.
+  - The back walls of Rooms 2, 3 and 6 are open:
+    - Room 2 shows `DeepServerHall`.
+    - Room 6 shows the D2 depth room.
+    - Room 3 shows the much larger `HazardHall` (x 32–60, z 18–60, 22 m tall). `Door_Hazard` was moved to the hall's back wall.
+  - Servers are the KitBash `SM_Objects_1` / `SM_Objects_2`. Forklifts use `Prefabs/Environment/SF_Forklift.prefab`.
+  - The old depth-glow planes are now framed windows.
+  - The Room 1 window is cut through to the outside. `Window_Outside/OutsideBackdrop_Placeholder` stands in until the low-poly skyline is built.
+  - Window light in Rooms 1, 2 and 6 uses the Rooftop v2 volumetric setup (`Room N/Lighting/Window_VolumetricLight`):
+    - A shadowed spot with `VolumetricAdditionalLight`, picked up by the volumetric fog in the camera's "Sky and Fog Volume Profile".
+    - A `VolumetricLOD` trigger box that swaps it for a fake `GodRay_LightCone` cone while the player is outside the room.
+  - Cold-metal surfaces (bay piers and lintels, hall walls and floors, the L_Turn, the east end wall) are clad with Floor2_2 panels.
+  - Lane floors are an exact 4 m grid of Floor4_4–4_4.5 tiles.
+  - Lane-room ceilings copy Room 0's lattice ceiling.
+  - Light blocks were replaced with Modular SciFi light fixtures and real lights. Alarms and stair strobes flash via `AlarmFlash`.
+  - Rooms 1–8 are lit in sodium orange, and the pack materials there are swapped to `SF_Metal_ServiceOrange` / `SF_Cleen_ServiceOrange`.
 
 Next:
 1. **World rotation at the end of Room 8.**
    - `[Gameplay]/CameraSwitchTrigger_Corner` should turn the +X lane (yaw 0, `PosZCam`) onto a +Z lane through `L_Turn` (yaw −90, `NegXCam`). It is **not set up correctly yet**, so copy the Rooftop Scene v2 corner setup.
    - Extend `LanePath` with the +Z segment.
-2. **Room 0.** Add the left wall, then build 3D roaming in the controller.
+2. **Room 0.** Build 3D roaming in the controller. The left wall art and its collider (`Wall_Room0_West`) are in place.
 3. **Content.** Place enemies, then run *Snap All Enemies To Lane Path*.
 4. **Room 0 props** have no collision now. Add simple boxes under `Colliders` when 3D roaming is built.

@@ -18,6 +18,8 @@ namespace junklite
         private IDisposable physicsLock;
         private IDisposable kinematicLock;
 
+        private const float MaxFlightTime = 2f;
+        private const float GetUpDelay = 0.5f;
         private GameObject activeSource;
         private bool releaseRequested;
         private int releaseDirection;
@@ -90,22 +92,15 @@ namespace junklite
                 yield break;
             }
 
+            if (releaseRequested)
+            {
+                yield return Knockdown(info.Source);
+                yield break;
+            }
+
             int throwDirection = info.ThrowDirection;
             Vector2 throwForce = info.ThrowForce;
             float throwDamage = info.ThrowDamage;
-            if (releaseRequested)
-            {
-                // Grabber-owned release: control returns immediately. Clear the
-                // hold stun and any carried velocity so nothing drags the player.
-                throwDirection = releaseDirection;
-                throwForce = releaseForce;
-                throwDamage = releaseDamage;
-                state?.ApplyStun(0f);
-                controller?.StopAllVelocity();
-                // Slam: land on the floor before the damage, not mid-air at the hand.
-                SnapToGround();
-            }
-
             // Return physics ownership before damage and the throw impulse. The
             // movement lock remains until the transaction has completely finished.
             kinematicLock?.Dispose();
@@ -135,18 +130,58 @@ namespace junklite
             Cancel();
         }
 
-        private void SnapToGround()
+        // Grabber-owned release: fly on the impulse, land, damage, lie down, get up.
+        private IEnumerator Knockdown(GameObject source)
         {
-            if (controller == null || !player.TryGetComponent(out Collider col))
-                return;
+            var anim = player.GetComponentInChildren<SpineAnimationController>();
 
-            Vector3 pos = player.transform.position;
-            float feetOffset = pos.y - col.bounds.min.y;
-            if (Physics.Raycast(pos + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 10f,
-                    controller.GroundLayerMask, QueryTriggerInteraction.Ignore))
+            // Stunned skips player air drag, so the impulse carries the flight.
+            state?.ApplyStun(10f);
+            kinematicLock?.Dispose();
+            kinematicLock = null;
+            physicsLock?.Dispose();
+            physicsLock = null;
+            controller?.StopAllVelocity();
+            if (controller != null)
             {
-                player.transform.position = new Vector3(pos.x, hit.point.y + feetOffset, pos.z);
+                controller.ApplyExternalImpulse(controller.MovementAxis * releaseDirection * releaseForce.x
+                                                + Vector3.up * releaseForce.y);
             }
+
+            // Leave the ground check a moment to clear, then wait for the landing.
+            float flight = 0f;
+            while (flight < MaxFlightTime && (flight < 0.1f || controller == null || !controller.IsGrounded))
+            {
+                if (!IsGrabbed || !player.IsAlive)
+                {
+                    Cancel();
+                    yield break;
+                }
+
+                flight += Time.deltaTime;
+                yield return null;
+            }
+
+            controller?.StopAllVelocity();
+            if (releaseDamage > 0f)
+            {
+                player.ReceiveDamage(DamageRequest.Forced(releaseDamage, source)
+                    .WithHitReaction(HitReactionRequest.None));
+            }
+
+            if (!IsGrabbed || !player.IsAlive)
+            {
+                Cancel();
+                yield break;
+            }
+
+            anim?.PlayKnockdown();
+            float lieDown = anim != null && anim.TryGetDeathAnimationDuration(out float deathTime) ? deathTime : 0f;
+            yield return new WaitForSeconds(lieDown + GetUpDelay);
+
+            anim?.EndKnockdown();
+            state?.ApplyStun(0f);
+            Cancel();
         }
 
         /// <summary>Requests the throw for a grab held by source.</summary>

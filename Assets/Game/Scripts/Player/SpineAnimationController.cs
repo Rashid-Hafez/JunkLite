@@ -482,6 +482,27 @@ namespace junklite
             onComplete?.Invoke();
         }
 
+        /// <summary>Knocked down: plays death once and holds the last frame until EndKnockdown.</summary>
+        public void PlayKnockdown()
+        {
+            if (skeletonAnimation == null || !HasAnimation(death))
+                return;
+
+            InterruptAttack("knockdown");
+            forceOverrideActive = true;
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, death, false);
+            entry.MixDuration = 0f;
+            entry.TimeScale = GetTimeScaleFor(death, 1f);
+            currentLocomotionAnim = death;
+        }
+
+        public void EndKnockdown()
+        {
+            forceOverrideActive = false;
+            if (playerState != null && playerState.IsAlive)
+                PlayLocomotion(idle, true);
+        }
+
         /// <summary>True while a ForcePlayOverride animation is playing.</summary>
         public bool IsForceOverrideActive => forceOverrideActive;
 

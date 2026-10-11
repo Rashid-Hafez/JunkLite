@@ -9,13 +9,15 @@ namespace junklite
     /// </summary>
     public sealed class BruteBrain : EnemyBrain, IEnemyCapabilityProvider
     {
-        private enum Move { None, TauntAttack, ChargeDash }
+        private enum Move { None, TauntAttack, ChargeDash, Grab }
 
         [Header("Brute - Move Choice")]
         [SerializeField] private BruteMoveWeight tauntAttack = new() { weight = 2f, cooldown = 2.5f };
         [SerializeField] private BruteMoveWeight chargeDash = new() { weight = 1f, cooldown = 6f };
         [Tooltip("Charge+Dash is only picked when the player is at least this far away (axis distance).")]
         [SerializeField] private float chargeDashMinDistance = 3.5f;
+        [Tooltip("Grab joins the weighted roll only when the player is within grab range.")]
+        [SerializeField, Min(0f)] private float grabWeight = 1f;
         [Tooltip("Pause between moves when nothing is ready.")]
         [SerializeField] private float idleBetweenMoves = 0.4f;
 
@@ -132,13 +134,6 @@ namespace junklite
 
             chase.UpdateLastKnownPosition(Actor.Target.position);
 
-            // Grab interrupts idling/chasing whenever the player gets close.
-            if (CanGrabNow())
-            {
-                StartGrab();
-                return;
-            }
-
             if (StateMachine.CurrentState is ChaseState && pendingMove == Move.TauntAttack && IsInMeleeRange())
             {
                 StartTauntAttack();
@@ -163,12 +158,6 @@ namespace junklite
                 return;
             }
 
-            if (CanGrabNow())
-            {
-                StartGrab();
-                return;
-            }
-
             if (pendingMove == Move.None)
                 pendingMove = RollMove();
 
@@ -180,6 +169,10 @@ namespace junklite
                     ChangeState<ChargeState>();
                     break;
 
+                case Move.Grab:
+                    StartGrab();
+                    break;
+
                 case Move.TauntAttack:
                     if (IsInMeleeRange())
                         StartTauntAttack();
@@ -188,6 +181,13 @@ namespace junklite
                     break;
 
                 default:
+                    // Nothing ready: close the distance instead of standing still.
+                    if (!IsInMeleeRange())
+                    {
+                        ChangeState<ChaseState>();
+                        break;
+                    }
+
                     nextDecisionTime = Time.time + idleBetweenMoves;
                     ChangeState<IdleState>();
                     break;
@@ -222,11 +222,15 @@ namespace junklite
             float tauntWeight = tauntAttack.IsReady ? tauntAttack.weight : 0f;
             float dashWeight = chargeDash.IsReady && distance >= chargeDashMinDistance ? chargeDash.weight : 0f;
 
-            float total = tauntWeight + dashWeight;
+            float grabW = CanGrabNow() ? grabWeight : 0f;
+
+            float total = tauntWeight + dashWeight + grabW;
             if (total <= 0f)
                 return Move.None;
 
-            return Random.value * total < tauntWeight ? Move.TauntAttack : Move.ChargeDash;
+            float roll = Random.value * total;
+            if (roll < tauntWeight) return Move.TauntAttack;
+            return roll < tauntWeight + dashWeight ? Move.ChargeDash : Move.Grab;
         }
 
         private void StartTauntAttack()

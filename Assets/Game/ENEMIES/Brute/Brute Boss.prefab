@@ -5331,14 +5331,14 @@ MonoBehaviour:
     reachActiveTime: 0.2
     holdTime: 0.8
     throwDuration: 0.7
-    throwReleaseNormalized: 1
+    throwReleaseNormalized: 0.3
     postSlamIdleTime: 1
     missRecoveryTime: 0.6
     grabHitbox: {fileID: 1624337157859359872}
     grabAnchor: {fileID: 3278081193624053108}
     grabOffset: {x: 0, y: 0, z: 0}
     grabDamage: 5
-    throwForce: {x: 0, y: 0}
+    throwForce: {x: 9, y: 7}
     throwDamage: 20
   recovery:
     recoveryTime: 0.6
@@ -5536,9 +5536,9 @@ MeshRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 1448948369
-  m_SortingLayer: 1
-  m_SortingOrder: 42
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!114 &3419621209469902653
@@ -5560,7 +5560,7 @@ MonoBehaviour:
   initialFlipY: 0
   updateWhenInvisible: 3
   separatorSlotNames: []
-  zSpacing: -0.0002
+  zSpacing: -0.0015
   useClipping: 1
   immutableTriangles: 0
   pmaVertexColors: 0
