@@ -88,6 +88,7 @@ namespace junklite
 
         // Grab state
         private PlayerGrabController grabController;
+        private Coroutine knockDownRoutine;
         private Coroutine grabRoutine;
         public bool IsGrabbed => grabController?.IsGrabbed ?? false;
         public bool CanBeGrabbed => grabController?.CanBeGrabbed ?? false;
@@ -863,6 +864,49 @@ namespace junklite
 
             CancelGrab(stopCoroutine: true);
             playerState?.ApplyStun(0f);
+        }
+
+        /// <summary>
+        /// Launches the player away from sourcePosition; on landing she lies down
+        /// (death pose) and gets up after a short delay. Ignored while grabbed.
+        /// </summary>
+        public void KnockDown(Vector3 sourcePosition, Vector2 force)
+        {
+            if (!IsAlive || IsGrabbed || controller == null)
+                return;
+
+            if (knockDownRoutine != null)
+                StopCoroutine(knockDownRoutine);
+            knockDownRoutine = StartCoroutine(RunKnockDown(sourcePosition, force));
+        }
+
+        private IEnumerator RunKnockDown(Vector3 sourcePosition, Vector2 force)
+        {
+            var anim = GetComponentInChildren<SpineAnimationController>();
+
+            // Stunned skips air drag, so the launch carries the flight.
+            playerState?.ApplyStun(10f);
+            controller.StopAllVelocity();
+            controller.ApplyExternalKnockback(sourcePosition, force);
+
+            float flight = 0f;
+            while (flight < 2f && (flight < 0.1f || !controller.IsGrounded))
+            {
+                if (!IsAlive) yield break;
+                flight += Time.deltaTime;
+                yield return null;
+            }
+
+            if (!IsAlive) yield break;
+            controller.StopAllVelocity();
+            anim?.PlayKnockdown();
+            float lieDown = anim != null && anim.TryGetDeathAnimationDuration(out float deathTime) ? deathTime : 0f;
+            yield return new WaitForSeconds(lieDown + 0.5f);
+
+            if (!IsAlive) yield break;
+            anim?.EndKnockdown();
+            playerState?.ApplyStun(0f);
+            knockDownRoutine = null;
         }
 
         private IEnumerator RunGrab(GrabInfo info)

@@ -30,6 +30,7 @@ namespace junklite
         [SerializeField] private float mixDuration = 0.08f;
 
         private StateMachine stateMachine;
+        private BruteEnemy brute;
         private float previousTimeScale = 1f;
         private bool playbackPaused;
         private bool isDead;
@@ -40,6 +41,7 @@ namespace junklite
                 skeletonAnimation = GetComponentInChildren<SkeletonAnimation>(true);
 
             stateMachine = GetComponentInParent<StateMachine>();
+            brute = GetComponentInParent<BruteEnemy>();
         }
 
         private void OnEnable()
@@ -89,6 +91,11 @@ namespace junklite
 
                 case RecoverState:
                     Play(standUp, loop: false);
+                    break;
+
+                case ParriedState when brute != null && brute.IsHeavyParried:
+                    // Parried dash: kneel (charge pose) while he is shoved back.
+                    HoldFrame(chargeHold, atEnd: true);
                     break;
 
                 case ParriedState:

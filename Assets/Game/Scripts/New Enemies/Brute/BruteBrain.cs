@@ -36,6 +36,18 @@ namespace junklite
         [SerializeField] private ChargeBehavior charge = new();
         [SerializeField] private DashBehavior dash = new();
 
+        [Header("Brute - Close Blast")]
+        [Tooltip("Player this close (axis distance) when the charge ends: energy blast instead of the dash.")]
+        [SerializeField] private float blastRange = 2.5f;
+        [SerializeField] private float blastDamage = 30f;
+        [Tooltip("Launch applied to the player: X away from the boss, Y up.")]
+        [SerializeField] private Vector2 blastForce = new Vector2(14f, 9f);
+        [SerializeField] private GameObject blastVfxPrefab;
+        [Tooltip("Child burst on the boss: expanding shield bubble, ring and sparks.")]
+        [SerializeField] private ParticleSystem blastShieldBurst;
+        [SerializeField] private float blastVfxLifetime = 2f;
+        [SerializeField] private float blastShakeForce = 1.5f;
+
         [Header("Brute - Grab")]
         [SerializeField] private BruteGrabBehavior grab = new();
 
@@ -340,11 +352,41 @@ namespace junklite
 
         private void HandleChargeCompleted()
         {
-            if (Actor.IsAlive)
+            if (!Actor.IsAlive)
+                return;
+
+            // Dash can't come out when the player is on top of him: blast instead.
+            if (Actor.HasTarget && AxisDistanceToTarget() <= blastRange)
             {
-                dash.ResetHitResult();
-                ChangeState<DashState>();
+                Blast();
+                ChangeState<RecoverState>();
+                return;
             }
+
+            dash.ResetHitResult();
+            ChangeState<DashState>();
+        }
+
+        private void Blast()
+        {
+            Vector3 center = transform.position + Vector3.up;
+            if (blastVfxPrefab != null)
+                VFXPool.SpawnTimed(blastVfxPrefab, center, Quaternion.identity, blastVfxLifetime);
+            if (blastShieldBurst != null)
+                blastShieldBurst.Play(true);
+            FeedbackManager.Instance?.DoCameraShake(blastShakeForce);
+
+            PlayerCharacter player = Actor.TargetCharacter;
+            if (player == null)
+                return;
+
+            // Dash i-frames still dodge it; a parry can't catch an explosion.
+            DamageResult result = DamageReceiverUtility.Receive(player,
+                new DamageRequest(blastDamage, gameObject, DamageType.Electric)
+                    .WithHitReaction(HitReactionRequest.None)
+                    .AsUnparryable());
+            if (result.WasApplied)
+                player.KnockDown(transform.position, blastForce);
         }
 
         private void HandleDashCompleted()
