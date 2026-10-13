@@ -370,6 +370,10 @@ namespace junklite
             GameInputManager.Instance?.SetGameplayInputEnabled(false);
 
             if (currentState != GameState.Playing) SetGameState(GameState.Playing);
+            // Persistent HUD/combat state would otherwise carry into the reloaded level.
+            if (gameUIManager != null && gameUIManager.PlayerHUD != null && gameUIManager.PlayerHUD.IsInventoryOpen)
+                gameUIManager.PlayerHUD.CloseInventory();
+            PlayerCombatTracker.Instance?.ClearCombatState();
             gameUIManager?.BeginSceneTransition();
 
             // Start loading immediately so disk/scene work overlaps the transition video.

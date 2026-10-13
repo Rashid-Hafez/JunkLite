@@ -82,6 +82,10 @@ Place them roughly on the lane, then run **Tools > JunkLite > Level > Snap All E
 
 ---
 
+### Tutorial prompts and dissolving props
+- **Tutorial prompts** use `TutorialPromptHUD` (created at runtime by `Level0SequenceManager`). Call `Show(new TutorialPromptHUD.Entry("Player/Jump", "Jump"))`, then `Complete()` once the player has done it. Key labels switch between keyboard and gamepad on their own. Pass `keyboardOverride`/`gamepadOverride` for composite actions like Move.
+- **Props that dissolve in** need a `DissolveController` (with its Renderer assigned) and a `ProximityDissolveIn` on the renderer object, using a Dissolve-shader material (e.g. `SimProp_Dissolve.mat`). They start hidden and reveal once when the player comes within `radius`.
+
 ## 5. Dev tools
 
 | Tool | Where | Use |
@@ -119,7 +123,8 @@ The console resolves its spawn prefabs when it is created. Infinite ammo/durabil
 | Junklite/Combat/Status Effect | `StatusEffectDefinition` | Burn, shock, and similar effects |
 | Junklite/Drop Table | `DropTable` | Loot drops |
 | Junklite/Audio/Player Sound Profile, Enemy Sound Profile, Audio Library | Audio SOs | Sound sets |
-| Dialogue/Sequence | `DialogueSequence` | Dialogue lines and speakers |
+| Dialogue/Sequence | `DialogueSequence` | Dialogue lines. Set each line's **Speaker** and **Mood** |
+| Dialogue/Speaker | `DialogueSpeaker` | Name, role tag, side (left NPC / right Cassidy), accent colour, and a portrait per mood (Calm, Shout, Angry, Profile). Cassidy and Crow live in `Scripts/DialogueSystem/Speakers/` |
 | JunkLite/UI Font Catalog | `UIFontCatalog` | The three approved fonts (don't duplicate it) |
 
 ---

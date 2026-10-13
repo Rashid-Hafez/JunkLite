@@ -251,7 +251,7 @@ namespace junklite
                 var modInstance = new ModInstance(modPickup.modData);
 
                 var modManager = GetComponent<ModManager>();
-                if (modManager != null && modManager.TryEquipMod(modInstance))
+                if (modPickup.autoEquip && modManager != null && modManager.TryEquipMod(modInstance))
                 {
                     Destroy(modPickup.gameObject);
                     return;

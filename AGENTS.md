@@ -81,6 +81,8 @@ Producers (weapons, hazards, mods, status effects) build a `DamageRequest` and s
 
 ## UI rules
 
+**No UI built in code. Ever (lead's rule).** Every UI element (HUD, prompts, menus, overlays, popups) must be authored as a Canvas prefab or scene object so the lead can edit its look in the Inspector. Code may only bind data and toggle/animate existing objects: set text, swap sprites, show/hide, move. Never `new GameObject` / `AddComponent<Image|TextMeshProUGUI|Canvas>` to build layout, and never hard-code sizes, colours, fonts or positions in scripts. If a UI piece doesn't exist yet, build the prefab in the Editor first, then reference it. Existing code-built UI (e.g. `TutorialPromptHUD`, `ServiceFloorIntro` glitch overlay, `DialogueBubbleView`) is legacy: don't extend it; convert it to prefabs only when asked.
+
 **Stack.** Every HUD screen, menu, card, button, tooltip, and overlay uses **TextMesh Pro UGUI** (`TextMeshProUGUI` / `TMP_Text`) on Unity UI canvases. World-space canvases also use `TextMeshProUGUI`. Use 3D `TextMeshPro` only when there is no canvas, for example damage popups or labels parented to a mesh. Never use legacy `UI.Text`, legacy TextMesh, or UI Toolkit for game UI.
 
 **Fonts.** Only these three, all in `Assets/Game/New UI/Fonts/`:

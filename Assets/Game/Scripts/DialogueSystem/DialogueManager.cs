@@ -17,8 +17,18 @@ public class DialogueManager : MonoBehaviour
     public TMP_Text dialogueText;
     public GameObject continueIndicator;
 
+    [Tooltip("Optional CMA bubble UI. When set (or found on this object) it replaces the legacy panel above.")]
+    public DialogueBubbleView bubbleView;
+
     [Header("Settings")]
     public float typeSpeed = 0.03f;
+
+    [Header("Sound")]
+    [Tooltip("Repeating beep track: loops while a line types; skipping plays a single beep.")]
+    public SoundEntry beepSound;
+    [Tooltip("Length of one beep at the start of the clip.")]
+    public float singleBeepSeconds = 0.06f;
+    private AudioSource beepSource;
 
     private DialogueSequence currentSequence;
     private int currentIndex;
@@ -44,7 +54,6 @@ public class DialogueManager : MonoBehaviour
     // Stored so we can unsubscribe on destroy
     private Action<InputAction.CallbackContext> playerContinueCallback;
     private Action<InputAction.CallbackContext> uiContinueCallback;
-    private Action parryCallback;
 
     #region Lifecycle
 
@@ -65,6 +74,16 @@ public class DialogueManager : MonoBehaviour
         // re-entrancy/duplicate calls when input triggers the event. Input is
         // handled explicitly by ProcessContinueInput which calls NextLine()
         // directly.
+
+        if (bubbleView == null)
+            bubbleView = GetComponent<DialogueBubbleView>();
+        if (bubbleView != null)
+        {
+            // The bubble view owns the presentation; the manager keeps the flow.
+            dialogueBox = bubbleView.Root;
+            continueIndicator = bubbleView.ContinueIndicator;
+            continueIndicatorText = bubbleView.ContinueText;
+        }
 
         dialogueBox.SetActive(false);
         if (continueIndicator) continueIndicator.SetActive(false);
@@ -90,11 +109,6 @@ public class DialogueManager : MonoBehaviour
             ? continueIndicator.GetComponent<TMP_Text>() ?? continueIndicator.GetComponentInChildren<TMP_Text>(true)
             : null;
         RefreshContinueIndicator();
-
-        // Listen for parry input so that when the player parries during a
-        // freeze (timeScale == 0) we can advance dialogue appropriately.
-        parryCallback = () => { if (IsInDialogue) ParryAdvance(); };
-        subscribedInputManager.OnParry += parryCallback;
     }
 
     private void OnDestroy()
@@ -108,8 +122,6 @@ public class DialogueManager : MonoBehaviour
             subscribedInputManager.controls.Player.DialogueContinue.performed -= playerContinueCallback;
             subscribedInputManager.controls.UI.DialogueContinue.performed -= uiContinueCallback;
             subscribedInputManager.OnInputDeviceChanged -= HandleInputDeviceChanged;
-            if (parryCallback != null)
-                subscribedInputManager.OnParry -= parryCallback;
         }
 
         subscribedInputManager = null;
@@ -127,6 +139,10 @@ public class DialogueManager : MonoBehaviour
         {
             return;
         }
+
+        // Chained sequences keep the bubble history; a fresh conversation starts clean.
+        if (bubbleView != null && !dialogueBox.activeSelf)
+            bubbleView.Clear();
 
         currentSequence = sequence;
         currentIndex = 0;
@@ -173,6 +189,7 @@ public class DialogueManager : MonoBehaviour
         if (isTyping)
         {
             StopCoroutine(typingCoroutine);
+            PlayBeep();
             dialogueText.text = currentDisplayText;
             isTyping = false;
 
@@ -213,11 +230,18 @@ public class DialogueManager : MonoBehaviour
         currentDisplayText = ResolveInputBindings(line.dialogueText);
         RefreshContinueIndicator();
 
-        speakerText.text = line.speakerName;
-        if (portraitImage)
+        if (bubbleView != null)
         {
-            portraitImage.sprite = line.speakerPortrait;
-            portraitImage.color = line.speakerPortrait != null ? Color.white : Color.clear;
+            dialogueText = bubbleView.ShowLine(line, currentDisplayText);
+        }
+        else
+        {
+            if (speakerText) speakerText.text = line.speakerName;
+            if (portraitImage)
+            {
+                portraitImage.sprite = line.speakerPortrait;
+                portraitImage.color = line.speakerPortrait != null ? Color.white : Color.clear;
+            }
         }
         GameInputManager.Instance.SetGameplayInputEnabled(!line.lockPlayerMovement);
 
@@ -236,11 +260,13 @@ public class DialogueManager : MonoBehaviour
         waitingForInput = false;
         dialogueText.text = "";
 
+        StartTypingSound();
         foreach (char c in displayText)
         {
             dialogueText.text += c;
             yield return new WaitForSeconds(typeSpeed);
         }
+        StopTypingSound();
 
         isTyping = false;
         revealedCurrentLine = true;
@@ -276,6 +302,7 @@ public class DialogueManager : MonoBehaviour
         {
             if (typingCoroutine != null)
                 StopCoroutine(typingCoroutine);
+            PlayBeep();
             dialogueText.text = currentDisplayText;
             isTyping = false;
             revealedCurrentLine = true;
@@ -300,48 +327,40 @@ public class DialogueManager : MonoBehaviour
         OnDialogueContinue?.Invoke();
     }
 
-    /// <summary>
-    /// Advance dialogue in response to a parry input. This bypasses normal
-    /// input suppression and debouncing so it will work while the game is
-    /// frozen (timeScale == 0). It will reveal the current line if typing
-    /// and then advance.
-    /// </summary>
-    public void ParryAdvance()
+    private bool EnsureBeepSource()
     {
-        if (currentSequence == null) return;
-
-        var line = currentSequence.dialogueLines[currentIndex];
-
-        // Reveal if still typing
-        if (isTyping)
+        if (beepSound == null || !beepSound.IsValid) return false;
+        if (beepSource == null)
         {
-            if (typingCoroutine != null)
-                StopCoroutine(typingCoroutine);
-            dialogueText.text = currentDisplayText;
-            isTyping = false;
-            revealedCurrentLine = true;
-            // If this line requires explicit player input, mark it satisfied so NextLine can proceed.
-            if (line.requiresPlayerInput)
-                waitingForInput = true;
+            beepSource = gameObject.AddComponent<AudioSource>();
+            beepSource.playOnAwake = false;
         }
+        beepSource.clip = beepSound.clip;
+        beepSource.volume = beepSound.volume;
+        return true;
+    }
 
-        // Force advancement regardless of canSkip or suppression
-        lastContinueTime = Time.unscaledTime;
-        NextLine();
-        OnDialogueContinue?.Invoke();
-        // If the game is frozen, coroutines using scaled time won't progress.
-        // Reveal the newly shown line immediately so the player sees it during the freeze.
-        if (currentSequence != null && currentIndex >= 0 && currentIndex < currentSequence.dialogueLines.Length && Time.timeScale == 0f)
-        {
-            var newLine = currentSequence.dialogueLines[currentIndex];
-            if (typingCoroutine != null)
-                StopCoroutine(typingCoroutine);
-            dialogueText.text = currentDisplayText;
-            isTyping = false;
-            revealedCurrentLine = true;
-            waitingForInput = newLine.requiresPlayerInput;
-            if (waitingForInput && continueIndicator) continueIndicator.SetActive(true);
-        }
+    private void StartTypingSound()
+    {
+        if (!EnsureBeepSource()) return;
+        beepSource.loop = true;
+        beepSource.pitch = beepSound.GetRandomPitch();
+        beepSource.Play();
+    }
+
+    private void StopTypingSound()
+    {
+        if (beepSource != null) beepSource.Stop();
+    }
+
+    // Skip: cut the typing loop and play one beep from the start of the clip.
+    private void PlayBeep()
+    {
+        if (!EnsureBeepSource()) return;
+        beepSource.Stop();
+        beepSource.loop = false;
+        beepSource.Play();
+        beepSource.SetScheduledEndTime(AudioSettings.dspTime + singleBeepSeconds);
     }
 
     private static string ResolveInputBindings(string sourceText)
@@ -375,6 +394,7 @@ public class DialogueManager : MonoBehaviour
                 StopCoroutine(typingCoroutine);
 
             typingCoroutine = null;
+            StopTypingSound();
             isTyping = false;
             revealedCurrentLine = true;
             waitingForInput = line.requiresPlayerInput;
@@ -402,14 +422,17 @@ public class DialogueManager : MonoBehaviour
             ? inputManager.GetBindingHint("Player/DialogueContinue")
             : string.Empty;
         if (!string.IsNullOrEmpty(hint))
-            continueIndicatorText.text = $"[{hint}] >>";
+            continueIndicatorText.text = bubbleView != null ? $"{hint.ToUpperInvariant()} >" : $"[{hint}] >>";
     }
 
     private void EndDialogue()
     {
         var finished = currentSequence;
-        dialogueBox.SetActive(false);
         currentSequence = null;
+        StopTypingSound();
+        // Keep the box up while chaining so bubble history carries over.
+        if (finished == null || finished.nextSequence == null)
+            dialogueBox.SetActive(false);
 
         GameInputManager.Instance.SetGameplayInputEnabled(true);
 

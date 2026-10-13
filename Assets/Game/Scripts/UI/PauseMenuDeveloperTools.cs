@@ -130,7 +130,7 @@ namespace junklite
             playerActions.Add(new ToolAction("END LEVEL PREVIEW", EndLevelPreview));
             playerActions.Add(new ToolAction("CLEAR INVENTORY", ClearInventory));
             playerActions.Add(new ToolAction("DEFEAT PLAYER", DefeatPlayer));
-            playerActions.Add(new ToolAction("RESPAWN AT ENTRY", RespawnPlayer));
+            playerActions.Add(new ToolAction("RESET / RESPAWN", RespawnPlayer));
         }
 
         private void BuildRunActions()
@@ -440,6 +440,13 @@ namespace junklite
         {
             if (GameManager.Instance == null)
                 return "Game manager is unavailable";
+
+            // A soft respawn can't rewind a scripted tutorial; reload it instead.
+            if (UnityEngine.Object.FindFirstObjectByType<Level0SequenceManager>() != null)
+            {
+                GameManager.Instance.RestartCurrentScene();
+                return "Tutorial reset";
+            }
 
             GameManager.Instance.RestartLevel();
             return "Player reset to entry";

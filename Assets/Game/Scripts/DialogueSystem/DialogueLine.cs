@@ -4,6 +4,10 @@ using UnityEngine;
 [System.Serializable]
 public class DialogueLine
 {
+    [Tooltip("Bubble UI speaker. When empty, the legacy portrait/name below are used.")]
+    public DialogueSpeaker speaker;
+    public DialogueMood mood = DialogueMood.Calm;
+
     public Sprite speakerPortrait;
 
     public string speakerName;
@@ -18,5 +22,4 @@ public class DialogueLine
 
     [Header("Gamplay Lock")]
     public bool lockPlayerMovement = false;
-    public bool lockPlayerCombat = false;
 }

@@ -23,6 +23,11 @@ namespace junklite
         [SerializeField] private ParticleSystem godRayParticles;
         [SerializeField] private float godRayFadeDuration = 1f;
         [SerializeField] private float reflectionRevealDuration = 1f;
+        [Tooltip("Platform the player starts on; dissolves in when the lights come up.")]
+        [SerializeField] private DissolveController startPlatformDissolver;
+        [Tooltip("Flat ambient colour the room fades to when the lights come on. The intro starts in black.")]
+        [SerializeField] private Color revealedAmbientColor = new Color(0.12f, 0.15f, 0.17f, 1f);
+        [SerializeField] private float ambientRevealDuration = 2.5f;
 
         [Header("Director / Timeline")]
         [SerializeField] private PlayableDirector director;
@@ -50,12 +55,13 @@ namespace junklite
         [SerializeField] private DialogueSequence secondPlatformDialogue;
         [SerializeField] private DialogueSequence thirdPlatformDialogue;
         [SerializeField] private DialogueSequence combatIntroDialogue;
-        [SerializeField] private DialogueSequence parryPromptDialogue;
         [SerializeField] private DialogueSequence postEnemyDialogue;
-        [SerializeField] private DialogueSequence postPickupDialogue;
-        [SerializeField] private DialogueSequence modActivationPromptDialogue;
         [SerializeField] private DialogueSequence inventoryPromptDialogue;
         [SerializeField] private DialogueSequence finalDialogue;
+
+        [Header("Tutorial Prompts")]
+        [Tooltip("Optic HUD prompt. Created at runtime when left empty.")]
+        [SerializeField] private TutorialPromptHUD promptHud;
 
         [Header("Platform Steps")]
         [SerializeField] private GameObject platformStep1;
@@ -115,9 +121,8 @@ namespace junklite
             ObjectiveOne, PlatformOneComplete, SecondPlatformDialogue,
             ObjectiveTwo, PlatformTwoComplete, ThirdPlatformDialogue,
             ObjectiveThree, PlatformThreeComplete, CombatIntroDialogue,
-            EnemyWave, PostEnemyDialogue, WeaponPickup, PostPickupDialogue,
-            WaitCombatMode, ModActivationPrompt, WaitModActivation,
-            InventoryPrompt, WaitInventoryOpen, WaitInventoryClose,
+            EnemyWave, WaitModPickup, PostEnemyDialogue, WeaponPickup,
+            WaitCombatMode, InventoryPrompt, WaitModSlotted, WaitModActivation,
             FinalGlitchRamp, FinalDialogue, OutroVideo, LoadNextScene, Done
         }
 
@@ -139,13 +144,17 @@ namespace junklite
         private bool timelineFinished;
         private bool objectiveHit;
         private bool combatModeToggled;
-        private bool inventoryOpened;
-        private bool inventoryClosed;
         private bool modActivated;
         private bool weaponPickedUp;
-        private bool parryTutorialPromptUsed;
-        private bool parryTutorialPressed;
-        private Coroutine parryTutorialRoutine;
+        private bool modSlotsChanged;
+
+        // Parry gate: the Hyena can't be hurt until the player lands a parry on it.
+        private EnemyCharacter parryGateEnemy;
+        private ParryHandler parryGateHandler;
+        private bool parryGateCleared;
+
+        private GameObject tutorialModPickupInstance;
+        private ModData tutorialModData;
 
         #endregion
 
@@ -158,6 +167,11 @@ namespace junklite
             if (platformStep2 != null) platformStep2.SetActive(false);
             if (platformStep3 != null) platformStep3.SetActive(false);
             if (overheadSpotlight != null) overheadSpotlight.enabled = false;
+            SetAmbient(Color.black);
+            ResetEndGlitch();
+            if (startPlatformDissolver != null) startPlatformDissolver.SetImmediate(2f);
+            if (promptHud == null)
+                promptHud = new GameObject("TutorialPromptHUD").AddComponent<TutorialPromptHUD>();
             if (godRayParticles != null)
                 godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             DisableVideoScreen();
@@ -172,6 +186,9 @@ namespace junklite
         private void OnDestroy()
         {
             UnsubscribeEncounterCallbacks();
+            // Stopped/reloaded mid-ramp: the coroutine's finally never runs, and the profile is a shared asset.
+            ResetEndGlitch();
+            if (currentPlayer != null) currentPlayer.CannotDie = false;
 
             if (DialogueManager.instance != null)
             {
@@ -184,17 +201,18 @@ namespace junklite
             if (endCinematicDirector != null) endCinematicDirector.stopped -= OnTimelineStopped;
             if (completionAnimation != null) completionAnimation.Stop();
             if (currentWeaponLoadout != null) currentWeaponLoadout.WeaponChanged -= OnWeaponPickedUp;
-            if (currentModManager != null) currentModManager.OnActiveModActivated -= OnActiveModActivated;
+            if (currentModManager != null)
+            {
+                currentModManager.OnActiveModActivated -= OnActiveModActivated;
+                currentModManager.OnModSlotsChanged -= OnModSlotsChanged;
+            }
             if (activeTutorialPickup != null) Destroy(activeTutorialPickup.gameObject);
-            if (parryTutorialRoutine != null) StopCoroutine(parryTutorialRoutine);
+            EndParryGate(cleared: false);
             if (revealFadeRoutine != null) StopCoroutine(revealFadeRoutine);
 
             if (GameInputManager.Instance != null)
             {
                 GameInputManager.Instance.OnCombatModeToggle -= OnCombatModeToggled;
-                GameInputManager.Instance.OnInventoryToggle -= OnInventoryToggled;
-                GameInputManager.Instance.OnParry -= OnTutorialParryPressed;
-                GameInputManager.Instance.SetParryOnlyInputEnabled(false);
             }
         }
 
@@ -206,6 +224,8 @@ namespace junklite
         {
             SetStage(Stage.WaitingForPlayer);
             yield return WaitForPlayer();
+            // The simulation never kills Cassidy.
+            if (currentPlayer != null) currentPlayer.CannotDie = true;
 
             playerLight = currentPlayer != null
                 ? currentPlayer.GetComponentInChildren<Light>(true)
@@ -216,21 +236,27 @@ namespace junklite
             if (introDialogue != null)
                 yield return RunDialogue(introDialogue);
 
+            // Crow brings the lights up: volumetric spot, ambient and reflections fade in together.
             if (playerLight != null) playerLight.enabled = true;
             if (overheadSpotlight != null) overheadSpotlight.enabled = true;
+            if (startPlatformDissolver != null) startPlatformDissolver.Undissolve();
             PlayCinematicSfx(introSequenceSfx, introSfxPoint);
+            PlayCinematicSfx(lightRevealSfx);
             if (godRayParticles != null)
             {
                 godRayParticles.gameObject.SetActive(true);
                 godRayParticles.Play(true);
             }
             StartCoroutine(LerpReflectionIntensity(RenderSettings.reflectionIntensity, 1f, reflectionRevealDuration));
+            StartCoroutine(LerpAmbient(RenderSettings.ambientLight, revealedAmbientColor, ambientRevealDuration));
 
             SetStage(Stage.PlayTimeline);
-            if (revealFadeRoutine != null) StopCoroutine(revealFadeRoutine);
-            revealFadeRoutine = StartCoroutine(FadeOutRevealEffects());
             if (director != null)
                 yield return RunDirector(director, rewindToStart: true);
+
+            // The spotlight fades once the platform has arrived.
+            if (revealFadeRoutine != null) StopCoroutine(revealFadeRoutine);
+            revealFadeRoutine = StartCoroutine(FadeOutRevealEffects());
 
             PlayCinematicSfx(platformDissolveSfx, platformStep1DissolveSfxPoint);
 
@@ -239,42 +265,35 @@ namespace junklite
                 yield return RunDialogue(postCinematicDialogue);
 
             SetStage(Stage.ObjectiveOne);
-            if (objective1Trigger != null)
-                yield return WaitForTrigger(objective1Trigger);
+            yield return RunObjective(objective1Trigger,
+                new TutorialPromptHUD.Entry("Player/Move", "Move", keyboardOverride: "A / D", gamepadOverride: "L-Stick"),
+                new TutorialPromptHUD.Entry("Player/Jump", "Jump"));
 
             SetStage(Stage.PlatformOneComplete);
             yield return PlayCompletionBeatAndReset(platformStep1);
-            if (platformStep2 != null) platformStep2.SetActive(true);
-            if (platformStep2Dissolver != null)
-            {
-                PlayCinematicSfx(platformDissolveSfx, platformStep2DissolveSfxPoint);
-                platformStep2Dissolver.UndissolveAll();
-            }
+            RevealPlatformStep(platformStep2, platformStep2Dissolver, platformStep2DissolveSfxPoint);
 
             SetStage(Stage.SecondPlatformDialogue);
             if (secondPlatformDialogue != null)
                 yield return RunDialogue(secondPlatformDialogue);
 
             SetStage(Stage.ObjectiveTwo);
-            if (objective2Trigger != null)
-                yield return WaitForTrigger(objective2Trigger);
+            yield return RunObjective(objective2Trigger,
+                new TutorialPromptHUD.Entry("Player/Jump", "Double jump", suffix: "x2"));
 
             SetStage(Stage.PlatformTwoComplete);
             yield return PlayCompletionBeatAndReset(platformStep2);
-            if (platformStep3 != null) platformStep3.SetActive(true);
-            if (platformStep3Dissolver != null)
-            {
-                PlayCinematicSfx(platformDissolveSfx, platformStep3DissolveSfxPoint);
-                platformStep3Dissolver.UndissolveAll();
-            }
+            RevealPlatformStep(platformStep3, platformStep3Dissolver, platformStep3DissolveSfxPoint);
 
             SetStage(Stage.ThirdPlatformDialogue);
             if (thirdPlatformDialogue != null)
                 yield return RunDialogue(thirdPlatformDialogue);
 
             SetStage(Stage.ObjectiveThree);
-            if (objective3Trigger != null)
-                yield return WaitForTrigger(objective3Trigger);
+            // The gap needs both: double jump for height, dash for distance.
+            yield return RunObjective(objective3Trigger,
+                new TutorialPromptHUD.Entry("Player/Jump", "Double jump", suffix: "x2"),
+                new TutorialPromptHUD.Entry("Player/Dash", "Dash"));
 
             SetStage(Stage.PlatformThreeComplete);
             yield return PlayCompletionBeatAndReset(platformStep3);
@@ -303,27 +322,8 @@ namespace junklite
 
             yield return WaitForParryEffectsToSettle();
 
-            // If any mod pickups were spawned by enemy deaths (e.g. hyena drops),
-            // wait until the player collects them before repositioning.
-            var modPickups = FindObjectsOfType<WorldModPickup>();
-            if (modPickups != null && modPickups.Length > 0)
-            {
-                while (true)
-                {
-                    var remaining = FindObjectsOfType<WorldModPickup>();
-                    bool anyActive = false;
-                    foreach (var mp in remaining)
-                    {
-                        if (mp != null && mp.gameObject.activeInHierarchy)
-                        {
-                            anyActive = true;
-                            break;
-                        }
-                    }
-                    if (!anyActive) break;
-                    yield return null;
-                }
-            }
+            SetStage(Stage.WaitModPickup);
+            yield return WaitForTutorialModPickup();
 
             RepositionPlayer(centerRoomSpawn);
             SetStage(Stage.PostEnemyDialogue);
@@ -332,32 +332,24 @@ namespace junklite
 
             SetStage(Stage.WeaponPickup);
             SpawnTutorialWeaponPickup();
+            promptHud.Show(new TutorialPromptHUD.Entry("Player/Interact", "Equip the weapon"));
             yield return WaitForWeaponPickup();
-
-            SetStage(Stage.PostPickupDialogue);
-            if (postPickupDialogue != null)
-                yield return RunDialogue(postPickupDialogue);
+            promptHud.Complete();
 
             SetStage(Stage.WaitCombatMode);
+            promptHud.Show(new TutorialPromptHUD.Entry("Player/CombatMode", "Combat mode"));
             yield return WaitForCombatModeToggle();
-
-            SetStage(Stage.ModActivationPrompt);
-            if (modActivationPromptDialogue != null)
-                yield return RunDialogue(modActivationPromptDialogue);
-
-            SetStage(Stage.WaitModActivation);
-            yield return WaitForActiveModActivation();
-            yield return WaitForModActivationAnimationComplete();
+            promptHud.Complete();
 
             SetStage(Stage.InventoryPrompt);
             if (inventoryPromptDialogue != null)
                 yield return RunDialogue(inventoryPromptDialogue);
 
-            SetStage(Stage.WaitInventoryOpen);
-            yield return WaitForInventoryOpen();
+            SetStage(Stage.WaitModSlotted);
+            yield return RunInventoryModTutorial();
 
-            SetStage(Stage.WaitInventoryClose);
-            yield return WaitForInventoryClose();
+            SetStage(Stage.WaitModActivation);
+            yield return RunModActivationPrompt();
 
             SetStage(Stage.FinalGlitchRamp);
             yield return RunEndGlitchRampIfConfigured();
@@ -374,6 +366,23 @@ namespace junklite
 
             SetStage(Stage.LoadNextScene);
             LoadConfiguredScene();
+        }
+
+        private IEnumerator RunObjective(SequenceTrigger trigger, params TutorialPromptHUD.Entry[] prompt)
+        {
+            promptHud.Show(prompt);
+            if (trigger != null)
+                yield return WaitForTrigger(trigger);
+            promptHud.Complete();
+        }
+
+        private void RevealPlatformStep(GameObject step, TutorialStepDissolver dissolver, Transform sfxPoint)
+        {
+            if (step != null) step.SetActive(true);
+            if (dissolver == null) return;
+
+            PlayCinematicSfx(platformDissolveSfx, sfxPoint);
+            dissolver.UndissolveAll();
         }
 
         private void SetStage(Stage s)
@@ -649,7 +658,7 @@ namespace junklite
 
         private bool PrepareEncounter()
         {
-            parryTutorialPromptUsed = false;
+            parryGateCleared = false;
             tutorialModHyenaSpawnHandled = false;
 
             if (encounter != null)
@@ -673,57 +682,85 @@ namespace junklite
             if (enemy == null || !tutorialEncounterEnemies.Add(enemy))
                 return;
 
-            enemy.OnAttackNotifyShown += OnTutorialEnemyAttackNotifyShown;
+            if (!parryGateCleared && parryGateEnemy == null && enemy.EnemyType == EnemyType.Hyena)
+                BeginParryGate(enemy);
         }
 
-        private void OnTutorialEnemyAttackNotifyShown(EnemyCharacter enemy)
+        // No pause and no input locks: the Hyena just can't be hurt, and the prompt stays,
+        // until the player lands a successful parry on it.
+        private void BeginParryGate(EnemyCharacter enemy)
         {
-            if (currentStage != Stage.EnemyWave || parryTutorialPromptUsed || enemy == null)
+            RefreshPlayerRef();
+            parryGateHandler = currentPlayer != null ? currentPlayer.GetComponentInChildren<ParryHandler>(true) : null;
+            if (parryGateHandler == null)
+            {
+                Debug.LogWarning("[Level0Sequence] No ParryHandler on the player; parry gate skipped.", this);
+                return;
+            }
+
+            parryGateEnemy = enemy;
+            enemy.SetTutorialInvulnerable(true);
+            enemy.OnAttackNotifyShown += OnParryGateAttackTelegraphed;
+            parryGateHandler.ParrySucceeded += OnTutorialParrySucceeded;
+        }
+
+        // The prompt appears on the Hyena's first telegraph, so it teaches the timing; it then stays until cleared.
+        private void OnParryGateAttackTelegraphed(EnemyCharacter enemy)
+        {
+            if (enemy != parryGateEnemy || promptHud.IsShowing)
                 return;
 
-            parryTutorialPromptUsed = true;
-            parryTutorialRoutine = StartCoroutine(RunParryTutorialPrompt(enemy));
+            promptHud.Show(new TutorialPromptHUD.Entry("Player/Parry", "Parry"));
         }
 
-        private IEnumerator RunParryTutorialPrompt(EnemyCharacter enemy)
+        private void OnTutorialParrySucceeded(GameObject attacker)
         {
-            enemy.SetTutorialFrozen(true);
+            if (parryGateEnemy == null)
+                return;
 
-            if (GameInputManager.Instance != null)
-                GameInputManager.Instance.SetGameplayInputEnabled(false);
+            // Ignore parries against other enemies; accept source-less hits.
+            EnemyCharacter parried = attacker != null ? attacker.GetComponentInParent<EnemyCharacter>() : null;
+            if (attacker != null && parried != parryGateEnemy)
+                return;
 
-            if (parryPromptDialogue != null)
-                yield return RunDialogue(parryPromptDialogue);
-
-            parryTutorialPressed = false;
-            if (GameInputManager.Instance != null)
-            {
-                GameInputManager.Instance.SetParryOnlyInputEnabled(true);
-                GameInputManager.Instance.OnParry += OnTutorialParryPressed;
-            }
-
-            while (!parryTutorialPressed)
-                yield return null;
-
-            if (GameInputManager.Instance != null)
-            {
-                GameInputManager.Instance.OnParry -= OnTutorialParryPressed;
-                GameInputManager.Instance.SetParryOnlyInputEnabled(false);
-                GameInputManager.Instance.SetGameplayInputEnabled(true);
-            }
-
-            if (enemy != null)
-                enemy.SetTutorialFrozen(false);
-
-            parryTutorialRoutine = null;
+            EndParryGate(cleared: true);
         }
 
-        private void OnTutorialParryPressed() => parryTutorialPressed = true;
+        private void EndParryGate(bool cleared)
+        {
+            if (parryGateHandler != null)
+                parryGateHandler.ParrySucceeded -= OnTutorialParrySucceeded;
+            if (parryGateEnemy != null)
+            {
+                parryGateEnemy.SetTutorialInvulnerable(false);
+                parryGateEnemy.OnAttackNotifyShown -= OnParryGateAttackTelegraphed;
+            }
+
+            bool wasActive = parryGateEnemy != null;
+            parryGateHandler = null;
+            parryGateEnemy = null;
+            if (!wasActive)
+                return;
+
+            if (cleared)
+                parryGateCleared = true;
+
+            if (promptHud == null || !promptHud.IsShowing)
+                return;
+
+            if (cleared)
+                promptHud.Complete();
+            else
+                promptHud.Hide(instant: true);
+        }
 
         private void OnEncounterEnemyDied(EnemyCharacter enemy)
         {
-            if (enemy != null && tutorialEncounterEnemies.Remove(enemy))
-                enemy.OnAttackNotifyShown -= OnTutorialEnemyAttackNotifyShown;
+            if (enemy != null)
+                tutorialEncounterEnemies.Remove(enemy);
+
+            if (enemy != null && enemy == parryGateEnemy)
+                EndParryGate(cleared: false);
 
             if (enemy != null && enemy.EnemyType == EnemyType.Hyena)
                 SpawnOrActivateTutorialModAfterHyenaDeath();
@@ -745,14 +782,35 @@ namespace junklite
 
             if (!tutorialModPickup.scene.IsValid())
             {
-                Instantiate(tutorialModPickup, tutorialModPickupSpawnPoint.position,
+                tutorialModPickupInstance = Instantiate(tutorialModPickup, tutorialModPickupSpawnPoint.position,
                     tutorialModPickupSpawnPoint.rotation);
-                return;
+            }
+            else
+            {
+                tutorialModPickupInstance = tutorialModPickup;
+                tutorialModPickup.transform.SetPositionAndRotation(tutorialModPickupSpawnPoint.position,
+                    tutorialModPickupSpawnPoint.rotation);
+                tutorialModPickup.SetActive(true);
             }
 
-            tutorialModPickup.transform.SetPositionAndRotation(tutorialModPickupSpawnPoint.position,
-                tutorialModPickupSpawnPoint.rotation);
-            tutorialModPickup.SetActive(true);
+            // The tutorial teaches slotting, so this mod goes to the inventory instead of auto-equipping.
+            var pickup = tutorialModPickupInstance.GetComponent<WorldModPickup>();
+            if (pickup != null)
+            {
+                pickup.autoEquip = false;
+                tutorialModData = pickup.modData;
+            }
+        }
+
+        private IEnumerator WaitForTutorialModPickup()
+        {
+            if (tutorialModPickupInstance == null || !tutorialModPickupInstance.activeInHierarchy)
+                yield break;
+
+            promptHud.Show(new TutorialPromptHUD.Entry(null, "Collect the mod"));
+            while (tutorialModPickupInstance != null && tutorialModPickupInstance.activeInHierarchy)
+                yield return null;
+            promptHud.Complete();
         }
 
         private void UnsubscribeEncounterCallbacks()
@@ -763,15 +821,7 @@ namespace junklite
                 encounter.EnemyDied -= OnEncounterEnemyDied;
             }
 
-            foreach (EnemyCharacter enemy in tutorialEncounterEnemies)
-            {
-                if (enemy == null)
-                    continue;
-
-                enemy.OnAttackNotifyShown -= OnTutorialEnemyAttackNotifyShown;
-                enemy.SetTutorialFrozen(false);
-            }
-
+            EndParryGate(cleared: false);
             tutorialEncounterEnemies.Clear();
         }
 
@@ -837,31 +887,100 @@ namespace junklite
 
         private void OnCombatModeToggled() => combatModeToggled = true;
 
-        private IEnumerator WaitForInventoryOpen()
+        private static bool IsInventoryOpen =>
+            GameUIManager.Instance != null && GameUIManager.Instance.PlayerHUD != null &&
+            GameUIManager.Instance.PlayerHUD.IsInventoryOpen;
+
+        private bool IsTutorialModSlotted(out bool isActiveSlot, out int slotIndex)
         {
-            inventoryOpened = false;
-            GameInputManager.Instance.OnInventoryToggle += OnInventoryToggled;
-
-            while (!inventoryOpened)
-                yield return null;
-
-            GameInputManager.Instance.OnInventoryToggle -= OnInventoryToggled;
+            isActiveSlot = false;
+            slotIndex = -1;
+            return currentModManager != null && tutorialModData != null &&
+                   currentModManager.FindEquippedMod(tutorialModData, out isActiveSlot, out slotIndex);
         }
 
-        private void OnInventoryToggled() => inventoryOpened = true;
-
-        private IEnumerator WaitForInventoryClose()
+        /// <summary>
+        /// Open inventory → slot the Hyena mod → close. Each prompt stays until done, and closing
+        /// the inventory early just asks the player to reopen it.
+        /// </summary>
+        private IEnumerator RunInventoryModTutorial()
         {
-            inventoryClosed = false;
-            GameInputManager.Instance.OnInventoryToggle += OnInventoryClosedToggled;
-
-            while (!inventoryClosed)
-                yield return null;
-
-            GameInputManager.Instance.OnInventoryToggle -= OnInventoryClosedToggled;
+            RefreshPlayerRef();
+            var openPrompt = new TutorialPromptHUD.Entry("Player/Inventory", "Open inventory");
+            yield return RunInventoryGates(openPrompt);
         }
 
-        private void OnInventoryClosedToggled() => inventoryClosed = true;
+        private IEnumerator RunInventoryGates(TutorialPromptHUD.Entry openPrompt)
+        {
+            if (currentModManager == null || tutorialModData == null)
+            {
+                // No mod to slot (e.g. no Hyena in the wave): still teach open/close.
+                promptHud.Show(openPrompt);
+                while (!IsInventoryOpen) yield return null;
+                promptHud.Complete();
+            }
+            else
+            {
+                modSlotsChanged = true;
+                currentModManager.OnModSlotsChanged += OnModSlotsChanged;
+
+                while (!IsTutorialModSlotted(out _, out _))
+                {
+                    if (!IsInventoryOpen)
+                    {
+                        promptHud.Show(openPrompt);
+                        while (!IsInventoryOpen) yield return null;
+                        promptHud.Complete();
+                    }
+
+                    promptHud.Show(new TutorialPromptHUD.Entry(null, $"Attach {ModLabel()} to a mod slot"));
+                    promptHud.SetMenuDocked(true);
+                    modSlotsChanged = false;
+                    while (IsInventoryOpen && !(modSlotsChanged && IsTutorialModSlotted(out _, out _)))
+                        yield return null;
+
+                    if (IsTutorialModSlotted(out _, out _))
+                        promptHud.Complete();
+                }
+
+                currentModManager.OnModSlotsChanged -= OnModSlotsChanged;
+            }
+
+            if (IsInventoryOpen)
+            {
+                promptHud.Show(new TutorialPromptHUD.Entry("Player/Inventory", "Close inventory"));
+                promptHud.SetMenuDocked(true);
+                while (IsInventoryOpen) yield return null;
+                promptHud.Complete();
+            }
+        }
+
+        private string ModLabel() =>
+            tutorialModData != null && !string.IsNullOrEmpty(tutorialModData.modName)
+                ? tutorialModData.modName
+                : "the mod";
+
+        private void OnModSlotsChanged() => modSlotsChanged = true;
+
+        private IEnumerator RunModActivationPrompt()
+        {
+            RefreshPlayerRef();
+            if (!IsTutorialModSlotted(out bool isActiveSlot, out int slotIndex) || !isActiveSlot || slotIndex > 3)
+                yield break;
+
+            // Active mods only run in combat mode; re-teach the toggle if inventory dropped it.
+            if (currentWeaponManager != null && !currentWeaponManager.IsModCombat)
+            {
+                promptHud.Show(new TutorialPromptHUD.Entry("Player/CombatMode", "Combat mode"));
+                yield return WaitForCombatModeToggle();
+                promptHud.Complete();
+            }
+
+            promptHud.Show(new TutorialPromptHUD.Entry($"Player/ModActivate{slotIndex + 1}", "Activate mod"));
+            yield return WaitForActiveModActivation();
+            promptHud.Complete();
+            yield return WaitForModActivationAnimationComplete();
+        }
 
         private IEnumerator WaitForActiveModActivation()
         {
@@ -922,9 +1041,33 @@ namespace junklite
             DynamicGI.UpdateEnvironment();
         }
 
+        private IEnumerator LerpAmbient(Color from, Color to, float duration)
+        {
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                SetAmbient(Color.Lerp(from, to, Mathf.Clamp01(elapsed / duration)));
+                yield return null;
+            }
+            SetAmbient(to);
+        }
+
+        // Shaders read the SH ambient probe, which isn't rebuilt when ambientLight changes at runtime,
+        // so write a flat probe directly (cheap enough to do every frame of the fade).
+        private static void SetAmbient(Color color)
+        {
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = color;
+            var probe = new SphericalHarmonicsL2();
+            probe.AddAmbientLight(color);
+            RenderSettings.ambientProbe = probe;
+        }
+
         private IEnumerator FadeOutRevealEffects()
         {
-            float startSpotlightIntensity = overheadSpotlight != null ? overheadSpotlight.intensity : 0f;
+            Light fadeSpotlight = overheadSpotlight;
+            float startSpotlightIntensity = fadeSpotlight != null ? fadeSpotlight.intensity : 0f;
             ParticleSystem.EmissionModule emission = default;
             float startRate = 0f;
             bool hasGodRayParticles = godRayParticles != null;
@@ -936,10 +1079,10 @@ namespace junklite
 
             if (godRayFadeDuration <= 0f)
             {
-                if (overheadSpotlight != null)
+                if (fadeSpotlight != null)
                 {
-                    overheadSpotlight.intensity = 0f;
-                    overheadSpotlight.enabled = false;
+                    fadeSpotlight.intensity = 0f;
+                    fadeSpotlight.enabled = false;
                 }
                 if (hasGodRayParticles)
                 {
@@ -956,8 +1099,8 @@ namespace junklite
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / godRayFadeDuration);
 
-                if (overheadSpotlight != null)
-                    overheadSpotlight.intensity = Mathf.Lerp(startSpotlightIntensity, 0f, t);
+                if (fadeSpotlight != null)
+                    fadeSpotlight.intensity = Mathf.Lerp(startSpotlightIntensity, 0f, t);
 
                 if (hasGodRayParticles)
                     emission.rateOverTimeMultiplier = Mathf.Lerp(startRate, 0f, t);
@@ -965,10 +1108,10 @@ namespace junklite
                 yield return null;
             }
 
-            if (overheadSpotlight != null)
+            if (fadeSpotlight != null)
             {
-                overheadSpotlight.intensity = 0f;
-                overheadSpotlight.enabled = false;
+                fadeSpotlight.intensity = 0f;
+                fadeSpotlight.enabled = false;
             }
 
             if (hasGodRayParticles)
@@ -1050,6 +1193,16 @@ namespace junklite
                     d.intensity.overrideState = _osI;
                 }
             }
+        }
+
+        private void ResetEndGlitch()
+        {
+            if (endSequenceVolumeSettings == null || !endSequenceVolumeSettings.IsValid)
+                return;
+            VolumeProfile profile = endSequenceVolumeSettings.Profile;
+            profile.TryGet(out URPGlitch.AnalogGlitchVolume analog);
+            profile.TryGet(out URPGlitch.DigitalGlitchVolume digital);
+            ApplyEndGlitchStrength(analog, digital, 0f);
         }
 
         private IEnumerator RunEndGlitchRampIfConfigured()

@@ -232,6 +232,13 @@ namespace junklite
             OnAttackNotifyShown?.Invoke(this);
         }
 
+        /// <summary>
+        /// Tutorial gate: while set, normal hits are rejected as Invulnerable (forced/bypass requests still land).
+        /// </summary>
+        public bool IsTutorialInvulnerable { get; private set; }
+
+        public void SetTutorialInvulnerable(bool invulnerable) => IsTutorialInvulnerable = invulnerable;
+
         public void SetTutorialFrozen(bool frozen)
         {
             if (tutorialFrozen == frozen)
@@ -541,7 +548,8 @@ namespace junklite
         /// </summary>
         public override DamageResult ReceiveDamage(DamageRequest request)
         {
-            if (state != null && !state.CanTakeDamage)
+            if ((state != null && !state.CanTakeDamage) ||
+                (IsTutorialInvulnerable && !request.BypassesDefenses))
                 return DamageResult.Rejected(DamageOutcome.Invulnerable, request.Amount);
 
             DamageResult result = base.ReceiveDamage(request);

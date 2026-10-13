@@ -84,4 +84,17 @@ public class DissolveController : MonoBehaviour
     // Convenience wrappers
     public void Dissolve() => AnimateDissolve(2f, duration);
     public void Undissolve() => AnimateDissolve(-1f, duration);
+
+    /// <summary>Snaps the cutoff without animating (e.g. start a prop fully dissolved).</summary>
+    public void SetImmediate(float value)
+    {
+        if (routine != null)
+        {
+            StopCoroutine(routine);
+            routine = null;
+        }
+        if (propertyBlock == null) Awake();
+        currentValue = value;
+        SetDissolveValue(value);
+    }
 }

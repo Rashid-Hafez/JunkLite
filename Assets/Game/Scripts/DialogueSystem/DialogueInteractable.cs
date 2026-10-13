@@ -21,273 +21,80 @@ public class DialogueInteractable : MonoBehaviour
 */
 
 using UnityEngine;
-using TMPro;
-using DG.Tweening;
 
 namespace junklite
 {
+    /// <summary>
+    /// Talk-to trigger: entering its radius shows the shared TutorialPromptHUD interact prompt;
+    /// Interact starts the dialogue.
+    /// </summary>
     public class DialogueInteractable : MonoBehaviour
     {
-        #region Fields
-
-        [Header("Dialogue")]
         [SerializeField] private DialogueSequence dialogue;
-
-        [Header("Proximity")]
         [SerializeField] private float interactRadius = 2.5f;
         [SerializeField] private string playerTag = "Player";
 
-        [Header("Prompt (Child Object)")]
-        [SerializeField] private GameObject promptRoot;
-        [SerializeField] private TMP_Text speakerText;
-        [SerializeField] private TMP_Text interactHintText;
-        [SerializeField] private string interactKeyLabel = "[E]";
-
-        [Header("Animation")]
-        [SerializeField] private float popDuration = 0.25f;
-        [SerializeField] private Ease popInEase = Ease.OutBack;
-        [SerializeField] private Ease popOutEase = Ease.InBack;
-
-        private CanvasGroup canvasGroup;
-        private Tween activeTween;
         private GameInputManager subscribedInputManager;
-
-        #endregion
-
-        #region Static
 
         public static DialogueInteractable Current { get; private set; }
 
-        #endregion
-
-        #region Unity
-
         private void Awake()
-        {
-            CreateProximityZone();
-
-            if (promptRoot != null)
-            {
-                canvasGroup = promptRoot.GetComponent<CanvasGroup>();
-                if (canvasGroup == null)
-                    canvasGroup = promptRoot.AddComponent<CanvasGroup>();
-            }
-
-            UIFonts.ApplyWorldTree(promptRoot != null ? promptRoot.transform : null);
-            HideInstant();
-        }
-
-        private void OnEnable()
-        {
-            RebindInputManager();
-            RefreshPromptText();
-            HideInstant();
-        }
-
-        private void Start() => RebindInputManager();
-
-        private void OnDisable()
-        {
-            UnbindInputManager();
-
-            if (Current == this)
-            {
-                Current = null;
-                KillTween();
-                HideInstant();
-            }
-        }
-
-        private void OnDestroy()
-        {
-            UnbindInputManager();
-            KillTween();
-        }
-
-        private void LateUpdate()
-        {
-            if (promptRoot == null || !promptRoot.activeSelf) return;
-
-            Camera cam = Camera.main;
-            if (cam != null)
-                promptRoot.transform.forward = cam.transform.forward;
-        }
-
-        #endregion
-
-        #region Proximity Zone
-
-        private void CreateProximityZone()
         {
             var zone = new GameObject("ProximityZone");
             zone.transform.SetParent(transform, false);
             zone.layer = gameObject.layer;
-
             var col = zone.AddComponent<SphereCollider>();
             col.isTrigger = true;
             col.radius = interactRadius;
+            zone.AddComponent<DialogueProximityRelay>().Init(this);
+        }
 
-            var relay = zone.AddComponent<DialogueProximityRelay>();
-            relay.Init(this);
+        private void OnEnable() => RebindInputManager();
+        private void Start() => RebindInputManager();
+
+        private void OnDisable()
+        {
+            if (subscribedInputManager != null) subscribedInputManager.OnInteract -= HandleInteract;
+            subscribedInputManager = null;
+            if (Current == this) Deactivate(instant: true);
         }
 
         internal void OnPlayerEnter(Collider other)
         {
             if (!other.CompareTag(playerTag)) return;
-
-            if (Current != null && Current != this)
-                Current.Deactivate();
-
             Current = this;
-            RefreshPromptText();
-            PopIn();
+            RebindInputManager();
+            string speaker = dialogue != null && dialogue.dialogueLines.Length > 0 ? dialogue.dialogueLines[0].speakerName : null;
+            TutorialPromptHUD.ShowInteract(this, string.IsNullOrEmpty(speaker) ? "Talk" : $"Talk to {speaker}");
         }
 
         internal void OnPlayerExit(Collider other)
         {
-            if (!other.CompareTag(playerTag)) return;
-            if (Current != this) return;
-
-            Deactivate();
+            if (other.CompareTag(playerTag) && Current == this)
+                Deactivate(instant: false);
         }
 
-        private void Deactivate()
+        private void Deactivate(bool instant)
         {
-            if (Current == this)
-                Current = null;
-
-            PopOut();
+            Current = null;
+            TutorialPromptHUD.HideInteract(this, instant: instant);
         }
 
-        #endregion
-
-        #region Interaction
-
-        private void TryStartDialogue()
+        private void HandleInteract()
         {
-            if (dialogue == null) return;
-
-            // Optional: prevent starting if already in dialogue
-            if (DialogueManager.instance == null) return;
-
+            if (Current != this || dialogue == null || DialogueManager.instance == null) return;
             DialogueManager.instance.StartDialogue(dialogue);
-
-            // Hide prompt while dialogue is active
-            Deactivate();
-        }
-
-        #endregion
-
-        #region Prompt
-
-        private void RefreshPromptText()
-        {
-            if (speakerText != null)
-                speakerText.text = dialogue != null ? dialogue.dialogueLines[0].speakerName : "Dialogue";
-
-            if (interactHintText != null)
-            {
-                string hint = GameInputManager.Instance?.GetBindingHint("Player/Interact");
-                string label = !string.IsNullOrEmpty(hint)
-                    ? $"[{hint}]"
-                    : interactKeyLabel;
-                interactHintText.text = $"{label} Talk";
-            }
+            Deactivate(instant: false);
         }
 
         private void RebindInputManager()
         {
             GameInputManager inputManager = GameInputManager.Instance;
-            if (subscribedInputManager == inputManager)
-                return;
-
-            UnbindInputManager();
+            if (subscribedInputManager == inputManager) return;
+            if (subscribedInputManager != null) subscribedInputManager.OnInteract -= HandleInteract;
             subscribedInputManager = inputManager;
-            if (subscribedInputManager != null)
-            {
-                subscribedInputManager.OnInteract += HandleInteract;
-                subscribedInputManager.OnInputDeviceChanged += HandleInputDeviceChanged;
-            }
-
-            RefreshPromptText();
+            if (subscribedInputManager != null) subscribedInputManager.OnInteract += HandleInteract;
         }
-
-        private void UnbindInputManager()
-        {
-            if (subscribedInputManager != null)
-            {
-                subscribedInputManager.OnInteract -= HandleInteract;
-                subscribedInputManager.OnInputDeviceChanged -= HandleInputDeviceChanged;
-            }
-
-            subscribedInputManager = null;
-        }
-
-        private void HandleInteract()
-        {
-            if (Current == this)
-                TryStartDialogue();
-        }
-
-        private void HandleInputDeviceChanged(bool _) => RefreshPromptText();
-
-        #endregion
-
-        #region Animation
-
-        private void PopIn()
-        {
-            if (promptRoot == null) return;
-
-            KillTween();
-            promptRoot.SetActive(true);
-            promptRoot.transform.localScale = Vector3.zero;
-            if (canvasGroup != null) canvasGroup.alpha = 0f;
-
-            activeTween = DOTween.Sequence()
-                .Join(promptRoot.transform.DOScale(Vector3.one, popDuration).SetEase(popInEase))
-                .Join(canvasGroup != null
-                    ? canvasGroup.DOFade(1f, popDuration * 0.6f)
-                    : DOTween.Sequence())
-                .SetUpdate(true)
-                .SetLink(promptRoot);
-        }
-
-        private void PopOut()
-        {
-            if (promptRoot == null || !promptRoot.activeSelf) return;
-
-            KillTween();
-
-            activeTween = DOTween.Sequence()
-                .Join(promptRoot.transform.DOScale(Vector3.zero, popDuration * 0.7f).SetEase(popOutEase))
-                .Join(canvasGroup != null
-                    ? canvasGroup.DOFade(0f, popDuration * 0.5f)
-                    : DOTween.Sequence())
-                .SetUpdate(true)
-                .SetLink(promptRoot)
-                .OnComplete(() => promptRoot.SetActive(false));
-        }
-
-        private void HideInstant()
-        {
-            if (promptRoot == null) return;
-
-            KillTween();
-            promptRoot.transform.localScale = Vector3.zero;
-            if (canvasGroup != null) canvasGroup.alpha = 0f;
-            promptRoot.SetActive(false);
-        }
-
-        private void KillTween()
-        {
-            if (activeTween != null && activeTween.IsActive())
-                activeTween.Kill();
-
-            activeTween = null;
-        }
-
-        #endregion
     }
 
     internal class DialogueProximityRelay : MonoBehaviour

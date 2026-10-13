@@ -31,6 +31,7 @@ namespace junklite
         public GameObject PauseMenuUIPrefab => pauseMenuUIPrefab;
         public GameObject LoadingScreenUIPrefab => loadingScreenUIPrefab;
         public bool IsPlayerHUDReady => playerUIInstance != null;
+        public PlayerUI PlayerHUD => playerUIInstance;
         public bool IsPauseMenuReady => pauseMenuUIInstance != null;
         public bool IsLoadingScreenReady => loadingScreenUIInstance != null;
         public bool IsLoadingPresentationFinished =>

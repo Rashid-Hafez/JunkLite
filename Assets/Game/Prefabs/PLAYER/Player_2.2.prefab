@@ -925,9 +925,7 @@ MonoBehaviour:
   snapToZPosition: 0
   fixedZPosition: 0
   allowZMovement: 0
-  zMoveSpeed: 3
-  minZPosition: -5
-  maxZPosition: 5
+  zMoveSpeed: 5
   groundLayerMask:
     serializedVersion: 2
     m_Bits: 6145

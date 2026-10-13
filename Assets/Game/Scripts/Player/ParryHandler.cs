@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -44,6 +45,8 @@ namespace junklite
         private const int MaxParryOverlapCapacity = 256;
 
         public bool IsParrying => parryActive;
+        /// <summary>Raised once per successful parry with the attacker that was parried (may be null).</summary>
+        public event Action<GameObject> ParrySucceeded;
         // Other rewards can clone this authored distortion without triggering a parry or its gameplay effects.
         public GameObject ScreenPulseTemplate => VisualEffectParry;
 
@@ -146,8 +149,10 @@ namespace junklite
                 // delay slow‑motion/zoom slightly so animation plays first
                 StartCoroutine(DelayedCameraEffect());
 
-                VisualEffectParry.SetActive(true);
-                parryVFXPrefab.SetActive(true);
+                if (VisualEffectParry != null) VisualEffectParry.SetActive(true);
+                if (parryVFXPrefab != null) parryVFXPrefab.SetActive(true);
+
+                ParrySucceeded?.Invoke(attacker);
             }
 
             // always block damage while active
@@ -187,8 +192,8 @@ namespace junklite
             yield return new WaitForSeconds(parryDuration);
             parryActive = false;
             playerState?.SetParrying(false);
-            VisualEffectParry.SetActive(false);
-            parryVFXPrefab.SetActive(false);
+            if (VisualEffectParry != null) VisualEffectParry.SetActive(false);
+            if (parryVFXPrefab != null) parryVFXPrefab.SetActive(false);
 
             if (playerState != null)
             {

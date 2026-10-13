@@ -90,10 +90,10 @@ namespace junklite
         [Header("2.5D Settings")]
         [SerializeField] private bool snapToZPosition = true;
         [SerializeField] private float fixedZPosition = 0f;
+        [Tooltip("Runtime-only: free-move rooms switch this on (LaneEntryTrigger) and lanes switch it off.")]
         [SerializeField] private bool allowZMovement = false;
-        [SerializeField] private float zMoveSpeed = 3f;
-        [SerializeField] private float minZPosition = -5f;
-        [SerializeField] private float maxZPosition = 5f;
+        [Tooltip("Speed (m/s) walking into/out of the screen in free-move rooms like Room 0. Run speed is Move Speed.")]
+        [SerializeField] private float zMoveSpeed = 5f;
 
         [Header("Physics Settings")]
         [SerializeField] private LayerMask groundLayerMask = 1;
@@ -238,6 +238,7 @@ namespace junklite
         public float DashDuration { get => dashDuration; set => dashDuration = value; }
         public bool SnapToZPosition { get => snapToZPosition; set => snapToZPosition = value; }
         public float FixedZPosition { get => fixedZPosition; set => fixedZPosition = value; }
+        public bool IsFreeRoaming => allowZMovement && !snapToZPosition;
 
         // expose ground mask for external raycasts
         public LayerMask GroundLayerMask => groundLayerMask;
@@ -321,6 +322,12 @@ namespace junklite
 
         public void FreezePerpendicularAxis()
         {
+            if (IsFreeRoaming)
+            {
+                rb.constraints = RigidbodyConstraints.FreezeRotation;
+                return;
+            }
+
             Vector3 r = transform.right.normalized;
 
             // Compare only X and Z axes
@@ -372,7 +379,22 @@ namespace junklite
             rb.rotation = rotation;
             transform.SetPositionAndRotation(position, rotation);
             fixedZPosition = position.z;
+            allowZMovement = false;
+            snapToZPosition = true;
 
+            FreezePerpendicularAxis();
+        }
+
+        /// <summary>
+        /// Free-move rooms: vertical input walks along transform.forward (into/out of the screen)
+        /// and no ground axis is locked; room colliders bound the player. Off re-locks the lane axis.
+        /// </summary>
+        public void SetFreeRoam(bool enabled)
+        {
+            allowZMovement = enabled;
+            snapToZPosition = !enabled;
+            fixedZPosition = transform.position.z;
+            moveInput.z = 0f;
             FreezePerpendicularAxis();
         }
 
@@ -471,14 +493,6 @@ namespace junklite
             // --- Facing lock expiry ---
             if (facingLocked && Time.time >= facingLockEndTime)
                 UnlockFacing();
-
-            // If roaming on Z, clamp position in Update (visual) – physics stays in FixedUpdate
-            if (!snapToZPosition && allowZMovement)
-            {
-                Vector3 pos = transform.position;
-                pos.z = Mathf.Clamp(pos.z, minZPosition, maxZPosition);
-                transform.position = pos;
-            }
 
             // Weapon Socket Update
             if (weaponSocket != null && TargetParent != null)
@@ -839,10 +853,13 @@ namespace junklite
             jumpBufferTimer = 0f;
         }
 
+        /// <summary>Moves exactly to position (respawn). The lane depth follows the new position.</summary>
         public void TeleportTo(Vector3 position)
         {
             ExternalRepositioned?.Invoke();
-            if (snapToZPosition) position.z = fixedZPosition;
+            fixedZPosition = position.z;
+            // Write the body too: with interpolation a transform-only move can be reverted next physics step.
+            rb.position = position;
             transform.position = position;
             StopAllVelocity();
         }
@@ -878,7 +895,7 @@ namespace junklite
         /// </summary>
         public float GetMovementInputMagnitude()
         {
-            return Mathf.Abs(moveInput.x);
+            return Mathf.Max(Mathf.Abs(moveInput.x), Mathf.Abs(moveInput.z));
         }
 
         /// <summary>
@@ -1032,7 +1049,9 @@ namespace junklite
             Vector3 vel =
                 right * targetRightVel +
                 up * currentUpVel +
-                Vector3.Project(rb.linearVelocity, transform.forward);
+                (IsFreeRoaming
+                    ? transform.forward * (moveInput.z * zMoveSpeed)
+                    : Vector3.Project(rb.linearVelocity, transform.forward));
 
             rb.linearVelocity = vel;
 

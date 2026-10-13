@@ -586,6 +586,10 @@ namespace junklite
 
         private void OnGroundedChanged(bool grounded)
         {
+            // Dying mid-air (e.g. thrown by the Brute) must not land into idle over the death pose.
+            if (!playerState.IsAlive)
+                return;
+
             // Don't override when a force-override animation is playing (e.g. GroundPound)
             if (forceOverrideActive)
                 return;
@@ -630,6 +634,9 @@ namespace junklite
 
         private void OnDashingChanged(bool dashing)
         {
+            if (!playerState.IsAlive)
+                return;
+
             if (dashing)
             {
                 InterruptAttack("dash");

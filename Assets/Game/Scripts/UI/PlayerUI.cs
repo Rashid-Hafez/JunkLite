@@ -267,6 +267,7 @@ namespace junklite
             if (interactable == null || interactable.WeaponPickup == null) return;
 
             activeInteractable = interactable;
+            TutorialPromptHUD.HideInteract(interactable, instant: true);
             OpenWeaponPickup(interactable.WeaponPickup);
         }
 

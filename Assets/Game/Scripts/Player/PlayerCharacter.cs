@@ -60,6 +60,7 @@ namespace junklite
 
         // Movement input
         float horizontalAxis = 0f;
+        float verticalAxis = 0f;
 
         // Cached
         Collider[] _cachedColliders;
@@ -84,6 +85,8 @@ namespace junklite
         public StatusEffectHandler StatusEffects => statusEffects;
         public Attribute Health => attributes ? attributes.Health : null;
         public bool IsAlive => attributes ? attributes.IsAlive : true;
+        /// <summary>Set by simulation levels: damage is clamped so health never reaches 0.</summary>
+        public bool CannotDie { get; set; }
         public bool IsActive { get; private set; }
 
         // Grab state
@@ -387,7 +390,7 @@ namespace junklite
         {
             if (playerState != null && playerState.CanMove && Controller != null)
             {
-                Controller.SetMovementInput(horizontalAxis);
+                Controller.SetMovementInput(horizontalAxis, verticalAxis);
                 Controller.SetJumpHeld(JumpHeld);
             }
 
@@ -442,10 +445,9 @@ namespace junklite
 
         void HandleInput()
         {
-            if (inputManager != null && playerState != null && playerState.CanMove && Controller != null)
-                horizontalAxis = inputManager.MoveDirection.x;
-            else
-                horizontalAxis = 0f;
+            bool canMove = inputManager != null && playerState != null && playerState.CanMove && Controller != null;
+            horizontalAxis = canMove ? inputManager.MoveDirection.x : 0f;
+            verticalAxis = canMove ? inputManager.MoveDirection.y : 0f;
 
         }
 
@@ -792,6 +794,16 @@ namespace junklite
 
                     request = request.WithAmount(remainder);
                 }
+            }
+
+            // Simulation levels: hits still land, but never below 1 HP.
+            if (CannotDie && Health != null)
+            {
+                float allowed = Health.Current - 1f;
+                if (allowed <= 0f)
+                    return DamageResult.Rejected(DamageOutcome.Invulnerable, originallyRequested);
+                if (request.Amount > allowed)
+                    request = request.WithAmount(allowed);
             }
 
             DamageResult result = damageable.ReceiveDamage(request)
