@@ -1,357 +1,406 @@
-﻿using DG.Tweening;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace junklite
 {
-    /// <summary>
-    /// Fully code-generated level HUD. Attach to any GameObject — no prefab wiring needed.
-    /// Assign TimerAnchor and KillAnchor RectTransforms in the Inspector to control placement.
-    /// </summary>
+    /// <summary>Run statistics grouped above gameplay, clear of the developer overlays.</summary>
     public class LevelHUD : MonoBehaviour
     {
-        #region Inspector
-
-        [Header("Anchor Points  (assign RectTransforms to control placement)")]
-        [Tooltip("The timer panel will be built centred on this RectTransform.")]
+        [Header("Layout")]
+        [Tooltip("Opt in to separate scene positions. By default both statistics share a safe-area, top-center strip.")]
+        [SerializeField] private bool useCustomAnchors;
+        [Tooltip("Optional timer position with Use Custom Anchors. Existing graphics are replaced at runtime.")]
         [SerializeField] private RectTransform timerAnchor;
-        [Tooltip("The kill counter panel will be built centred on this RectTransform.")]
+        [Tooltip("Optional kills position with Use Custom Anchors. Existing graphics are replaced at runtime.")]
         [SerializeField] private RectTransform killAnchor;
 
-        [Header("Fonts  (optional — assign TMP Font Assets for best look)")]
-        [Tooltip("Used for numbers. Orbitron works well.")]
-        [SerializeField] private TMP_FontAsset displayFont;
-        [Tooltip("Used for labels. Exo 2 works well.")]
-        [SerializeField] private TMP_FontAsset bodyFont;
-
-        [Header("Kill Counter")]
-        [SerializeField] private string killPrefix = "☠";
-
-        [Header("Kill Pulse")]
+        [Header("Kill Feedback")]
         [SerializeField] private bool pulseOnKill = true;
-        [SerializeField] private float pulseDuration = 0.15f;
-        [SerializeField] private float pulseScale = 1.25f;
+        [Min(0.01f)] [SerializeField] private float pulseDuration = 0.18f;
+        [Range(1f, 1.1f)] [SerializeField] private float pulseScale = 1.06f;
 
-        #endregion
+        private static readonly Color Frame = new(0.032f, 0.045f, 0.087f, 0.94f);
+        private static readonly Color Cyan = new(0.24f, 0.91f, 0.98f, 1f);
+        private static readonly Color Magenta = new(0.86f, 0.25f, 0.89f, 1f);
+        private static readonly Color Paper = new(0.9f, 0.94f, 1f, 1f);
+        private static readonly Color Line = new(0.18f, 0.27f, 0.38f, 0.75f);
+        private const float CardWidth = 196f;
+        private const float CardHeight = 80f;
+        private const float CardGap = 8f;
+        private const float StripWidth = CardWidth * 2f + CardGap;
 
-        #region Palette
+        private readonly List<Graphic> replacedGraphics = new();
+        private LevelStatsTracker tracker;
+        private RectTransform safeAreaRoot;
+        private RectTransform strip;
+        private RectTransform timerPanel;
+        private RectTransform killPanel;
+        private TextMeshProUGUI timerValue;
+        private TextMeshProUGUI killValue;
+        private CanvasGroup presentation;
+        private float pulseRemaining;
+        private int displayedSecond = -1;
+        private int lastScreenWidth;
+        private int lastScreenHeight;
+        private Rect lastSafeArea;
 
-        static Color Hex(string h) { ColorUtility.TryParseHtmlString(h, out var c); return c; }
+        private void Awake() => BuildUI();
 
-        static readonly Color C_PANEL = new Color(0.051f, 0.086f, 0.137f, 0.85f);
-        static readonly Color C_ACCENT = Hex("#1AFF7A");
-        static readonly Color C_TXT = Hex("#E8F4FF");
-        static readonly Color C_LBL = Hex("#3A7055");
-
-        #endregion
-
-        #region Runtime
-
-        LevelStatsTracker _tracker;
-
-        TextMeshProUGUI _timerValue;
-        TextMeshProUGUI _killValue;
-        RectTransform _killValueRT;
-        Vector3 _killBaseScale;
-
-        float _pulseTimer;
-        bool _isPulsing;
-        bool _uiBuilt;
-        int _displayedSecond = -1;
-
-        #endregion
-
-        #region Unity Lifecycle
-
-        void Awake() => BuildUI();
-
-        void Start()
+        private void OnEnable()
         {
-            if (_tracker == null)
+            if (presentation != null) presentation.gameObject.SetActive(true);
+            SetPanelsActive(true);
+            BindTracker();
+        }
+
+        private void Start()
+        {
+            BindTracker();
+            if (tracker == null)
+                Debug.LogWarning("[LevelHUD] No LevelStatsTracker found in scene.", this);
+        }
+
+        private void OnDisable()
+        {
+            Unsubscribe();
+            ResetPulse();
+            SetPanelsActive(false);
+            if (presentation != null) presentation.gameObject.SetActive(false);
+        }
+
+        private void OnDestroy()
+        {
+            // Custom anchors can live outside this component's hierarchy.
+            if (timerPanel != null) Destroy(timerPanel.gameObject);
+            if (killPanel != null) Destroy(killPanel.gameObject);
+            if (presentation != null) Destroy(presentation.gameObject);
+            foreach (Graphic graphic in replacedGraphics)
+                if (graphic != null) graphic.enabled = true;
+        }
+
+        private void LateUpdate()
+        {
+            ApplySafeArea();
+            // Keep this scene-local HUD behind the game's modal screens.
+            bool visible = GameManager.Instance == null || GameManager.Instance.IsPlaying;
+            presentation.alpha = visible ? 1f : 0f;
+            if (useCustomAnchors) SetPanelsActive(visible);
+
+            if (pulseRemaining <= 0f) return;
+            pulseRemaining = Mathf.Max(0f, pulseRemaining - Time.deltaTime);
+            float progress = 1f - pulseRemaining / Mathf.Max(0.01f, pulseDuration);
+            float pulse = Mathf.Sin(progress * Mathf.PI);
+            // Clamp legacy scene values too, so feedback stays inside the card.
+            killValue.rectTransform.localScale = Vector3.one *
+                Mathf.Lerp(1f, Mathf.Clamp(pulseScale, 1f, 1.1f), pulse);
+            killValue.color = Color.Lerp(Paper, Magenta, pulse * 0.65f);
+            if (pulseRemaining <= 0f) ResetPulse();
+        }
+
+        private void BindTracker()
+        {
+            LevelStatsTracker current = LevelStatsTracker.Instance;
+            if (tracker != current)
             {
-                _tracker = LevelStatsTracker.Instance;
-                if (_tracker != null) Subscribe();
-                else Debug.LogWarning("[LevelHUD] No LevelStatsTracker found in scene.", this);
+                Unsubscribe();
+                tracker = current;
+                if (tracker != null)
+                {
+                    tracker.OnTimerTick += RefreshTimer;
+                    tracker.OnEnemyKilled += HandleEnemyKilled;
+                    tracker.OnLevelStarted += HandleLevelStarted;
+                    tracker.OnLevelCompleted += HandleLevelCompleted;
+                    tracker.OnTotalEnemiesSet += HandleTotalEnemiesSet;
+                }
             }
+            if (tracker == null) return;
+            RefreshTimer(tracker.ElapsedTime);
+            RefreshKills(tracker.TotalKills);
         }
 
-        void OnEnable()
+        private void Unsubscribe()
         {
-            _tracker = LevelStatsTracker.Instance;
-            if (_tracker != null) Subscribe();
-        }
-
-        void OnDisable()
-        {
-            if (_tracker != null) Unsubscribe();
-        }
-
-        void Update()
-        {
-            if (!_isPulsing) return;
-
-            _pulseTimer -= Time.deltaTime;
-            float t = 1f - (_pulseTimer / pulseDuration);
-            float scale = t < 0.5f
-                ? Mathf.Lerp(1f, pulseScale, t * 2f)
-                : Mathf.Lerp(pulseScale, 1f, (t - 0.5f) * 2f);
-
-            if (_killValueRT != null)
-                _killValueRT.localScale = _killBaseScale * scale;
-
-            if (_pulseTimer <= 0f)
+            if (tracker != null)
             {
-                _isPulsing = false;
-                if (_killValueRT != null)
-                    _killValueRT.localScale = _killBaseScale;
+                tracker.OnTimerTick -= RefreshTimer;
+                tracker.OnEnemyKilled -= HandleEnemyKilled;
+                tracker.OnLevelStarted -= HandleLevelStarted;
+                tracker.OnLevelCompleted -= HandleLevelCompleted;
+                tracker.OnTotalEnemiesSet -= HandleTotalEnemiesSet;
             }
+            tracker = null;
         }
 
-        #endregion
-
-        #region Subscriptions
-
-        void Subscribe()
+        private void HandleLevelStarted()
         {
-            _tracker.OnTimerTick += HandleTimerTick;
-            _tracker.OnEnemyKilled += HandleEnemyKilled;
-            _tracker.OnLevelStarted += HandleLevelStarted;
-            _tracker.OnLevelCompleted += HandleLevelCompleted;
-            _tracker.OnTotalEnemiesSet += HandleTotalEnemiesSet;
-
-            RefreshTimer(_tracker.ElapsedTime);
-            RefreshKills(_tracker.TotalKills);
+            ResetPulse();
+            RefreshTimer(0f);
+            RefreshKills(0);
         }
 
-        void Unsubscribe()
-        {
-            _tracker.OnTimerTick -= HandleTimerTick;
-            _tracker.OnEnemyKilled -= HandleEnemyKilled;
-            _tracker.OnLevelStarted -= HandleLevelStarted;
-            _tracker.OnLevelCompleted -= HandleLevelCompleted;
-            _tracker.OnTotalEnemiesSet -= HandleTotalEnemiesSet;
-        }
+        private void HandleLevelCompleted(LevelStats stats) => RefreshTimer(stats.CompletionTime);
+        private void HandleTotalEnemiesSet(int total) => RefreshKills(tracker.TotalKills);
 
-        #endregion
-
-        #region Event Handlers
-
-        void HandleTimerTick(float elapsed) => RefreshTimer(elapsed);
-        void HandleLevelStarted() { RefreshTimer(0f); RefreshKills(0); }
-        void HandleLevelCompleted(LevelStats s) => RefreshTimer(s.CompletionTime);
-        void HandleTotalEnemiesSet(int total) => RefreshKills(_tracker.TotalKills);
-
-        void HandleEnemyKilled(EnemyType type, int typeCount, int totalKills)
+        private void HandleEnemyKilled(EnemyType type, int typeCount, int totalKills)
         {
             RefreshKills(totalKills);
-            if (pulseOnKill && _killValueRT != null)
-            {
-                _pulseTimer = pulseDuration;
-                _isPulsing = true;
-            }
+            if (pulseOnKill) pulseRemaining = Mathf.Max(0.01f, pulseDuration);
         }
 
-        #endregion
+        private void ResetPulse()
+        {
+            pulseRemaining = 0f;
+            if (killValue == null) return;
+            killValue.rectTransform.localScale = Vector3.one;
+            killValue.color = Paper;
+        }
 
-        #region Display
-
-        void RefreshTimer(float seconds)
+        private void RefreshTimer(float seconds)
         {
             int elapsedSecond = Mathf.Max(0, Mathf.FloorToInt(seconds));
-            if (_timerValue == null || elapsedSecond == _displayedSecond) return;
-
-            _displayedSecond = elapsedSecond;
-            int minutes = elapsedSecond / 60;
-            int remainingSeconds = elapsedSecond % 60;
-            _timerValue.SetText("{0}:{1:00}", minutes, remainingSeconds);
+            if (timerValue == null || elapsedSecond == displayedSecond) return;
+            displayedSecond = elapsedSecond;
+            // Fixed digit advances prevent horizontal jitter as the seconds change.
+            timerValue.SetText("<mspace=0.65em>{0:00}:{1:00}</mspace>", elapsedSecond / 60, elapsedSecond % 60);
         }
 
-        void RefreshKills(int count)
+        private void RefreshKills(int count)
         {
-            if (_killValue == null) return;
-            int total = _tracker != null ? _tracker.TotalEnemies : 0;
+            if (killValue == null) return;
+            int total = tracker != null ? tracker.TotalEnemies : 0;
             if (total > 0)
-                _killValue.SetText("{0}/{1}", count, total);
+                killValue.SetText("{0}<size=62%><color=#829CBD> / {1}</color></size>", count, total);
             else
-                _killValue.SetText("{0}", count);
+                killValue.SetText("{0}", count);
         }
 
-        #endregion
-
-        // ═══════════════════════════════════════════════════════════════════
-        #region Build UI
-
-        void BuildUI()
+        private void BuildUI()
         {
-            if (_uiBuilt) return;
-            _uiBuilt = true;
+            if (safeAreaRoot != null) return;
+            // Legacy anchors contain placeholder text/icons as well as placement data.
+            // Retire only their graphics, preserving authored transforms and scene files.
+            ReplaceAnchorGraphics(timerAnchor);
+            ReplaceAnchorGraphics(killAnchor);
 
-            // ── Canvas ──────────────────────────────────────────────────────
-            var cGO = new GameObject("HUDCanvas");
-            cGO.transform.SetParent(transform, false);
-
-            var canvas = cGO.AddComponent<Canvas>();
+            var canvasRect = NewRect(transform, "Level Stats Canvas");
+            // LevelHUD is nested under a Canvas in authored scenes. A nested Canvas
+            // keeps a local 100x100 rect and its CanvasScaler does not run. Detach
+            // before adding Canvas so it owns screen coordinates and scaling.
+            // Parenting first preserves the owner's scene; OnDisable/OnDestroy
+            // explicitly manage this scene-local runtime root.
+            canvasRect.SetParent(null, false);
+            var canvas = canvasRect.gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.overrideSorting = true;
             canvas.sortingOrder = 10;
+            presentation = canvasRect.gameObject.AddComponent<CanvasGroup>();
+            presentation.interactable = false;
+            presentation.blocksRaycasts = false;
 
-            var scaler = cGO.AddComponent<CanvasScaler>();
+            var scaler = canvasRect.gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
 
-            cGO.AddComponent<GraphicRaycaster>();
+            safeAreaRoot = NewRect(canvasRect, "Safe Area");
+            Stretch(safeAreaRoot);
+            strip = NewRect(safeAreaRoot, "Run Statistics");
+            strip.anchorMin = strip.anchorMax = strip.pivot = new Vector2(0.5f, 1f);
+            strip.anchoredPosition = new Vector2(0f, -32f);
+            strip.sizeDelta = new Vector2(StripWidth, CardHeight);
 
-            // ── Root ─────────────────────────────────────────────────────────
-            var root = NewRT(cGO.transform, "Root");
-            Stretch(root);
-
-            // Use anchors if assigned, otherwise fall back to root with default corners
-            var timerParent = timerAnchor != null ? timerAnchor : root;
-            var killParent = killAnchor != null ? killAnchor : root;
-
-            BuildTimerWidget(timerParent, timerAnchor == null);
-            BuildKillWidget(killParent, killAnchor == null);
+            timerPanel = BuildCard("Timer", null, Cyan, timerAnchor, 0f, out timerValue);
+            killPanel = BuildCard("Kills", "KILLS", Magenta, killAnchor, CardWidth + CardGap, out killValue);
+            RefreshTimer(0f);
+            RefreshKills(0);
+            ApplySafeArea();
         }
 
-        // ── Timer widget ──────────────────────────────────────────────────
-        void BuildTimerWidget(Transform parent, bool useDefaultCorner)
+        private RectTransform BuildCard(string name, string label, Color accent,
+            RectTransform customAnchor, float x, out TextMeshProUGUI value)
         {
-            var panel = NewRT(parent, "TimerPanel");
-            panel.sizeDelta = new Vector2(240f, 56f);
-
-            if (useDefaultCorner)
-            {
-                panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(1f, 1f);
-                panel.anchoredPosition = new Vector2(-40f, -40f);
-            }
+            bool custom = useCustomAnchors && customAnchor != null;
+            RectTransform panel = NewRect(custom ? customAnchor : strip, name);
+            panel.sizeDelta = new Vector2(CardWidth, CardHeight);
+            if (custom)
+                panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(0.5f, 0.5f);
             else
             {
-                panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(0.5f, 0.5f);
-                panel.anchoredPosition = Vector2.zero;
-            }
-
-            // Pill background
-            var bg = AddImg(panel, C_PANEL);
-            bg.raycastTarget = false;
-
-            // Bottom accent line only
-            var line = NewRT(panel, "BottomLine");
-            line.anchorMin = new Vector2(0f, 0f); line.anchorMax = new Vector2(1f, 0f);
-            line.pivot = new Vector2(0.5f, 0f);
-            line.sizeDelta = new Vector2(0f, 2f);
-            line.anchoredPosition = Vector2.zero;
-            AddImg(line, C_ACCENT);
-
-            // Timer value — centred
-            var val = MakeTMP(panel, "Value", "0:00", 28f, C_TXT, displayFont);
-            val.fontStyle = FontStyles.Bold;
-            val.alignment = TextAlignmentOptions.Center;
-            Stretch(val.rectTransform);
-            val.rectTransform.offsetMin = new Vector2(16f, 4f);
-            val.rectTransform.offsetMax = new Vector2(-16f, -4f);
-
-            _timerValue = val;
-        }
-
-        // ── Kill counter widget ───────────────────────────────────────────
-        void BuildKillWidget(Transform parent, bool useDefaultCorner)
-        {
-            var panel = NewRT(parent, "KillPanel");
-            panel.sizeDelta = new Vector2(220f, 72f);
-
-            if (useDefaultCorner)
-            {
-                // Default: top-left corner
                 panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(0f, 1f);
-                panel.anchoredPosition = new Vector2(40f, -40f);
+                panel.anchoredPosition = new Vector2(x, 0f);
+            }
+
+            AddImage(panel, Frame);
+            Rule(panel, "Top Border", 0f, 0f, CardWidth, 1f, Line);
+            Rule(panel, "Bottom Border", 0f, CardHeight - 1f, CardWidth, 1f, Line);
+            Rule(panel, "Left Border", 0f, 0f, 1f, CardHeight, Line);
+            Rule(panel, "Right Border", CardWidth - 1f, 0f, 1f, CardHeight, Line);
+            Rule(panel, "Signal Rail", 0f, 0f, 48f, 2f, accent);
+            Rule(panel, "Signal Corner", 0f, 0f, 2f, 18f, accent);
+
+            if (label == null)
+            {
+                RectTransform iconRect = NewRect(panel, "Clock Icon");
+                Place(iconRect, 16f, 10f, 20f, 20f);
+                var icon = iconRect.gameObject.AddComponent<LevelHudClockIcon>();
+                icon.color = accent;
+                icon.raycastTarget = false;
             }
             else
             {
-                panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(0.5f, 0.5f);
-                panel.anchoredPosition = Vector2.zero;
+                TextMeshProUGUI title = MakeText(panel, "Label", label, 20f, accent, true);
+                Place(title.rectTransform, 16f, 8f, CardWidth - 32f, 24f);
+                title.characterSpacing = 1.5f;
             }
 
-            AddImg(panel, C_PANEL);
-
-            // Left accent bar
-            var bar = NewRT(panel, "Bar");
-            bar.anchorMin = bar.anchorMax = bar.pivot = new Vector2(0f, 0.5f);
-            bar.sizeDelta = new Vector2(3f, 72f);
-            bar.anchoredPosition = Vector2.zero;
-            AddImg(bar, C_ACCENT);
-
-            // Kill icon
-            var icon = MakeTMP(panel, "Icon", killPrefix, 14f, C_ACCENT, bodyFont);
-            icon.alignment = TextAlignmentOptions.Left;
-            var ir = icon.rectTransform;
-            ir.anchorMin = new Vector2(0f, 1f); ir.anchorMax = new Vector2(0f, 1f);
-            ir.pivot = new Vector2(0f, 1f);
-            ir.sizeDelta = new Vector2(30f, 20f);
-            ir.anchoredPosition = new Vector2(16f, -8f);
-
-            // "KILLS" label
-            var lbl = MakeTMP(panel, "Lbl", "KILLS", 10f, C_LBL, bodyFont);
-            lbl.characterSpacing = 5f;
-            lbl.alignment = TextAlignmentOptions.Left;
-            var lr = lbl.rectTransform;
-            lr.anchorMin = new Vector2(0f, 1f); lr.anchorMax = new Vector2(1f, 1f);
-            lr.pivot = new Vector2(0f, 1f);
-            lr.sizeDelta = new Vector2(0f, 20f);
-            lr.anchoredPosition = new Vector2(42f, -8f);
-
-            // Kill value
-            var val = MakeTMP(panel, "Value", "0", 32f, C_ACCENT, displayFont);
-            val.fontStyle = FontStyles.Bold;
-            val.alignment = TextAlignmentOptions.Left;
-            var vr = val.rectTransform;
-            vr.anchorMin = Vector2.zero; vr.anchorMax = new Vector2(1f, 1f);
-            vr.offsetMin = new Vector2(16f, 0f);
-            vr.offsetMax = new Vector2(-16f, -22f);
-
-            _killValue = val;
-            _killValueRT = val.rectTransform;
-            _killBaseScale = _killValueRT.localScale;
+            value = MakeText(panel, "Value", "0", 30f, Paper, false);
+            Place(value.rectTransform, 16f, 31f, CardWidth - 32f, 40f);
+            value.fontStyle = FontStyles.Bold;
+            value.enableAutoSizing = true;
+            value.fontSizeMin = 18f;
+            value.fontSizeMax = 30f;
+            return panel;
         }
 
-        #endregion
+        private void ApplySafeArea()
+        {
+            int width = Screen.width;
+            int height = Screen.height;
+            Rect safe = Screen.safeArea;
+            if (width <= 0 || height <= 0) return;
+            if (width != lastScreenWidth || height != lastScreenHeight || safe != lastSafeArea)
+            {
+                lastScreenWidth = width;
+                lastScreenHeight = height;
+                lastSafeArea = safe;
+                safeAreaRoot.anchorMin = new Vector2(safe.xMin / width, safe.yMin / height);
+                safeAreaRoot.anchorMax = new Vector2(safe.xMax / width, safe.yMax / height);
+                safeAreaRoot.offsetMin = safeAreaRoot.offsetMax = Vector2.zero;
+            }
+            float scale = Mathf.Clamp01((safeAreaRoot.rect.width - 48f) / StripWidth);
+            strip.localScale = Vector3.one * scale;
+        }
 
-        #region Low-Level Helpers
+        private void ReplaceAnchorGraphics(RectTransform anchor)
+        {
+            if (anchor == null) return;
+            foreach (Graphic graphic in anchor.GetComponentsInChildren<Graphic>(true))
+            {
+                if (!graphic.enabled) continue;
+                replacedGraphics.Add(graphic);
+                graphic.enabled = false;
+            }
+        }
 
-        RectTransform NewRT(Transform parent, string name)
+        private void SetPanelsActive(bool active)
+        {
+            if (timerPanel != null) timerPanel.gameObject.SetActive(active);
+            if (killPanel != null) killPanel.gameObject.SetActive(active);
+        }
+
+        private static RectTransform NewRect(Transform parent, string name)
         {
             var go = new GameObject(name, typeof(RectTransform));
+            go.layer = parent.gameObject.layer;
             go.transform.SetParent(parent, false);
-            return go.GetComponent<RectTransform>();
+            return (RectTransform)go.transform;
         }
 
-        Image AddImg(RectTransform rt, Color color)
+        private static void AddImage(RectTransform rect, Color color)
         {
-            var img = rt.gameObject.AddComponent<Image>();
-            img.color = color;
-            return img;
+            Image image = rect.gameObject.AddComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
         }
 
-        TextMeshProUGUI MakeTMP(Transform parent, string name, string text,
-                                 float size, Color color, TMP_FontAsset font)
+        private static void Rule(Transform parent, string name, float x, float y, float width, float height, Color color)
         {
-            var rt = NewRT(parent, name);
-            var tmp = rt.gameObject.AddComponent<TextMeshProUGUI>();
+            RectTransform rect = NewRect(parent, name);
+            Place(rect, x, y, width, height);
+            AddImage(rect, color);
+        }
+
+        private static TextMeshProUGUI MakeText(Transform parent, string name, string text,
+            float size, Color color, bool title)
+        {
+            var tmp = NewRect(parent, name).gameObject.AddComponent<TextMeshProUGUI>();
+            if (title) UIFonts.ApplyHudTitle(tmp);
+            else UIFonts.ApplyHudBody(tmp);
             tmp.text = text;
             tmp.fontSize = size;
             tmp.color = color;
-            if (font != null) tmp.font = font;
+            tmp.raycastTarget = false;
+            tmp.alignment = TextAlignmentOptions.MidlineLeft;
+            tmp.textWrappingMode = TextWrappingModes.NoWrap;
+            tmp.overflowMode = TextOverflowModes.Ellipsis;
             return tmp;
         }
 
-        void Stretch(RectTransform rt)
+        private static void Place(RectTransform rect, float x, float y, float width, float height)
         {
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = rt.offsetMax = Vector2.zero;
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(x, -y);
+            rect.sizeDelta = new Vector2(width, height);
         }
 
-        #endregion
+        private static void Stretch(RectTransform rect)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+        }
+    }
+
+    /// <summary>A small UI clock drawn in one mesh, with no font glyph or texture dependency.</summary>
+    [AddComponentMenu("")]
+    [RequireComponent(typeof(CanvasRenderer))]
+    internal sealed class LevelHudClockIcon : MaskableGraphic
+    {
+        protected override void OnPopulateMesh(VertexHelper vh)
+        {
+            vh.Clear();
+            Rect rect = GetPixelAdjustedRect();
+            float size = Mathf.Min(rect.width, rect.height);
+            if (size <= 0f) return;
+
+            Vector2 center = rect.center;
+            float outer = size * 0.46f;
+            float inner = outer - size * 0.09f;
+            const int segments = 32;
+            for (int i = 0; i < segments; i++)
+            {
+                float angle = i * Mathf.PI * 2f / segments;
+                float nextAngle = (i + 1) * Mathf.PI * 2f / segments;
+                Vector2 from = new(Mathf.Cos(angle), Mathf.Sin(angle));
+                Vector2 to = new(Mathf.Cos(nextAngle), Mathf.Sin(nextAngle));
+                AddQuad(vh, center + from * outer, center + from * inner,
+                    center + to * inner, center + to * outer);
+            }
+
+            // Fixed hands at three o'clock remain readable at small HUD sizes.
+            float halfStroke = size * 0.045f;
+            AddQuad(vh, center + new Vector2(-halfStroke, -halfStroke),
+                center + new Vector2(-halfStroke, size * 0.28f),
+                center + new Vector2(halfStroke, size * 0.28f),
+                center + new Vector2(halfStroke, -halfStroke));
+            AddQuad(vh, center + new Vector2(-halfStroke, -halfStroke),
+                center + new Vector2(-halfStroke, halfStroke),
+                center + new Vector2(size * 0.22f, halfStroke),
+                center + new Vector2(size * 0.22f, -halfStroke));
+        }
+
+        private void AddQuad(VertexHelper vh, Vector2 a, Vector2 b, Vector2 c, Vector2 d)
+        {
+            int first = vh.currentVertCount;
+            vh.AddVert(a, color, Vector2.zero);
+            vh.AddVert(b, color, Vector2.zero);
+            vh.AddVert(c, color, Vector2.zero);
+            vh.AddVert(d, color, Vector2.zero);
+            vh.AddTriangle(first, first + 1, first + 2);
+            vh.AddTriangle(first, first + 2, first + 3);
+        }
     }
 }
