@@ -335,58 +335,25 @@ namespace junklite.Tests
             Assert.That(Resolve(Vector3.right, out _, out _), Is.False);
         }
 
-        [TestCase(1)]
-        [TestCase(2)]
-        public void OnlyAnUnbrokenGrappleWeaponInEitherEquippedSlotEnablesTraversal(int slot)
+        [Test]
+        public void OnlyTheGrappleHookItemEnablesTraversal()
         {
             PlayerSwordGrapple grapple = CreateGrapple();
-            Assert.That(grapple.HasUsableSword(), Is.False);
-            WeaponInstance weapon = EquipSword(grapple, slot);
-            weapon.weaponData.enablesSwordGrapple = false;
-            Assert.That(grapple.HasUsableSword(), Is.False);
-            weapon.weaponData.enablesSwordGrapple = true;
-            Assert.That(grapple.HasUsableSword(), Is.True);
-            SetField(weapon, "currentDurability", 0f);
-            Assert.That(grapple.HasUsableSword(), Is.False);
+            Assert.That(grapple.HasGrappleHook, Is.False);
+            grapple.BeginAim();
+            Assert.That(grapple.IsActive, Is.False);
+            GiveHook(grapple);
+            Assert.That(grapple.HasGrappleHook, Is.True);
         }
 
         [Test]
-        public void MissingHolsteredOrDetachedSwordCannotStartGrappling()
+        public void GrappleHookWorksWithoutCombatModeOrSword()
         {
             var grapple = CreateGrapple();
+            GiveHook(grapple);
+            Assert.That(grapple.GetComponent<WeaponManager>().IsModCombat, Is.False);
             grapple.BeginAim();
-            Assert.That(grapple.IsActive, Is.False);
-            Assert.That(grapple.ConsumePrimaryAttack(), Is.False);
-            var weapon = EquipSword(grapple, 1, false);
-            Assert.That(grapple.HasUsableSword(), Is.False);
-            grapple.BeginAim();
-            Assert.That(grapple.IsActive, Is.False);
-            Assert.That(GetField<SwordGrappleVisuals>(grapple, "visuals"), Is.Null);
-
-            Assert.That(grapple.GetComponent<WeaponManager>().TryToggleCombatMode(), Is.True);
-            Assert.That(grapple.HasUsableSword(), Is.True);
-            weapon.transform.SetParent(null, true);
-            Assert.That(grapple.HasUsableSword(), Is.False);
-            grapple.BeginAim();
-            Assert.That(grapple.IsActive, Is.False);
-            weapon.transform.SetParent(grapple.transform, false);
-            weapon.gameObject.SetActive(false);
-            Assert.That(grapple.HasUsableSword(), Is.False);
-        }
-
-        [Test]
-        public void ForcedHolsteringCancelsWallHoldAndReleasesItsLocks()
-        {
-            var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
-            boundGrapple = grapple;
-            Invoke(grapple, "OnEnable");
-            CreateWall();
-            ReachWall(grapple);
-            Invoke(grapple.GetComponent<WeaponManager>(), "ExitModCombat");
-            Assert.That(grapple.Phase, Is.EqualTo(SwordGrapplePhase.Idle));
-            Assert.That(grapple.HasUsableSword(), Is.False);
-            Assert.That(grapple.GetComponent<Character2D5Controller>().IsPhysicsOverridden, Is.False);
+            Assert.That(grapple.IsActive, Is.True);
         }
 
         [Test]
@@ -771,7 +738,7 @@ namespace junklite.Tests
             Invoke(grapple, "LateUpdate");
             Assert.That(visuals.gameObject.activeInHierarchy, Is.True);
             Assert.That(GetField<SpriteRenderer>(visuals, "sword").sprite, Is.SameAs(weapon.weaponData.icon));
-            Assert.That(grapple.HasUsableSword(), Is.True, "Hiding the in-hand renderer during flight must not unequip the reserved sword.");
+            Assert.That(grapple.HasGrappleHook, Is.True, "Hiding the in-hand renderer during flight must not unequip the reserved sword.");
         }
 
         [Test]
@@ -925,7 +892,7 @@ namespace junklite.Tests
             Assert.That(state.IsWallSliding, Is.True);
             Assert.That(controller.Velocity.y, Is.EqualTo(-settings.wallSlideSpeed));
             Assert.That(grapple.IsActive, Is.False);
-            Assert.That(grapple.HasUsableSword(), Is.False);
+            Assert.That(grapple.HasGrappleHook, Is.False);
             wall.enabled = false;
             Invoke(controller, "FixedUpdate");
             Assert.That(state.IsWallSliding, Is.False);
@@ -1080,6 +1047,7 @@ namespace junklite.Tests
             player.AddComponent<Rigidbody>().useGravity = false;
             player.AddComponent<PlayerState>();
             player.AddComponent<PlayerWeaponLoadout>();
+            player.AddComponent<PlayerKeyring>();
             var controller = player.AddComponent<Character2D5Controller>();
             Invoke(controller, "Awake");
             var weapons = player.AddComponent<WeaponManager>();
@@ -1124,9 +1092,16 @@ namespace junklite.Tests
             weapon.weaponData = data;
             weapon.transform.SetParent(grapple.transform, false);
             SetField(grapple.GetComponent<PlayerWeaponLoadout>(), "weaponSlot" + slot, weapon);
+            GiveHook(grapple);
             if (draw && !grapple.GetComponent<WeaponManager>().IsModCombat)
                 Assert.That(grapple.GetComponent<WeaponManager>().TryToggleCombatMode(), Is.True);
             return weapon;
+        }
+
+        private static void GiveHook(PlayerSwordGrapple grapple)
+        {
+            var keyring = grapple.GetComponent<PlayerKeyring>();
+            if (!keyring.Has(PlayerKeyring.GrappleHook)) keyring.Add(PlayerKeyring.GrappleHook);
         }
 
         private bool Resolve(Vector3 direction, out SwordGrappleTarget target, out Vector3 preview)

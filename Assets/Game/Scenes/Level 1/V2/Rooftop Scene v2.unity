@@ -122027,6 +122027,7 @@ MonoBehaviour:
   mode: 3
   autoRegisterAllEnemies: 1
   trackedEnemies: []
+  countSceneEnemiesForStats: 1
   playerTag: Player
   requiredEncounters:
   - {fileID: 388834203}
@@ -144051,11 +144052,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8ddde1f977b5e0746a9d28527723e551, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.LevelHUD
+  useCustomAnchors: 0
   timerAnchor: {fileID: 416771680}
   killAnchor: {fileID: 1670390529}
-  displayFont: {fileID: 11400000, guid: 79307f501eb267b44be9d7ca808a3dfb, type: 2}
-  bodyFont: {fileID: 11400000, guid: 79307f501eb267b44be9d7ca808a3dfb, type: 2}
-  killPrefix: x
   pulseOnKill: 1
   pulseDuration: 0.15
   pulseScale: 1.3
@@ -600392,6 +600391,51 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1030976055, guid: abc00000000003051453590836711852, type: 3}
   m_PrefabInstance: {fileID: 2111914182}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2112056605
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2112056607}
+  - component: {fileID: 2112056606}
+  m_Layer: 0
+  m_Name: GrantGrappleHook
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2112056606
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2112056605}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f1de6ffb09754a6cb106c16c0286f34, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.GrantKeyOnSpawn
+  keyTag: Grapple Hook
+--- !u!4 &2112056607
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2112056605}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &2112266066
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -670590,8 +670634,8 @@ Camera:
   m_Iso: 800
   m_ShutterSpeed: 50
   m_Aperture: 2.8
-  m_FocusDistance: 50
-  m_FocalLength: 55.499996
+  m_FocusDistance: 0.1
+  m_FocalLength: 40
   m_BladeCount: 6
   m_Curvature: {x: 7, y: 15.515409}
   m_BarrelClipping: 0.25
@@ -670606,7 +670650,7 @@ Camera:
     height: 1
   near clip plane: 0.01
   far clip plane: 500
-  field of view: 23.424751
+  field of view: 32.095764
   orthographic: 0
   orthographic size: 10
   m_Depth: 0
@@ -764761,8 +764805,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1475170997830509475}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.06668484, y: 0.02696963, z: 0.0018031393, w: 0.997408}
-  m_LocalPosition: {x: 90.72, y: 6.59, z: -141.84}
+  m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: 164.01709, y: 2.72, z: -0.40000153}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -775745,3 +775789,4 @@ SceneRoots:
   - {fileID: 1516606348}
   - {fileID: 855775748}
   - {fileID: 916625449}
+  - {fileID: 2112056607}

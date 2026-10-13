@@ -17,6 +17,8 @@ namespace junklite
         [SerializeField] private string promptLabel = "Open The CyberBox";
         [Tooltip("Optional. The player needs this keyring item (e.g. Grapple Hook) to open the box.")]
         [SerializeField] private string requiredKeyTag;
+        [Tooltip("Optional HUD marker (tech ring). Hidden once the box is opened.")]
+        [SerializeField] private GameObject highlight;
 
         [Header("Lid (local space of the lid's parent)")]
         [SerializeField] private Vector3 lidOpenOffset = new Vector3(0f, 1.6f, 2.2f);
@@ -77,6 +79,7 @@ namespace junklite
         {
             if (playerInside == null || opened) return;
             opened = true;
+            if (highlight != null) highlight.SetActive(false);
             Vector3 playerPosition = playerInside.transform.position;
             playerInside = null;
             TutorialPromptHUD.HideInteract(this, completed: true);

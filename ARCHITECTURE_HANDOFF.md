@@ -1,5 +1,12 @@
 # JunkLite Architecture Refactor Handoff
 
+### Grapple hook item, gamepad grapple, no interact in combat (2026-10-13)
+
+- The grapple (and its wall jump) needs the `Grapple Hook` keyring item (`PlayerKeyring.GrappleHook`), not a drawn sword or Mod Combat. `PlayerSwordGrapple.HasGrappleHook` replaces `HasUsableSword`; the sword is only used for the thrown visual when one is drawn.
+- Gamepad: hold LT (`GrappleAim` binding) to aim, right stick picks the direction (neutral = facing), X (`Attack`) throws, A jumps/kicks off the wall.
+- Service Floor: the Brute's `ObjectiveOnDeath.grantKey` gives the hook; its `ObjectiveLink` plays Crow `ServiceFloor_UseGrapple`. `[Gameplay]/Grapple CyberBox` (5A, `requiredKeyTag` = Grapple Hook) holds a heal pickup.
+- `PlayerCharacter.IsInCombat` (from `PlayerCombatTracker`) sets `GameInputManager.InteractBlocker`: Interact is ignored and the shared interact prompt hides while in combat.
+
 ## Objectives, door locks and keys (2026-10-13)
 
 - **Objectives** are scene-local. `ObjectiveDefinition` (ScriptableObject) is read-only config; per-run completion lives on `ObjectiveTracker` (`[Gameplay]`, static `Instance`, duplicates remove only their own component). `Complete` is idempotent and raises `Changed` once. `ObjectiveLink` is the per-object "OBJECTIVE BASED" switch; producers (`HealPickUp` interact mode, `KeyPickup`, `ServiceElevator`, `ObjectiveOnDeath`) call `TryComplete` and stay silent once complete.
@@ -877,3 +884,11 @@ Rope texture generated with the built-in image generation tool. Final prompt:
 - Locked active mod slots accept clicks and controller focus/confirm to show `Reach X level to unlock` in the details card. X comes from that player's progression profile, including customized unlock schedules. Inspecting a locked slot cannot equip, swap or drag a mod into it. Passive slots keep their existing non-level rules and use a generic locked message.
 - Damage progression remains a player outgoing-damage bonus across fists, weapons and abilities; shared weapon base values are unchanged. Cassidy's card reads cumulative flat/percentage bonuses from the same progression profile used by the damage pipeline. Item/mod descriptions explicitly label their authored values BASE DAMAGE. No new scene or Inspector wiring is needed.
 - Validation: runtime/editor compilation succeeds, and all 35 focused progression/UI/damage cases pass (`Logs/progression-ui-tests.xml`). Checks cover perimeter geometry, numeric badges, parry-template cloning/scale, lifecycle cleanup, preview suppression, live stats, label/value colors, hover restoration, max-level fill, gamepad selection and locked-slot click/confirm at both default and customized unlock levels. Actual UGUI/TMP assets were rendered and visually inspected in an isolated Unity 6000.3.22f1 project: `Logs/progression-inventory-preview.png`, `Logs/progression-locked-slot-preview.png`, and `Logs/progression-notification-preview.png`. No full game build or authored-level Play Mode check was performed; the reused parry distortion still needs a visual check with the level's VFX/URP setup.
+
+### Render performance pass (2026-10-14)
+
+- Room 1 was GPU-bound (16.5–19.6 ms) and VSync flipped frames between 60 and 30 fps (jitter). Volumetric fog was ~11 ms of that.
+- `Assets/DefaultVolumeProfile.asset` fog: `maxSteps` 128 → 40, `blurIterations` 2 → 1. `HIGH ASSET RENDER FEATURES` MSAA 4x → 2x (SMAA stays on the camera).
+- `VFX/GlitchFeatureGate` (static, self-starting): the URPGlitch passes blit every frame even at zero intensity, so their renderer features are only active while the glitch volume values are non-zero. Features are set back on at quit so the asset never saves disabled. Don't edit the URPGlitch package for this.
+- `Managers/FrameRateLock` (static, BeforeSceneLoad): 60 fps lock. VSync divider on 60/120/240 Hz, plain cap otherwise.
+- Result in Editor: Room 1 GPU ~7.6 ms uncapped. On Mac, capped GPU timings read higher because the GPU idles; compare uncapped.
