@@ -907,6 +907,17 @@
                 },
                 {
                     "name": "",
+                    "id": "d96a88e8-1d44-4d0d-b9c0-afdbdbf2fa3d",
+                    "path": "<Gamepad>/leftTrigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Gamepad",
+                    "action": "GrappleAim",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "2bf44ba1-f628-4eb1-9353-8e90464bfdf2",
                     "path": "<Keyboard>/rightCtrl",
                     "interactions": "",

@@ -95,6 +95,14 @@ namespace junklite
 
         private void Update()
         {
+            // Entering combat drops a visible interact prompt (only the shared one; tutorial prompts stay).
+            if (this == interactPrompt && interactOwner != null && GameInputManager.Instance != null &&
+                GameInputManager.Instance.IsInteractBlocked)
+            {
+                interactOwner = null;
+                Hide(instant: true);
+            }
+
             if (!IsShowing || scanline == null) return;
 
             // Slow scanline sweep and bracket pulse; cheap per-frame work on a few graphics.
@@ -127,6 +135,8 @@ namespace junklite
         /// </summary>
         public static void ShowInteract(object owner, string label)
         {
+            // No interact prompt while the interact input is blocked (player in combat).
+            if (GameInputManager.Instance != null && GameInputManager.Instance.IsInteractBlocked) return;
             if (interactPrompt == null)
             {
                 interactPrompt = new GameObject("InteractPrompt").AddComponent<TutorialPromptHUD>();

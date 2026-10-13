@@ -83,6 +83,7 @@ namespace junklite
         private const float NavigateRepeatDelay = 0.16f;
         private float nextNavigateTime;
         private bool themedInterfaceBuilt;
+        private bool authoredMissionsPage;
         private RectTransform frameTransform;
         private TMP_FontAsset generatedHeadingFont;
 
@@ -503,6 +504,17 @@ namespace junklite
             if (characterVisual != null)
                 characterVisual.SetParent(transform, false);
 
+            // An authored Missions page (has a MissionsPageView) replaces the code placeholder.
+            // Keep it out of the panel rebuild below; BuildPages moves it into the frame.
+            authoredMissionsPage = missionsScreen != null && missionsScreen.GetComponent<MissionsPageView>() != null;
+            if (authoredMissionsPage)
+            {
+                if (!missionsScreen.scene.IsValid())
+                    missionsScreen = Instantiate(missionsScreen, transform, false);
+                else
+                    missionsScreen.transform.SetParent(transform, false);
+            }
+
             if (panel == null && inventoryScreen != null && inventoryScreen.transform.parent != null)
                 panel = inventoryScreen.transform.parent.gameObject;
             if (panel == null && transform.childCount > 0)
@@ -595,9 +607,16 @@ namespace junklite
             Place((RectTransform)infoScreen.transform, 40f, 170f, 1360f, 568f);
             BuildEmptyPage((RectTransform)infoScreen.transform, "CODEX", "NO CODEX DATA");
 
-            missionsScreen = CreateRect("Missions Page", frameTransform).gameObject;
-            Place((RectTransform)missionsScreen.transform, 40f, 170f, 1360f, 568f);
-            BuildEmptyPage((RectTransform)missionsScreen.transform, "MISSIONS", "NO ACTIVE MISSIONS");
+            if (authoredMissionsPage)
+            {
+                missionsScreen.transform.SetParent(frameTransform, false);
+            }
+            else
+            {
+                missionsScreen = CreateRect("Missions Page", frameTransform).gameObject;
+                Place((RectTransform)missionsScreen.transform, 40f, 170f, 1360f, 568f);
+                BuildEmptyPage((RectTransform)missionsScreen.transform, "MISSIONS", "NO ACTIVE MISSIONS");
+            }
 
             infoScreen.SetActive(false);
             missionsScreen.SetActive(false);

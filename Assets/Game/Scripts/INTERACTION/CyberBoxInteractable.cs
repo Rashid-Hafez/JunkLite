@@ -15,6 +15,8 @@ namespace junklite
         [Tooltip("Inactive until the lid is open. Keep it outside the scaled box mesh hierarchy.")]
         [SerializeField] private GameObject item;
         [SerializeField] private string promptLabel = "Open The CyberBox";
+        [Tooltip("Optional. The player needs this keyring item (e.g. Grapple Hook) to open the box.")]
+        [SerializeField] private string requiredKeyTag;
 
         [Header("Lid (local space of the lid's parent)")]
         [SerializeField] private Vector3 lidOpenOffset = new Vector3(0f, 1.6f, 2.2f);
@@ -50,7 +52,7 @@ namespace junklite
         {
             if (opened || !other.CompareTag("Player")) return;
             var controller = other.GetComponent<Character2D5Controller>();
-            if (controller == null) return;
+            if (controller == null || !HasRequiredKey(controller)) return;
 
             playerInside = controller;
             Rebind();
@@ -62,6 +64,13 @@ namespace junklite
             if (playerInside == null || other.gameObject != playerInside.gameObject) return;
             playerInside = null;
             TutorialPromptHUD.HideInteract(this);
+        }
+
+        private bool HasRequiredKey(Character2D5Controller controller)
+        {
+            if (string.IsNullOrEmpty(requiredKeyTag)) return true;
+            PlayerKeyring keyring = controller.GetComponentInParent<PlayerKeyring>();
+            return keyring != null && keyring.Has(requiredKeyTag);
         }
 
         private void HandleInteract()

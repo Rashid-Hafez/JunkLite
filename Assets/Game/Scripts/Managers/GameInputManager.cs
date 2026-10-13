@@ -18,9 +18,14 @@ namespace junklite
         public event Action OnGrappleAim = delegate { };
         public event Action OnGrappleAimReleased = delegate { };
         public Func<bool> PrimaryAttackConsumer { get; set; }
+        /// <summary>Set by the player: returns true while interact must be ignored (e.g. in combat).</summary>
+        public Func<bool> InteractBlocker { get; set; }
+        public bool IsInteractBlocked => InteractBlocker?.Invoke() == true;
         private int primaryConsumedFrame = -1;
         public Vector2 GrapplePointerPosition => Pointer.current != null
             ? Pointer.current.position.ReadValue() : controls.Player.GrapplePoint.ReadValue<Vector2>();
+        /// <summary>Right stick, for aiming the grapple on a gamepad (zero without one).</summary>
+        public Vector2 GrappleStick => Gamepad.current != null ? Gamepad.current.rightStick.ReadValue() : Vector2.zero;
         public bool IsGrappleAimHeld => controls != null && controls.Player.GrappleAim.IsPressed();
 
         public event Action OnJump = delegate { };
@@ -379,7 +384,7 @@ namespace junklite
             // Bind it to the F key (or your preferred key).
             controls.Player.Interact.performed += _ =>
             {
-                if (!IsGameplayInputEnabled) return;
+                if (!IsGameplayInputEnabled || IsInteractBlocked) return;
                 OnInteract();
             };
 

@@ -54,7 +54,8 @@ The trigger flips state every time it's crossed, so the same corner works in bot
 
 ## Free-move rooms and lane entry
 
-- **Free-move rooms** (safe rooms, explore rooms such as Service Floor's Room 0) are where the player can roam. Full 3D roaming is not built yet: the controller does not apply depth input (`zMoveSpeed` is unused), so for now the player still moves along X at the spawn depth.
+- **Free-move rooms** (safe rooms, explore rooms such as Service Floor's Room 0, 3 and 10) are where the player can roam in depth. `Character2D5Controller.SetFreeRoam(true)` lets vertical input walk along `transform.forward` at `zMoveSpeed` (world Z on an X lane, world X on a Z lane) with no ground axis locked; room colliders bound the player.
+- **`ZMovementZone`** (`Scripts/LEVEL/ZMovementZone.cs`) is the trigger box for this: Z movement is on while the player is inside. Several BoxColliders on one zone form one area (L-shaped rooms). Leaving without an E-press snaps the player back to its optional `lanePath`, or to the depth they entered at. It re-enables free roam when the player respawns inside it.
 - **Lane-only rooms** use a `LanePath` (`Scripts/LEVEL/LanePath.cs`). Its child transforms are waypoints, in hierarchy order. Every segment must run along world X or Z; a segment that doesn't is drawn red and logs a warning. `TryGetClosestPoint` returns the nearest lane point and the lane's Y rotation.
 - **Leaving a free-move room** goes through a `LaneEntryTrigger` (`Scripts/LEVEL/LaneEntryTrigger.cs`). It's a trigger box placed in front of the exit door:
   - While the player stands in it, a small on-screen prompt reads "E to proceed" (the Interact binding, so it's `LB` on a gamepad). The prompt is its own screen-space canvas using TMP and the Satoshi HUD font.
@@ -69,7 +70,9 @@ The trigger flips state every time it's crossed, so the same corner works in bot
   - **Door4.2** is the left leaf and slides local −X. **Door4.3** is the right leaf and slides local +X.
 - `SlidingDoor` (`Scripts/LEVEL/SlidingDoor.cs`) on the prefab root opens while the player is inside the root's trigger box.
   - The `Blocker` child is a solid box across the opening. It turns off once the door is fully open and back on as soon as the door starts closing.
-  - `Locked` keeps the door shut, which is how `LaneEntryTrigger` gates its exit door.
+  - It also opens for a living enemy's solid body (not its detection trigger), so chasing enemies follow the player through. Dead or disabled enemies are pruned each frame.
+  - `Locked` keeps the door shut. Locks have owners (`AddLock(owner)` / `RemoveLock(owner)`): the door stays shut until every owner releases. `LaneEntryTrigger` and `DoorAccessRule` each hold their own lock on the same door.
+- **`DoorAccessRule`** (`Scripts/Objectives/`) on a door keeps it locked until an objective is complete and/or the player carries a key (`requiredKeyTag`, a Unity tag held in the player's `PlayerKeyring`), or forever (`lockedForever`). While unmet, the door shows a "Locked" prompt and Interact plays `lockedDialogue`; once met it is silent. A `LaneEntryTrigger` gating the same door hides its own prompt until the rule is met.
 - The prefab pivot is the frame's right edge (same as the pack). The door is 3.76 × 3 m at scale 1. Lane doors use Y rotation 270 (decorated face toward −X) and scale 2.87 to fill a 10.8 m bay.
 
 ## Combat / mod mode
@@ -142,10 +145,22 @@ Done:
   - `Window_Outside/OutsideBackdrop_Placeholder` stands in until the low-poly skyline is built.
   - Rooms 1–8 are lit in sodium orange. The pack materials there are swapped to `SF_Metal_ServiceOrange`; Room 0 keeps the blue `Metal` look.
 
+Objectives and route (2026-10-13). Primary objective: GET TO THE ELEVATOR (`[Gameplay]/ObjectiveTracker`, assets in `Scripts/Objectives/ObjectiveSOs`).
+1. **Room 0.** `The CyberBox` reveals `Contents` (the gun and `Item_Health`, a green cube with `HealPickUp` in interact mode + `ObjectiveLink` GET_HEALTH). `Door_Entry` has a `DoorAccessRule` needing GET_HEALTH; trying it early plays `ServiceFloor_DoorNeedsHealth`.
+2. **Room 3** (safe zone): `ZMovementZone_Room3` (two boxes: bay + hazard hall), square floors and perimeter walls under `Colliders`, reactor boxes under `Colliders/Props`. `LaneEntryTrigger_Room3` (E) rejoins the main lane at `Door_Bay_48`.
+3. **Room 3 `Z Door`**: `DoorAccessRule` needs the `Z Key` tag; locked → Crow `ServiceFloor_ZDoorLocked`. With the key, `LaneEntryTrigger_ZDoor` (E) snaps onto `LanePath_Wing` and switches to `NegXCam`.
+4. **Room 9** stays on the lane. **Room 10** is free-move (`ZMovementZone_Room10`, `Floor_Room10`, walls). `[Gameplay]/Z Key CyberBox` replaces one prop box and holds `Item_ZKey` (`KeyPickup`, tag `Z Key`, `ObjectiveLink` GET_Z_KEY). `LaneEntryTrigger_Room10` (E) at `Door_Bay_112 (1)` rejoins the lane.
+5. **Room 12 Door**: `DoorAccessRule` `lockedForever` (`ServiceFloor_Room12Locked`); Room 12 is visible but closed.
+6. **Wing** (`[Environment]/Wing`, lane x = 50 running +Z, yaw −90, `NegXCam`): `Corridor_Z` (z 60–80), Rooms 1A–5A (two Room 11 bays each, 40 m, z 80–280), `Shaft` (z 280–293). Warm Room 11 lights plus red/orange `AlarmFlash` bulbs on the back walls. Floor strips `Floor_Wing_South/North`, `Wall_Wing_Start/End`.
+   - **2A pit**: floor art removed at z 148–156, `BrokenPlate` juts to z 151, so the collider gap is 5 m (single jump ≈ 3.1 m, double jump ≈ 5.6 m with the Player_2.2 values). `FallRecovery_Room2A` returns the player to z 145 with 10 damage.
+   - **5A**: `Brute Boss` at z 268 (`ObjectiveOnDeath` → DEFEAT_BRUTE); `Door_Shaft` needs DEFEAT_BRUTE.
+   - **Service elevator**: `[Gameplay]/ServiceElevator` completes GET_TO_ELEVATOR and loads the next build scene (EndCard), or `nextSceneName` if set.
+
+7. **Wayfinding.** `Room 3/Signage/Sign_Room3` ("SERVER ROOM" / "ROOM 3 // REAR ACCESS: Z DOOR") hangs above the opening into the hall, and `Hologram_ZDoor` (red `Hologram_Red` panel, Play-font TMP, pulsing red light) marks the Z Door. Taking the Z Key plays Crow's `ServiceFloor_ZKeyFound` ("head back to the Server Room, Room 3"), via `ObjectiveLink.completedDialogue`.
+8. **Enemies.** 24 `Grunt Enemy` instances (scene overrides: `Grunt Stats Service Floor`, 68 health = −15%; `pursuitRadius` 30 so they chase through doors) under `[Enemies]/Main Hall` (Rooms 1, 2, 4–9, z = 0, yaw 0), `[Enemies]/North Hall` (Room 11, x = 188, yaw 270) and `[Enemies]/Wing` (Corridor, 1A–4A, x = 50, yaw 270), plus the Brute. None in the safe rooms (0, 3, 10).
+9. **Level Manager.** `LevelStatsTracker` (timer/kills), `LevelGoal` (Manual; counts scene enemies for the grade), `EncounterController` (one wave: the existing Brute), started by `[Gameplay]/EncounterStart_Brute` at the 5A doorway. The elevator completes the level through `LevelGoal`, so the Level Results Screen shows and its Continue loads EndCard.
+
 Next:
-1. **World rotation at the end of Room 8.**
-   - `[Gameplay]/CameraSwitchTrigger_Corner` (now at x 158) should turn the +X lane (yaw 0, `PosZCam`) onto a +Z lane through `L_Turn` (yaw −90, `NegXCam`). It is **not set up correctly yet**, so copy the Rooftop Scene v2 corner setup.
-   - Extend `LanePath` with the +Z segment.
-2. **Room 0.** Build 3D roaming in the controller. The left wall art and its collider (`Wall_Room0_West`) are in place.
-3. **Content.** Place enemies, then run *Snap All Enemies To Lane Path*.
-4. **Room 0 props** have no collision now. Add simple boxes under `Colliders` when 3D roaming is built.
+1. **Checkpoints.** There is one spawn (Room 0). Death anywhere returns there; wing checkpoints need a per-spawn camera and free-roam state first.
+2. **Encounter lock.** Optionally lock the 5A entry door while the Brute encounter runs.
+3. **Room 0 props** have no collision. Add simple boxes under `Colliders` if they should block.

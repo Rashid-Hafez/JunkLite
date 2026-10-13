@@ -13,6 +13,7 @@ namespace junklite
         [Tooltip("Player-specific visual prefab. Falls back to the settings asset when unassigned.")]
         [SerializeField] private SwordGrappleVisuals visualsPrefab;
         private Character2D5Controller controller;
+        private PlayerKeyring keyring;
         private CapsuleCollider capsule;
         private Rigidbody body;
         private PlayerState state;
@@ -58,6 +59,7 @@ namespace junklite
         private void Awake()
         {
             controller = GetComponent<Character2D5Controller>();
+            keyring = GetComponentInParent<PlayerKeyring>();
             capsule = GetComponent<CapsuleCollider>();
             body = GetComponent<Rigidbody>();
             state = GetComponent<PlayerState>();
@@ -118,12 +120,8 @@ namespace junklite
             input = null;
         }
 
-        public bool HasUsableSword()
-        {
-            return weapons != null && weapons.IsModCombat &&
-                   (IsEquippedSword(loadout != null ? loadout.WeaponSlot1 : null) ||
-                    IsEquippedSword(loadout != null ? loadout.WeaponSlot2 : null));
-        }
+        /// <summary>The grapple hook is an item, not a mode: no combat mode or drawn sword needed.</summary>
+        public bool HasGrappleHook => keyring != null && keyring.Has(PlayerKeyring.GrappleHook);
 
         private bool IsEquippedSword(WeaponInstance weapon) => loadout != null && weapon != null &&
             weapon.isActiveAndEnabled && weapon.transform.IsChildOf(transform) &&
@@ -137,7 +135,7 @@ namespace junklite
                    !state.IsActionBlocked(StatusActionBlock.Move) && controller.IsLocomotionEnabled &&
                    !body.isKinematic && controller.MovementLockCount <= (movementLease != null ? 1 : 0) &&
                    controller.PhysicsOverrideCount <= (physicsLease != null ? 1 : 0) &&
-                   weapons != null && weapons.IsModCombat && IsEquippedSword(sword);
+                   HasGrappleHook;
         }
 
         public void BeginAim()
@@ -221,8 +219,11 @@ namespace junklite
                     targetMatrix = target.Collider.transform.localToWorldMatrix;
                     previousSwordPosition = swordPosition = Origin;
                     deadline = Time.time + settings.maximumRange / Mathf.Max(1f, settings.throwSpeed) + 0.5f;
-                    loadout.SetGrappleWeaponHidden(sword);
-                    visuals?.SetSword(sword.weaponData.icon);
+                    if (sword != null)
+                    {
+                        loadout.SetGrappleWeaponHidden(sword);
+                        visuals?.SetSword(sword.weaponData.icon);
+                    }
                     visuals?.HideAim();
                     SetPhase(SwordGrapplePhase.Flying);
                 }
@@ -307,11 +308,24 @@ namespace junklite
             AimFailure = "The aim camera or pointer is unavailable.";
             if (viewCamera == null || input == null) return false;
             Vector3 normal = Vector3.Cross(planeAxis, Vector3.up).normalized;
-            Ray ray = viewCamera.ScreenPointToRay(input.GrapplePointerPosition);
             var plane = new Plane(normal, Origin);
-            AimFailure = "The pointer does not intersect the player's movement plane.";
-            if (!plane.Raycast(ray, out float distance)) return false;
-            aimDirection = ray.GetPoint(distance) - Origin;
+            if (input.IsUsingGamepad)
+            {
+                // Right stick: screen-right/up in the movement plane. Neutral keeps the facing direction.
+                Vector2 stick = input.GrappleStick;
+                Vector3 screenRight = Vector3.Dot(viewCamera.transform.right, planeAxis) >= 0f ? planeAxis : -planeAxis;
+                Vector3 direction = stick.sqrMagnitude < 0.09f
+                    ? planeAxis * (controller.IsFacingRight ? 1f : -1f)
+                    : screenRight * stick.x + Vector3.up * stick.y;
+                aimDirection = direction.normalized;
+            }
+            else
+            {
+                Ray ray = viewCamera.ScreenPointToRay(input.GrapplePointerPosition);
+                AimFailure = "The pointer does not intersect the player's movement plane.";
+                if (!plane.Raycast(ray, out float distance)) return false;
+                aimDirection = ray.GetPoint(distance) - Origin;
+            }
             HasValidAim = ResolveAim(out _, out Vector3 end);
             PreviewEnd = end;
             return true;

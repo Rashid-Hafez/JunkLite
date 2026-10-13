@@ -22,6 +22,10 @@ namespace junklite
         [SerializeField] private bool autoRegisterAllEnemies = true;
         [SerializeField] private List<EnemyCharacter> trackedEnemies = new();
 
+        [Header("Stats")]
+        [Tooltip("Manual / ReachZone / RequiredEncounters: count the scene's enemies at start so the results grade uses kill ratio.")]
+        [SerializeField] private bool countSceneEnemiesForStats = true;
+
         [Header("ReachZone")]
         [SerializeField] private string playerTag = "Player";
 
@@ -54,11 +58,17 @@ namespace junklite
             if (mode == LevelGoalMode.RequiredEncounters)
             {
                 BindRequiredEncounters();
+                if (countSceneEnemiesForStats)
+                    LevelStatsTracker.Instance?.SetTotalEnemies(CountLivingSceneEnemies());
                 return;
             }
 
             if (mode != LevelGoalMode.KillAll)
+            {
+                if (countSceneEnemiesForStats)
+                    LevelStatsTracker.Instance?.SetTotalEnemies(CountLivingSceneEnemies());
                 return;
+            }
 
             var enemies = autoRegisterAllEnemies
                 ? FindObjectsByType<EnemyCharacter>(FindObjectsSortMode.None)
@@ -95,6 +105,16 @@ namespace junklite
 
             _aliveEnemies.Clear();
             if (Instance == this) Instance = null;
+        }
+
+        private static int CountLivingSceneEnemies()
+        {
+            int count = 0;
+            foreach (EnemyCharacter enemy in FindObjectsByType<EnemyCharacter>(FindObjectsSortMode.None))
+            {
+                if (enemy != null && enemy.IsAlive) count++;
+            }
+            return count;
         }
 
         #endregion

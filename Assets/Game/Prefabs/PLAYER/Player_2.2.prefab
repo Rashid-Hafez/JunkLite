@@ -819,6 +819,7 @@ GameObject:
   - component: {fileID: 2356093748291057342}
   - component: {fileID: 2597051752003655520}
   - component: {fileID: 2597051752003655521}
+  - component: {fileID: 7657212087601501397}
   m_Layer: 16
   m_Name: Player_2.2
   m_TagString: Player
@@ -1525,6 +1526,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   settings: {fileID: 11400000, guid: d345c6cd6ac749a69326b9d6746a24aa, type: 2}
   visualsPrefab: {fileID: 7870487630159371362, guid: 7ca5f518a8dc5d940a138b351866342f, type: 3}
+--- !u!114 &7657212087601501397
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7038683931279381878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a03fc696ac0514316a63eab1e6287223, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerKeyring
 --- !u!1 &7404579367925327084
 GameObject:
   m_ObjectHideFlags: 0

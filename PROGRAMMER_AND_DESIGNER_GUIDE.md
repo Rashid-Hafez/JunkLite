@@ -43,6 +43,15 @@ Read this before working on JunkLite, with or without AI agents. It's the short 
 3. Assign **Lane Path**, plus **Gate Door** (a `Door4_Sliding`, which stays locked until the player presses E).
 4. Start the path just inside the trigger, so pressing E only shifts the player sideways.
 
+### Free-move zones, locked doors, keys and objectives
+- **Z movement zone:** add a Box Collider + **Z Movement Zone** under `[Gameplay]`. Inside it the player walks in depth. Add more Box Colliders on the same object for L-shaped rooms. Leave the room through a **Lane Entry Trigger** (E) to get back on the path. If the lane runs on another axis, set the trigger's **Lane Camera**.
+- **Objectives:** create *JunkLite > Objectives > Objective Definition* assets and list them on `[Gameplay]/ObjectiveTracker` (set **Primary**). They show in the inventory's Missions tab.
+- **"OBJECTIVE BASED" items:** add an **Objective Link**, tick *Objective Based* and pick the objective. `HealPickUp` (with *Requires Interact*), `KeyPickup`, `ServiceElevator` and `ObjectiveOnDeath` (enemies) complete it. A completed item stays silent.
+- **Locked doors:** add a **Door Access Rule** to a `Door4_Sliding`: a required objective, a required key tag, or *Locked Forever*, plus an optional locked dialogue.
+- **Objective lines:** an Objective Link's *Completed Dialogue* plays once when it completes (it waits if another dialogue is running).
+- **Starting a fight:** an **Encounter Start Trigger** box starts its referenced `EncounterController` when the player walks in.
+- **Keys:** a **Key Pickup** uses its GameObject's **tag** as the key id (add the tag in Tags & Layers). The player's `PlayerKeyring` keeps keys for the run.
+
 ### Corners (world rotation)
 1. Add a point at the corner and a point along the new direction.
 2. Place a `CameraSwitchTrigger` prefab at the corner. Put its **A** point on the old line and its **B** point on the new line.
@@ -56,7 +65,7 @@ Read this before working on JunkLite, with or without AI agents. It's the short 
 | −Z | −270 | PosXCam |
 
 ### Enemies
-Place them roughly on the lane, then run **Tools > JunkLite > Level > Snap All Enemies To Lane Path**. An enemy's facing (Y rotation) decides its lane.
+Place them roughly on the lane, then run **Tools > JunkLite > Level > Snap All Enemies To Lane Path**. Each enemy snaps to the closest of the scene's lane paths. An enemy's facing (Y rotation) decides its lane. Keep enemies out of free-move rooms.
 
 ### Limits
 - **No curves.** Build a spiral staircase as straight flights with a 90° corner at each landing.

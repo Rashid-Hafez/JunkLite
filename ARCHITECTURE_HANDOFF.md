@@ -1,5 +1,18 @@
 # JunkLite Architecture Refactor Handoff
 
+## Objectives, door locks and keys (2026-10-13)
+
+- **Objectives** are scene-local. `ObjectiveDefinition` (ScriptableObject) is read-only config; per-run completion lives on `ObjectiveTracker` (`[Gameplay]`, static `Instance`, duplicates remove only their own component). `Complete` is idempotent and raises `Changed` once. `ObjectiveLink` is the per-object "OBJECTIVE BASED" switch; producers (`HealPickUp` interact mode, `KeyPickup`, `ServiceElevator`, `ObjectiveOnDeath`) call `TryComplete` and stay silent once complete.
+- **Door locks have owners.** `SlidingDoor.AddLock(owner)` / `RemoveLock(owner)`; `Locked` is true while any owner holds a lock. The serialized `locked` flag means "starts locked". `LaneEntryTrigger` and `DoorAccessRule` own separate locks on the same door. `DoorAccessRule` raises `SatisfiedChanged`; a `LaneEntryTrigger` gating that door suppresses its prompt and Interact until the rule is met.
+- **Keys** are Unity tags held by `PlayerKeyring` on the player prefab (`Player_2.2`); kept across respawns within the run.
+- **Free-move zones:** `ZMovementZone` toggles `Character2D5Controller.SetFreeRoam`. `LaneEntryTrigger.laneCamera` activates a vcam on snap (lane on a different axis). `FallRecoveryZone` returns the player to a lane point and deals damage through `DamageReceiverUtility`.
+- **Missions tab:** `MissionsPageView` / `MissionRowView` bind to the tracker; `InventoryUI` uses an authored page when `missionsScreen` has a `MissionsPageView`, else the legacy placeholder. The authored prefab is still to be built.
+- `SlidingDoor` opens for the player and for living enemies' non-trigger colliders (tracked per collider, pruned when dead/disabled); locks still win.
+- `ObjectiveLink.completedDialogue` plays once on completion; if a dialogue is running it waits on a coroutine hosted by `DialogueManager` (the pickup is usually hidden right away).
+- `ServiceElevator` ends a tracked level through `LevelGoal.Trigger()` (results screen → Continue), and loads directly only when no running `LevelStatsTracker`/`LevelGoal` exists. `LevelGoal.countSceneEnemiesForStats` gives non-KillAll levels an enemy total for grading. `EncounterStartTrigger` starts one referenced encounter on player entry. `LevelLaneTools.SnapToLane` snaps to the closest of all scene lane paths.
+- `EncounterArchitectureTests`: 9 of 19 fail on 2026-10-13 (camera lock policy, edit-mode `Destroy`, existing-participant completion). These are in code this change did not touch; not yet checked against the previous commit.
+- Tests: `ObjectiveSystemTests` (7), plus Damage (7), Lifecycle (4), Progression (28) pass. Play Mode check on Service Floor: health/Door_Entry, Z key, Room 10/12 doors, Z door → wing camera, 2A pit recovery, Brute objective → shaft door, elevator → EndCard.
+
 ## Editor spawning and first-contact stutters (2026-10-11)
 
 - Reproduced through the actual F10 buttons and D input in Rooftop Play Mode with Unity's main-thread profiler. The baseline recorded an 81 ms frame around pickup entry (`ProximityRelay.OnTriggerEnter` 72 ms, including `DOTweenComponent.Awake` 67 ms) and a 101 ms frame around enemy detection (`EnemyPerception.OnTriggerEnter` 96 ms, including `SoundManager.LoadFMODSound` 91 ms). The audio source was **combat music**, started by `PlayerCombatTracker` -> `GameManager.OnCombatStarted`, not the attack-warning effect. An isolated experiment loading `nowhere_to_run_battle_theme_v1_KLICKAUD` took 103 ms and removed that detection stall.

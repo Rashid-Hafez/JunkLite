@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Playables;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
 
@@ -21,6 +22,9 @@ namespace junklite
         private const int TearCount = 10;
 
         [SerializeField] private DialogueSequence transmissionDialogue;
+        [Tooltip("Timeline played after the transmission (bomb hit, debris, falling beam). Edit it in the Timeline window.")]
+        [SerializeField] private PlayableDirector afterTransmissionCinematic;
+        [SerializeField] private DialogueSequence dialogueAfterCinematic;
 
         [Header("Timing (unscaled seconds)")]
         [SerializeField] private float glitchDuration = 3.6f;
@@ -91,15 +95,35 @@ namespace junklite
             Cleanup();
             yield return new WaitForSecondsRealtime(holdAfterCalm);
 
-            if (transmissionDialogue != null && DialogueManager.instance != null)
+            yield return RunDialogue(transmissionDialogue);
+
+            if (afterTransmissionCinematic != null)
             {
-                dialogueFinished = false;
-                DialogueManager.instance.OnDialogueEnded += OnDialogueEnded;
-                DialogueManager.instance.StartDialogue(transmissionDialogue);
-                while (!dialogueFinished)
+                inputLock = player.State != null ? player.State.AcquireInputLock() : null;
+                player.Controller?.StopAllVelocity();
+                afterTransmissionCinematic.Play();
+                // Hold-mode timelines keep "Playing" at the end, so stop waiting at the last frame.
+                while (afterTransmissionCinematic.state == PlayState.Playing &&
+                       afterTransmissionCinematic.time < afterTransmissionCinematic.duration)
                     yield return null;
-                DialogueManager.instance.OnDialogueEnded -= OnDialogueEnded;
+                inputLock?.Dispose();
+                inputLock = null;
             }
+
+            yield return RunDialogue(dialogueAfterCinematic);
+        }
+
+        private IEnumerator RunDialogue(DialogueSequence sequence)
+        {
+            if (sequence == null || DialogueManager.instance == null)
+                yield break;
+
+            dialogueFinished = false;
+            DialogueManager.instance.OnDialogueEnded += OnDialogueEnded;
+            DialogueManager.instance.StartDialogue(sequence);
+            while (!dialogueFinished)
+                yield return null;
+            DialogueManager.instance.OnDialogueEnded -= OnDialogueEnded;
         }
 
         private void OnDialogueEnded() => dialogueFinished = true;

@@ -91,11 +91,14 @@ internal static class LevelLaneTools
         return count;
     }
 
-    /// <summary>Moves each target onto the closest lane point (keeping its height) and sets the lane Y rotation.</summary>
+    /// <summary>
+    /// Moves each target onto the closest point of the closest lane (keeping its height) and sets the lane Y rotation.
+    /// Scenes can have several LanePaths (e.g. a main hallway and a side wing).
+    /// </summary>
     public static int SnapToLane(IEnumerable<Transform> targets)
     {
-        LanePath path = Object.FindAnyObjectByType<LanePath>();
-        if (path == null)
+        LanePath[] paths = Object.FindObjectsByType<LanePath>(FindObjectsSortMode.None);
+        if (paths.Length == 0)
         {
             Debug.LogWarning("[LevelLaneTools] No LanePath in the open scene.");
             return 0;
@@ -105,8 +108,8 @@ internal static class LevelLaneTools
         int count = 0;
         foreach (var t in targets)
         {
-            if (t == null || t.GetComponentInParent<LanePath>() == path) continue;
-            if (!path.TryGetClosestPoint(t.position, out Vector3 point, out float yRotation)) continue;
+            if (t == null || t.GetComponentInParent<LanePath>() != null) continue;
+            if (!TryGetClosestLanePoint(paths, t.position, out Vector3 point, out float yRotation)) continue;
 
             Undo.RecordObject(t, "Snap To Lane Path");
             t.SetPositionAndRotation(point, Quaternion.Euler(0f, yRotation, 0f));
@@ -114,6 +117,23 @@ internal static class LevelLaneTools
         }
         Undo.CollapseUndoOperations(group);
         return count;
+    }
+
+    private static bool TryGetClosestLanePoint(LanePath[] paths, Vector3 position, out Vector3 point, out float yRotation)
+    {
+        point = position;
+        yRotation = 0f;
+        float bestSqr = float.MaxValue;
+        foreach (LanePath path in paths)
+        {
+            if (!path.TryGetClosestPoint(position, out Vector3 candidate, out float candidateYaw)) continue;
+            float sqr = new Vector2(candidate.x - position.x, candidate.z - position.z).sqrMagnitude;
+            if (sqr >= bestSqr) continue;
+            bestSqr = sqr;
+            point = candidate;
+            yRotation = candidateYaw;
+        }
+        return bestSqr < float.MaxValue;
     }
 
     private static List<MeshCollider> CollectMeshColliders(IEnumerable<Transform> roots)

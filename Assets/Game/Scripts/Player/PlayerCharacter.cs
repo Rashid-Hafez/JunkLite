@@ -85,6 +85,8 @@ namespace junklite
         public StatusEffectHandler StatusEffects => statusEffects;
         public Attribute Health => attributes ? attributes.Health : null;
         public bool IsAlive => attributes ? attributes.IsAlive : true;
+        /// <summary>In combat while any enemy is engaging the player. Blocks interact and its prompt.</summary>
+        public bool IsInCombat => PlayerCombatTracker.Instance != null && PlayerCombatTracker.Instance.IsPlayerInCombat;
         /// <summary>Set by simulation levels: damage is clamped so health never reaches 0.</summary>
         public bool CannotDie { get; set; }
         public bool IsActive { get; private set; }
@@ -466,6 +468,7 @@ namespace junklite
                 inputManager.OnJumpReleased += OnJumpReleased;
                 inputManager.OnAttack += HandleAttackInput;
                 inputManager.OnDash += OnDashPressed;
+                inputManager.InteractBlocker = () => IsInCombat;
 
                 
                 inputManager.OnCombatModeToggle += HandleCombatModeToggle;
@@ -507,6 +510,7 @@ namespace junklite
                 inputManager.OnJumpReleased -= OnJumpReleased;
                 inputManager.OnAttack -= HandleAttackInput;
                 inputManager.OnDash -= OnDashPressed;
+                inputManager.InteractBlocker = null;
 
                 // TODO: Unwire when added to GameInputManager
                 inputManager.OnCombatModeToggle -= HandleCombatModeToggle;

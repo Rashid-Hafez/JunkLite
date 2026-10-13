@@ -1,3 +1,4 @@
+using Unity.Cinemachine;
 using UnityEngine;
 
 namespace junklite
@@ -16,7 +17,10 @@ namespace junklite
         [Tooltip("Door out of the free-move room. Locked until the player presses Interact here.")]
         [SerializeField] private SlidingDoor gateDoor;
         [SerializeField] private string promptLabel = "Proceed";
+        [Tooltip("Optional. Made the active camera on snap, for lanes that run on a different axis than the room view.")]
+        [SerializeField] private CinemachineCamera laneCamera;
 
+        private DoorAccessRule gateRule;
         private Character2D5Controller playerInside;
         private GameInputManager subscribedInput;
         private PlayerLifecycle subscribedLifecycle;
@@ -25,12 +29,14 @@ namespace junklite
         private void Awake()
         {
             GetComponent<BoxCollider>().isTrigger = true;
+            if (gateDoor != null) gateRule = gateDoor.GetComponent<DoorAccessRule>();
             SetGateLocked(true);
         }
 
         private void OnEnable()
         {
             Rebind();
+            if (gateRule != null) gateRule.SatisfiedChanged += HandleGateRuleChanged;
             HidePrompt(instant: true);
         }
 
@@ -44,6 +50,7 @@ namespace junklite
         private void OnDisable()
         {
             Unbind();
+            if (gateRule != null) gateRule.SatisfiedChanged -= HandleGateRuleChanged;
             playerInside = null;
             HidePrompt(instant: true);
         }
@@ -52,11 +59,12 @@ namespace junklite
         {
             if (!other.CompareTag("Player")) return;
             var controller = other.GetComponent<Character2D5Controller>();
-            if (controller == null || playerSnapped) return;
+            // Re-arms if the player came back into a free-roam zone after snapping here once.
+            if (controller == null || (playerSnapped && !controller.IsFreeRoaming)) return;
 
             playerInside = controller;
             Rebind();
-            TutorialPromptHUD.ShowInteract(this, promptLabel);
+            if (GateOpenable) TutorialPromptHUD.ShowInteract(this, promptLabel);
         }
 
         private void OnTriggerExit(Collider other)
@@ -68,14 +76,29 @@ namespace junklite
 
         private void HandleInteract()
         {
-            if (playerInside == null || lanePath == null) return;
+            // A locked gate (DoorAccessRule) owns the prompt and Interact until it is satisfied.
+            if (playerInside == null || lanePath == null || !GateOpenable) return;
             if (!lanePath.TryGetClosestPoint(playerInside.transform.position, out Vector3 point, out float yRotation)) return;
 
             playerInside.SnapToLane(point, yRotation);
+            if (laneCamera != null)
+            {
+                laneCamera.Prioritize();
+                if (CameraManager.Instance != null) CameraManager.Instance.SetActiveCamera(laneCamera);
+            }
             playerInside = null;
             playerSnapped = true;
             SetGateLocked(false);
             HidePrompt(instant: false);
+        }
+
+        private bool GateOpenable => gateRule == null || !gateRule.isActiveAndEnabled || gateRule.IsSatisfied();
+
+        private void HandleGateRuleChanged()
+        {
+            if (playerInside == null) return;
+            if (GateOpenable) TutorialPromptHUD.ShowInteract(this, promptLabel);
+            else HidePrompt(instant: true);
         }
 
         private void HandlePlayerDied(PlayerCharacter _)
@@ -95,7 +118,9 @@ namespace junklite
 
         private void SetGateLocked(bool locked)
         {
-            if (gateDoor != null) gateDoor.Locked = locked;
+            if (gateDoor == null) return;
+            if (locked) gateDoor.AddLock(this);
+            else gateDoor.RemoveLock(this);
         }
 
         #region Input / lifecycle binding

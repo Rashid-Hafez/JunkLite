@@ -736,7 +736,7 @@ namespace junklite
         {
             if (!CanMove || IsPhysicsOverridden || rb == null || rb.isKinematic) return;
 
-            if (wallTraversal != null && wallTraversal.HasUsableSword() && TryGetDirectionalWall(out var wall) &&
+            if (wallTraversal != null && wallTraversal.HasGrappleHook && TryGetDirectionalWall(out var wall) &&
                 JumpFromWall(wall.normal)) return;
 
             // Ground jump - queue into fixed-step buffer
