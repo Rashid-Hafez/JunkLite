@@ -90,8 +90,8 @@ Place them roughly on the lane, then run **Tools > JunkLite > Level > Snap All E
 
 | Tool | Where | Use |
 | --- | --- | --- |
-| **Dev Console** (in-game) | **F10** in Play mode (Editor only). Enable it with **JunkLite > Dev Tools > Enable In-Game Panel**. Status window: **JunkLite > Dev Tools Console**. | Player tab: infinite ammo and durability, heal, invincible, unlock mod slots, clear inventory, defeat, respawn. Spawn tab: enemies, weapons, mods. Mods tab and Run tab (run control). |
-| **Performance overlay** | **F9** in Play mode | FPS, frame time, and a spike graph. Spikes are logged to CSV (**Tools > JunkLite > Performance > Open Frame Spike Logs**). |
+| **Dev Console** (in-game) | Starts hidden each Play session, even with saved access enabled. **F10** enables/opens or hides it (Editor only). Explicitly enabling **JunkLite > Dev Tools > Enable In-Game Panel** or the pause-menu switch during play opens it. Status window: **JunkLite > Dev Tools Console**. | Player tab: infinite ammo and durability, heal, invincible, unlock mod slots, clear inventory, defeat, respawn. Spawn tab: enemies, weapons, mods. Mods tab and Run tab (run control). Disabling tools hides their UI and clears overrides; F10 remains available. |
+| **Performance overlay** | Starts hidden; **F9** in Play mode shows/hides it. | FPS, frame time, and a spike graph. Spikes are logged to CSV (**Tools > JunkLite > Performance > Open Frame Spike Logs**). |
 | **Level tools** | **Tools > JunkLite > Level** | Snap Selected / Snap All Enemies To Lane Path; Replace Mesh Colliders With Boxes; Remove Mesh Colliders. Each is one Undo step. |
 | **Validators** | **Tools > JunkLite > Systems > Validate**, **Validate Enemies**, **Validate Encounters** | Check scene setup: Game Root, cameras, enemies, encounters. |
 | **Performance helpers** | **Tools > JunkLite > Performance** | Optimize audio imports; enable world texture streaming. |

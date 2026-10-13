@@ -12,7 +12,6 @@ namespace junklite.Editor
 
         static RuntimeDevToolsWindow()
         {
-            EditorApplication.playModeStateChanged += HandlePlayModeStateChanged;
             EditorApplication.delayCall += RefreshMenuCheckmark;
         }
 
@@ -58,7 +57,7 @@ namespace junklite.Editor
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
                 string status = !EditorApplication.isPlaying
-                    ? IsEnabled ? "Opens when Play Mode starts" : "Tools disabled"
+                    ? IsEnabled ? "Starts hidden; press F10 to open" : "Tools disabled; F10 enables during play"
                     : IsEnabled
                         ? EditorRuntimeDevToolsPanel.IsPanelVisible
                             ? "Play Mode: panel visible"
@@ -88,15 +87,6 @@ namespace junklite.Editor
         {
             EditorRuntimeDevToolsPanel.SetFeatureEnabled(enabled);
             RefreshMenuCheckmark();
-        }
-
-        private static void HandlePlayModeStateChanged(PlayModeStateChange state)
-        {
-            if (state != PlayModeStateChange.EnteredPlayMode || !IsEnabled)
-                return;
-
-            EditorApplication.delayCall += () =>
-                EditorRuntimeDevToolsPanel.SetFeatureEnabled(true);
         }
 
         private static void RefreshMenuCheckmark()
