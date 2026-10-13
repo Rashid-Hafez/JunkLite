@@ -47,7 +47,7 @@ namespace junklite
         private int lastScreenWidth;
         private int lastScreenHeight;
         private Rect lastSafeArea;
-        private bool panelExpanded = true;
+        private bool panelExpanded;
         private bool wasSuppressed;
 
         public static bool IsFeatureEnabled => EditorPrefs.GetBool(EditorPreferenceKey, false);
@@ -83,10 +83,13 @@ namespace junklite
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void CreateFromEditorPreference()
+        private static void InitializeForPlayMode()
         {
-            if (EditorPrefs.GetBool(EditorPreferenceKey, false))
-                SetFeatureEnabled(true);
+            // Keep a shortcut listener even when tools are disabled. Restoring access
+            // from a previous session must not open the panel over gameplay.
+            EnsureInstance();
+            if (IsFeatureEnabled)
+                instance?.SetPanelVisibleInternal(false);
         }
 
         public static void SetFeatureEnabled(bool enabled)
@@ -109,12 +112,12 @@ namespace junklite
             EditorRuntimeDevToolsPanel existing = FindFirstObjectByType<EditorRuntimeDevToolsPanel>();
             if (existing != null)
             {
-                // Clear overrides immediately, before the deferred Destroy completes.
+                // Retain the lightweight F10 listener, but hide all UI and clear cheats.
                 existing.ClearOverrides();
-                existing.gameObject.SetActive(false);
-                Destroy(existing.gameObject);
+                existing.panelExpanded = false;
+                existing.panelRoot?.SetActive(false);
+                existing.UpdatePresentation();
             }
-            instance = null;
             FeatureEnabledChanged?.Invoke();
         }
 
@@ -154,6 +157,13 @@ namespace junklite
 
             instance = this;
             DontDestroyOnLoad(gameObject);
+        }
+
+        private void EnsureInterface()
+        {
+            if (safeAreaRoot != null)
+                return;
+
             toolSource = new PauseMenuDeveloperTools();
             themeFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
                 "Assets/Game/New UI/Fonts/Lekton-Regular SDF 2.asset");
@@ -169,7 +179,15 @@ namespace junklite
         private void Update()
         {
             if (!pauseMenuOpen && Keyboard.current?.f10Key.wasPressedThisFrame == true)
-                SetPanelVisibleInternal(!panelExpanded);
+            {
+                if (IsFeatureEnabled)
+                    SetPanelVisibleInternal(!panelExpanded);
+                else
+                    SetFeatureEnabled(true);
+            }
+
+            if (!IsFeatureEnabled)
+                return;
 
             ApplySafeArea(false);
             UpdatePresentation();
@@ -198,7 +216,7 @@ namespace junklite
         {
             if (safeAreaRoot == null)
                 return;
-            bool suppressed = pauseMenuOpen ||
+            bool suppressed = !IsFeatureEnabled || pauseMenuOpen ||
                 (GameManager.Instance != null && !GameManager.Instance.IsPlaying);
             safeAreaRoot.gameObject.SetActive(!suppressed);
             if (!suppressed && wasSuppressed && panelExpanded)
@@ -606,6 +624,7 @@ namespace junklite
 
         private void SetPanelVisibleInternal(bool visible)
         {
+            EnsureInterface();
             panelExpanded = visible;
             panelRoot?.SetActive(visible);
             collapsedChip?.SetActive(!visible);

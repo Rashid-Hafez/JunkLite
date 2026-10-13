@@ -435,7 +435,7 @@ namespace junklite
             TextAt("Shortcut", help.transform, "F10  /  HIDE OR SHOW", 22f, Paper, 26, 104, 376, 42);
             TextAt("Shortcut Help", help.transform, "Hiding keeps enabled tools active.", 17f, Muted, 26, 152, 376, 52);
             RectImage("Guide Rule", help.transform, Line, 26, 238, 376, 1);
-            TextAt("Preference Help", help.transform, "Dev tools preference is saved\nbetween play sessions.", 17f, Muted, 26, 268, 376, 60);
+            TextAt("Preference Help", help.transform, "Starts hidden each play session.\nF10 enables and opens the console.", 17f, Muted, 26, 268, 376, 60);
 
             MenuButton resume = CreateButton(editorPage.transform, "RESUME GAME  >", HandleCancel, 20f);
             Place((RectTransform)resume.transform, 0, 420, 798, 54);

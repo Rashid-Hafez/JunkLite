@@ -51,7 +51,7 @@ namespace junklite
         private float smoothedDeltaTime;
         private float refreshTimer;
         private float nextSpikeLogTime;
-        private bool isVisible = true;
+        private bool isVisible;
         private int observedFrameCount;
         private int spikeLogCount;
         private string lastCommand;
