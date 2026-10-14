@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -46,6 +47,9 @@ namespace junklite
         public bool IsOpen => openAmount >= 1f;
         public bool Locked => lockOwners.Count > 0;
 
+        /// <summary>Raised each time the door finishes opening for the player (not for enemies).</summary>
+        public event Action<SlidingDoor> PlayerOpened;
+
         /// <summary>Adds a lock held by <paramref name="owner"/>. Adding the same owner twice does nothing.</summary>
         public void AddLock(object owner)
         {
@@ -85,6 +89,7 @@ namespace junklite
 
             openAmount = Mathf.MoveTowards(openAmount, target, Time.deltaTime / Mathf.Max(0.01f, slideDuration));
             Apply();
+            if (openAmount >= 1f && playerContacts > 0) PlayerOpened?.Invoke(this);
         }
 
         private void OnTriggerEnter(Collider other)

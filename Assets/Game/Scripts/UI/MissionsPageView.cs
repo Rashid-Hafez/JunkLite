@@ -35,8 +35,10 @@ namespace junklite
             ObjectiveTracker tracker = subscribedTracker;
             if (tracker != null)
             {
+                // Objectives that have not started yet stay hidden (no spoilers).
                 foreach (ObjectiveDefinition objective in tracker.Objectives)
-                    if (objective != null && !sorted.Contains(objective)) sorted.Add(objective);
+                    if (objective != null && !sorted.Contains(objective) && tracker.GetState(objective) != ObjectiveState.Inactive)
+                        sorted.Add(objective);
                 if (tracker.Primary != null && !sorted.Contains(tracker.Primary)) sorted.Add(tracker.Primary);
                 sorted.Sort((a, b) => a.SortOrder.CompareTo(b.SortOrder));
             }

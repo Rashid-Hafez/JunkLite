@@ -223,7 +223,7 @@ namespace junklite
             SetVelocity(wallJumpHorizontalVelocity + Vector3.up * settings.wallJumpUpSpeed);
             isGrounded = false;
             coyoteTimer = jumpBufferTimer = 0f;
-            airJumpCount = 0;
+            // A kick-off never refills the air jump: walls are climbed with the grapple only.
             isExternalBounce = isPogoBounce = hasJumpBeenCut = false;
             JumpHeldExternally = true;
             StartMinJumpHoldWindow();
@@ -539,16 +539,14 @@ namespace junklite
                 return;
             }
 
-            bool wallContact = TryGetDirectionalWall(out _);
-            playerState?.SetWallSliding(wallContact && rb.linearVelocity.y <= 0f);
-            if (wallContact)
+            // Grapple walls only hold you through the grapple. Plain contact never slides,
+            // sticks or climbs: stop input pushing into (or through a trigger) wall, fall normally.
+            playerState?.SetWallSliding(false);
+            if (TryGetDirectionalWall(out _))
             {
-                FaceForTraversal(WallInput > 0f);
-                // Ordinary contact never becomes a grapple hold. Stop input
-                // pushing through a trigger wall; keep rising, or slide down.
-                float vertical = rb.linearVelocity.y;
-                SetVelocity(Vector3.up * (vertical <= 0f ? -wallTraversal.Settings.wallSlideSpeed : vertical));
-                if (vertical > 0f) ApplyGravityFixed();
+                SetVelocity(Vector3.up * rb.linearVelocity.y);
+                ApplyGravityFixed();
+                ClampFallSpeedFixed();
                 return;
             }
 
@@ -735,9 +733,6 @@ namespace junklite
         public void Jump()
         {
             if (!CanMove || IsPhysicsOverridden || rb == null || rb.isKinematic) return;
-
-            if (wallTraversal != null && wallTraversal.HasGrappleHook && TryGetDirectionalWall(out var wall) &&
-                JumpFromWall(wall.normal)) return;
 
             // Ground jump - queue into fixed-step buffer
             if (coyoteTimer > 0f)

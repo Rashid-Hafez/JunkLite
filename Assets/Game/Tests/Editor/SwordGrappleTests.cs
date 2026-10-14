@@ -839,7 +839,7 @@ namespace junklite.Tests
 
         [TestCase(-1f)]
         [TestCase(1f)]
-        public void DirectionalHoldReleasesAndRepressOnlySlides(float side)
+        public void DirectionalHoldReleaseThenRepressNeverSlides(float side)
         {
             var grapple = CreateGrapple();
             EquipSword(grapple, 1);
@@ -862,20 +862,17 @@ namespace junklite.Tests
             Assert.That(state.IsWallSliding, Is.False);
             controller.SetMovementInput(side);
             Invoke(controller, "FixedUpdate");
-            Assert.That(state.IsWallSliding, Is.True);
+            Assert.That(state.IsWallSliding, Is.False, "Plain wall contact never slides.");
             Assert.That(grapple.IsHolding, Is.False);
-            Assert.That(controller.Velocity.y, Is.EqualTo(-settings.wallSlideSpeed));
+            Assert.That(controller.Velocity.y, Is.LessThan(-settings.wallSlideSpeed), "Falls at normal speed.");
             Assert.That(controller.Velocity.x, Is.Zero);
-            controller.SetMovementInput(-side);
-            Invoke(controller, "FixedUpdate");
-            Assert.That(state.IsWallSliding, Is.False);
         }
 
         [TestCase(-1f, 0f, true)]
         [TestCase(1f, 0f, false)]
         [TestCase(-1f, 90f, false)]
         [TestCase(1f, 90f, true)]
-        public void OrdinaryWallContactSlidesWithoutASwordAndCannotAirGrab(float side, float yaw, bool trigger)
+        public void OrdinaryWallContactNeverSlidesOrGrabs(float side, float yaw, bool trigger)
         {
             capsule.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
             var grapple = CreateGrapple();
@@ -889,13 +886,35 @@ namespace junklite.Tests
             controller.SetMovementInput(side);
             controller.SetVelocity(Vector3.down * 9f);
             Invoke(controller, "FixedUpdate");
-            Assert.That(state.IsWallSliding, Is.True);
-            Assert.That(controller.Velocity.y, Is.EqualTo(-settings.wallSlideSpeed));
+            Assert.That(state.IsWallSliding, Is.False);
+            Assert.That(controller.Velocity.y, Is.LessThanOrEqualTo(-9f), "Contact does not slow the fall.");
+            Assert.That(Vector3.Dot(controller.Velocity, axis), Is.Zero.Within(0.0001f), "Input does not push into the wall.");
             Assert.That(grapple.IsActive, Is.False);
             Assert.That(grapple.HasGrappleHook, Is.False);
             wall.enabled = false;
             Invoke(controller, "FixedUpdate");
             Assert.That(state.IsWallSliding, Is.False);
+        }
+
+        [TestCase(-1f)]
+        [TestCase(1f)]
+        public void JumpTouchingAWallWithTheHookIsNotAWallKick(float side)
+        {
+            var grapple = CreateGrapple();
+            EquipSword(grapple, 1);
+            var controller = grapple.GetComponent<Character2D5Controller>();
+            CreateBox(controller.MovementAxis * side * 0.875f + Vector3.up * 2f, new Vector3(1f, 20f, 4f), 12);
+            Physics.SyncTransforms();
+            SetField(controller, "airJumpCount", 1);
+            controller.SetMovementInput(side);
+            controller.SetVelocity(Vector3.down * 4f);
+            Invoke(controller, "FixedUpdate");
+
+            controller.Jump();
+
+            Assert.That(controller.Velocity.y, Is.LessThan(0f), "Only a grapple hold can kick off a wall.");
+            Assert.That(GetField<int>(controller, "airJumpCount"), Is.EqualTo(1));
+            Assert.That(grapple.GetComponent<PlayerState>().IsWallSliding, Is.False);
         }
 
         [TestCase(-1f)]
@@ -916,6 +935,7 @@ namespace junklite.Tests
             Assert.That(controller.Velocity.y, Is.EqualTo(settings.wallJumpUpSpeed));
             Assert.That(grapple.GetComponent<PlayerState>().IsJumping, Is.True);
             Assert.That(jumps, Is.EqualTo(1));
+            Assert.That(GetField<int>(controller, "airJumpCount"), Is.EqualTo(1), "A kick-off never refills the air jump.");
             controller.SetMovementInput(side);
             Invoke(controller, "FixedUpdate");
             Assert.That(controller.Velocity.x, Is.EqualTo(-side * settings.wallJumpAwaySpeed));

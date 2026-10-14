@@ -34,6 +34,45 @@ namespace junklite.Tests
         }
 
         [Test]
+        public void TrackerBeginsThenCompletesAndFollowsNewestActive()
+        {
+            ObjectiveTracker tracker = MakeTracker();
+            ObjectiveDefinition elevator = MakeObjective("GET_TO_ELEVATOR");
+            ObjectiveDefinition basement = MakeObjective("ESCAPE_BASEMENT");
+            var states = new List<(string, ObjectiveState)>();
+            tracker.StateChanged += (o, s) => states.Add((o.Id, s));
+
+            Assert.That(tracker.GetState(basement), Is.EqualTo(ObjectiveState.Inactive));
+            Assert.That(tracker.Begin(elevator), Is.True);
+            Assert.That(tracker.Begin(elevator), Is.False);
+            Assert.That(tracker.Begin(basement), Is.True);
+            Assert.That(tracker.Current, Is.SameAs(basement), "HUD follows the newest active objective.");
+
+            tracker.Complete(basement);
+            Assert.That(tracker.GetState(basement), Is.EqualTo(ObjectiveState.Complete));
+            Assert.That(tracker.Begin(basement), Is.False, "A complete objective cannot restart.");
+            Assert.That(tracker.Current, Is.SameAs(elevator));
+            Assert.That(states, Is.EqualTo(new[]
+            {
+                ("GET_TO_ELEVATOR", ObjectiveState.Active),
+                ("ESCAPE_BASEMENT", ObjectiveState.Active),
+                ("ESCAPE_BASEMENT", ObjectiveState.Complete),
+            }));
+        }
+
+        [Test]
+        public void TrackerStartActiveListBeginsOnStart()
+        {
+            ObjectiveTracker tracker = MakeTracker();
+            ObjectiveDefinition elevator = MakeObjective("GET_TO_ELEVATOR");
+            SetField(tracker, "startActive", new List<ObjectiveDefinition> { elevator });
+            Call(tracker, "Start");
+
+            Assert.That(tracker.IsActive(elevator), Is.True);
+            Assert.That(tracker.Current, Is.SameAs(elevator));
+        }
+
+        [Test]
         public void KeyringAddsAndCountsKeysByTag()
         {
             var keyring = Own(new GameObject("Keyring")).AddComponent<PlayerKeyring>();

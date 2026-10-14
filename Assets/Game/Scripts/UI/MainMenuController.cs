@@ -17,12 +17,14 @@ namespace junklite
         [SerializeField] private Button playButton;
         [SerializeField] private Button rooftopButton;
         [SerializeField] private Button serviceFloorButton;
+        [SerializeField] private Button sandboxButton;
         [SerializeField] private Button quitButton;
 
         [Header("Scenes (names as listed in Build Settings)")]
         [SerializeField] private string playScene = "SimulationCinematicDemo";
         [SerializeField] private string rooftopScene = "Rooftop Scene v2";
         [SerializeField] private string serviceFloorScene = "Service Floor";
+        [SerializeField] private string sandboxScene = "SANDBOX";
 
         private bool loading;
 
@@ -36,6 +38,7 @@ namespace junklite
             Bind(playButton, OnPlay);
             Bind(rooftopButton, OnRooftop);
             Bind(serviceFloorButton, OnServiceFloor);
+            Bind(sandboxButton, OnSandbox);
             Bind(quitButton, OnQuit);
         }
 
@@ -44,6 +47,7 @@ namespace junklite
             Unbind(playButton, OnPlay);
             Unbind(rooftopButton, OnRooftop);
             Unbind(serviceFloorButton, OnServiceFloor);
+            Unbind(sandboxButton, OnSandbox);
             Unbind(quitButton, OnQuit);
         }
 
@@ -57,6 +61,7 @@ namespace junklite
         private void OnPlay() => Load(playScene);
         private void OnRooftop() => Load(rooftopScene);
         private void OnServiceFloor() => Load(serviceFloorScene);
+        private void OnSandbox() => Load(sandboxScene);
 
         private void OnQuit()
         {
