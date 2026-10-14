@@ -1,5 +1,11 @@
 # JunkLite Architecture Refactor Handoff
 
+### Title menu and playtest build order (2026-10-14)
+
+- Build order: `Menu` (0) → `SimulationCinematicDemo` → `Service Floor` → `EndCard` → `Rooftop Scene v2`. Index 0 is the title, so `GameManager.RestartGame` (pause menu "Return to title") lands on the menu. Index-based fallbacks (`ServiceElevator`, `Level0SequenceManager`) still reach EndCard from Service Floor; Sim → Service Floor and Rooftop/Service Floor → EndCard are set by scene name.
+- `Menu.unity` → `Canvas/Main Menu` is an authored layout (CMA "Main menu" board: orange title band, Play + level select, Cassidy art from `New UI/Character/Cassidy_Full.png`). `MainMenuController` only binds the four buttons to scene names, selects Play for gamepad, and uses `GameManager.LoadLevel` when the persistent manager exists (returning from a run), else `SceneManager.LoadScene`. `Scene Settings` keeps `spawnPlayer` off. The old intro (VideoPlayer with a missing clip, `FadeoutSwirtch` any-key loader, `BLACK` fade panel) is disabled, not deleted.
+- Terrain Holes is off on every URP asset (only `HIGH ASSET RENDER FEATURES` is used; quality levels have no override). No Terrain objects in build scenes.
+
 ### Grapple hook item, gamepad grapple, no interact in combat (2026-10-13)
 
 - The grapple (and its wall jump) needs the `Grapple Hook` keyring item (`PlayerKeyring.GrappleHook`), not a drawn sword or Mod Combat. `PlayerSwordGrapple.HasGrappleHook` replaces `HasUsableSword`; the sword is only used for the thrown visual when one is drawn.

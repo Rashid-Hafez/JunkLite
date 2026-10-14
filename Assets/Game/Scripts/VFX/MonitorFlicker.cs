@@ -38,7 +38,11 @@ namespace junklite
         {
             if (targetLight == null) return;
 
+#if UNITY_EDITOR
             float time = Application.isPlaying ? Time.time : (float)UnityEditor.EditorApplication.timeSinceStartup;
+#else
+            float time = Time.time;
+#endif
             float n = Mathf.PerlinNoise(noiseOffset, time * speed);
             float current = baseIntensity + (n - 0.5f) * 2f * flickerRange;
 

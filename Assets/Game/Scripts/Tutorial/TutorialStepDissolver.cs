@@ -20,6 +20,8 @@ public class TutorialStepDissolver : MonoBehaviour
     {
         foreach (var dissolve in dissolves)
         {
+            // A destroyed or inactive prop would throw and abort the rest of the sequence.
+            if (dissolve == null || !dissolve.gameObject.activeInHierarchy) continue;
             dissolve.Dissolve();
             yield return new WaitForSeconds(interval);
         }
@@ -30,6 +32,8 @@ public class TutorialStepDissolver : MonoBehaviour
     {
         foreach (var dissolve in dissolves)
         {
+            // A destroyed or inactive prop would throw and abort the rest of the sequence.
+            if (dissolve == null || !dissolve.gameObject.activeInHierarchy) continue;
             dissolve.Undissolve();
             yield return new WaitForSeconds(interval);
         }

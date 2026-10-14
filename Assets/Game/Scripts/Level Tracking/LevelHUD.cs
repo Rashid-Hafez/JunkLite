@@ -259,9 +259,8 @@ namespace junklite
             value = MakeText(panel, "Value", "0", 30f, Paper, false);
             Place(value.rectTransform, 16f, 31f, CardWidth - 32f, 40f);
             value.fontStyle = FontStyles.Bold;
-            value.enableAutoSizing = true;
-            value.fontSizeMin = 18f;
-            value.fontSizeMax = 30f;
+            // No AutoSize: the timer (monospaced 00:00) and kill count fit at 30pt, and AutoSize
+            // would re-run its fitting passes on every update. Ellipsis covers any overflow.
             return panel;
         }
 
