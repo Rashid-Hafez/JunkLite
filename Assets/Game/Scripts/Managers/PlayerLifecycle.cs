@@ -229,9 +229,16 @@ namespace junklite
                 delay = animationDuration;
             }
 
-            float endTime = Time.unscaledTime + delay;
-            while (Time.unscaledTime < endTime)
+            // The death animation runs on scaled time, so hit-stop or slow-mo stretches it; wait
+            // the same scaled time so it always finishes. The unscaled cap stops a stuck timeScale
+            // from blocking respawn.
+            float played = 0f;
+            float capTime = Time.unscaledTime + delay + 5f;
+            while (played < delay && Time.unscaledTime < capTime)
+            {
+                played += Time.deltaTime;
                 yield return null;
+            }
 
             deadPlayer?.Deactivate();
             deathRoutine = null;

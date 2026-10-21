@@ -111,6 +111,10 @@ namespace junklite
 
         public TrackEntry CurrentAttackEntry => currentAttackEntry;
 
+        // Once dead, only the death animation may own the skeleton: late attack/jump/landing
+        // requests (queued combo hits, Spine events) would otherwise replace the death pose.
+        private bool IsDead => playerState != null && !playerState.IsAlive;
+
         public bool TryGetDeathAnimationDuration(out float duration)
         {
             duration = 0f;
@@ -254,6 +258,8 @@ namespace junklite
         /// </summary>
         public void PlayAttackAnimation(string animationName)
         {
+            if (IsDead) { NotifyPlayerAttackComplete(); return; }
+
             if (string.IsNullOrEmpty(animationName))
             {
                 NotifyPlayerAttackComplete();
@@ -423,6 +429,8 @@ namespace junklite
         /// <returns>True if the animation was started, false if not found or override already active</returns>
         public bool ForcePlayOverride(string animationName, bool loop, Action onComplete)
         {
+            if (IsDead) { onComplete?.Invoke(); return false; }
+
             if (skeletonAnimation == null || string.IsNullOrEmpty(animationName))
             {
                 onComplete?.Invoke();
@@ -658,6 +666,7 @@ namespace junklite
 
         private void PlayWallAttachment()
         {
+            if (IsDead) return;
             if (!HasAnimation(wallSlide)) return;
             var entry = skeletonAnimation.AnimationState.GetCurrent(locomotionTrack);
             if (entry?.Animation?.Name != wallSlide)
@@ -751,7 +760,7 @@ namespace junklite
             // IsJumping/IsFalling, which could both be momentarily false during a
             // falling double jump (state-set ordering), causing the animation to be
             // dropped intermittently. Grounded is the only state that should skip it.
-            if (playerState.IsGrounded)
+            if (playerState.IsGrounded || IsDead)
             {
                 ClearDoubleJumpFlag(); // not airborne - don't leave flag set without playing
                 return;
@@ -779,6 +788,7 @@ namespace junklite
 
         private void OnControllerDoubleJumpPerformed()
         {
+            if (IsDead) return;
             if (!HasAnimation(doubleJump))
             {
                 PlayJumpAir();
@@ -875,6 +885,7 @@ namespace junklite
 
         private void PlayLocomotion(string animName, bool loop)
         {
+            if (IsDead && animName != death) return;
             if ((playerState.IsWallAttached || playerState.IsWallSliding) && playerState.IsAlive && !playerState.IsStunned)
             {
                 PlayWallAttachment();
@@ -891,6 +902,7 @@ namespace junklite
 
         private void PlayJumpStart()
         {
+            if (IsDead) return;
             if (!HasAnimation(jumpStart))
             {
                 PlayJumpAir();
@@ -909,6 +921,7 @@ namespace junklite
 
         private void PlayJumpAir()
         {
+            if (IsDead) return;
             if ((playerState.IsWallAttached || playerState.IsWallSliding) && playerState.IsAlive && !playerState.IsStunned)
             {
                 PlayWallAttachment();
@@ -935,6 +948,7 @@ namespace junklite
 
         private void PlayLanding()
         {
+            if (IsDead) return;
             if (!HasAnimation(landing))
             {
                 PlayLocomotion(idle, true);

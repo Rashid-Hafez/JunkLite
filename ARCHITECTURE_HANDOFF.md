@@ -1,5 +1,12 @@
 # JunkLite Architecture Refactor Handoff
 
+### Playtest fixes: kill Y, death animation, renames (2026-10-20)
+
+- **Kill Y:** Service Floor had no `DeathTrigger`. `[Gameplay]/Kill Y` is a 700×20×800 trigger slab (top at y = -30; basement floor is -10.5) that kills anything that clips through the floor. Other levels: add the same slab if they lack one.
+- **Death animation:** once `PlayerState.IsAlive` is false, `SpineAnimationController` refuses every non-death play path (attack, forced override, locomotion, jump, landing, wall, double jump), so queued combo hits or late Spine events can no longer replace the death pose. `PlayerLifecycle.CompleteDeathPresentation` waits the death length in scaled time (matching the animation under hit-stop/slow-mo), capped at length + 5 s unscaled.
+- **Service Floor basement:** `Wall_Basement_West/East` now reach the upper lane floor (y = 0.5) and are 1.5 thick; the old 1.14-unit gap above them led out of the level. All `Colliders` boxes use `Non Slip`.
+- **Names:** player-facing text says "Server Room Key" / "Server Room door" and "KRF Porta Box". The Unity tag `Z Key` (`DoorAccessRule.requiredKeyTag`, `KeyPickup`) and scene object names are unchanged.
+
 ### Title menu and playtest build order (2026-10-14)
 
 - Build order: `Menu` (0) → `SimulationCinematicDemo` → `Service Floor` → `EndCard` → `Rooftop Scene v2`. Index 0 is the title, so `GameManager.RestartGame` (pause menu "Return to title") lands on the menu. Index-based fallbacks (`ServiceElevator`, `Level0SequenceManager`) still reach EndCard from Service Floor; Sim → Service Floor and Rooftop/Service Floor → EndCard are set by scene name.
@@ -914,3 +921,9 @@ Rope texture generated with the built-in image generation tool. Final prompt:
 - `Character2D5Controller`: plain wall contact no longer slides or sticks (input into a Wall-layer wall is cancelled and the player falls at normal speed), `Jump()` no longer wall-kicks from contact, and `JumpFromWall` (grapple hold kick-off) no longer refills the air jump. Walls are climbed only by aiming and firing the grapple, holding, and kicking off. Supersedes the 2026-10-09 notes about contact sliding/jumping. Tests: `SwordGrappleTests` (`OrdinaryWallContactNeverSlidesOrGrabs`, `DirectionalHoldReleaseThenRepressNeverSlides`, `JumpTouchingAWallWithTheHookIsNotAWallKick`).
 - New LevelEvent step `World/Switch Camera` (`SwitchCameraAction`): activates a Cinemachine camera, binds it via `CameraManager.SetActiveCamera`, prioritizes it.
 - Room 8 crater is a front cutaway: in x156–168 the front floor tiles, `Floor_Main_South`, `Floor_Upper`/`Floor_Upper_Fascia` hole pieces, front fascia/foreground panels, pillar and rail middles sit under `Room8 Collapse/Intact` and vanish at impact (`Floor_Upper`, fascia and rails are split into West/East/Back pieces). `BasementCam` (offset 0, 9.5, −44) is switched on after landing so the shaft, exit lip and Room 8 ceiling are in view; the exit event switches back to `PosZCam`. Rubble and falling chunks sit behind the walk line (z > 1.8) so nothing clips the player.
+
+### Grapple controls: RT fires, automatic wall stick (2026-10-14)
+
+- Gamepad: hold LT (`GrappleAim`) to aim with the right stick, **RT fires**. `GameInputManager.ConsumeGamepadGrappleFire` routes gamepad presses of `SpecialAttack`/`Parry` (both on RT) to the grapple's `PrimaryAttackConsumer` first, so RT never parries/specials while the grapple is aiming or holding. X (`Attack`) still fires too. Keyboard is unchanged (Ctrl aim, LMB fire).
+- Holding is automatic: arrival sticks without pushing into the wall, and the hold stays with no input (no slide). Only **down** (`MoveDirection.y < -0.6`, S / stick down) lets go; jump kicks off. Chained throws keep the old hold until the new wall is reached. `PlayerSwordGrapple.PressingIntoWall` was replaced by `WantsToDrop`.
+- Tests: `GamepadLeftTriggerAimsAndRightTriggerFires`, `HoldIsAutomaticAndOnlyDownLetsGo`, `ChainedFlightKeepsOldHoldUntilTheNewWall`.

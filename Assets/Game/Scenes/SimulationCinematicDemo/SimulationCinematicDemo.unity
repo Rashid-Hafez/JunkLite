@@ -18067,7 +18067,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2340045879948319361, guid: 807d66f132deb4d9ca04178ed313277c, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 18.547054
+      value: 16.52
       objectReference: {fileID: 0}
     - target: {fileID: 2340045879948319361, guid: 807d66f132deb4d9ca04178ed313277c, type: 3}
       propertyPath: m_LocalPosition.y
@@ -18175,7 +18175,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5337121881399006174, guid: 807d66f132deb4d9ca04178ed313277c, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -5.59
+      value: -3.85
       objectReference: {fileID: 0}
     - target: {fileID: 5337121881399006174, guid: 807d66f132deb4d9ca04178ed313277c, type: 3}
       propertyPath: m_LocalPosition.y
@@ -18197,6 +18197,10 @@ PrefabInstance:
       propertyPath: m_Material
       value: 
       objectReference: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
+    - target: {fileID: 6481661998983755137, guid: 807d66f132deb4d9ca04178ed313277c, type: 3}
+      propertyPath: 'dissolves.Array.data[2]'
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 7521387501766363457, guid: 807d66f132deb4d9ca04178ed313277c, type: 3}
       propertyPath: m_Name
       value: Step3

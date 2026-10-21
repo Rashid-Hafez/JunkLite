@@ -837,35 +837,75 @@ namespace junklite.Tests
             Assert.That(controller.Velocity.magnitude, Is.EqualTo(speed).Within(0.001f));
         }
 
+        [Test]
+        public void GamepadLeftTriggerAimsAndRightTriggerFires()
+        {
+            CreateInputDevices();
+            var pad = InputSystem.AddDevice<Gamepad>();
+            devices.Add(pad);
+            var grapple = CreateGrapple();
+            boundGrapple = grapple;
+            Invoke(grapple, "OnEnable");
+            EquipSword(grapple, 1);
+            CreateWall();
+            Physics.SyncTransforms();
+            Camera.main.pixelRect = new Rect(0f, 0f, 800f, 600f);
+
+            InputSystem.QueueStateEvent(pad, new GamepadState { leftTrigger = 1f, rightStick = new Vector2(1f, 0f) });
+            InputSystem.Update();
+            Invoke(grapple, "Update");
+            Assert.That(grapple.Phase, Is.EqualTo(SwordGrapplePhase.Aiming));
+            Assert.That(grapple.HasValidAim, Is.True, grapple.AimFailure);
+
+            InputSystem.QueueStateEvent(pad, new GamepadState { leftTrigger = 1f, rightTrigger = 1f, rightStick = new Vector2(1f, 0f) });
+            InputSystem.Update();
+            Assert.That(grapple.Phase, Is.EqualTo(SwordGrapplePhase.Flying), "RT fires the grapple while LT aims.");
+        }
+
         [TestCase(-1f)]
         [TestCase(1f)]
-        public void DirectionalHoldReleaseThenRepressNeverSlides(float side)
+        public void HoldIsAutomaticAndOnlyDownLetsGo(float side)
         {
             var grapple = CreateGrapple();
             EquipSword(grapple, 1);
             CreateBox(new Vector3(side * 5f, 2f, 0f), new Vector3(1f, 20f, 4f), 12).isTrigger = true;
             ReachWall(grapple, Vector3.right * side);
-            AdvanceGrapple(grapple, 3);
+            // Real keyboard from here on; the grapple binds it on its next Update.
+            var (keyboard, _) = CreateInputDevices();
+            boundGrapple = grapple;
+            Invoke(grapple, "BindInput");
             var controller = grapple.GetComponent<Character2D5Controller>();
             var state = grapple.GetComponent<PlayerState>();
+
+            // No input at all: still stuck, no slide.
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+            InputSystem.Update();
+            controller.SetMovementInput(0f);
+            AdvanceGrapple(grapple, 3);
             var position = grapple.GetComponent<Rigidbody>().position;
             AdvanceGrapple(grapple, 8);
+            Assert.That(grapple.IsHolding, Is.True, "Arrival sticks without pushing into the wall.");
             Assert.That(grapple.GetComponent<Rigidbody>().position, Is.EqualTo(position));
             Assert.That(state.IsWallSliding, Is.False);
-            controller.SetMovementInput(0f);
+
+            // Pushing away does not let go either.
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(side > 0f ? Key.A : Key.D));
+            InputSystem.Update();
+            AdvanceGrapple(grapple);
+            Assert.That(grapple.IsHolding, Is.True);
+
+            // Down lets go; then plain contact never slides.
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.S));
+            InputSystem.Update();
             AdvanceGrapple(grapple);
             Assert.That(grapple.IsActive, Is.False);
             Assert.That(controller.IsPhysicsOverridden, Is.False);
             Assert.That(state.IsWallAttached, Is.False);
             controller.SetVelocity(Vector3.down * 8f);
-            Invoke(controller, "FixedUpdate");
-            Assert.That(state.IsWallSliding, Is.False);
             controller.SetMovementInput(side);
             Invoke(controller, "FixedUpdate");
             Assert.That(state.IsWallSliding, Is.False, "Plain wall contact never slides.");
-            Assert.That(grapple.IsHolding, Is.False);
             Assert.That(controller.Velocity.y, Is.LessThan(-settings.wallSlideSpeed), "Falls at normal speed.");
-            Assert.That(controller.Velocity.x, Is.Zero);
         }
 
         [TestCase(-1f, 0f, true)]
@@ -943,7 +983,7 @@ namespace junklite.Tests
         }
 
         [Test]
-        public void ReleasingOldWallDuringChainedFlightDoesNotCancelTheFiredSword()
+        public void ChainedFlightKeepsOldHoldUntilTheNewWall()
         {
             var grapple = CreateGrapple();
             EquipSword(grapple, 1);
@@ -954,7 +994,7 @@ namespace junklite.Tests
             grapple.GetComponent<Character2D5Controller>().SetMovementInput(-1f);
             AdvanceGrapple(grapple);
             Assert.That(grapple.Phase, Is.EqualTo(SwordGrapplePhase.Flying));
-            Assert.That(grapple.IsHolding, Is.False);
+            Assert.That(grapple.IsHolding, Is.True, "The old wall holds until the new one is reached.");
             for (int i = 0; i < 100 && grapple.Phase != SwordGrapplePhase.Holding; i++) AdvanceGrapple(grapple);
             Assert.That(grapple.IsHolding, Is.True);
             Assert.That(grapple.GetComponent<Rigidbody>().position.x, Is.LessThan(testOrigin.x));

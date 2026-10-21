@@ -4596,7 +4596,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 13680667}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -13593,7 +13593,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 36820421}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -13605,8 +13605,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 16.400002, y: 12, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 18.240181, y: 12.222779, z: 2.3318825}
+  m_Center: {x: -0.9200897, y: -0.11138964, z: -0.66594124}
 --- !u!1 &36843865
 GameObject:
   m_ObjectHideFlags: 0
@@ -33235,7 +33235,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 74959488}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -83172,7 +83172,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 196557257}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -91600,7 +91600,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 221113113}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -92853,7 +92853,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 224522342}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -135889,7 +135889,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 333389661}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -142207,7 +142207,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 346962763}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -187248,7 +187248,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 469405920}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -189141,7 +189141,7 @@ Light:
   serializedVersion: 12
   m_Type: 2
   m_Color: {r: 0.08, g: 0.65, b: 1, a: 1}
-  m_Intensity: 1.3843021
+  m_Intensity: 1.2
   m_Range: 4.5
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -228639,6 +228639,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4635175519021913991, guid: d48bc2dc6716c4fac9225e4842420cf8, type: 3}
+      propertyPath: promptLabel
+      value: Open The KRF Porta Box
+      objectReference: {fileID: 0}
     - target: {fileID: 7836069336178931385, guid: d48bc2dc6716c4fac9225e4842420cf8, type: 3}
       propertyPath: m_Name
       value: Sword CyberBox
@@ -250013,7 +250017,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 634672826}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -263487,7 +263491,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 667388805}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -272480,7 +272484,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 692531626}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -278885,7 +278889,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 709561265}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -282154,7 +282158,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 716703028}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -286421,7 +286425,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 727226919}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -286433,8 +286437,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.5, y: 9.36, z: 6}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 1.5, y: 10.5, z: 6}
+  m_Center: {x: -0.5, y: 0.5700002, z: 0}
 --- !u!1 &727242589
 GameObject:
   m_ObjectHideFlags: 0
@@ -293039,8 +293043,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 33.91283, y: 8, z: 8}
-  m_Center: {x: -0.40329933, y: 0, z: 0}
+  m_Size: {x: 40.06502, y: 8, z: 19.31185}
+  m_Center: {x: 0.06753731, y: 0, z: 0.6218691}
 --- !u!1001 &743175247
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -357290,7 +357294,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 906618539}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -362486,7 +362490,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 920538981}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -363591,7 +363595,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 922970867}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -366693,7 +366697,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 931697155}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -372350,7 +372354,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 948803379}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -399730,7 +399734,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 994664432}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -399742,8 +399746,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 4.4000015, y: 12, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 6.690468, y: 12.523055, z: 2.0883713}
+  m_Center: {x: 1.1452332, y: -0.26152754, z: -0.54418564}
 --- !u!1001 &994991155
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -430426,7 +430430,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1077294045}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -432770,7 +432774,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1084467062}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -467034,7 +467038,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ce3adbde39f784d3295eef5bdadd7ddf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.KeyPickup
-  displayName: Z Key
+  displayName: Server Room Key
   interactRadius: 2.5
   playerTag: Player
 --- !u!1001 &1175208608
@@ -472635,7 +472639,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1188040477}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -477273,7 +477277,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1200043155}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -481077,7 +481081,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.CyberBoxInteractable
   lid: {fileID: 789226407}
   item: {fileID: 321447915}
-  promptLabel: Open The CyberBox
+  promptLabel: Open The KRF Porta Box
   requiredKeyTag: 
   highlight: {fileID: 366277717}
   lidOpenOffset: {x: 0, y: 1.6, z: 2.2}
@@ -502831,7 +502835,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1272712008}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -518869,7 +518873,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1313056570}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -556630,6 +556634,73 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1386435696}
   m_Mesh: {fileID: -8075386355102754082, guid: 9b368efa585468f40a29b39fce7500ec, type: 3}
+--- !u!1 &1386470713
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1386470714}
+  - component: {fileID: 1386470716}
+  - component: {fileID: 1386470715}
+  m_Layer: 0
+  m_Name: Kill Y
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1386470714
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1386470713}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 84, y: -40, z: 140}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2084055913}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1386470715
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1386470713}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 08eacbd96477d604b92c0c130a6fb060, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.DeathTrigger
+  killEnemies: 0
+--- !u!65 &1386470716
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1386470713}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 700, y: 20, z: 800}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &1386596093
 GameObject:
   m_ObjectHideFlags: 0
@@ -560558,7 +560629,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1394646122}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -570127,7 +570198,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1418935087}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -573278,7 +573349,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1428148936}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -584116,7 +584187,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.CyberBoxInteractable
   lid: {fileID: 1298579421}
   item: {fileID: 807395036}
-  promptLabel: Open The CyberBox
+  promptLabel: Open The KRF Porta Box
   requiredKeyTag: Grapple Hook
   highlight: {fileID: 1610906273}
   lidOpenOffset: {x: 0, y: 1.6, z: 2.2}
@@ -597393,7 +597464,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1483033210}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -614700,7 +614771,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1530266621}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -630135,7 +630206,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1570544552}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -632464,7 +632535,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1576162468}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -638819,8 +638890,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 22.88069, y: 8, z: 8}
-  m_Center: {x: -0.08863354, y: 0, z: 0}
+  m_Size: {x: 32.39101, y: 8, z: 14.395266}
+  m_Center: {x: -0.055791855, y: 0, z: 0.49243927}
 --- !u!4 &1595702208 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4936835608623011743, guid: f526ad6d605eb9d439c0e70e1fadfc09, type: 3}
@@ -647229,7 +647300,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1616509848}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -675260,7 +675331,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1685981200}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -675272,8 +675343,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.5, y: 9.36, z: 6}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 1.5, y: 10.5, z: 6}
+  m_Center: {x: 0.5, y: 0.5700002, z: 0}
 --- !u!1 &1686049698
 GameObject:
   m_ObjectHideFlags: 0
@@ -695572,7 +695643,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1740570799}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -711264,7 +711335,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1783479099}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -724049,7 +724120,7 @@ Light:
   serializedVersion: 12
   m_Type: 2
   m_Color: {r: 0.12, g: 0.82, b: 1, a: 1}
-  m_Intensity: 1.1574209
+  m_Intensity: 1.2
   m_Range: 6.5
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -738582,7 +738653,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1846094022}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -744295,7 +744366,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1862676769}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -744348,7 +744419,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1862861249}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -747095,7 +747166,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1869733116}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -748819,7 +748890,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1873376165}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -751001,7 +751072,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1878420592}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -752414,7 +752485,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1881988855}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -754420,7 +754491,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1887653443}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -771022,7 +771093,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.CyberBoxInteractable
   lid: {fileID: 1142145588}
   item: {fileID: 1661841097}
-  promptLabel: Open The CyberBox
+  promptLabel: Open The KRF Porta Box
   requiredKeyTag: 
   highlight: {fileID: 69604639}
   lidOpenOffset: {x: 0, y: 1.6, z: 2.2}
@@ -805579,7 +805650,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 50, y: 3, z: 24.400002}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1, y: 3.022685, z: 1.0440127}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2084055913}
@@ -835867,6 +835938,7 @@ Transform:
   - {fileID: 1678783127}
   - {fileID: 1583861877}
   - {fileID: 1343346164}
+  - {fileID: 1386470714}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &2084076175

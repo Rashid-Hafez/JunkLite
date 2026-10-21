@@ -372,7 +372,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.CyberBoxInteractable
   lid: {fileID: 1152478024155413027}
   item: {fileID: 2675346303343083905}
-  promptLabel: Open The CyberBox
+  promptLabel: Open The KRF Porta Box
   requiredKeyTag: 
   highlight: {fileID: 863551044897692846}
   lidOpenOffset: {x: 0, y: 1.6, z: 2.2}

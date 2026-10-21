@@ -252,13 +252,11 @@ namespace junklite
             return jumpFromWall && controller.JumpFromWall(normal);
         }
 
-        private bool PressingIntoWall(Vector3 normal)
-        {
-            float horizontal = input != null ? input.MoveDirection.x : controller.HorizontalInput;
-            return horizontal * -Vector3.Dot(normal, planeAxis) > 0.1f;
-        }
+        // The hold is automatic: the player stays stuck with no input. Pressing down lets go
+        // (jump kicks off instead).
+        private bool WantsToDrop() => input != null && input.MoveDirection.y < -0.6f;
 
-        private void ReleaseDirectionalHold()
+        private void ReleaseHold()
         {
             // A fired sword can finish its flight while the old wall is released.
             if (Phase != SwordGrapplePhase.Flying && Phase != SwordGrapplePhase.ImpactDelay)
@@ -278,7 +276,7 @@ namespace junklite
             if (Phase == SwordGrapplePhase.Holding && input != null && Time.timeScale > 0f &&
                 input.IsGameplayInputEnabled && input.IsGrappleAimHeld &&
                 input.controls.Player.GrappleAim.enabled && CanContinue() &&
-                AnchorValid(heldTarget, heldMatrix) && PressingIntoWall(heldTarget.Normal))
+                AnchorValid(heldTarget, heldMatrix) && !WantsToDrop())
                 BeginAim();
         }
 
@@ -291,7 +289,7 @@ namespace junklite
             if (Time.timeScale <= 0f) return;
             if (input == null || !input.IsGameplayInputEnabled || !input.controls.Player.GrappleAim.enabled)
             { Cancel(); return; }
-            if (holding && !PressingIntoWall(heldTarget.Normal)) ReleaseDirectionalHold();
+            if (holding && WantsToDrop()) ReleaseHold();
             ResumeHeldAim();
             if (Phase == SwordGrapplePhase.Aiming)
             {
@@ -350,7 +348,7 @@ namespace junklite
             if (!IsActive || Time.timeScale <= 0f) return;
             if (!CanContinue()) { Cancel(); return; }
             if (holding && !AnchorValid(heldTarget, heldMatrix)) { Cancel(); return; }
-            if (holding && !PressingIntoWall(heldTarget.Normal)) ReleaseDirectionalHold();
+            if (holding && WantsToDrop()) ReleaseHold();
             if (!IsActive) return;
 
             if (Phase == SwordGrapplePhase.Flying) TickFlight();
@@ -418,7 +416,7 @@ namespace junklite
             if (distance <= settings.arrivalDistance)
             {
                 controller.SetVelocity(Vector3.zero);
-                if (!PressingIntoWall(target.Normal)) { Cancel(); return; }
+                // Auto-stick on arrival: no need to push into the wall.
                 heldTarget = target;
                 heldMatrix = targetMatrix;
                 // Arrival tolerance starts the pose; it must not become a

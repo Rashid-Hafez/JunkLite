@@ -358,9 +358,10 @@ namespace junklite
             };
 
             // === SPECIAL ATTACK (Press Only) ===
-            controls.Player.SpecialAttack.performed += _ =>
+            controls.Player.SpecialAttack.performed += ctx =>
             {
                 if (!IsGameplayInputEnabled) return;
+                if (ConsumeGamepadGrappleFire(ctx)) return;
                 OnSpecialAttack();
             };
 
@@ -368,9 +369,10 @@ namespace junklite
             var parryAction = controls.FindAction("Parry", throwIfNotFound: false);
             if (parryAction != null)
             {
-                parryAction.performed += _ =>
+                parryAction.performed += ctx =>
                 {
                     if (!IsGameplayInputEnabled && !IsParryOnlyInputEnabled) return;
+                    if (IsGameplayInputEnabled && ConsumeGamepadGrappleFire(ctx)) return;
                     OnParry();
                 };
             }
@@ -462,6 +464,11 @@ namespace junklite
 
 
         }
+
+        // Gamepad: RT (Special Attack / Parry) fires the grapple while it is aiming or held.
+        // Keyboard keeps LMB; X on the gamepad also still fires through Attack.
+        private bool ConsumeGamepadGrappleFire(InputAction.CallbackContext context) =>
+            context.control != null && context.control.device is Gamepad && ConsumePrimaryAttack();
 
         private bool ConsumePrimaryAttack()
         {
