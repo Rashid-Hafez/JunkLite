@@ -122,7 +122,7 @@ namespace junklite
         public bool IsModCombat => isModCombat;
         public bool IsAttacking => isAttacking;
         public AttackDirection CurrentAttackDirection => currentAttackDir;
-        public float Facing => Mathf.Sign(playerTransform.localScale.x);
+        public float Facing => controller != null ? controller.FacingSign : Mathf.Sign(playerTransform.localScale.x);
 
         /// <summary>
         /// The horizontal movement axis for the current 2.5D lane.

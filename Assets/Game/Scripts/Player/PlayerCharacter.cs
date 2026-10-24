@@ -25,7 +25,8 @@ namespace junklite
         [Header("VFX")]
         [SerializeField] private ParticleSystem particleJumpUp;
         [SerializeField] private ParticleSystem particleJumpDown;
-        [SerializeField] private SkeletonGhost skeletonGhost;
+        [Tooltip("Found automatically. A left/right skeleton player has one ghost per skeleton; only the shown one spawns.")]
+        [SerializeField] private SkeletonGhost[] skeletonGhosts;
 
         [Header("Dash VFX")]
         [SerializeField] private ParticleSystem particleDashBurst;
@@ -144,8 +145,8 @@ namespace junklite
             if (attributes != null)
                 attributes.OnDeath += HandleDeath;
 
-            skeletonGhost = GetComponentInChildren<SkeletonGhost>();
-            if (skeletonGhost == null)
+            skeletonGhosts = GetComponentsInChildren<SkeletonGhost>(includeInactive: true);
+            if (skeletonGhosts.Length == 0)
             {
                 Debug.LogError("SkeletonGhost component not found on player character!", this);
             }
@@ -975,31 +976,32 @@ namespace junklite
 
         public void SkeletonGhostActivation(bool activate)
         {
-            if (skeletonGhost == null)
+            if (skeletonGhosts == null || skeletonGhosts.Length == 0)
             {
                 Debug.LogWarning("[PlayerCharacter] SkeletonGhost is null!", this);
                 return;
             }
 
-            if (skeletonGhost.ghostingEnabled == activate)
-                return;
-
-            skeletonGhost.ghostingEnabled = activate;
+            // Both sides ghost; the hidden skeleton is inactive, so it never spawns.
+            foreach (SkeletonGhost ghost in skeletonGhosts)
+            {
+                if (ghost != null)
+                    ghost.ghostingEnabled = activate;
+            }
         }
 
         private void ConfigureDashGhost()
         {
             // SkeletonGhost clones a mesh for every after-image. Cap both the spawn
             // rate and pool size before its Start method allocates the pool.
-            skeletonGhost.ghostingEnabled = false;
-            skeletonGhost.enabled = true;
-            skeletonGhost.spawnInterval = Mathf.Max(
-                skeletonGhost.spawnInterval,
-                minimumDashGhostSpawnInterval);
-            skeletonGhost.maximumGhosts = Mathf.Clamp(
-                skeletonGhost.maximumGhosts,
-                1,
-                Mathf.Max(1, maximumDashGhosts));
+            foreach (SkeletonGhost ghost in skeletonGhosts)
+            {
+                if (ghost == null) continue;
+                ghost.ghostingEnabled = false;
+                ghost.enabled = true;
+                ghost.spawnInterval = Mathf.Max(ghost.spawnInterval, minimumDashGhostSpawnInterval);
+                ghost.maximumGhosts = Mathf.Clamp(ghost.maximumGhosts, 1, Mathf.Max(1, maximumDashGhosts));
+            }
         }
 
         private void ResetDashVFX()
@@ -1017,8 +1019,7 @@ namespace junklite
                     ParticleSystemStopBehavior.StopEmittingAndClear);
             }
 
-            if (skeletonGhost != null)
-                skeletonGhost.ghostingEnabled = false;
+            SkeletonGhostActivation(false);
         }
 
         #endregion

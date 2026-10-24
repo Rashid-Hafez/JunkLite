@@ -111,7 +111,9 @@ namespace junklite
 
         private void SpawnPulse(PlayerCharacter player, ModInstance instance)
         {
-            float facing = Mathf.Sign(player.transform.localScale.x);
+            float facing = player.Controller != null
+                ? player.Controller.FacingSign
+                : Mathf.Sign(player.transform.localScale.x);
             Vector3 spawnPos = player.transform.position
                              + Vector3.up * spawnHeightOffset
                              + Vector3.right * (facing * spawnForwardOffset);

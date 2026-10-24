@@ -14,6 +14,14 @@ namespace junklite
         [Header("Weapon Attachment")]
         [SerializeField] private Transform weaponHolder;
 
+        [Header("Weapon Draw Order")]
+        [Tooltip("Sorting order of an equipped weapon's root sprite.")]
+        [SerializeField] private int weaponSortingOrder = 11;
+        [Tooltip("Left/right skeleton player: order while facing left, when the right (weapon) hand is the far arm. " +
+                 "Set below the body's order to draw behind it. Same as Weapon Sorting Order = no change.")]
+        [SerializeField] private int weaponSortingOrderFacingLeft = 11;
+
+        private Character2D5Controller controller;
         private WeaponInstance weaponSlot1;
         private WeaponInstance weaponSlot2;
         private WorldWeaponPickup storedPickup1;
@@ -29,6 +37,36 @@ namespace junklite
 
         public event Action WeaponChanged;
         public event Action<int> WeaponBroken;
+
+        private void Awake()
+        {
+            controller = GetComponent<Character2D5Controller>();
+        }
+
+        private void OnEnable()
+        {
+            if (controller != null)
+                controller.FacingChanged += HandleFacingChanged;
+        }
+
+        private void OnDisable()
+        {
+            if (controller != null)
+                controller.FacingChanged -= HandleFacingChanged;
+        }
+
+        private void HandleFacingChanged(bool facingRight)
+        {
+            ApplySortingOrder(weaponSlot1);
+            ApplySortingOrder(weaponSlot2);
+        }
+
+        private void ApplySortingOrder(WeaponInstance weapon)
+        {
+            if (weapon == null || !weapon.TryGetComponent(out SpriteRenderer rootRenderer)) return;
+            bool facingLeft = controller != null && !controller.IsFacingRight;
+            rootRenderer.sortingOrder = facingLeft ? weaponSortingOrderFacingLeft : weaponSortingOrder;
+        }
 
         /// <summary>
         /// Supports existing player prefabs while the component is being serialized
@@ -84,10 +122,7 @@ namespace junklite
             weapon.gameObject.SetActive(true);
             weapon.transform.SetParent(isRanged ? transform : ResolveWeaponHolder(), false);
 
-            SpriteRenderer rootRenderer = weapon.GetComponent<SpriteRenderer>();
-            if (rootRenderer != null)
-                rootRenderer.sortingOrder = 11;
-
+            ApplySortingOrder(weapon);
             ApplySocketTransform(weapon, isRanged);
             SetSlot(slot, weapon, pickup);
             SetWeaponVisible(weapon, weaponsVisible);

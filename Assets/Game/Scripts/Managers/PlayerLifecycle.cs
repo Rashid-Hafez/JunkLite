@@ -17,7 +17,12 @@ namespace junklite
         public static PlayerLifecycle Instance { get; private set; }
 
         [Header("Player")]
+        [Tooltip("Old player (single mirrored skeleton). Used while Use New Player is off.")]
         [SerializeField] private GameObject playerPrefab;
+        [Tooltip("New Cass player (left/right skeletons). Used while Use New Player is on.")]
+        [SerializeField] private GameObject newPlayerPrefab;
+        [Tooltip("Spawn the new Cass player. Turn off to playtest with the old player. Applies on the next spawn after a scene load.")]
+        [SerializeField] private bool useNewPlayer;
         [SerializeField, Min(0f)] private float respawnDelay = 2f;
         [SerializeField, Min(0f)] private float deathPresentationFallbackDelay = 1.25f;
 
@@ -30,7 +35,8 @@ namespace junklite
         private Coroutine respawnRoutine;
 
         public PlayerCharacter Player => currentPlayer;
-        public GameObject PlayerPrefab => playerPrefab;
+        /// <summary>The prefab the next spawn uses: the new player when selected and assigned, else the old one.</summary>
+        public GameObject PlayerPrefab => useNewPlayer && newPlayerPrefab != null ? newPlayerPrefab : playerPrefab;
         public int CurrentSpawnIndex => currentSpawnIndex;
         public bool ShouldSpawnPlayer => levelContext != null
             ? levelContext.SpawnPlayer
@@ -114,13 +120,14 @@ namespace junklite
 
             if (currentPlayer == null)
             {
-                if (playerPrefab == null)
+                GameObject prefab = PlayerPrefab;
+                if (prefab == null)
                 {
                     Debug.LogError("[PlayerLifecycle] No player prefab assigned.");
                     return null;
                 }
 
-                GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
+                GameObject playerObject = Instantiate(prefab, spawnPosition, Quaternion.identity);
                 currentPlayer = playerObject.GetComponent<PlayerCharacter>();
                 if (currentPlayer == null)
                 {

@@ -13,6 +13,15 @@ namespace junklite
     {
         [Header("Spine")]
         [SerializeField] private SkeletonAnimation skeletonAnimation;
+
+        [Header("Left / Right Skeletons (SkeletonSwap player)")]
+        [Tooltip("Shown while facing right. Leave both empty on the old single-skeleton prefab.")]
+        [SerializeField] private SkeletonAnimation rightSkeleton;
+        [Tooltip("Shown while facing left. Authored facing left, never mirrored by scale.")]
+        [SerializeField] private SkeletonAnimation leftSkeleton;
+        [Tooltip("Followers moved onto the shown skeleton (weapon socket, muzzle). Both skeletons need each follower's bone.")]
+        [SerializeField] private BoneFollower[] boneFollowers;
+
         [Tooltip("Local forward offset of the Spine artwork during a wall hold/slide. Aligns the hand pose without moving the physics capsule.")]
         [SerializeField] private float wallPoseForwardOffset;
         private Vector3 appliedWallPoseOffset;
@@ -111,6 +120,11 @@ namespace junklite
 
         public TrackEntry CurrentAttackEntry => currentAttackEntry;
 
+        /// <summary>The skeleton currently shown (the facing side on a SkeletonSwap player).</summary>
+        public SkeletonAnimation ActiveSkeleton => skeletonAnimation;
+
+        private bool HasSidedSkeletons => rightSkeleton != null && leftSkeleton != null;
+
         // Once dead, only the death animation may own the skeleton: late attack/jump/landing
         // requests (queued combo hits, Spine events) would otherwise replace the death pose.
         private bool IsDead => playerState != null && !playerState.IsAlive;
@@ -131,20 +145,35 @@ namespace junklite
 
         private void Awake()
         {
-            if (!skeletonAnimation)
-                skeletonAnimation = GetComponentInChildren<SkeletonAnimation>();
-
             playerState = GetComponentInParent<PlayerState>();
             controller = GetComponentInParent<Character2D5Controller>();
             audioHandler = GetComponentInParent<PlayerAudioHandler>() ?? GetComponent<PlayerAudioHandler>();
             weaponManager = GetComponentInParent<WeaponManager>();
             playerCharacter = GetComponentInParent<PlayerCharacter>();
 
-            if (skeletonAnimation != null)
+            if (HasSidedSkeletons)
             {
-                skeletonAnimation.Initialize(false);
-                ConfigureMixes();
+                bool facingRight = controller == null || controller.IsFacingRight;
+                skeletonAnimation = facingRight ? rightSkeleton : leftSkeleton;
+                InitializeSkeleton(rightSkeleton);
+                InitializeSkeleton(leftSkeleton);
+                rightSkeleton.gameObject.SetActive(facingRight);
+                leftSkeleton.gameObject.SetActive(!facingRight);
+                SetBoneFollowerTarget(skeletonAnimation);
+                return;
             }
+
+            if (!skeletonAnimation)
+                skeletonAnimation = GetComponentInChildren<SkeletonAnimation>();
+
+            InitializeSkeleton(skeletonAnimation);
+        }
+
+        private void InitializeSkeleton(SkeletonAnimation target)
+        {
+            if (target == null) return;
+            target.Initialize(false);
+            ConfigureMixes(target.AnimationState?.Data);
         }
 
         private void Start()
@@ -173,8 +202,16 @@ namespace junklite
             if (playerCharacter != null)
                 playerCharacter.OnRevived += OnRevived;
 
-            if (skeletonAnimation != null)
+            // Only the shown skeleton updates, so subscribing both never doubles an event.
+            if (HasSidedSkeletons)
+            {
+                rightSkeleton.AnimationState.Event += HandleSpineEvent;
+                leftSkeleton.AnimationState.Event += HandleSpineEvent;
+            }
+            else if (skeletonAnimation != null)
+            {
                 skeletonAnimation.AnimationState.Event += HandleSpineEvent;
+            }
 
             if (controller != null)
                 controller.OnDoubleJumpPerformed += OnControllerDoubleJumpPerformed;
@@ -189,6 +226,8 @@ namespace junklite
         {
             if (skeletonAnimation == null || controller == null || playerState == null)
                 return;
+
+            SyncSkeletonToFacing();
 
             if ((playerState.IsWallAttached || playerState.IsWallSliding) && playerState.IsAlive && !playerState.IsStunned)
             {
@@ -207,7 +246,9 @@ namespace junklite
             if (skeletonAnimation == null || skeletonAnimation.transform == transform) return;
             bool wallPose = playerState != null && playerState.IsAlive && !playerState.IsStunned &&
                            (playerState.IsWallAttached || playerState.IsWallSliding);
-            Vector3 offset = wallPose ? Vector3.right * wallPoseForwardOffset : Vector3.zero;
+            // A sided skeleton is never mirrored, so the forward offset follows facing itself.
+            float forward = HasSidedSkeletons && controller != null ? controller.FacingSign : 1f;
+            Vector3 offset = wallPose ? Vector3.right * (wallPoseForwardOffset * forward) : Vector3.zero;
             skeletonAnimation.transform.localPosition += offset - appliedWallPoseOffset;
             appliedWallPoseOffset = offset;
         }
@@ -245,8 +286,120 @@ namespace junklite
             if (weaponManager != null)
                 weaponManager.OnCombatModeChanged -= HandleCombatModeChanged;
 
-            if (skeletonAnimation != null)
+            if (HasSidedSkeletons)
+            {
+                if (rightSkeleton.AnimationState != null) rightSkeleton.AnimationState.Event -= HandleSpineEvent;
+                if (leftSkeleton.AnimationState != null) leftSkeleton.AnimationState.Event -= HandleSpineEvent;
+            }
+            else if (skeletonAnimation != null)
+            {
                 skeletonAnimation.AnimationState.Event -= HandleSpineEvent;
+            }
+        }
+
+        #endregion
+
+        #region Left / Right Skeleton Swap
+
+        private void SyncSkeletonToFacing()
+        {
+            // A force override's restore callback lives on its track entry, so wait until it ends.
+            if (!HasSidedSkeletons || forceOverrideActive) return;
+
+            SkeletonAnimation shown = controller.IsFacingRight ? rightSkeleton : leftSkeleton;
+            if (shown != skeletonAnimation)
+                SwapSkeleton(shown);
+        }
+
+        private void SwapSkeleton(SkeletonAnimation next)
+        {
+            SkeletonAnimation previous = skeletonAnimation;
+            previous.transform.localPosition -= appliedWallPoseOffset;
+            appliedWallPoseOffset = Vector3.zero;
+
+            next.gameObject.SetActive(true);
+            Spine.AnimationState from = previous.AnimationState;
+            Spine.AnimationState to = next.AnimationState;
+            to.ClearTracks();
+
+            var tracks = from.Tracks;
+            for (int track = 0; track < tracks.Count; track++)
+            {
+                TrackEntry source = tracks.Items[track];
+                if (source == null) continue;
+
+                CopyTrackEntry(to, track, source, true);
+                for (TrackEntry queued = source.Next; queued != null; queued = queued.Next)
+                    CopyTrackEntry(to, track, queued, false);
+            }
+
+            // ClearTracks fires End only (never Complete/Interrupt), so no callback runs twice.
+            from.ClearTracks();
+            previous.gameObject.SetActive(false);
+            skeletonAnimation = next;
+            SetBoneFollowerTarget(next);
+
+            // Pose and rebuild the mesh now so the swap frame never shows a stale body.
+            next.Update(0f);
+            next.LateUpdate();
+        }
+
+        private void CopyTrackEntry(Spine.AnimationState to, int track, TrackEntry source, bool current)
+        {
+            Spine.Animation animation = to.Data.SkeletonData.FindAnimation(source.Animation.Name);
+            TrackEntry copy;
+            if (animation == null) // empty animation, or one this skeleton lacks
+                copy = current ? to.SetEmptyAnimation(track, 0f) : to.AddEmptyAnimation(track, source.MixDuration, source.Delay);
+            else
+                copy = current ? to.SetAnimation(track, animation, source.Loop) : to.AddAnimation(track, animation, source.Loop, source.Delay);
+
+            copy.TimeScale = source.TimeScale;
+            copy.Alpha = source.Alpha;
+            copy.MixBlend = source.MixBlend;
+            copy.HoldPrevious = source.HoldPrevious;
+            if (current)
+            {
+                copy.TrackTime = source.TrackTime;
+                copy.MixDuration = 0f; // same pose on the other side: nothing to blend from
+            }
+            else
+            {
+                copy.MixDuration = source.MixDuration;
+            }
+
+            RehookCallbacks(track, source, copy);
+        }
+
+        // Track entry callbacks do not carry over, so re-add the ones this controller relies on.
+        private void RehookCallbacks(int track, TrackEntry source, TrackEntry copy)
+        {
+            if (source == currentAttackEntry)
+            {
+                HookAttackEntry(copy, track == overlayTrack && !IsParryHit(source.Animation.Name));
+                currentAttackEntry = copy;
+                return;
+            }
+
+            string animationName = source.Animation.Name;
+            if (animationName == jumpAir)
+            {
+                copy.Complete += OnJumpAirComplete;
+            }
+            else if (animationName == doubleJump)
+            {
+                copy.Complete += _ => ClearDoubleJumpFlag();
+                copy.Interrupt += _ => ClearDoubleJumpFlag();
+            }
+        }
+
+        private void SetBoneFollowerTarget(SkeletonAnimation target)
+        {
+            if (boneFollowers == null) return;
+            foreach (BoneFollower follower in boneFollowers)
+            {
+                if (follower != null)
+                    follower.SkeletonRenderer = target;
+            }
         }
 
         #endregion
@@ -279,7 +432,7 @@ namespace junklite
 
             // Special-case: ensure the parry hit animation fully replaces everything
             // and does not blend bones. This prevents head twisting from blending.
-            if (string.Equals(animationName, "Perry_2", System.StringComparison.OrdinalIgnoreCase))
+            if (IsParryHit(animationName))
             {
                 bool has = HasAnimation(animationName);
                 if (!has)
@@ -301,8 +454,7 @@ namespace junklite
                     entry.MixBlend = MixBlend.Replace;
                     // standard time scale (no global compensation)
                     entry.TimeScale = GetTimeScaleFor(animationName, 1f);
-                    entry.Complete += _ => FinishAttackOverwrite();
-                    entry.Interrupt += _ => OnAttackInterrupted();
+                    HookAttackEntry(entry, false);
                 }
                 currentAttackEntry = entry;
                 return;
@@ -321,8 +473,7 @@ namespace junklite
                 entry.MixDuration = attackMix;
                 entry.MixBlend = MixBlend.Replace;
                 entry.TimeScale = timeScale;
-                entry.Complete += _ => FinishAttackOverwrite();
-                entry.Interrupt += _ => OnAttackInterrupted();
+                HookAttackEntry(entry, false);
                 currentAttackEntry = entry;
             }
             else
@@ -331,10 +482,20 @@ namespace junklite
                 entry.MixDuration = attackMix;
                 entry.MixBlend = MixBlend.Replace;
                 entry.TimeScale = timeScale;
-                entry.Complete += _ => FinishAttackOverlay();
-                entry.Interrupt += _ => OnAttackInterrupted();
+                HookAttackEntry(entry, true);
                 currentAttackEntry = entry;
             }
+        }
+
+        // Perry_2 fully replaces the pose on the overlay track but finishes like an overwrite attack.
+        private static bool IsParryHit(string animationName) =>
+            string.Equals(animationName, "Perry_2", StringComparison.OrdinalIgnoreCase);
+
+        private void HookAttackEntry(TrackEntry entry, bool finishAsOverlay)
+        {
+            if (finishAsOverlay) entry.Complete += _ => FinishAttackOverlay();
+            else entry.Complete += _ => FinishAttackOverwrite();
+            entry.Interrupt += _ => OnAttackInterrupted();
         }
 
         private void FinishAttackOverlay()
@@ -1116,9 +1277,8 @@ namespace junklite
             return fallback;
         }
 
-        private void ConfigureMixes()
+        private void ConfigureMixes(Spine.AnimationStateData data)
         {
-            var data = skeletonAnimation.AnimationState?.Data;
             if (data == null) return;
 
             SafeSetMix(data, idle, run, locomotionBlend);
@@ -1134,7 +1294,7 @@ namespace junklite
             if (string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to))
                 return;
 
-            var skeletonData = skeletonAnimation?.Skeleton?.Data;
+            var skeletonData = data.SkeletonData;
             if (skeletonData == null) return;
 
             if (skeletonData.FindAnimation(from) != null && skeletonData.FindAnimation(to) != null)

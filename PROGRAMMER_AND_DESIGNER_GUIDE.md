@@ -97,6 +97,12 @@ Place them roughly on the lane, then run **Tools > JunkLite > Level > Snap All E
 - **Tutorial prompts** use `TutorialPromptHUD` (created at runtime by `Level0SequenceManager`). Call `Show(new TutorialPromptHUD.Entry("Player/Jump", "Jump"))`, then `Complete()` once the player has done it. Key labels switch between keyboard and gamepad on their own. Pass `keyboardOverride`/`gamepadOverride` for composite actions like Move.
 - **Props that dissolve in** need a `DissolveController` (with its Renderer assigned) and a `ProximityDissolveIn` on the renderer object, using a Dissolve-shader material (e.g. `SimProp_Dissolve.mat`). They start hidden and reveal once when the player comes within `radius`.
 
+### Player prefab: new Cass vs old player
+- **Switch players** on the **Player Lifecycle** component of `Game Root` / `Game Manager` (prefabs under `Prefabs/Manager/`): tick **Use New Player** for `Player_Cass`, untick it to playtest with the old `Player_2.2`. It applies on the next spawn after a scene load.
+- **Cass never flips by scale.** She has two skeletons, `Cass_R` (facing right) and `Cass_L` (facing left), under `BODY SPINE`; the **Spine Animation Controller** swaps them. Both need the same animation names and the `RightHand` bone (the weapon hand).
+- **Anything with a left/right offset** on the new player needs a **Facing Mirror**: author it for facing right. Tick **Turn On Y** for VFX groups so their particles and children mirror too. Code must read `Character2D5Controller.IsFacingRight` / `FacingSign`, never `localScale.x`.
+- **Weapon draw order:** **Player Weapon Loadout > Weapon Sorting Order Facing Left** puts the weapon behind the body when the right hand is the far arm.
+
 ## 5. Dev tools
 
 | Tool | Where | Use |

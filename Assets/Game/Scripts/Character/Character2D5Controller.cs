@@ -109,6 +109,8 @@ namespace junklite
 
         [Header("Character Settings")]
         [SerializeField] private bool faceMovementDirection = true;
+        [Tooltip("ScaleFlip: legacy, mirrors the root (old player prefab only). " +
+                 "SkeletonSwap: root never flips; facing is a value that FacingMirror and the Spine L/R swap read.")]
         [SerializeField] private FacingMode facingMode = FacingMode.ScaleFlip;
         [SerializeField] private float rotationSpeed = 10f;
 
@@ -117,7 +119,7 @@ namespace junklite
         private readonly HashSet<int> kinematicLocks = new();
         private int nextControlLockId;
         private bool rigidbodyWasKinematicBeforeLocks;
-        public enum FacingMode { ScaleFlip, YAxisRotation }
+        public enum FacingMode { ScaleFlip, YAxisRotation, SkeletonSwap }
 
         // Components
         private Rigidbody rb;
@@ -151,6 +153,12 @@ namespace junklite
         // Facing lock (prevents flipping during attacks)
         private bool facingLocked = false;
         private float facingLockEndTime = 0f;
+
+        // SkeletonSwap facing (the root transform never changes for facing)
+        private bool isFacingRight = true;
+
+        /// <summary>Raised with the new IsFacingRight value whenever facing changes.</summary>
+        public event Action<bool> FacingChanged;
 
 
         // Events
@@ -291,9 +299,15 @@ namespace junklite
             return true;
         }
 
-        public bool IsFacingRight => facingMode == FacingMode.ScaleFlip
-            ? transform.localScale.x > 0f
-            : Mathf.Abs(transform.eulerAngles.y) < 90f;
+        public bool IsFacingRight => facingMode switch
+        {
+            FacingMode.ScaleFlip => transform.localScale.x > 0f,
+            FacingMode.YAxisRotation => Mathf.Abs(transform.eulerAngles.y) < 90f,
+            _ => isFacingRight
+        };
+
+        /// <summary>+1 facing right, -1 facing left. Use this instead of reading localScale.</summary>
+        public float FacingSign => IsFacingRight ? 1f : -1f;
 
         public bool IsDashing => isDashing;
         public bool CanDash => isActiveAndEnabled && !isDashing && rb != null &&
@@ -861,6 +875,7 @@ namespace junklite
 
         public void SetFacingDirection(bool facingRight)
         {
+            bool wasFacingRight = IsFacingRight;
             switch (facingMode)
             {
                 case FacingMode.ScaleFlip:
@@ -873,7 +888,13 @@ namespace junklite
                     e.y = facingRight ? 0f : 180f;
                     transform.eulerAngles = e;
                     break;
+                case FacingMode.SkeletonSwap:
+                    isFacingRight = facingRight;
+                    break;
             }
+
+            if (IsFacingRight != wasFacingRight)
+                FacingChanged?.Invoke(IsFacingRight);
         }
 
         public void FaceForTraversal(bool facingRight)
@@ -1177,21 +1198,16 @@ namespace junklite
 
             bool facingRight = horizontalInput > 0f;
 
-            switch (facingMode)
+            if (facingMode == FacingMode.YAxisRotation)
             {
-                case FacingMode.ScaleFlip:
-                    var s = transform.localScale;
-                    s.x = Mathf.Abs(s.x) * (facingRight ? 1f : -1f);
-                    transform.localScale = s;
-                    break;
-
-                case FacingMode.YAxisRotation:
-                    float targetY = facingRight ? 0f : 180f;
-                    Vector3 e = transform.eulerAngles;
-                    e.y = Mathf.LerpAngle(e.y, targetY, rotationSpeed * Time.fixedDeltaTime);
-                    transform.eulerAngles = e;
-                    break;
+                float targetY = facingRight ? 0f : 180f;
+                Vector3 e = transform.eulerAngles;
+                e.y = Mathf.LerpAngle(e.y, targetY, rotationSpeed * Time.fixedDeltaTime);
+                transform.eulerAngles = e;
+                return;
             }
+
+            SetFacingDirection(facingRight);
         }
 
         private void ClampFallSpeedFixed()

@@ -24,6 +24,8 @@ namespace junklite
         private float lastDodgeTime = float.NegativeInfinity;
         private bool wasPlayerAttacking;
         private bool dodgeWasReactive;
+        private Transform facingTarget;
+        private Character2D5Controller facingTargetController;
 
         protected override void Awake()
         {
@@ -203,7 +205,16 @@ namespace junklite
             if (target == null)
                 return false;
 
-            Vector3 playerFacing = target.right * Mathf.Sign(target.localScale.x);
+            if (target != facingTarget)
+            {
+                facingTarget = target;
+                facingTargetController = target.GetComponent<Character2D5Controller>();
+            }
+
+            float facingSign = facingTargetController != null
+                ? facingTargetController.FacingSign
+                : Mathf.Sign(target.localScale.x);
+            Vector3 playerFacing = target.right * facingSign;
             Vector3 playerToEnemy = (transform.position - target.position).normalized;
             return Vector3.Dot(playerFacing, playerToEnemy) > 0f;
         }

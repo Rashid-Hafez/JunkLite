@@ -23,19 +23,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &8123456789012345678
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8053377969660216567}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1a40e1597e00dc54684201655814ef2b, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerProgression
-  config: {fileID: 11400000, guid: 7916ad4de4ed46145875ef71da4ff75b, type: 2}
 --- !u!4 &7724700367755847198
 Transform:
   m_ObjectHideFlags: 0
@@ -63,7 +50,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f8d24f6039bfbc46b0207edfadf554a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  playerPrefab: {fileID: 0}
+  respawnDelay: 3
+  deathScreenFallbackDelay: 1.25
+  playerUIPrefab: {fileID: 0}
+  pauseMenuUIPrefab: {fileID: 0}
+  loadingScreenUIPrefab: {fileID: 0}
   showDebugInfo: 0
+  gameInputManagerPrefab: {fileID: 0}
 --- !u!114 &7123456789012345678
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -74,9 +68,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bc1e7c8a97594e84a0d2451f730ef260, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerLifecycle
   playerPrefab: {fileID: 7038683931279381878, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+  newPlayerPrefab: {fileID: 7038683931279381878, guid: da6952dea573744dfa28b37d99bffcd7, type: 3}
+  useNewPlayer: 1
   respawnDelay: 2
   deathPresentationFallbackDelay: 1.25
 --- !u!114 &6123456789012345678
@@ -89,7 +85,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a4e97c68d3124ff5a8f10339c5ec2be6, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.GameUIManager
   playerUIPrefab: {fileID: 1946179015980326645, guid: 6776eb6b105fcbc4ea90b3bf2157c168, type: 3}
   pauseMenuUIPrefab: {fileID: 4187855846369575803, guid: 002fe864f03bd544688a821473d81a8a, type: 3}
@@ -216,3 +212,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ActivateTestManager
   testManager: {fileID: 0}
+--- !u!114 &8123456789012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8053377969660216567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a40e1597e00dc54684201655814ef2b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerProgression
+  config: {fileID: 11400000, guid: 7916ad4de4ed46145875ef71da4ff75b, type: 2}

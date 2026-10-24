@@ -127,11 +127,9 @@ namespace junklite
 
             player.transform.position = behindPos;
 
-            // Flip to face the enemy's back
-            Vector3 scale = player.transform.localScale;
-            float facing = Mathf.Sign(player.transform.localScale.x);
-            scale.x = Mathf.Abs(scale.x) * -facing;
-            player.transform.localScale = scale;
+            // Turn around to face the enemy's back
+            if (player.Controller != null)
+                player.Controller.SetFacingDirection(!player.Controller.IsFacingRight);
 
             player.SetVisible(true);
 
@@ -211,7 +209,9 @@ namespace junklite
 
         private Vector3 GetFacingWorldDirection(PlayerCharacter player)
         {
-            float flip = Mathf.Sign(player.transform.localScale.x);
+            float flip = player.Controller != null
+                ? player.Controller.FacingSign
+                : Mathf.Sign(player.transform.localScale.x);
             return player.transform.right * flip;
         }
 

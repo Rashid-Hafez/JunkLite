@@ -17,7 +17,8 @@ namespace junklite
         private DamageShield shield;
         private PulseBarrierVisualProfile profile;
         private Transform facing;
-        private Renderer bodyRenderer;
+        // A left/right skeleton player holds one body per side under the orientation transform.
+        private MeshRenderer[] bodyRenderers;
         private Vector3 localCenterOffset;
         private Vector2 radii;
         private GameObject host;
@@ -35,7 +36,10 @@ namespace junklite
             profile = settings;
             if (properties == null) properties = new MaterialPropertyBlock();
             facing = orientation;
-            bodyRenderer = facing != null ? facing.GetComponent<Renderer>() : null;
+            bodyRenderers = facing != null
+                ? facing.GetComponentsInChildren<MeshRenderer>(includeInactive: true)
+                : System.Array.Empty<MeshRenderer>();
+            Renderer bodyRenderer = ShownBodyRenderer();
             localCenterOffset = transform.InverseTransformVector(offset);
             Collider body = target.GetComponent<Collider>();
             float halfHeight = body != null ? Mathf.Max(0.5f, body.bounds.extents.y) : 1f;
@@ -88,6 +92,7 @@ namespace junklite
             if (finishing && exit >= 1f) { Hide(); return; }
             // Follow the rendered body, whose animated center can differ from the collision capsule.
             // Keep the fallback in player space so its horizontal offset follows lane turns too.
+            Renderer bodyRenderer = ShownBodyRenderer();
             Vector3 center = bodyRenderer != null && bodyRenderer.localBounds.size.sqrMagnitude > 0.0001f
                 ? bodyRenderer.bounds.center
                 : transform.TransformPoint(localCenterOffset);
@@ -106,6 +111,18 @@ namespace junklite
         }
 
         private static float Inverse(float value) => Mathf.Abs(value) > 0.001f ? 1f / value : 1f;
+
+        // First visible body mesh: the orientation's own renderer, or the shown L/R skeleton.
+        private Renderer ShownBodyRenderer()
+        {
+            if (bodyRenderers == null) return null;
+            foreach (MeshRenderer body in bodyRenderers)
+            {
+                if (body != null && body.enabled && body.gameObject.activeInHierarchy)
+                    return body;
+            }
+            return null;
+        }
 
         private void EnsureRenderer()
         {
