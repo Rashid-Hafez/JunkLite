@@ -82,7 +82,8 @@ namespace junklite
             if (!availableFloatParameters.Contains(speedHash))
                 return;
 
-            float speed = movement.CurrentSpeed;
+            // Measured lane speed, so an enemy held by a body or wall animates as standing.
+            float speed = Mathf.Abs(Vector3.Dot(movement.Velocity, movement.MovementAxis));
             if (normalizeMovementSpeed && movement.MoveSpeed > 0f)
                 speed /= movement.MoveSpeed;
 

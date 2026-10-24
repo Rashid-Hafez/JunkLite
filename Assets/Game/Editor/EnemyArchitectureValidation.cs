@@ -49,10 +49,12 @@ namespace junklite.Editor
 
             int errors = ValidateCore(path, prefab, enemy, true);
             bool isHyena = path.Contains("Hyena", StringComparison.Ordinal);
+            bool isGrunt = path.Contains("Grunt", StringComparison.Ordinal);
             EnemyBrain brain = prefab.GetComponent<EnemyBrain>();
 
             if ((isHyena && brain is not HyenaBrain)
-                || (!isHyena && brain?.GetType() != typeof(MeleeChaserBrain)))
+                || (isGrunt && brain is not GruntBrain)
+                || (!isHyena && !isGrunt && brain?.GetType() != typeof(MeleeChaserBrain)))
             {
                 errors += Error(path, "has the wrong brain type", prefab);
             }
@@ -172,6 +174,14 @@ namespace junklite.Editor
                 || prefab.GetComponent<EnemyBrain>() == null)
             {
                 return Error(path, "is missing character, brain, FSM, or movement", prefab);
+            }
+
+            // Can Be Launched needs a body that can be thrown: dynamic, under gravity.
+            if (enemy.CanBeLaunched)
+            {
+                Rigidbody body = prefab.GetComponent<Rigidbody>();
+                if (body == null || body.isKinematic || !body.useGravity)
+                    return Error(path, "has Can Be Launched on but no dynamic Rigidbody with gravity (heavy hits would fall back to a flinch)", prefab);
             }
 
             if (!requiresPerception)

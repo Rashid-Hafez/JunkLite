@@ -6,6 +6,7 @@ namespace junklite
     {
         private IChaser chaser;
         private IChaseDestinationProvider destinationProvider;
+        private ILaneSpacing spacing;
         private EnemyMovement movement;
         private EnemyConfig config;
         private bool destinationReported;
@@ -18,6 +19,7 @@ namespace junklite
             config = enemy.Config;
             chaser = GetCapability<IChaser>();
             destinationProvider = GetCapability<IChaseDestinationProvider>();
+            spacing = GetCapability<ILaneSpacing>();
             destinationReported = false;
 
             if (movement != null)
@@ -47,6 +49,12 @@ namespace junklite
                         out destination,
                         out stopDistance);
 
+                // Lane spacing: never chase into the body ahead, and match its speed
+                // when close instead of shoving it toward the player.
+                float speed = movement != null ? movement.MoveSpeed : 0f;
+                if (spacing != null)
+                    spacing.ApplySpacing(ref destination, ref speed);
+
                 if (stopDistance > 0f)
                 {
                     float distanceToTarget = movement.GetAbsAxisDistance(Transform.position, destination);
@@ -54,6 +62,7 @@ namespace junklite
                     {
                         movement?.Stop();
                         movement?.FaceTarget(Target.position);
+                        SetSpacedLocomotion(0f);
                         if (hasAssignedDestination)
                             ReportAssignedDestinationReached();
                         else
@@ -64,7 +73,24 @@ namespace junklite
 
                 destinationReported = false;
 
-                movement?.MoveTo(destination);
+                if (spacing != null)
+                {
+                    if (speed < 0.05f)
+                    {
+                        movement?.Stop();
+                        SetSpacedLocomotion(0f);
+                    }
+                    else
+                    {
+                        movement?.MoveTo(destination, speed);
+                        SetSpacedLocomotion(speed);
+                    }
+                }
+                else
+                {
+                    movement?.MoveTo(destination);
+                }
+
                 movement?.FaceTarget(Target.position);
             }
             else if (chaser != null && chaser.HasLastKnownPosition)
@@ -84,6 +110,21 @@ namespace junklite
             {
                 ReportDestinationReached();
             }
+        }
+
+        /// <summary>
+        /// Only for spacing-aware enemies: they can be slowed or held by the body
+        /// ahead while in this state, so the run clip must follow the real speed.
+        /// </summary>
+        private void SetSpacedLocomotion(float speed)
+        {
+            if (spacing == null)
+                return;
+
+            float reference = chaser != null && chaser.ChaseSpeed > 0f
+                ? chaser.ChaseSpeed
+                : Mathf.Max(0.01f, movement != null ? movement.MoveSpeed : 1f);
+            enemy.AnimationPresenter?.SetLocomotionSpeed01(Mathf.Clamp01(speed / reference));
         }
 
         private void ReportDestinationReached()

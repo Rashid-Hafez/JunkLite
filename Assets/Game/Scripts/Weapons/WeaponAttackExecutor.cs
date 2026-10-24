@@ -12,19 +12,22 @@ namespace junklite
         public float AttackOpenWindow { get; }
         public float DownAttackFloatNormalized { get; }
         public float EnemyHitHitstopDuration { get; }
+        public float LaunchHitstopDuration { get; }
 
         public WeaponAttackExecutionSettings(
             float delayBeforeAttack,
             float animationLeadTime,
             float attackOpenWindow,
             float downAttackFloatNormalized,
-            float enemyHitHitstopDuration)
+            float enemyHitHitstopDuration,
+            float launchHitstopDuration = 0f)
         {
             DelayBeforeAttack = Mathf.Max(0f, delayBeforeAttack);
             AnimationLeadTime = Mathf.Max(0f, animationLeadTime);
             AttackOpenWindow = Mathf.Max(0f, attackOpenWindow);
             DownAttackFloatNormalized = Mathf.Clamp01(downAttackFloatNormalized);
             EnemyHitHitstopDuration = Mathf.Max(0f, enemyHitHitstopDuration);
+            LaunchHitstopDuration = Mathf.Max(EnemyHitHitstopDuration, launchHitstopDuration);
         }
     }
 
@@ -240,6 +243,8 @@ namespace junklite
 
             while (execution.IsActive && Time.time < windowEnd)
             {
+                // Follow the player: lunges and air attacks move during the window.
+                hitOrigin = ResolveHitOrigin(request);
                 WeaponHitDetectionResult hitResult = hitResolver.Detect(
                     hitOrigin,
                     radius,
@@ -249,16 +254,18 @@ namespace junklite
                 {
                     hasHitEnemy = true;
                     bool damageApplied = isPiercing && hitResult.AllTargets != null
-                        ? DealDamageToAll(request, hitResult.AllTargets, hitResult.AllTargetCount, step.damageMultiplier, knockback)
+                        ? DealDamageToAll(request, hitResult.AllTargets, hitResult.AllTargetCount, step.damageMultiplier, knockback, step.reactionKind)
                         : hitResult.Target != null &&
-                          DealDamage(request, hitResult.Target, step.damageMultiplier, knockback).WasApplied;
+                          DealDamage(request, hitResult.Target, step.damageMultiplier, knockback, step.reactionKind).WasApplied;
 
                     if (damageApplied)
                     {
                         playHitFeedback?.Invoke();
                         execution.StartOwned(motion.ApplyHitstop(
                             request.ExecutionId,
-                            request.Settings.EnemyHitHitstopDuration));
+                            step.reactionKind != HitReactionKind.Flinch
+                                ? request.Settings.LaunchHitstopDuration
+                                : request.Settings.EnemyHitHitstopDuration));
                         motion.ApplyImmediateRecoil(
                             request.ExecutionId,
                             request.Direction,
@@ -419,6 +426,7 @@ namespace junklite
                     hit,
                     damage,
                     knockback,
+                    HitReactionKind.Flinch,
                     processedReceivers);
                 if (!result.WasApplied)
                     continue;
@@ -489,6 +497,7 @@ namespace junklite
                             hit.collider,
                             damage,
                             knockback,
+                            HitReactionKind.Flinch,
                             processedReceivers);
                         if (!result.WasApplied)
                             continue;
@@ -545,6 +554,7 @@ namespace junklite
                             hit.collider,
                             damage,
                             knockback,
+                            HitReactionKind.Flinch,
                             null);
                         if (result.WasApplied)
                         {
@@ -617,10 +627,11 @@ namespace junklite
             WeaponAttackExecutionRequest request,
             Collider target,
             float damageMultiplier,
-            Vector2 knockback)
+            Vector2 knockback,
+            HitReactionKind reactionKind)
         {
             float damage = CalculateDamage(request.WeaponData, damageMultiplier);
-            DamageResult result = ResolveDamage(target, damage, knockback, null);
+            DamageResult result = ResolveDamage(target, damage, knockback, reactionKind, null, SwingDirection(request));
             if (!result.WasApplied)
                 return result;
 
@@ -635,7 +646,8 @@ namespace junklite
             Collider[] targets,
             int targetCount,
             float damageMultiplier,
-            Vector2 knockback)
+            Vector2 knockback,
+            HitReactionKind reactionKind)
         {
             bool anyHit = false;
             float damage = CalculateDamage(request.WeaponData, damageMultiplier);
@@ -650,7 +662,9 @@ namespace junklite
                     target,
                     damage,
                     knockback,
-                    processedReceivers);
+                    reactionKind,
+                    processedReceivers,
+                    SwingDirection(request));
                 if (!result.WasApplied)
                     continue;
 
@@ -708,17 +722,27 @@ namespace junklite
             }
         }
 
+        /// <summary>Melee pushes along the swing (facing), not away from the player's position.</summary>
+        private static Vector3 SwingDirection(WeaponAttackExecutionRequest request)
+        {
+            return request.FacingAxis * request.Facing;
+        }
+
         private DamageResult ResolveDamage(
             Collider target,
             float damage,
             Vector2 knockback,
-            HashSet<int> processedReceivers)
+            HitReactionKind reactionKind,
+            HashSet<int> processedReceivers,
+            Vector3 pushDirection = default)
         {
             WeaponDamageResolution resolution = damageResolver.Resolve(
                 target,
                 damage,
                 knockback,
-                processedReceivers);
+                reactionKind,
+                processedReceivers,
+                pushDirection);
             if (resolution.Result.WasApplied)
                 enemyHitApplied?.Invoke(resolution.Enemy, resolution.Result.AppliedDamage);
             return resolution.Result;

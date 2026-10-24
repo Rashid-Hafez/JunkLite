@@ -26,7 +26,7 @@ namespace junklite.Tests
         };
 
         [Test]
-        public void GruntPrefabUsesReusableMeleeChaserBrain()
+        public void GruntPrefabUsesGruntBrainOverTheReusableMeleeChaserLoop()
         {
             GameObject prefab = LoadPrefab(GruntPrefabPath);
             EnemyCharacter enemy = prefab.GetComponent<EnemyCharacter>();
@@ -34,9 +34,17 @@ namespace junklite.Tests
 
             Assert.That(enemy, Is.Not.Null);
             Assert.That(brain, Is.Not.Null);
+            Assert.That(
+                brain,
+                Is.TypeOf<GruntBrain>(),
+                "Run Tools > JunkLite > Enemies > Migrate Grunt Prefab To GruntBrain.");
             Assert.That(prefab.GetComponent<HyenaBrain>(), Is.Null);
             AssertCommonEnemyComposition(prefab, enemy);
             AssertConfiguredAttack(brain, "melee", "hitbox");
+
+            Assert.That(enemy.GetCapability<IHoldPositioner>(), Is.Not.Null);
+            Assert.That(enemy.GetCapability<ILeaper>(), Is.Not.Null);
+            Assert.That(enemy.GetCapability<IBackOff>(), Is.Not.Null);
         }
 
         [TestCaseSource(nameof(HyenaPrefabPaths))]

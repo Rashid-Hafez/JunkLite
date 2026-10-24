@@ -41,6 +41,8 @@ namespace junklite
         [Header("Feedback Settings")]
         [SerializeField] private Unity.Cinemachine.CinemachineImpulseSource impulseSource;
         [SerializeField] private float enemyHitHitstopDuration = 0.08f;
+        [Tooltip("Hit-stop on a launching hit (combo finisher). Longer than a normal hit so the launch lands.")]
+        [SerializeField] private float launchHitstopDuration = 0.12f;
         [SerializeField] private float enemyHitShakeForce = 0.8f;
 
         [Header("Attack Timing & Combo Windows")]
@@ -121,6 +123,30 @@ namespace junklite
 
         public bool IsModCombat => isModCombat;
         public bool IsAttacking => isAttacking;
+
+        // Recovery cancel: the swing can be cut short by a jump or dash once it has
+        // connected, or once its hit window has passed if it missed. Startup and the
+        // active frames stay committed; the player buffers the press until then.
+        private float attackCancelableTime;
+
+        /// <summary>True while attacking and past the committed part of the swing.</summary>
+        public bool IsAttackCancelable => isAttacking && Time.time >= attackCancelableTime;
+
+        /// <summary>
+        /// Ends the current attack so a jump or dash can start. True when there is no
+        /// attack or it is in recovery (then it is cancelled and input is released);
+        /// false during startup or the hit window (the caller should buffer the press).
+        /// </summary>
+        public bool TryCancelAttackForMovement()
+        {
+            if (!isAttacking)
+                return true;
+            if (Time.time < attackCancelableTime)
+                return false;
+
+            OnAttackInterrupted();
+            return true;
+        }
         public AttackDirection CurrentAttackDirection => currentAttackDir;
         public float Facing => controller != null ? controller.FacingSign : Mathf.Sign(playerTransform.localScale.x);
 
@@ -526,6 +552,7 @@ namespace junklite
             }
 
             isAttacking = true;
+            attackCancelableTime = Time.time + animationLeadTime + delayBeforeAttack + attackOpenWindow;
             activeWeaponSlot = slot;
             activeWeapon = GetWeaponForSlot(slot);
             activeCombatState = combat;
@@ -554,7 +581,8 @@ namespace junklite
                     animationLeadTime,
                     attackOpenWindow,
                     downAttackFloatNormalized,
-                    enemyHitHitstopDuration));
+                    enemyHitHitstopDuration,
+                    launchHitstopDuration));
 
             activeAttackExecution = attackExecutor?.Prepare(executionRequest);
             if (activeAttackExecution == null)
@@ -732,6 +760,10 @@ namespace junklite
 
         private void PlayHitFeedback()
         {
+            // The swing connected: its recovery can be cancelled into a jump or dash now.
+            if (isAttacking)
+                attackCancelableTime = Mathf.Min(attackCancelableTime, Time.time);
+
             if (FeedbackManager.Instance != null)
             {
                 FeedbackManager.Instance.DoHitFeedback(

@@ -16,6 +16,11 @@ namespace junklite
         [SerializeField] private bool requireLineOfSight;
         [SerializeField] private LayerMask losBlockingLayers;
 
+        [Header("Facing")]
+        [Tooltip("A player behind the enemy (against its facing along the lane) is only noticed inside Rear Radius. Being hit or an ally alert bypasses this for a while.")]
+        [SerializeField] private bool useFacingCone;
+        [SerializeField, Min(0f)] private float rearRadius = 2f;
+
         [Header("Reachability")]
         [Tooltip("If true, the target is rejected when a floor separates it vertically from this enemy.")]
         [SerializeField] private bool requireReachablePath = true;
@@ -37,6 +42,8 @@ namespace junklite
         private Coroutine validationRoutine;
         private WaitForSeconds validationWait;
         private readonly Collider[] overlapBuffer = new Collider[8];
+        private EnemyMovement ownerMovement;
+        private float coneBypassUntil;
 
         /// <summary>Fires after the current target changes. Arguments are previous and current.</summary>
         public event Action<PlayerCharacter, PlayerCharacter> TargetChanged;
@@ -58,6 +65,7 @@ namespace junklite
         {
             Collider sensorCollider = GetComponent<Collider>();
             sensorCollider.isTrigger = true;
+            EnemySensorLayer.Apply(gameObject);
 
             sphereCollider = sensorCollider as SphereCollider;
             if (sphereCollider != null)
@@ -65,6 +73,7 @@ namespace junklite
 
             EnemyCharacter owner = GetComponentInParent<EnemyCharacter>();
             distanceOrigin = owner != null ? owner.transform : transform;
+            ownerMovement = owner != null ? owner.GetComponent<EnemyMovement>() : null;
 
             int playerLayer = LayerMask.NameToLayer("Player");
             if (playerLayer >= 0)
@@ -121,6 +130,22 @@ namespace junklite
             }
 
             EnsureValidationRunning();
+        }
+
+        /// <summary>
+        /// Something drew attention (a hit landed, an ally raised the alarm): ignore
+        /// the facing cone for a while and re-check everything already inside the
+        /// sensor, then re-scan. Nothing happens if the player is outside the sphere.
+        /// </summary>
+        public void Alert(float bypassSeconds = 3f)
+        {
+            coneBypassUntil = Mathf.Max(coneBypassUntil, Time.time + Mathf.Max(0f, bypassSeconds));
+            if (!isActiveAndEnabled || HasTarget)
+                return;
+
+            CleanupMissingColliders();
+            RetryTrackedColliders();
+            RefreshOverlap();
         }
 
         /// <summary>
@@ -191,17 +216,22 @@ namespace junklite
                 }
 
                 if (!HasTarget)
-                {
-                    foreach (Collider collider in targetColliders)
-                    {
-                        TryTrackCollider(collider);
-                        if (HasTarget)
-                            break;
-                    }
-                }
+                    RetryTrackedColliders();
             }
 
             validationRoutine = null;
+        }
+
+        private void RetryTrackedColliders()
+        {
+            foreach (Collider collider in targetColliders)
+            {
+                if (collider == null)
+                    continue;
+                TryTrackCollider(collider);
+                if (HasTarget)
+                    break;
+            }
         }
 
         private void TryTrackCollider(Collider other)
@@ -234,7 +264,21 @@ namespace junklite
                 return false;
             if (requireReachablePath && !IsTargetReachable(player.transform))
                 return false;
+            if (useFacingCone && Time.time >= coneBypassUntil && IsBehindOwner(player.transform)
+                && Vector3.Distance(distanceOrigin.position, player.transform.position) > rearRadius)
+                return false;
             return true;
+        }
+
+        private bool IsBehindOwner(Transform target)
+        {
+            if (ownerMovement == null)
+                return false;
+
+            float along = Vector3.Dot(target.position - distanceOrigin.position, ownerMovement.MovementAxis);
+            if (Mathf.Abs(along) < 0.1f)
+                return false;
+            return (along > 0f ? 1 : -1) != ownerMovement.FacingDirection;
         }
 
         private static PlayerCharacter ResolvePlayer(Collider collider)

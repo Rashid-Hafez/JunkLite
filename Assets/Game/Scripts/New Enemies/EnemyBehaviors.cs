@@ -33,11 +33,17 @@ namespace junklite
         [SerializeField] private float wallCheckDistance = 0.5f;
         [SerializeField] private LayerMask wallLayer;
         [SerializeField] private Transform wallCheckPoint;
+        [Tooltip("Floor layers for the ledge check. Empty = Default + Ground + Wall.")]
+        [SerializeField] private LayerMask groundLayer;
+        [Tooltip("How far down to look for floor one step ahead. 0 disables the ledge check.")]
+        [SerializeField, Min(0f)] private float ledgeCheckDepth = 1.5f;
 
         private Transform owner;
         private Vector3 spawnPosition;
         private int direction = 1;
         private Vector3 horizontalAxis = Vector3.right;
+        private LayerMask resolvedGroundLayer;
+        private EnemyMovement ownerMovement;
 
         public float PatrolDistance => patrolDistance;
         public float PatrolSpeed => patrolSpeed;
@@ -49,6 +55,22 @@ namespace junklite
         {
             this.owner = owner;
             this.spawnPosition = owner.position;
+            // Lanes run along world X or Z; the wall and ledge rays must follow the lane, not world X.
+            horizontalAxis = SnapToNearestAxis(owner.right);
+            ownerMovement = owner.GetComponent<EnemyMovement>();
+            resolvedGroundLayer = groundLayer.value != 0
+                ? groundLayer
+                : (LayerMask)LayerMask.GetMask("Default", "Ground", "Wall");
+        }
+
+        public bool IsLedgeAhead()
+        {
+            if (owner == null || ledgeCheckDepth <= 0f) return false;
+
+            // From the feet, not the transform (enemy roots sit at the body centre).
+            Vector3 feet = ownerMovement != null ? ownerMovement.GetFeetPosition() : owner.position;
+            Vector3 ahead = feet + horizontalAxis * (direction * Mathf.Max(0.3f, wallCheckDistance)) + Vector3.up * 0.3f;
+            return !Physics.Raycast(ahead, Vector3.down, ledgeCheckDepth + 0.3f, resolvedGroundLayer, QueryTriggerInteraction.Ignore);
         }
 
         public bool IsWallAhead()
@@ -414,10 +436,17 @@ namespace junklite
 
         private Vector3 lastKnownPosition;
         private bool hasLastKnownPosition;
+        private float speedMultiplier = 1f;
 
         public event System.Action ReachedTarget;
 
-        public float ChaseSpeed => chaseSpeed;
+        public float ChaseSpeed => chaseSpeed * speedMultiplier;
+
+        /// <summary>
+        /// Runtime-only per-instance variance so a crowd does not move in lockstep.
+        /// The authored chase speed is never modified.
+        /// </summary>
+        public void SetSpeedMultiplier(float multiplier) => speedMultiplier = Mathf.Max(0.01f, multiplier);
         public float ChaseStopDistance => chaseStopDistance;
         public Vector3 LastKnownTargetPosition => lastKnownPosition;
         public bool HasLastKnownPosition => hasLastKnownPosition;

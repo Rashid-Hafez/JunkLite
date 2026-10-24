@@ -109,6 +109,9 @@ namespace junklite
             animationName = null;
             if (weaponData == null) return false;
 
+            // Read the open combo window before closing it: the air continuation
+            // below needs it (it was cleared first, so a jump always restarted the chain).
+            bool windowOpen = comboActive;
             comboActive = false;
 
             if (dir == AttackDirection.Side)
@@ -120,7 +123,7 @@ namespace junklite
                 // to continue the ground combo index instead of restarting the air chain.
                 bool continuingFromGround =
                     !isGrounded &&
-                    comboActive &&          // combo window is still open
+                    windowOpen &&           // combo window is still open
                     sideComboIndex > 0;     // we have progressed at least one step on ground
 
                 if (continuingFromGround)

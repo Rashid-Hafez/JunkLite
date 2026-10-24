@@ -32,7 +32,9 @@ namespace junklite
             Collider target,
             float damage,
             Vector2 knockback,
-            HashSet<int> processedReceivers)
+            HitReactionKind reactionKind,
+            HashSet<int> processedReceivers,
+            Vector3 pushDirection = default)
         {
             if (!DamageReceiverUtility.TryGetReceiver(target, out IDamageReceiver receiver))
                 return Rejected(DamageOutcome.Invalid, damage);
@@ -53,7 +55,7 @@ namespace junklite
                 damage,
                 source,
                 DamageType.Physical,
-                knockback));
+                hitReaction: WithPush(HitReactionRequest.DefaultHit(knockback, reactionKind), pushDirection)));
 
             if (!result.WasApplied)
                 return new WeaponDamageResolution(result);
@@ -63,6 +65,12 @@ namespace junklite
                                 ?? target.GetComponentInParent<EnemyCharacter>();
 
             return new WeaponDamageResolution(result, enemy);
+        }
+
+        private static HitReactionRequest WithPush(HitReactionRequest reaction, Vector3 pushDirection)
+        {
+            reaction.PushDirection = pushDirection;
+            return reaction;
         }
 
         private static WeaponDamageResolution Rejected(DamageOutcome outcome, float damage)

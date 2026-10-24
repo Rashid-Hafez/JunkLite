@@ -178,7 +178,8 @@ namespace junklite
         protected virtual bool IsDecisionLocked()
         {
             IState current = StateMachine.CurrentState;
-            return current is MeleeAttackState || current is StunnedState || current is ParriedState;
+            return current is MeleeAttackState || current is StunnedState || current is ParriedState
+                || current is LaunchedState;
         }
 
         protected bool IsTargetInMeleeRange()
@@ -327,7 +328,7 @@ namespace junklite
             EnemyEngagementDirector.ReleaseAttack(Actor);
         }
 
-        private bool IsAtAssignedDestination(EnemyEngagementAssignment assignment)
+        protected bool IsAtAssignedDestination(EnemyEngagementAssignment assignment)
         {
             return Movement.GetAbsAxisDistance(
                 transform.position,

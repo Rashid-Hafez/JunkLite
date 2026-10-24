@@ -15,6 +15,25 @@ namespace junklite
         Invalid
     }
 
+    /// <summary>What an accepted hit asks the receiver's body to do.</summary>
+    public enum HitReactionKind
+    {
+        /// <summary>Knockback plus hitstun. The default for every hit.</summary>
+        Flinch,
+        /// <summary>
+        /// Lift the receiver off the ground. <see cref="HitReactionRequest.KnockbackForce"/>
+        /// is then the launch velocity: x along the lane away from the source, y up.
+        /// Receivers that cannot be launched treat it as a flinch.
+        /// </summary>
+        Launch,
+        /// <summary>
+        /// Drive an airborne (launched) receiver down: <see cref="HitReactionRequest.KnockbackForce"/>
+        /// x is the sideways speed away from the source, y the downward speed. On a grounded
+        /// receiver it is a flinch with the sideways push only (it never lifts).
+        /// </summary>
+        Spike
+    }
+
     /// <summary>
     /// Optional physical/behavioral response to an accepted hit. Damage, status
     /// effects and hit reactions remain independently callable systems.
@@ -25,8 +44,17 @@ namespace junklite
         public float HitstunDuration;
         public bool UseReceiverDefaultHitstun;
         public bool InterruptsActions;
+        public HitReactionKind Kind;
+        /// <summary>
+        /// World direction to push the receiver along (the attacker's swing). Zero =
+        /// away from the source's position, which flips when the bodies overlap and the
+        /// attacker has passed the receiver's centre.
+        /// </summary>
+        public Vector3 PushDirection;
 
         public bool HasKnockback => KnockbackForce.sqrMagnitude > 0f;
+        public bool IsLaunch => Kind == HitReactionKind.Launch;
+        public bool IsSpike => Kind == HitReactionKind.Spike;
         public bool HasHitstun => UseReceiverDefaultHitstun || HitstunDuration > 0f;
         public bool HasAnyReaction => HasKnockback || HasHitstun || InterruptsActions;
 
@@ -34,12 +62,15 @@ namespace junklite
             Vector2 knockbackForce,
             float hitstunDuration = 0f,
             bool useReceiverDefaultHitstun = false,
-            bool interruptsActions = true)
+            bool interruptsActions = true,
+            HitReactionKind kind = HitReactionKind.Flinch)
         {
             KnockbackForce = knockbackForce;
             HitstunDuration = Mathf.Max(0f, hitstunDuration);
             UseReceiverDefaultHitstun = useReceiverDefaultHitstun;
             InterruptsActions = interruptsActions;
+            Kind = kind;
+            PushDirection = Vector3.zero;
         }
 
         public float ResolveHitstunDuration(float receiverDefault)
@@ -49,12 +80,15 @@ namespace junklite
                 : HitstunDuration;
         }
 
-        public static HitReactionRequest DefaultHit(Vector2 knockbackForce)
+        public static HitReactionRequest DefaultHit(
+            Vector2 knockbackForce,
+            HitReactionKind kind = HitReactionKind.Flinch)
         {
             return new HitReactionRequest(
                 knockbackForce,
                 useReceiverDefaultHitstun: true,
-                interruptsActions: true);
+                interruptsActions: true,
+                kind: kind);
         }
 
         public static HitReactionRequest None =>
