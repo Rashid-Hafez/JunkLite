@@ -164,7 +164,64 @@ No scene wiring is needed. For unusual enemies, add **Status Effect Visuals** to
 
 The heat layer leaves the character's materials and damage flash intact. The presenter stops and clears the legacy burn child at initialization and keeps it disabled, including when the presenter is disabled or removed; poison/electric/bleed effects are unchanged. The additional cost is one heat draw per body submesh and one combined flame/ember draw per burning enemy. Twenty small embers animate on the GPU without a ParticleSystem simulation. Disable both Show Flames and Show Embers for a cheaper heat-only setting; check the target encounter on the target hardware before increasing overlap or adding smoke/distortion.
 
-Grunt's **Melee Chaser Brain > Stun > Stun VFX Object** is intentionally empty. Its old **Debuff (1)** child produced a separate smoke aura on every hit-stun, overlapping fire visuals. Leave that reference empty to keep the aura disabled; hit-stun still works.
+Grunt's **Grunt Brain > Stun > Stun VFX Object** is intentionally empty. Its old **Debuff (1)** child produced a separate smoke aura on every hit-stun, overlapping fire visuals. Leave that reference empty to keep the aura disabled; hit-stun still works.
+
+### Grunt group tactics
+
+Grunts run **Grunt Brain** (a Melee Chaser Brain with group policy on top). If a Grunt prefab or scene grunt still shows **Melee Chaser Brain**, run **Tools > JunkLite > Enemies > Migrate Grunt Prefab To GruntBrain** (or **Migrate Selected To GruntBrain** for scene objects). Values and scene overrides are kept. The full design is in `GRUNT_BEHAVIOR_PLAN.md`.
+
+What they do now:
+- **Two modes.** While you run, grunts chase in single file and match the speed of the grunt ahead. Once you plant your feet, attack or parry, they spread out and start the tricks below. A yellow/red cube above a selected grunt in the Scene view shows Pursue/Engage.
+- **No shoving.** A grunt never walks into the grunt ahead or backs into the one behind. It slows down and keeps a gap instead. Collision stays on, so they can never overlap.
+- **Ally hit flinch.** When you hit a grunt, the ones behind it flinch back one after another, stay back while your combo lasts, then creep back in.
+- **Hold & pace.** A grunt waiting for its turn follows its slot as you move and shuffles around it instead of freezing. The front grunt without the attack turn occasionally feints a step in.
+- **Vault.** The second grunt on your side hops over the line to your open side when it is close enough, then attacks from there. Attacks then alternate left and right. It only vaults while you are planted, re-aims at you during the crouch and in the air, and calls it off if you run, roll or jump. Hitting a grunt during its crouch cancels the vault; it has no i-frames in the air.
+- **Pressure.** Hit the front grunt twice in 2.5 s and it backs off; a third hit with an ally behind it makes it hop out of the line so the next one steps up.
+- **Mood.** A pack that is being hit hangs back and stops feinting. A pack that has not been hit for 3 s crowds in and attacks faster.
+- **Patrol and fidget.** Every grunt patrols 3 units either side of where it was placed (**Patrol Distance** on its Grunt Brain, Patrol group; set 0 on a placed grunt to make it a standing guard). It walks the lane, pauses at each end and sometimes stops to look back. It reverses at walls, at other grunts and at ledges. Guards left at 0 occasionally turn to look the other way.
+- **Noticing.** A grunt only sees you in front of it; from behind you have to get within **Rear Radius** (2 u) of its Detection Zone. A patrolling grunt breaks straight into a run when it sees you; a standing guard first faces you for a short beat. Either way, idle grunts near it wake up one after another. Hitting a grunt always wakes it. When it loses you it walks to where it last saw you, looks both ways, then goes back to patrol.
+- **Bodies.** You walk through grunts and they can never push you. Grunts also walk through each other, dummies and any enemy that is not holding its place in the fight (stunned, knocked down, idle, patrolling), so nothing ever gets stuck behind a dummy or a broken grunt. Grunts that are fighting together still keep their spacing and only one attacks at a time. The switch is **Pass Through Enemies** on the enemy's root component (Body header); it is on for grunts and dummies. Turning it on for another type works, but only grunts have spacing logic, so others may bunch up while crowding you.
+- **Launch on any enemy.** **Can Be Launched** (Launch header on the enemy root) is the only switch a type needs to be thrown by heavy hits; it is on for grunts only. The enemy needs a normal falling body (a Rigidbody with gravity). **Validate Enemies** flags it otherwise.
+- **Launch.** The third sword or fist hit throws a grunt up and back, horizontal in the air. It bounces once, lies down for a moment and gets up; hits in the air keep it up (three times at most), hits on the ground keep it down a little longer, and a hit while it rises knocks it back down. All of that shares one cap (**Downed Max Total**, 2 s); after it the get-up has armor, so a grunt can never be pinned forever. A grunt killed while flying or lying blends into its death clip instead of adding to it. A finisher that kills sends the body flying. Launched grunts fly through other enemies (Launch settings, **Pass Through Enemies**); the launch height is **Apex Height** there, in units (6.5 by default, so the top is within a double jump; the hit's upward knockback is ignored unless it is 0), the float at the top is **Apex Hang Speed** / **Apex Hang Gravity Scale**, the flight speed is **Gravity Scale**, and the bounce has its own **Bounce Restitution** and **Bounce Gravity Scale**. The Brute cannot be launched. The sword's air attack is a **Spike**: on a launched grunt it knocks it sideways (knockback x) and drives it down (knockback y as a downward speed) under **Spike Gravity Scale**, then the grunt skids along the floor on landing (**Spike Skid Keep**, 1.5 by default, up to 2) instead of bouncing; on a grounded enemy it is a normal hit pushed sideways. Set **Reaction Kind** on any combo step of a Melee Weapon Data asset to Launch (with Override Knockback on; knockback x is the horizontal speed, y the upward speed).
+
+Tuning (all on **Grunt Brain**, per prefab or per scene instance):
+
+| Group | Field | Default | Effect |
+| --- | --- | --- | --- |
+| Pursue / Engage | Planted Speed | 1.5 | Your lane speed at or below which you count as standing to fight. |
+| Pursue / Engage | Engage Delay / Pursue Delay | 0.35 s / 0.2 s | How long you must stand / keep moving before the pack switches. |
+| Lane Spacing | Contact Gap / Spacing Gain | 0.05 / 6 | Smallest gap ever allowed; how late and hard followers brake. |
+| Ally Hit Reaction | Ally Hit Reaction / Max Places Behind | on / 3 | Turn the flinch off, or limit how far down the line it travels. |
+| Ally Hit Reaction | Ripple Delay | 0.08 s | Delay per place in line, so the flinch travels like a wave. |
+| Ally Hit Reaction | Recoil Distance / Recoil Speed | 0.5 / 4.5 | Size and snap of the step back. |
+| Ally Hit Reaction | Recoil Hold Range / Creep Speed | 0.35–0.6 s / 1.2 | How long they stay back after the last hit, and how slowly they return. |
+| Hold & Pace | Pace Amplitude / Pace Toward Limit | 0.4 / 0.15 | How far they shuffle away from / toward you. |
+| Hold & Pace | Pace Pause Range | 0.4–1.2 s | Rhythm between shuffles. |
+| Hold & Pace | Queue Gap | 0.5 | Spacing behind the grunt in front. Lower it if lines feel too long. |
+| Feint | Feint Chance | 0.25 | Per pause, front grunt only. 0 disables feints. |
+| Vault | Vault Enabled / Vault Chance | on / 0.85 | Turn the vault off, or make it hesitate more. |
+| Vault | Vault Max Start Distance | 4.5 | "Close enough" to vault. |
+| Vault | Vault Max Far Side Count | 0 | 0 = only the second grunt ever vaults. 1 = four grunts can split 2/2. |
+| Vault | Vault Height / Vault Speed / Vault Telegraph | 1.6 / 9 / 0.2 s | Arc shape and how long the crouch (punish window) lasts. |
+| Vault | Leap Has I-Frames | off | On if players abuse hitting them mid-air. |
+| Vault | Vault Abort Distance / Vault Max Correction Speed | 1.5 / 8 | How far you may move during the crouch before it is called off; how fast the landing follows you in the air. |
+| Hit Pressure | Pressure Hits To Max / Pressure Window | 3 / 2.5 s | How many hits in how long count as "being hit a lot". |
+| Hit Pressure | Back Off Pressure / Back Off Distance | 0.66 / 1.2 | When the front grunt gives ground, and how far. |
+| Hit Pressure | Fall Back Cooldown | 6 s | How often the same grunt may hop out of the line. |
+| Group Mood | Group Wary Pressure / Bold After Quiet Seconds | 0.5 / 3 s | When the pack gets cautious / bold. |
+| Group Mood | Bold Handoff Delay | 0.1 s | Attack cadence while bold (normal is 0.25 s). |
+| Variance | Chase Speed Variance / Rhythm Variance | 0.1 / 0.2 | Per-grunt randomness so a crowd does not move as one. |
+| Patrol & Idle | Patrol End Pause Range / Patrol Look Back Chance | 0.8â€“2 s / 0.3 | Pause at each end of a leg; chance per leg to stop and look back. |
+| Patrol & Idle | Idle Fidget / Fidget Interval / Fidget Chance | on / 3â€“6 s / 0.5 | Guards turning to look the other way. |
+| Alert & Search | Alert Enabled / Alert Duration Range | on / 0.3â€“0.5 s | The beat on first sight. A hit skips it. |
+| Alert & Search | Pack Alert Radius / Pack Alert Step | 6 / 0.12 s | How far the alarm travels and the delay per grunt. |
+| Alert & Search | Search Enabled / Search Look Duration | on / 0.5 s | The look-around after losing you. |
+| Body Ahead Probe | Probe Distance / Probe Interval | 1.5 / 0.1 s | How far ahead a grunt looks for bodies the director cannot see. |
+| Blocked | Blocked After / Blocked Speed | 0.25 s / 0.3 | When a stuck grunt re-thinks and wakes the grunt in its way. |
+
+On the **Detection Zone** child: **Use Facing Cone** and **Rear Radius** (grunt prefab: on, 2). On the **Grunt Enemy** root: **Can Be Launched** and the **Launch** settings (gravity, bounce, downed time, juggle cap, body tilt). On the **Enemy Spine Animation Controller**: **Measured Locomotion** with its start/stop speeds, and **Tilt Pivot Height** for the launch pose. On the player **Weapon Manager**: **Launch Hitstop Duration**.
+
+Animation: the grunt skeleton has no Roll, Walk, Backstep, Alert, Knockdown or GetUp clip. Vaults use **Jump_Start / Float / Jump_End**, shuffling and patrolling use **Run** slowed down (**Min Locomotion Time Scale** on the Spine presenter), the alert beat uses **Idle**, and the launch holds the last frame of **Hurt** with the body tilted, then **Jump_End** for the get-up. If the animator adds clips, change the names on **Enemy Spine Animation Controller**; no code change is needed. Two slots are waiting for clips: **Walk Backward** (stepping back while facing the player: backing off, flinching, shuffling away) and **Walk Forward** (slow steps in while holding a slot). Leave them empty and the grunt uses the slowed Run clip as now; fill them in and the presenter picks the right one from the direction the grunt is actually moving. **Step Walk Reference Speed** is the speed at which those clips play at normal rate.
 
 **Concepts**
 - A **mod** is a ScriptableObject (`ModData`) plus a runtime `ModInstance` per equipped slot.

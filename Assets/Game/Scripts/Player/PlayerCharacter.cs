@@ -381,6 +381,7 @@ namespace junklite
         void Update() //PLEASE REMOVE THIS
         {
             HandleInput();
+            UpdateBufferedAttackCancels();
 
             //Temp Debug keys 
             if (Keyboard.current?.hKey.wasPressedThisFrame == true) Heal(20f);
@@ -622,26 +623,108 @@ namespace junklite
         }
 
         #region Input Actions
+
+        // Jump / dash pressed during an attack's startup or hit window waits here and
+        // fires the moment the swing reaches recovery (see WeaponManager.TryCancelAttackForMovement).
+        private const float AttackCancelBufferTime = 0.25f;
+        private float bufferedJumpUntil = -1f;
+        private float bufferedDashUntil = -1f;
+        private bool jumpButtonHeld;
+
+        /// <summary>
+        /// True when no attack blocks the action (none running, or it was just cancelled
+        /// in recovery). Otherwise the press is buffered and false is returned.
+        /// </summary>
+        private bool TryClearAttackFor(ref float bufferedUntil)
+        {
+            if (_weaponManager == null || !_weaponManager.IsAttacking)
+                return true;
+
+            if (_weaponManager.TryCancelAttackForMovement())
+            {
+                bufferedUntil = -1f;
+                return true;
+            }
+
+            bufferedUntil = Time.time + AttackCancelBufferTime;
+            return false;
+        }
+
+        private void UpdateBufferedAttackCancels()
+        {
+            // Hit-stop pauses time right as a swing connects: wait it out.
+            if (Time.timeScale <= 0f)
+                return;
+
+            if (bufferedJumpUntil > 0f)
+            {
+                if (Time.time > bufferedJumpUntil)
+                    bufferedJumpUntil = -1f;
+                else if (_weaponManager == null || !_weaponManager.IsAttacking || _weaponManager.IsAttackCancelable)
+                {
+                    bufferedJumpUntil = -1f;
+                    PerformJump(jumpButtonHeld);
+                }
+            }
+
+            if (bufferedDashUntil > 0f)
+            {
+                if (Time.time > bufferedDashUntil)
+                    bufferedDashUntil = -1f;
+                else if (_weaponManager == null || !_weaponManager.IsAttacking || _weaponManager.IsAttackCancelable)
+                {
+                    bufferedDashUntil = -1f;
+                    PerformDash();
+                }
+            }
+        }
+
         void OnJumpPressed()
         {
-            if (playerState == null || !playerState.CanJump || Time.timeScale <= 0f) return;
+            jumpButtonHeld = true;
+            PerformJump(true);
+        }
+
+        private void PerformJump(bool held)
+        {
+            if (playerState == null) return;
+            if (Time.timeScale <= 0f)
+            {
+                // Pressed during an attack's hit-stop: keep it for when time resumes.
+                if (_weaponManager != null && _weaponManager.IsAttacking)
+                    bufferedJumpUntil = Time.time + AttackCancelBufferTime;
+                return;
+            }
+            if (!TryClearAttackFor(ref bufferedJumpUntil)) return;
+            if (!playerState.CanJump) return;
             if (TryGetComponent<PlayerSwordGrapple>(out var grapple) && grapple.ReleaseFromJump()) return;
             if (playerState != null && playerState.CanJump && Controller != null)
             {
                 Controller.SetJumpHeld(true);
                 Controller.Jump();
+                // A buffered tap released before it fired is a short hop, like any tap.
+                if (!held)
+                    Controller.SetJumpHeld(false);
             }
         }
 
         void OnDashPressed()
         {
-            if (playerState != null && playerState.CanDash && Controller != null)
+            PerformDash();
+        }
+
+        private void PerformDash()
+        {
+            if (playerState == null) return;
+            if (!TryClearAttackFor(ref bufferedDashUntil)) return;
+            if (playerState.CanDash && Controller != null)
                 Controller.Dash();
         }
 
 
         void OnJumpReleased()
         {
+            jumpButtonHeld = false;
             if (Controller != null)
                 Controller.SetJumpHeld(false);
         }

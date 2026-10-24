@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -53,6 +54,15 @@ namespace junklite
         [Tooltip("If false, this enemy cannot be knocked back")]
         [SerializeField] protected bool canBeKnockedBack = true;
 
+        [Header("Launch (heavy hits)")]
+        [Tooltip("Heavy hits marked Launch (combo finishers) throw this enemy into the air: flight, air kick, bounce, knockdown, get-up. Off = those hits are a normal flinch. Works for any enemy with a ground body (dynamic Rigidbody with gravity); every enemy brain already has the launch behaviour, so this checkbox is all a new type needs.")]
+        [SerializeField] protected bool canBeLaunched = false;
+        [SerializeField] protected EnemyLaunchSettings launch = new();
+
+        [Header("Body")]
+        [Tooltip("Walk through other enemies instead of being blocked by them (either side having this on is enough). Weapon hits, sensors, walls and floors are unaffected. Grunts keep their spacing by behaviour; a type without spacing logic may stack while crowding the player.")]
+        [SerializeField] protected bool passThroughEnemies = false;
+
         [Header("Debug")]
         [SerializeField] protected bool showGizmos = true;
 
@@ -102,6 +112,11 @@ namespace junklite
         private bool statusCrowdControlled;
         private bool deathHandled;
 
+        // Launch handoff: ReceiveDamage stores the throw, LaunchedState.Enter applies it.
+        private bool hasPendingLaunch;
+        private Vector3 pendingLaunchVelocity;
+        private GameObject pendingLaunchSource;
+
         public bool IsParryStunned => isParryStunned;
 
         // Combat state - prevents detection events from interrupting combat
@@ -127,6 +142,10 @@ namespace junklite
         public PlayerCharacter TargetCharacter => detectionZone != null ? detectionZone.CurrentTarget : null;
         public float AttackRange => attackRange;
         public bool CanBeKnockedBack => canBeKnockedBack;
+        public bool CanBeLaunched => canBeLaunched;
+        public EnemyLaunchSettings LaunchSettings => launch;
+        /// <summary>Airborne, bouncing, lying down or getting up after a launching hit.</summary>
+        public bool IsLaunched => stateMachine != null && stateMachine.CurrentState is LaunchedState;
 
         // Computed properties - Target
         public bool HasTarget => detectionZone != null && detectionZone.HasTarget;
@@ -139,6 +158,10 @@ namespace junklite
 
         public event Action<EnemyCharacter> OnAttackNotifyShown;
         public event Action<EnemyCharacter> Died;
+
+        private static readonly List<EnemyCharacter> ActiveList = new();
+        /// <summary>Every enabled enemy in the scene (for pack alerts and other cheap scans). Read only.</summary>
+        public static IReadOnlyList<EnemyCharacter> ActiveEnemies => ActiveList;
 
         protected override void Awake()
         {
@@ -184,23 +207,27 @@ namespace junklite
 
             if (damageable != null)
                 damageable.OnDamageResolved += OnDamageResolvedVFX;
+
+            RefreshEnemyBodyPassThrough();
         }
 
         protected override void Start()
         {
             base.Start();
             InitializeStateMachine();
-            TryIgnorePlayerBodyCollision();
         }
 
         protected virtual void OnEnable()
         {
+            if (!ActiveList.Contains(this))
+                ActiveList.Add(this);
             if (stateMachine != null)
                 stateMachine.OnStateChanged += HandleAttackWarningStateChanged;
         }
 
         protected virtual void OnDisable()
         {
+            ActiveList.Remove(this);
             if (stateMachine != null)
                 stateMachine.OnStateChanged -= HandleAttackWarningStateChanged;
         }
@@ -316,7 +343,6 @@ namespace junklite
 
             if (current != null)
             {
-                TryIgnorePlayerBodyCollision();
                 OnTargetAcquired();
             }
             else if (previous != null)
@@ -499,25 +525,60 @@ namespace junklite
 
         #region Collision Helpers
 
-        private void TryIgnorePlayerBodyCollision()
+        // Pass-through: the colliders this enemy excluded the Enemies layer on, so
+        // restoring never clears a bit someone else set. On while the Body toggle is
+        // on, or while launched.
+        private readonly List<Collider> passThroughColliders = new();
+        private bool launchPassThrough;
+
+        public bool PassesThroughEnemies => passThroughEnemies;
+
+        /// <summary>
+        /// Launch-time pass-through (a launched body flies through the enemy behind it).
+        /// The Body toggle keeps it on permanently. A corpse keeps its own death exclusion.
+        /// </summary>
+        public void SetEnemyBodyPassThrough(bool passThrough)
         {
-            PlayerCharacter player = TargetCharacter != null
-                ? TargetCharacter
-                : PlayerLifecycle.Instance?.Player;
-            if (player == null) return;
+            launchPassThrough = passThrough;
+            RefreshEnemyBodyPassThrough();
+        }
 
-            var enemyCols = GetComponentsInChildren<Collider>(includeInactive: true);
-            var playerCols = player.GetComponentsInChildren<Collider>(includeInactive: true);
-
-            foreach (var e in enemyCols)
+        private void RefreshEnemyBodyPassThrough()
+        {
+            bool passThrough = passThroughEnemies || launchPassThrough;
+            if (passThrough)
             {
-                if (e == null || e.isTrigger) continue;
-                foreach (var p in playerCols)
+                if (passThroughColliders.Count > 0)
+                    return;
+
+                int enemyLayers = LayerMask.GetMask("Enemies");
+                Collider[] colliders = GetComponentsInChildren<Collider>(true);
+                foreach (Collider bodyCollider in colliders)
                 {
-                    if (p == null || p.isTrigger) continue;
-                    Physics.IgnoreCollision(e, p, true);
+                    if (bodyCollider == null || bodyCollider.isTrigger)
+                        continue;
+                    if ((bodyCollider.excludeLayers.value & enemyLayers) == enemyLayers)
+                        continue;
+
+                    bodyCollider.excludeLayers |= enemyLayers;
+                    passThroughColliders.Add(bodyCollider);
                 }
+                return;
             }
+
+            if (deathHandled)
+            {
+                passThroughColliders.Clear();
+                return;
+            }
+
+            int mask = LayerMask.GetMask("Enemies");
+            for (int i = 0; i < passThroughColliders.Count; i++)
+            {
+                if (passThroughColliders[i] != null)
+                    passThroughColliders[i].excludeLayers &= ~mask;
+            }
+            passThroughColliders.Clear();
         }
 
         private void IgnoreEnemyBodyCollisionsOnDeath()
@@ -552,12 +613,45 @@ namespace junklite
                 (IsTutorialInvulnerable && !request.BypassesDefenses))
                 return DamageResult.Rejected(DamageOutcome.Invulnerable, request.Amount);
 
+            // Being attacked draws attention before the hit resolves, so an unaware
+            // enemy acquires its target (and the brain can skip its alert beat) before
+            // the damage callbacks and the launch run.
+            if (IsAlive && !request.IsTickDamage && detectionZone != null)
+                detectionZone.Alert();
+
             DamageResult result = base.ReceiveDamage(request);
 
             if (result.WasApplied)
             {
-                if (state == null || state.CanBeInterrupted)
+                if (state is LaunchedState launched && !launched.CanBeInterrupted)
                 {
+                    // Airborne or downed: the launch owns the reaction (juggle, stay down).
+                    // Only real hits move the body: damage-over-time ticks (burn, shock)
+                    // and reaction-less hits must not juggle or cut the arc.
+                    if (!request.IsTickDamage && request.HitReaction.HasAnyReaction)
+                        launched.OnHitWhileLaunched(request, ResolveLaunchVelocity(request));
+                }
+                else if (state == null || state.CanBeInterrupted)
+                {
+                    if (request.HitReaction.IsLaunch && canBeLaunched && movement != null && movement.CanBeLaunched)
+                    {
+                        if (!IsAlive)
+                        {
+                            // A launching kill sends the corpse flying; DeathSequence waits for the ground.
+                            Vector3 corpseVelocity = ResolveLaunchVelocity(request);
+                            corpseVelocity.y = launch.LaunchUpSpeed(corpseVelocity.y);
+                            movement.Launch(corpseVelocity, launch.GravityScale, endOnLanding: true);
+                            return result;
+                        }
+
+                        if (TryBeginLaunch(request))
+                            return result;
+                    }
+
+                    // A spike on a grounded enemy is a normal hit pushed sideways only.
+                    if (request.HitReaction.IsSpike)
+                        request.KnockbackForce = new Vector2(request.KnockbackForce.x, 0f);
+
                     // 1. Knockback FIRST — starts the push immediately
                     if (request.HitReaction.HasKnockback)
                         ApplyKnockback(request);
@@ -569,6 +663,85 @@ namespace junklite
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Launch velocity for a hit: x along the movement axis away from the source,
+        /// y up. With no source the enemy flies away from where it is facing.
+        /// </summary>
+        private Vector3 ResolveLaunchVelocity(DamageRequest request)
+        {
+            Vector3 axis = movement != null ? movement.MovementAxis : Vector3.right;
+            float sign = PushSign(request, axis);
+
+            Vector2 force = request.KnockbackForce;
+            return axis * (sign * force.x) + Vector3.up * force.y;
+        }
+
+        /// <summary>
+        /// Which way along the lane a hit pushes: the attacker's swing when the hit
+        /// carries one (melee), otherwise away from the source's position, otherwise
+        /// away from where this enemy faces.
+        /// </summary>
+        private float PushSign(DamageRequest request, Vector3 axis)
+        {
+            float along = Vector3.Dot(request.HitReaction.PushDirection, axis);
+            if (Mathf.Abs(along) > 0.01f)
+                return Mathf.Sign(along);
+
+            if (request.Source != null)
+            {
+                along = Vector3.Dot(transform.position - request.Source.transform.position, axis);
+                if (Mathf.Abs(along) > 0.001f)
+                    return Mathf.Sign(along);
+            }
+
+            return movement != null ? -movement.FacingDirection : 1f;
+        }
+
+        /// <summary>Stores the throw and enters LaunchedState. False when this enemy has no launch state.</summary>
+        private bool TryBeginLaunch(DamageRequest request)
+        {
+            if (stateMachine == null || !stateMachine.HasState<LaunchedState>())
+                return false;
+
+            hasPendingLaunch = true;
+            pendingLaunchVelocity = ResolveLaunchVelocity(request);
+            pendingLaunchSource = request.Source;
+            stateMachine.ChangeState<LaunchedState>();
+            return true;
+        }
+
+        public bool TryConsumePendingLaunch(out Vector3 velocity, out GameObject source)
+        {
+            velocity = pendingLaunchVelocity;
+            source = pendingLaunchSource;
+            if (!hasPendingLaunch)
+                return false;
+
+            hasPendingLaunch = false;
+            pendingLaunchSource = null;
+            return true;
+        }
+
+        /// <summary>LaunchedState finished its get-up: hand the decision back to the brain.</summary>
+        public void OnLaunchFinished()
+        {
+            if (!IsAlive || stateMachine == null)
+                return;
+
+            // A stun that landed while airborne was deferred; apply it now.
+            if (statusCrowdControlled && stateMachine.HasState<StunnedState>() && GetCapability<IStunnable>() != null)
+            {
+                stateMachine.ChangeState<StunnedState>();
+                return;
+            }
+
+            IStunnable stunnable = GetCapability<IStunnable>();
+            if (stunnable != null)
+                stunnable.OnStunComplete();
+            else
+                OnStunComplete();
         }
 
         public virtual void ApplyStun(float duration)
@@ -628,6 +801,10 @@ namespace junklite
             if (!crowdControlStarted || !IsAlive || stateMachine == null)
                 return;
 
+            // Airborne or downed: the launch finishes first, then OnLaunchFinished applies the stun.
+            if (state is LaunchedState launched && !launched.CanBeInterrupted)
+                return;
+
             movement?.Stop();
 
             if (stateMachine.HasState<StunnedState>() && GetCapability<IStunnable>() != null)
@@ -641,6 +818,9 @@ namespace junklite
         private void HandleKnockbackEnd()
         {
             if (stateMachine.CurrentState is StunnedState) return;
+            // A spiked body skids along the floor while lying down: the launch owns
+            // what happens next, not the end of that slide.
+            if (stateMachine.CurrentState is LaunchedState) return;
 
             IStunnable stunnable = GetCapability<IStunnable>();
             if (stunnable != null)
@@ -655,7 +835,14 @@ namespace junklite
             if (request.KnockbackForce.sqrMagnitude <= 0f) return;
 
             Vector3 knockbackDir = Vector3.right;
-            if (request.Source != null)
+            Vector3 swing = request.HitReaction.PushDirection;
+            swing.y = 0f;
+            if (swing.sqrMagnitude > 0.0001f)
+            {
+                // Along the attacker's swing: stays correct when the bodies overlap.
+                knockbackDir = swing.normalized;
+            }
+            else if (request.Source != null)
             {
                 knockbackDir = (transform.position - request.Source.transform.position);
                 knockbackDir.y = 0f;

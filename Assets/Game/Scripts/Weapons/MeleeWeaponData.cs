@@ -46,6 +46,8 @@ namespace junklite
             [Tooltip("Override the weapon's base knockback for this step. Useful for combo finishers.")]
             public bool overrideKnockback;
             public Vector2 knockback;
+            [Tooltip("Flinch = knockback + hitstun. Launch = lift the enemy off the ground; the knockback above is then the launch velocity (x away from the player, y up). Launch needs overrideKnockback.")]
+            public HitReactionKind reactionKind;
         }
 
         [Tooltip("Distance from the player center where the hit sphere or projectile origin is placed.")]

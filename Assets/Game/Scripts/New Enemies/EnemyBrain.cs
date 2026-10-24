@@ -39,6 +39,7 @@ namespace junklite
         {
             SubscribeToPerception();
             InitializeStateMachine();
+            RegisterSharedReactionStates();
             initialized = true;
 
             if (Perception != null && Perception.HasTarget)
@@ -61,6 +62,16 @@ namespace junklite
         }
 
         protected abstract void InitializeStateMachine();
+
+        /// <summary>
+        /// Hit-reaction states every enemy can use, so a reaction is switched on per
+        /// enemy in the Inspector (EnemyCharacter: Can Be Launched) instead of in code.
+        /// </summary>
+        private void RegisterSharedReactionStates()
+        {
+            if (StateMachine != null && Actor != null && !StateMachine.HasState<LaunchedState>())
+                StateMachine.RegisterState(new LaunchedState(Actor));
+        }
         protected abstract void EvaluateNextAction(bool actionCompleted = false);
 
         protected virtual void TickBrain() { }
@@ -86,7 +97,8 @@ namespace junklite
         protected bool IsForcedState()
         {
             IState current = StateMachine != null ? StateMachine.CurrentState : null;
-            return current is DeadState || current is StunnedState || current is ParriedState;
+            return current is DeadState || current is StunnedState || current is ParriedState
+                || current is LaunchedState;
         }
 
         private void SubscribeToPerception()

@@ -34,6 +34,11 @@ namespace junklite
             var col = GetComponent<Collider>();
             if (col != null)
                 col.isTrigger = true;
+
+            // Enemy-owned hitboxes are sensors (see EnemySensorLayer). Player and mod
+            // hitboxes keep their authored layer.
+            if (GetComponentInParent<EnemyCharacter>() != null)
+                EnemySensorLayer.Apply(gameObject);
         }
 
         private void OnEnable()

@@ -274,7 +274,13 @@ namespace junklite
 
             if (attackActive)
             {
-                ForceFinishAttack();
+                // The weapon manager only requests a new attack after it has finished
+                // or cancelled the previous one, so the old clip is just still playing.
+                // Drop it silently: reporting it complete here would complete the NEW
+                // attack (advance the combo and cancel its hit).
+                attackActive = false;
+                currentAttackEntry = null;
+                waitingForParryEnd = false;
             }
 
             // Special-case: ensure the parry hit animation fully replaces everything
@@ -301,8 +307,8 @@ namespace junklite
                     entry.MixBlend = MixBlend.Replace;
                     // standard time scale (no global compensation)
                     entry.TimeScale = GetTimeScaleFor(animationName, 1f);
-                    entry.Complete += _ => FinishAttackOverwrite();
-                    entry.Interrupt += _ => OnAttackInterrupted();
+                    entry.Complete += e => { if (e == currentAttackEntry) FinishAttackOverwrite(); };
+                    entry.Interrupt += e => { if (e == currentAttackEntry) OnAttackInterrupted(); };
                 }
                 currentAttackEntry = entry;
                 return;
@@ -321,8 +327,14 @@ namespace junklite
                 entry.MixDuration = attackMix;
                 entry.MixBlend = MixBlend.Replace;
                 entry.TimeScale = timeScale;
-                entry.Complete += _ => FinishAttackOverwrite();
-                entry.Interrupt += _ => OnAttackInterrupted();
+                // Only the attack that is current may finish or interrupt it. A finished
+                // clip stays on the base track when locomotion does not replace it (idle
+                // before and after), so the next attack replacing it fires an Interrupt
+                // for the OLD clip while the new one is already active; a clip still
+                // mixing out can also fire a late Complete. Either used to end the new
+                // swing and reset the combo to the first hit.
+                entry.Complete += e => { if (e == currentAttackEntry) FinishAttackOverwrite(); };
+                entry.Interrupt += e => { if (e == currentAttackEntry) OnAttackInterrupted(); };
                 currentAttackEntry = entry;
             }
             else
@@ -331,8 +343,8 @@ namespace junklite
                 entry.MixDuration = attackMix;
                 entry.MixBlend = MixBlend.Replace;
                 entry.TimeScale = timeScale;
-                entry.Complete += _ => FinishAttackOverlay();
-                entry.Interrupt += _ => OnAttackInterrupted();
+                entry.Complete += e => { if (e == currentAttackEntry) FinishAttackOverlay(); };
+                entry.Interrupt += e => { if (e == currentAttackEntry) OnAttackInterrupted(); };
                 currentAttackEntry = entry;
             }
         }

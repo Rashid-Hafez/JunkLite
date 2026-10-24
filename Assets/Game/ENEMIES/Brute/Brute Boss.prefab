@@ -5042,6 +5042,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 65536
   canBeKnockedBack: 1
+  canBeLaunched: 0
   showGizmos: 1
   damageFlashUniversal: {fileID: 6196954721436485074}
   attackWarningVfx: {fileID: 1756581471811012559}
@@ -73920,7 +73921,7 @@ GameObject:
   - component: {fileID: 1572615880132565503}
   - component: {fileID: 2686034420764226041}
   - component: {fileID: 2103035068204430971}
-  m_Layer: 14
+  m_Layer: 18
   m_Name: DetectionZone
   m_TagString: Untagged
   m_Icon: {fileID: 0}

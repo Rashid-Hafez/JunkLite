@@ -199,6 +199,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   canBeKnockedBack: 1
+  passThroughEnemies: 1
   hitstunDuration: 0.3
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}

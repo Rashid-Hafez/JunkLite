@@ -4982,6 +4982,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 65536
   canBeKnockedBack: 1
+  passThroughEnemies: 1
+  canBeLaunched: 1
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
   attackWarningVfx: {fileID: 1756581471811012559}
@@ -5212,6 +5214,10 @@ MonoBehaviour:
   dodge: JumpBack
   hurt: Hurt
   death: Death
+  leapStart: Jump_Start
+  leapAir: Float
+  leapLand: Jump_End
+  minLocomotionTimeScale: 0.35
   fitMeleeAnimationsToGameplayDuration: 0
   fitActionAnimationsToGameplayDuration: 0
   stunLoop: Stunt
@@ -5235,17 +5241,17 @@ MonoBehaviour:
   m_GameObject: {fileID: 1538827558492864467}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a80ca370b17e4480aa5b212d56d47db2, type: 3}
+  m_Script: {fileID: 11500000, guid: 7ae5d78f8581b9c41ad97bca579c5549, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.MeleeChaserBrain
-  patrolWhenPassive: 0
+  patrolWhenPassive: 1
   patrol:
-    patrolDistance: 0
+    patrolDistance: 3
     patrolSpeed: 2
-    wallCheckDistance: 0.5
+    wallCheckDistance: 1
     wallLayer:
       serializedVersion: 2
-      m_Bits: 0
+      m_Bits: 4097
     wallCheckPoint: {fileID: 0}
   chase:
     chaseSpeed: 7
@@ -5265,6 +5271,50 @@ MonoBehaviour:
   stun:
     staggerDuration: 1
     stunVFXObject: {fileID: 0}
+  decisionInterval: 0.15
+  decisionJitter: 0.05
+  chaseSpeedVariance: 0.1
+  rhythmVariance: 0.2
+  holdSpeedFraction: 0.6
+  holdTolerance: 0.35
+  paceAmplitude: 0.4
+  paceTowardLimit: 0.15
+  paceSpeed: 2
+  pacePauseRange: {x: 0.4, y: 1.2}
+  queueGap: 0.5
+  waryHoldOffset: 0.3
+  boldHoldOffset: -0.2
+  feintChance: 0.25
+  feintDistance: 0.6
+  feintDuration: 0.15
+  vaultEnabled: 1
+  vaultMaxStartDistance: 4.5
+  vaultMaxFarSideCount: 0
+  vaultOvershoot: 0.3
+  vaultSpeed: 9
+  vaultHeight: 1.6
+  vaultTelegraph: 0.2
+  leapLandDuration: 0.12
+  leapHasIFrames: 0
+  vaultChance: 0.85
+  vaultCooldown: 3
+  groupLeapCooldown: 1
+  obstacleLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  pressureWindow: 2.5
+  pressureHitsToMax: 3
+  backOffPressure: 0.66
+  backOffDistance: 1.2
+  backOffSpeed: 3.5
+  backOffHoldRange: {x: 0.6, y: 1}
+  backOffCooldown: 2
+  backOffTimeout: 1.5
+  fallBackCooldown: 6
+  groupWaryPressure: 0.5
+  boldAfterQuietSeconds: 3
+  normalHandoffDelay: 0.25
+  boldHandoffDelay: 0.1
 --- !u!1 &2049112635380343708
 GameObject:
   m_ObjectHideFlags: 0
@@ -15116,7 +15166,7 @@ GameObject:
   - component: {fileID: 5327573995783608736}
   - component: {fileID: 2207043626777241775}
   - component: {fileID: 163830592765347263}
-  m_Layer: 14
+  m_Layer: 18
   m_Name: Hitbox
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -34617,7 +34667,7 @@ GameObject:
   - component: {fileID: 1572615880132565503}
   - component: {fileID: 2686034420764226041}
   - component: {fileID: 2103035068204430971}
-  m_Layer: 14
+  m_Layer: 18
   m_Name: DetectionZone
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -34686,6 +34736,8 @@ MonoBehaviour:
   minVerticalDifferenceToCheck: 0.5
   validationInterval: 0.2
   showGizmos: 1
+  useFacingCone: 1
+  rearRadius: 2
 --- !u!1001 &825562034911378609
 PrefabInstance:
   m_ObjectHideFlags: 0

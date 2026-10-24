@@ -327,6 +327,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 65537
   canBeKnockedBack: 1
+  passThroughEnemies: 1
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
   enemyAnimation: {fileID: 0}
