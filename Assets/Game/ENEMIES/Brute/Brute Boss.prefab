@@ -4940,7 +4940,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.26, y: 1.26, z: 1.26}
+  m_LocalScale: {x: 1.42, y: 1.42, z: 1.42}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 8998682652948778776}
@@ -5043,6 +5043,33 @@ MonoBehaviour:
     m_Bits: 65536
   canBeKnockedBack: 1
   canBeLaunched: 0
+  launch:
+    apexHeight: 6.5
+    apexHangSpeed: 4
+    apexHangGravityScale: 1.5
+    gravityScale: 4
+    passThroughEnemies: 1
+    maxAirTime: 4
+    bounceEnabled: 1
+    bounceMinSpeed: 3
+    bounceRestitution: 0.08
+    bounceHorizontalKeep: 0.2
+    bounceGravityScale: 8
+    downedDurationRange: {x: 0.8, y: 1.2}
+    downedHitExtend: 0.2
+    downedMaxTotal: 2
+    getUpDuration: 0.45
+    knockDownAgainTime: 0.4
+    spikeGravityScale: 7
+    spikeSkidKeep: 1.5
+    maxJuggleHits: 3
+    juggleLift: 8
+    juggleHorizontalScale: 0.15
+    airTilt: 75
+    downedTilt: 90
+    tiltBlendSeconds: 0.12
+    debugLog: 1
+  passThroughEnemies: 0
   showGizmos: 1
   damageFlashUniversal: {fileID: 6196954721436485074}
   attackWarningVfx: {fileID: 1756581471811012559}
@@ -73983,6 +74010,8 @@ MonoBehaviour:
   losBlockingLayers:
     serializedVersion: 2
     m_Bits: 6144
+  useFacingCone: 0
+  rearRadius: 2
   requireReachablePath: 1
   platformLayers:
     serializedVersion: 2

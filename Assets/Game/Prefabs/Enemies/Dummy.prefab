@@ -38,7 +38,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -4.39, y: 0.33, z: -0.33}
-  m_LocalScale: {x: 1.5, y: 1.5, z: 1}
+  m_LocalScale: {x: 1.7, y: 1.7, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2025167586477356641}
@@ -58,7 +58,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b5abb57bc2a39d43b7f9068ce56df7d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.StateMachine
-  logTransitions: 0
 --- !u!54 &1700822433783552845
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -133,6 +132,7 @@ MonoBehaviour:
   groundLayers:
     serializedVersion: 2
     m_Bits: 4294967295
+  settledGroundCheckInterval: 3
 --- !u!114 &7625030819853309825
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -149,7 +149,6 @@ MonoBehaviour:
   poisonVFX: {fileID: 0}
   bleedVFX: {fileID: 0}
   electricVFX: {fileID: 8121144064900413515}
-  showDebugLogs: 0
 --- !u!114 &6866748893746059948
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -199,16 +198,46 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   canBeKnockedBack: 1
+  canBeLaunched: 0
+  launch:
+    apexHeight: 6.5
+    apexHangSpeed: 4
+    apexHangGravityScale: 1.5
+    gravityScale: 4
+    passThroughEnemies: 1
+    maxAirTime: 4
+    bounceEnabled: 1
+    bounceMinSpeed: 3
+    bounceRestitution: 0.08
+    bounceHorizontalKeep: 0.2
+    bounceGravityScale: 8
+    downedDurationRange: {x: 0.8, y: 1.2}
+    downedHitExtend: 0.2
+    downedMaxTotal: 2
+    getUpDuration: 0.45
+    knockDownAgainTime: 0.4
+    spikeGravityScale: 7
+    spikeSkidKeep: 1.5
+    maxJuggleHits: 3
+    juggleLift: 8
+    juggleHorizontalScale: 0.15
+    airTilt: 75
+    downedTilt: 90
+    tiltBlendSeconds: 0.12
+    debugLog: 1
   passThroughEnemies: 1
-  hitstunDuration: 0.3
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
-  enemyAnimation: {fileID: 0}
+  attackWarningVfx: {fileID: 0}
+  attackNotifyDelay: 0
+  animationPresenter: {fileID: 0}
   deathParticlePrefab: {fileID: 0}
   deathParticleLifetime: 2
   enemyVisual: {fileID: 0}
   customDropTable: {fileID: 0}
   dropChance: 1
+  deathGroundTimeout: 3
+  deathLinger: 1.25
   invincible: 0
   resetHealthOnHit: 1
 --- !u!114 &8123627017812205426
@@ -221,7 +250,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e7d6b172745844e7ab4cd0dd8e21b912, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PassiveEnemyBrain
   ownsSerializedConfiguration: 1
   patrolWhenPassive: 0
@@ -233,6 +262,10 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 0
     wallCheckPoint: {fileID: 0}
+    groundLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    ledgeCheckDepth: 1.5
 --- !u!114 &7344972783804692775
 MonoBehaviour:
   m_ObjectHideFlags: 0

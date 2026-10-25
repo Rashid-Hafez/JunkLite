@@ -39,7 +39,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -32.53782, y: 0, z: -0.636}
-  m_LocalScale: {x: 1.26, y: 1.26, z: 1.26}
+  m_LocalScale: {x: 1.42, y: 1.42, z: 1.42}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 876643763446364396}
@@ -114,7 +114,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b5abb57bc2a39d43b7f9068ce56df7d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.StateMachine
-  logTransitions: 0
 --- !u!114 &1781644916664674612
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -139,6 +138,7 @@ MonoBehaviour:
   groundLayers:
     serializedVersion: 2
     m_Bits: 6144
+  settledGroundCheckInterval: 3
 --- !u!114 &7573309572259255426
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -155,7 +155,6 @@ MonoBehaviour:
   poisonVFX: {fileID: 0}
   bleedVFX: {fileID: 0}
   electricVFX: {fileID: 7131401307255788800, guid: 4d9a3b35b3bc07649b697df7fb497b6d, type: 3}
-  showDebugLogs: 0
 --- !u!114 &1845504704677704398
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -195,6 +194,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.HyenaEnemy
   baseStats: {fileID: 11400000, guid: 9c72d1ca99bf4a341b6578b22cb2b01c, type: 2}
+  experienceReward: 25
   attributes: {fileID: 0}
   config: {fileID: 11400000, guid: 7306fe64eecbb124db49dca8d5795fad, type: 2}
   soundProfile: {fileID: 11400000, guid: 8ea661e92a2b9cc48aa6bfa6c75a470e, type: 2}
@@ -204,6 +204,34 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1
   canBeKnockedBack: 1
+  canBeLaunched: 0
+  launch:
+    apexHeight: 6.5
+    apexHangSpeed: 4
+    apexHangGravityScale: 1.5
+    gravityScale: 4
+    passThroughEnemies: 1
+    maxAirTime: 4
+    bounceEnabled: 1
+    bounceMinSpeed: 3
+    bounceRestitution: 0.08
+    bounceHorizontalKeep: 0.2
+    bounceGravityScale: 8
+    downedDurationRange: {x: 0.8, y: 1.2}
+    downedHitExtend: 0.2
+    downedMaxTotal: 2
+    getUpDuration: 0.45
+    knockDownAgainTime: 0.4
+    spikeGravityScale: 7
+    spikeSkidKeep: 1.5
+    maxJuggleHits: 3
+    juggleLift: 8
+    juggleHorizontalScale: 0.15
+    airTilt: 75
+    downedTilt: 90
+    tiltBlendSeconds: 0.12
+    debugLog: 1
+  passThroughEnemies: 0
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
   attackWarningVfx: {fileID: 7542237875352858683}
@@ -214,6 +242,8 @@ MonoBehaviour:
   enemyVisual: {fileID: 0}
   customDropTable: {fileID: 11400000, guid: fb56195b90a642d4cb499c818a9aeb3c, type: 2}
   dropChance: 1
+  deathGroundTimeout: 3
+  deathLinger: 1.25
 --- !u!114 &8123627017812205421
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -224,7 +254,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f5d8c384d96b4d218faac214376d8e4e, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.HyenaBrain
   patrolWhenPassive: 1
   patrol:
@@ -235,10 +265,15 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 6144
     wallCheckPoint: {fileID: 5151501263871442441}
+    groundLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    ledgeCheckDepth: 1.5
   chase:
     chaseSpeed: 7
     chaseStopDistance: 2
   pursuitRadius: 15
+  queueArrivalDistance: 0.12
   melee:
     windUpDuration: 0
     attackDuration: 0.5
@@ -323,6 +358,31 @@ MonoBehaviour:
   dodge: JumpBack
   hurt: Hurt
   death: Death
+  leapStart: Jump_Start
+  leapAir: Float
+  leapLand: Jump_End
+  launchHurtbox: 1
+  hurtboxDepth: 1
+  overlapDepthStep: 0.01
+  launchAir: Hurt
+  launchDowned: Hurt
+  downedUsesDeathFall: 1
+  downedHoldTime: 0.4
+  launchGetUp: Jump_End
+  tiltPivotHeight: 1.15
+  tiltGroundClearance: 0.35
+  fitTiltedBodyToFloor: 1
+  lyingFloorInset: 0.05
+  minLocomotionTimeScale: 0.35
+  walkForward: 
+  walkBackward: 
+  directionSwitchSpeed: 0.25
+  stepWalkReferenceSpeed: 2.5
+  measuredLocomotion: 1
+  moveStartSpeed: 0.35
+  moveStopSpeed: 0.2
+  speedSmoothing: 0.08
+  fitMeleeAnimationsToGameplayDuration: 0
   fitActionAnimationsToGameplayDuration: 1
   stunLoop: Stunt
   onParried: OnParried
@@ -336,7 +396,6 @@ MonoBehaviour:
   onParriedSettings:
     resetPoseFirst: 1
     mixDuration: 0
-  debugLog: 0
 --- !u!82 &5511428486720858210
 AudioSource:
   m_ObjectHideFlags: 0
@@ -787,11 +846,14 @@ MonoBehaviour:
   losBlockingLayers:
     serializedVersion: 2
     m_Bits: 6144
+  useFacingCone: 0
+  rearRadius: 2
   requireReachablePath: 1
   platformLayers:
     serializedVersion: 2
     m_Bits: 0
   minVerticalDifferenceToCheck: 0.5
+  validationInterval: 0.2
   showGizmos: 1
 --- !u!1 &9101347373124830079
 GameObject:

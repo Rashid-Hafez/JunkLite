@@ -288,6 +288,14 @@ MonoBehaviour:
   losBlockingLayers:
     serializedVersion: 2
     m_Bits: 4096
+  useFacingCone: 0
+  rearRadius: 2
+  requireReachablePath: 1
+  platformLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  minVerticalDifferenceToCheck: 0.5
+  validationInterval: 0.2
   showGizmos: 1
 --- !u!1 &8676920073786956694
 GameObject:
@@ -328,7 +336,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 18.89, y: 0.354, z: -0.515}
-  m_LocalScale: {x: 0.80846184, y: 0.80846184, z: 0.80846184}
+  m_LocalScale: {x: 0.92, y: 0.92, z: 0.92}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8341913727228764000}
@@ -412,6 +420,7 @@ MonoBehaviour:
   groundLayers:
     serializedVersion: 2
     m_Bits: 4294967295
+  settledGroundCheckInterval: 3
 --- !u!114 &6375267258549122715
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -424,7 +433,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b5abb57bc2a39d43b7f9068ce56df7d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.StateMachine
-  logTransitions: 0
 --- !u!114 &6381443775609244690
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -464,6 +472,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.RobotEnemy
   baseStats: {fileID: 11400000, guid: 9c72d1ca99bf4a341b6578b22cb2b01c, type: 2}
+  experienceReward: 25
   attributes: {fileID: 0}
   config: {fileID: 11400000, guid: a06c1f2f196407e4683d5cd382702c22, type: 2}
   soundProfile: {fileID: 11400000, guid: 8ea661e92a2b9cc48aa6bfa6c75a470e, type: 2}
@@ -473,15 +482,83 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1
   canBeKnockedBack: 1
-  hitstunDuration: 0.3
+  canBeLaunched: 0
+  launch:
+    apexHeight: 6.5
+    apexHangSpeed: 4
+    apexHangGravityScale: 1.5
+    gravityScale: 4
+    passThroughEnemies: 1
+    maxAirTime: 4
+    bounceEnabled: 1
+    bounceMinSpeed: 3
+    bounceRestitution: 0.08
+    bounceHorizontalKeep: 0.2
+    bounceGravityScale: 8
+    downedDurationRange: {x: 0.8, y: 1.2}
+    downedHitExtend: 0.2
+    downedMaxTotal: 2
+    getUpDuration: 0.45
+    knockDownAgainTime: 0.4
+    spikeGravityScale: 7
+    spikeSkidKeep: 1.5
+    maxJuggleHits: 3
+    juggleLift: 8
+    juggleHorizontalScale: 0.15
+    airTilt: 75
+    downedTilt: 90
+    tiltBlendSeconds: 0.12
+    debugLog: 1
+  passThroughEnemies: 0
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
-  enemyAnimation: {fileID: 0}
+  attackWarningVfx: {fileID: 0}
+  attackNotifyDelay: 0
+  animationPresenter: {fileID: 0}
   deathParticlePrefab: {fileID: 358637981425055526, guid: 8eb503696b886e04faff8fc0f480d473, type: 3}
   deathParticleLifetime: 2
   enemyVisual: {fileID: 1930341714758770327}
   customDropTable: {fileID: 0}
   dropChance: 1
+  deathGroundTimeout: 3
+  deathLinger: 1.25
+  patrol:
+    patrolDistance: 5
+    patrolSpeed: 2
+    wallCheckDistance: 0.5
+    wallLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    wallCheckPoint: {fileID: 0}
+    groundLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    ledgeCheckDepth: 1.5
+  charge:
+    chargeTime: 1
+    chargeVFXPrefab: {fileID: 0}
+  dash:
+    dashSpeed: 15
+    dashDamage: 10
+    dashStopDistance: 0.5
+    dashKnockback: {x: 15, y: 5}
+    dashHitbox: {fileID: 0}
+    dashVFXPrefab: {fileID: 0}
+    canBeInterrupted: 1
+    attackStartNormalized: 0.8
+    attackActiveDuration: 0.12
+    whiffResolveDelay: 0.05
+  grab:
+    canGrab: 1
+    grabChance: 0.3
+    grabDuration: 0.5
+    grabOffset: {x: 0, y: 1.5, z: 0}
+    throwForce: {x: 25, y: 10}
+    throwDamage: 5
+    grabVFXPrefab: {fileID: 0}
+  recovery:
+    recoveryTime: 0.3
+    recoveryVFXPrefab: {fileID: 0}
 --- !u!114 &8123627017812205422
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -492,7 +569,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c05f4d6c4c9f4e6aaa32666f36b8d3b1, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.RobotBrain
   ownsSerializedConfiguration: 1
   patrol:
@@ -503,6 +580,10 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 6144
     wallCheckPoint: {fileID: 8750412993510978982}
+    groundLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    ledgeCheckDepth: 1.5
   charge:
     chargeTime: 1
     chargeVFXPrefab: {fileID: 0}
@@ -544,7 +625,6 @@ MonoBehaviour:
   poisonVFX: {fileID: 0}
   bleedVFX: {fileID: 0}
   electricVFX: {fileID: 0}
-  showDebugLogs: 0
 --- !u!114 &5739385205613381891
 MonoBehaviour:
   m_ObjectHideFlags: 0

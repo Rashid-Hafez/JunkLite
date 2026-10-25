@@ -14658,7 +14658,7 @@ GameObject:
   - component: {fileID: 8645058499919781369}
   - component: {fileID: 4171838279045306018}
   m_Layer: 14
-  m_Name: patrol dummy
+  m_Name: Patrol Dummy
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -14674,7 +14674,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -66.4, y: 0.33, z: 0.089999974}
-  m_LocalScale: {x: 1.4999999, y: 1.4999999, z: 1}
+  m_LocalScale: {x: 1.7, y: 1.7, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7444505516769415773}
@@ -14694,7 +14694,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b5abb57bc2a39d43b7f9068ce56df7d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.StateMachine
-  logTransitions: 0
 --- !u!54 &5674226459226405996
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -14759,7 +14758,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyMovement
   moveSpeed: 3
   stoppingDistance: 0.1
-  movementPlane: 1
+  gravityScale: 1
   useScaleFlip: 1
   defaultFacing: 1
   ignoreKnockback: 0
@@ -14769,6 +14768,7 @@ MonoBehaviour:
   groundLayers:
     serializedVersion: 2
     m_Bits: 4294967295
+  settledGroundCheckInterval: 3
 --- !u!114 &4285686855248028936
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14785,7 +14785,6 @@ MonoBehaviour:
   poisonVFX: {fileID: 0}
   bleedVFX: {fileID: 0}
   electricVFX: {fileID: 451797371927720121}
-  showDebugLogs: 0
 --- !u!114 &22862320063945494
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14842,6 +14841,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PatrolEnemy
   baseStats: {fileID: 11400000, guid: 58a1d53d4072c4343b8ef49d184f1c47, type: 2}
+  experienceReward: 25
   attributes: {fileID: 0}
   config: {fileID: 11400000, guid: 47e792f378ad18c47bb03f3a3772c1da, type: 2}
   soundProfile: {fileID: 11400000, guid: 8ea661e92a2b9cc48aa6bfa6c75a470e, type: 2}
@@ -14851,15 +14851,58 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   canBeKnockedBack: 1
+  canBeLaunched: 0
+  launch:
+    apexHeight: 6.5
+    apexHangSpeed: 4
+    apexHangGravityScale: 1.5
+    gravityScale: 4
+    passThroughEnemies: 1
+    maxAirTime: 4
+    bounceEnabled: 1
+    bounceMinSpeed: 3
+    bounceRestitution: 0.08
+    bounceHorizontalKeep: 0.2
+    bounceGravityScale: 8
+    downedDurationRange: {x: 0.8, y: 1.2}
+    downedHitExtend: 0.2
+    downedMaxTotal: 2
+    getUpDuration: 0.45
+    knockDownAgainTime: 0.4
+    spikeGravityScale: 7
+    spikeSkidKeep: 1.5
+    maxJuggleHits: 3
+    juggleLift: 8
+    juggleHorizontalScale: 0.15
+    airTilt: 75
+    downedTilt: 90
+    tiltBlendSeconds: 0.12
+    debugLog: 1
   passThroughEnemies: 1
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
-  enemyAnimation: {fileID: 0}
+  attackWarningVfx: {fileID: 0}
+  attackNotifyDelay: 0
+  animationPresenter: {fileID: 0}
   deathParticlePrefab: {fileID: 0}
   deathParticleLifetime: 2
   enemyVisual: {fileID: 0}
   customDropTable: {fileID: 0}
   dropChance: 1
+  deathGroundTimeout: 3
+  deathLinger: 1.25
+  patrol:
+    patrolDistance: 5
+    patrolSpeed: 2
+    wallCheckDistance: 0.5
+    wallLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    wallCheckPoint: {fileID: 0}
+    groundLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    ledgeCheckDepth: 1.5
 --- !u!114 &8123627017812205425
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14870,7 +14913,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e7d6b172745844e7ab4cd0dd8e21b912, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PassiveEnemyBrain
   ownsSerializedConfiguration: 1
   patrolWhenPassive: 1
@@ -14882,6 +14925,10 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 0
     wallCheckPoint: {fileID: 0}
+    groundLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    ledgeCheckDepth: 1.5
 --- !u!82 &8645058499919781369
 AudioSource:
   m_ObjectHideFlags: 0
