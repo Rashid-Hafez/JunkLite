@@ -69606,14 +69606,6 @@ PrefabInstance:
       value: 6144
       objectReference: {fileID: 0}
     - target: {fileID: 4272900859774575797, guid: aeedb217e70a445ac8a47f1a6bb94714, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1.2599999
-      objectReference: {fileID: 0}
-    - target: {fileID: 4272900859774575797, guid: aeedb217e70a445ac8a47f1a6bb94714, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 1.2599999
-      objectReference: {fileID: 0}
-    - target: {fileID: 4272900859774575797, guid: aeedb217e70a445ac8a47f1a6bb94714, type: 3}
       propertyPath: m_LocalPosition.x
       value: -15.30379
       objectReference: {fileID: 0}
@@ -144178,14 +144170,6 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 0}
     - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1.2599995
-      objectReference: {fileID: 0}
-    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 1.2599995
-      objectReference: {fileID: 0}
-    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_LocalPosition.x
       value: 152.54001
       objectReference: {fileID: 0}
@@ -200083,14 +200067,6 @@ PrefabInstance:
     - target: {fileID: 5597149479163235202, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1.2599996
-      objectReference: {fileID: 0}
-    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 1.2599996
       objectReference: {fileID: 0}
     - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_LocalPosition.x
@@ -272880,14 +272856,6 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 0}
     - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1.2599996
-      objectReference: {fileID: 0}
-    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 1.2599996
-      objectReference: {fileID: 0}
-    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_LocalPosition.x
       value: 152.69
       objectReference: {fileID: 0}
@@ -306362,14 +306330,6 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 0}
     - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1.2599996
-      objectReference: {fileID: 0}
-    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 1.2599996
-      objectReference: {fileID: 0}
-    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_LocalPosition.x
       value: -15.2
       objectReference: {fileID: 0}
@@ -324033,14 +323993,6 @@ PrefabInstance:
     - target: {fileID: 2618858191006285992, guid: aeedb217e70a445ac8a47f1a6bb94714, type: 3}
       propertyPath: groundLayers.m_Bits
       value: 6144
-      objectReference: {fileID: 0}
-    - target: {fileID: 4272900859774575797, guid: aeedb217e70a445ac8a47f1a6bb94714, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1.2599999
-      objectReference: {fileID: 0}
-    - target: {fileID: 4272900859774575797, guid: aeedb217e70a445ac8a47f1a6bb94714, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 1.2599999
       objectReference: {fileID: 0}
     - target: {fileID: 4272900859774575797, guid: aeedb217e70a445ac8a47f1a6bb94714, type: 3}
       propertyPath: m_LocalPosition.x
@@ -416920,14 +416872,6 @@ PrefabInstance:
     - target: {fileID: 5597149479163235202, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1.2599995
-      objectReference: {fileID: 0}
-    - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 1.2599995
       objectReference: {fileID: 0}
     - target: {fileID: 8757400840095143692, guid: 5cb0d0745637578449fccbd95b5bdf3f, type: 3}
       propertyPath: m_LocalPosition.x
@@ -670304,6 +670248,8 @@ MonoBehaviour:
   losBlockingLayers:
     serializedVersion: 2
     m_Bits: 6144
+  useFacingCone: 0
+  rearRadius: 2
   requireReachablePath: 1
   platformLayers:
     serializedVersion: 2
@@ -670330,6 +670276,8 @@ MonoBehaviour:
   losBlockingLayers:
     serializedVersion: 2
     m_Bits: 6144
+  useFacingCone: 0
+  rearRadius: 2
   requireReachablePath: 1
   platformLayers:
     serializedVersion: 2
@@ -670356,6 +670304,8 @@ MonoBehaviour:
   losBlockingLayers:
     serializedVersion: 2
     m_Bits: 6144
+  useFacingCone: 0
+  rearRadius: 2
   requireReachablePath: 1
   platformLayers:
     serializedVersion: 2
@@ -671337,6 +671287,34 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 65536
   canBeKnockedBack: 1
+  canBeLaunched: 0
+  launch:
+    apexHeight: 6.5
+    apexHangSpeed: 4
+    apexHangGravityScale: 1.5
+    gravityScale: 4
+    passThroughEnemies: 1
+    maxAirTime: 4
+    bounceEnabled: 1
+    bounceMinSpeed: 3
+    bounceRestitution: 0.08
+    bounceHorizontalKeep: 0.2
+    bounceGravityScale: 8
+    downedDurationRange: {x: 0.8, y: 1.2}
+    downedHitExtend: 0.2
+    downedMaxTotal: 2
+    getUpDuration: 0.45
+    knockDownAgainTime: 0.4
+    spikeGravityScale: 7
+    spikeSkidKeep: 1.5
+    maxJuggleHits: 3
+    juggleLift: 8
+    juggleHorizontalScale: 0.15
+    airTilt: 75
+    downedTilt: 90
+    tiltBlendSeconds: 0.12
+    debugLog: 1
+  passThroughEnemies: 0
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
   attackWarningVfx: {fileID: 1756581472064486409}
@@ -671372,6 +671350,34 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 65536
   canBeKnockedBack: 1
+  canBeLaunched: 0
+  launch:
+    apexHeight: 6.5
+    apexHangSpeed: 4
+    apexHangGravityScale: 1.5
+    gravityScale: 4
+    passThroughEnemies: 1
+    maxAirTime: 4
+    bounceEnabled: 1
+    bounceMinSpeed: 3
+    bounceRestitution: 0.08
+    bounceHorizontalKeep: 0.2
+    bounceGravityScale: 8
+    downedDurationRange: {x: 0.8, y: 1.2}
+    downedHitExtend: 0.2
+    downedMaxTotal: 2
+    getUpDuration: 0.45
+    knockDownAgainTime: 0.4
+    spikeGravityScale: 7
+    spikeSkidKeep: 1.5
+    maxJuggleHits: 3
+    juggleLift: 8
+    juggleHorizontalScale: 0.15
+    airTilt: 75
+    downedTilt: 90
+    tiltBlendSeconds: 0.12
+    debugLog: 1
+  passThroughEnemies: 0
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
   attackWarningVfx: {fileID: 1756581471548933740}
@@ -671407,6 +671413,34 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 65536
   canBeKnockedBack: 1
+  canBeLaunched: 0
+  launch:
+    apexHeight: 6.5
+    apexHangSpeed: 4
+    apexHangGravityScale: 1.5
+    gravityScale: 4
+    passThroughEnemies: 1
+    maxAirTime: 4
+    bounceEnabled: 1
+    bounceMinSpeed: 3
+    bounceRestitution: 0.08
+    bounceHorizontalKeep: 0.2
+    bounceGravityScale: 8
+    downedDurationRange: {x: 0.8, y: 1.2}
+    downedHitExtend: 0.2
+    downedMaxTotal: 2
+    getUpDuration: 0.45
+    knockDownAgainTime: 0.4
+    spikeGravityScale: 7
+    spikeSkidKeep: 1.5
+    maxJuggleHits: 3
+    juggleLift: 8
+    juggleHorizontalScale: 0.15
+    airTilt: 75
+    downedTilt: 90
+    tiltBlendSeconds: 0.12
+    debugLog: 1
+  passThroughEnemies: 0
   showGizmos: 1
   damageFlashUniversal: {fileID: 0}
   attackWarningVfx: {fileID: 1756581471111224874}
@@ -749036,6 +749070,30 @@ MonoBehaviour:
   dodge: JumpBack
   hurt: Hurt
   death: Death
+  leapStart: Jump_Start
+  leapAir: Float
+  leapLand: Jump_End
+  launchHurtbox: 1
+  hurtboxDepth: 1
+  overlapDepthStep: 0.01
+  launchAir: Hurt
+  launchDowned: Hurt
+  downedUsesDeathFall: 1
+  downedHoldTime: 0.4
+  launchGetUp: Jump_End
+  tiltPivotHeight: 1.15
+  tiltGroundClearance: 0.35
+  fitTiltedBodyToFloor: 1
+  lyingFloorInset: 0.05
+  minLocomotionTimeScale: 0.35
+  walkForward: 
+  walkBackward: 
+  directionSwitchSpeed: 0.25
+  stepWalkReferenceSpeed: 2.5
+  measuredLocomotion: 1
+  moveStartSpeed: 0.35
+  moveStopSpeed: 0.2
+  speedSmoothing: 0.08
   fitMeleeAnimationsToGameplayDuration: 0
   fitActionAnimationsToGameplayDuration: 0
   stunLoop: Stunt
@@ -749073,6 +749131,30 @@ MonoBehaviour:
   dodge: JumpBack
   hurt: Hurt
   death: Death
+  leapStart: Jump_Start
+  leapAir: Float
+  leapLand: Jump_End
+  launchHurtbox: 1
+  hurtboxDepth: 1
+  overlapDepthStep: 0.01
+  launchAir: Hurt
+  launchDowned: Hurt
+  downedUsesDeathFall: 1
+  downedHoldTime: 0.4
+  launchGetUp: Jump_End
+  tiltPivotHeight: 1.15
+  tiltGroundClearance: 0.35
+  fitTiltedBodyToFloor: 1
+  lyingFloorInset: 0.05
+  minLocomotionTimeScale: 0.35
+  walkForward: 
+  walkBackward: 
+  directionSwitchSpeed: 0.25
+  stepWalkReferenceSpeed: 2.5
+  measuredLocomotion: 1
+  moveStartSpeed: 0.35
+  moveStopSpeed: 0.2
+  speedSmoothing: 0.08
   fitMeleeAnimationsToGameplayDuration: 0
   fitActionAnimationsToGameplayDuration: 0
   stunLoop: Stunt
@@ -749110,6 +749192,30 @@ MonoBehaviour:
   dodge: JumpBack
   hurt: Hurt
   death: Death
+  leapStart: Jump_Start
+  leapAir: Float
+  leapLand: Jump_End
+  launchHurtbox: 1
+  hurtboxDepth: 1
+  overlapDepthStep: 0.01
+  launchAir: Hurt
+  launchDowned: Hurt
+  downedUsesDeathFall: 1
+  downedHoldTime: 0.4
+  launchGetUp: Jump_End
+  tiltPivotHeight: 1.15
+  tiltGroundClearance: 0.35
+  fitTiltedBodyToFloor: 1
+  lyingFloorInset: 0.05
+  minLocomotionTimeScale: 0.35
+  walkForward: 
+  walkBackward: 
+  directionSwitchSpeed: 0.25
+  stepWalkReferenceSpeed: 2.5
+  measuredLocomotion: 1
+  moveStartSpeed: 0.35
+  moveStopSpeed: 0.2
+  speedSmoothing: 0.08
   fitMeleeAnimationsToGameplayDuration: 0
   fitActionAnimationsToGameplayDuration: 0
   stunLoop: Stunt
@@ -765059,6 +765165,10 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 0
     wallCheckPoint: {fileID: 0}
+    groundLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    ledgeCheckDepth: 1.5
   chase:
     chaseSpeed: 5
     chaseStopDistance: 0
@@ -765121,6 +765231,10 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 0
     wallCheckPoint: {fileID: 0}
+    groundLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    ledgeCheckDepth: 1.5
   chase:
     chaseSpeed: 5
     chaseStopDistance: 0
@@ -765183,6 +765297,10 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 0
     wallCheckPoint: {fileID: 0}
+    groundLayer:
+      serializedVersion: 2
+      m_Bits: 0
+    ledgeCheckDepth: 1.5
   chase:
     chaseSpeed: 5
     chaseStopDistance: 0

@@ -556679,7 +556679,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 08eacbd96477d604b92c0c130a6fb060, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.DeathTrigger
-  killEnemies: 0
 --- !u!65 &1386470716
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -603328,18 +603327,6 @@ PrefabInstance:
     - target: {fileID: 4245614698819390584, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
       propertyPath: m_IsActive
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4272900859774575797, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1.3046039
-      objectReference: {fileID: 0}
-    - target: {fileID: 4272900859774575797, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 1.304604
-      objectReference: {fileID: 0}
-    - target: {fileID: 4272900859774575797, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 1.3046039
       objectReference: {fileID: 0}
     - target: {fileID: 4272900859774575797, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
       propertyPath: m_LocalPosition.x
@@ -724120,7 +724107,7 @@ Light:
   serializedVersion: 12
   m_Type: 2
   m_Color: {r: 0.12, g: 0.82, b: 1, a: 1}
-  m_Intensity: 1.2
+  m_Intensity: 1.3345605
   m_Range: 6.5
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
