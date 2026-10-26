@@ -189141,7 +189141,7 @@ Light:
   serializedVersion: 12
   m_Type: 2
   m_Color: {r: 0.08, g: 0.65, b: 1, a: 1}
-  m_Intensity: 1.2
+  m_Intensity: 0.9543043
   m_Range: 4.5
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -724107,7 +724107,7 @@ Light:
   serializedVersion: 12
   m_Type: 2
   m_Color: {r: 0.12, g: 0.82, b: 1, a: 1}
-  m_Intensity: 1.3345605
+  m_Intensity: 1.4015415
   m_Range: 6.5
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -873579,6 +873579,10 @@ PrefabInstance:
       propertyPath: 'spawnPoints.Array.data[0]'
       value: 
       objectReference: {fileID: 321132548}
+    - target: {fileID: 7123456789012345678, guid: 8b89a65709c0ecd40a2644c08718f1bc, type: 3}
+      propertyPath: useNewPlayer
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7724700367755847198, guid: 8b89a65709c0ecd40a2644c08718f1bc, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.69944
