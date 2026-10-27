@@ -9,8 +9,8 @@ namespace junklite.Editor
         private int maximumLevel = 20;
         private int initialCost = 100;
         private int costGrowth = 50;
-        private float healthGrowth = 10f;
-        private float damageGrowth = 3f;
+        private float healthGrowth = 0f;
+        private float damageGrowth = 0f;
         private int previewLevel = 1;
         private float baseHealth = 100f;
         private float baseDamage = 20f;
@@ -20,7 +20,8 @@ namespace junklite.Editor
         public override void OnInspectorGUI()
         {
             var profile = (PlayerProgressionConfig)target;
-            EditorGUILayout.HelpBox("Each table entry awards the next level. Bonuses accumulate; percentages are additive. " +
+            EditorGUILayout.HelpBox("Each table entry awards the next level and one upgrade point (see Resources/UpgradeTreeConfig). " +
+                "Optional per-level bonuses accumulate; percentages are additive. " +
                 "Increment Revision after rebalancing a published profile. Preview does not alter the character save.", MessageType.Info);
             DrawDefaultInspector();
             if (!profile.Validate(out string error)) EditorGUILayout.HelpBox(error, MessageType.Error);
@@ -49,10 +50,10 @@ namespace junklite.Editor
             baseDamage = EditorGUILayout.FloatField("Base Attack Damage", baseDamage);
             baseArmor = EditorGUILayout.FloatField("Base Armor", baseArmor);
             EditorGUILayout.LabelField("Total XP", profile.ExperienceToReach(previewLevel).ToString("N0"));
-            EditorGUILayout.LabelField("Active Slots", profile.ActiveSlotsAt(previewLevel) + " / 4");
-            EditorGUILayout.LabelField("Maximum Health", profile.Evaluate(ProgressionStat.MaxHealth, baseHealth, previewLevel).ToString("0.##"));
-            EditorGUILayout.LabelField("Attack Damage (before defense)", profile.Evaluate(ProgressionStat.OutgoingDamage, baseDamage, previewLevel).ToString("0.##"));
-            EditorGUILayout.LabelField("Armor", profile.Evaluate(ProgressionStat.Armor, baseArmor, previewLevel).ToString("0.##"));
+            EditorGUILayout.LabelField("Upgrade Points From Levels", (previewLevel - 1).ToString());
+            EditorGUILayout.LabelField("Maximum Health", profile.Evaluate(PlayerStat.MaxHealth, baseHealth, previewLevel).ToString("0.##"));
+            EditorGUILayout.LabelField("Attack Damage (before defense)", profile.Evaluate(PlayerStat.OutgoingDamage, baseDamage, previewLevel).ToString("0.##"));
+            EditorGUILayout.LabelField("Armor", profile.Evaluate(PlayerStat.Armor, baseArmor, previewLevel).ToString("0.##"));
 
             if (Application.isPlaying && PlayerProgression.Instance != null)
             {

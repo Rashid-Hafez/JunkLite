@@ -5,7 +5,7 @@ namespace junklite
     /// <summary>
     /// Tracks combo progression and attack cooldowns for a WeaponData.
     /// Plain C# class — no MonoBehaviour. Call Tick() each frame.
-    /// Used by WeaponInstance for world weapons and directly by WeaponManager for fists.
+    /// WeaponManager owns one for the current arm weapon and rebuilds it when the weapon changes.
     ///
     /// CombatState is deliberately type-agnostic. It only needs combo length and animation
     /// names from the weapon data, accessed through the abstract WeaponData interface.
@@ -18,6 +18,9 @@ namespace junklite
 
         private int sideComboIndex;
         private int airComboIndex;
+        // Air side attacks started since the last landing. Capped at the air combo's length:
+        // each step of the air chain can be used once per airtime (1 step = one air attack).
+        private int airSideAttacksThisAirtime;
         private float comboTimer;
         private bool comboActive;
 
@@ -32,6 +35,8 @@ namespace junklite
         public WeaponData Data => data;
         public int CurrentComboIndex => sideComboIndex;
         public bool CanAttack => !onCooldown;
+        /// <summary>Air side attacks started since the last landing.</summary>
+        public int AirSideAttacksThisAirtime => airSideAttacksThisAirtime;
         public float CooldownRemaining => onCooldown ? Mathf.Max(0, AttackCooldown - cooldownTimer) : 0f;
         public float ComboTimeRemaining => comboActive ? Mathf.Max(0, ComboWindow - comboTimer) : 0f;
 
@@ -119,6 +124,10 @@ namespace junklite
                 int comboLength = weaponData.GetComboLength(dir, isGrounded);
                 if (comboLength == 0) return false;
 
+                // In the air the chain is the budget: once every air step has been used,
+                // nothing more until the player lands (ResetAirChain).
+                if (!isGrounded && airSideAttacksThisAirtime >= comboLength) return false;
+
                 // Option B: allow the first air side attack after a grounded side hit
                 // to continue the ground combo index instead of restarting the air chain.
                 bool continuingFromGround =
@@ -153,7 +162,20 @@ namespace junklite
                 comboIndex = 0;
             }
 
-            return weaponData.TryGetAnimationName(dir, comboIndex, isGrounded, out animationName);
+            bool started = weaponData.TryGetAnimationName(dir, comboIndex, isGrounded, out animationName);
+            if (started && dir == AttackDirection.Side && !isGrounded)
+                airSideAttacksThisAirtime++;
+            return started;
+        }
+
+        /// <summary>
+        /// Landing: the air chain starts again from its first step and its full budget is back.
+        /// Called by WeaponManager when the player touches the ground.
+        /// </summary>
+        public void ResetAirChain()
+        {
+            airSideAttacksThisAirtime = 0;
+            airComboIndex = 0;
         }
 
         /// <summary>

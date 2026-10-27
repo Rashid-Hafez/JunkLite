@@ -37,10 +37,7 @@ namespace junklite
         public event Action OnParry = delegate { };
         public event Action OnInteract = delegate { };
 
-        // Combat mode events (gated by IsGameplayInputEnabled)
-        public event Action OnCombatModeToggle = delegate { };
-        public event Action OnWeapon1Attack = delegate { };
-        public event Action OnWeapon2Attack = delegate { };
+        // Mod activation events (gated by IsGameplayInputEnabled)
         public event Action OnModActivate1 = delegate { };
         public event Action OnModActivate2 = delegate { };
         public event Action OnModActivate3 = delegate { };
@@ -393,30 +390,6 @@ namespace junklite
             // === INVENTORY TOGGLE (Always active - UI input) ===
             controls.Player.Inventory.performed += _ => OnInventoryToggle();
             controls.Player.Pause.performed += _ => OnPauseToggle();
-
-            // === COMBAT MODE TOGGLE ===
-            controls.Player.CombatMode.performed += _ =>
-            {
-                if (!IsGameplayInputEnabled) return;
-                OnCombatModeToggle();
-            };
-
-            // === WEAPON 1 ATTACK ===
-            controls.Player.Weapon1Attack.performed += ctx =>
-            {
-                if (!IsGameplayInputEnabled) return;
-                if (IsDevConsoleClick(ctx)) return;
-                if (ConsumePrimaryAttack()) return;
-                OnWeapon1Attack();
-            };
-
-            // === WEAPON 2 ATTACK ===
-            controls.Player.Weapon2Attack.performed += ctx =>
-            {
-                if (!IsGameplayInputEnabled) return;
-                if (IsDevConsoleClick(ctx)) return;
-                OnWeapon2Attack();
-            };
 
             // === MOD ACTIVATIONS ===
             controls.Player.ModActivate1.performed += _ =>

@@ -83,9 +83,9 @@ namespace junklite
         [SerializeField] private float attackMix = 0.1f;
         [SerializeField] private float attackMixOut = 0.25f;
         [SerializeField] private float attackMixOutDelay = 0.05f;
-        [Tooltip("State1 = fists. Used when not in mod combat (weapons not equipped).")]
+        [Tooltip("Attack clip speed while the arm still carries the default weapon (fists).")]
         [SerializeField, Range(0.1f, 3f)] private float fistAttackTimeScale = 1f;
-        [Tooltip("State2 = weapons. Used when in mod combat (Q / weapons equipped).")]
+        [Tooltip("Attack clip speed once an arm weapon (blades) has been acquired.")]
         [SerializeField, Range(0.1f, 3f)] private float weaponAttackTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float downAttackTimeScale = 1.4f;
 
@@ -93,12 +93,12 @@ namespace junklite
         [Tooltip("When grounded, wait this long after the override animation ends before returning to idle/run")]
         [SerializeField] private float forceOverrideGroundedHoldDuration = 0.4f;
 
-        [Header("Mod Combat Entry")]
-        [Tooltip("Spine animation played when entering mod combat (Q). Leave empty to skip.")]
+        [Header("Weapon Acquired")]
+        [Tooltip("Spine animation played when Cassidy acquires a new arm weapon. Leave empty to skip.")]
         [SerializeField] private string modCombatEntryAnim = "Attack_WolverinePose";
-        [Tooltip("VFX prefab spawned at the player when entering mod combat (same ripple as parry).")]
+        [Tooltip("VFX prefab spawned at the player when a weapon is acquired (same ripple as parry).")]
         [SerializeField] private GameObject modEntryVFXPrefab;
-        [Tooltip("Fallback animation if the configured mod-entry animation is missing on the skeleton.")]
+        [Tooltip("Fallback animation if the configured acquisition animation is missing on the skeleton.")]
         [SerializeField] private string modCombatEntryFallbackAnim = "Attack_WolverinePose";
 
         [Header("Footsteps")]
@@ -222,8 +222,8 @@ namespace junklite
             if (controller != null)
                 controller.OnDoubleJumpPerformed += OnControllerDoubleJumpPerformed;
 
-            if (weaponManager != null)
-                weaponManager.OnCombatModeChanged += HandleCombatModeChanged;
+            if (weaponManager != null && weaponManager.Armament != null)
+                weaponManager.Armament.WeaponAcquired += HandleWeaponAcquired;
 
             PlayLocomotion(idle, true);
         }
@@ -289,8 +289,8 @@ namespace junklite
             if (controller != null)
                 controller.OnDoubleJumpPerformed -= OnControllerDoubleJumpPerformed;
 
-            if (weaponManager != null)
-                weaponManager.OnCombatModeChanged -= HandleCombatModeChanged;
+            if (weaponManager != null && weaponManager.Armament != null)
+                weaponManager.Armament.WeaponAcquired -= HandleWeaponAcquired;
 
             if (HasSidedSkeletons)
             {
@@ -474,8 +474,10 @@ namespace junklite
 
             attackActive = true;
 
-            bool isWeaponState = weaponManager != null && weaponManager.IsModCombat;
+            bool isWeaponState = weaponManager != null && weaponManager.Armament != null &&
+                                 weaponManager.Armament.HasUpgradedWeapon;
             float timeScale = isWeaponState ? weaponAttackTimeScale : fistAttackTimeScale;
+            if (weaponManager != null) timeScale *= weaponManager.AttackSpeedMultiplier;
             if (playerState != null && playerState.IsDownAttackRequested)
                 timeScale = downAttackTimeScale;
 
@@ -696,12 +698,14 @@ namespace junklite
 
         #endregion
 
-        #region Mod Combat Entry
+        #region Weapon Acquired
 
-        private void HandleCombatModeChanged()
+        private void HandleWeaponAcquired(WeaponData weapon)
         {
-            if (weaponManager == null || !weaponManager.IsModCombat)
+            if (playerState != null && !playerState.IsAlive)
                 return;
+
+            GetComponentInParent<ScreenGlitchEffect>()?.Play();
 
             string animationToPlay = ResolveModCombatEntryAnimation();
             if (string.IsNullOrEmpty(animationToPlay))

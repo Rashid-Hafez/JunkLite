@@ -137,6 +137,10 @@ namespace junklite
         private Vector3 smoothStopInputVelocity;
 
         private float gravityMultiplierOverride = -1f;
+        // Air-hit hang: a timed slow fall after landing a hit in the air. Separate from the
+        // attack motion's single gravity override so the two never clear each other.
+        private float airHangScale = 1f;
+        private float airHangUntil;
 
         // Grounding & jump feel
         private bool isGrounded;
@@ -244,6 +248,12 @@ namespace junklite
         public float JumpForce { get => jumpForce; set => jumpForce = value; }
         public float DashForce { get => dashForce; set => dashForce = value; }
         public float DashDuration { get => dashDuration; set => dashDuration = value; }
+        public float DashCooldown { get => dashCooldown; set => dashCooldown = Mathf.Max(0f, value); }
+        public float DoubleJumpForce { get => doubleJumpForce; set => doubleJumpForce = value; }
+        /// <summary>Air jumps allowed per airtime. 0 disables the double jump (upgrade-gated on the player).</summary>
+        public int MaxAirJumps { get => maxAirJumps; set => maxAirJumps = Mathf.Max(0, value); }
+        /// <summary>Player input dash. False until the Dash upgrade is bought; abilities that call StartDash are not gated.</summary>
+        public bool DashEnabled { get; set; } = true;
         public bool SnapToZPosition { get => snapToZPosition; set => snapToZPosition = value; }
         public float FixedZPosition { get => fixedZPosition; set => fixedZPosition = value; }
         public bool IsFreeRoaming => allowZMovement && !snapToZPosition;
@@ -462,6 +472,7 @@ namespace junklite
 
             if (isGrounded)
             {
+                airHangUntil = 0f;
                 airJumpCount = 0;
                 hasJumpBeenCut = false;  // reset for next jump
                 isExternalBounce = false; // reset external bounce flag
@@ -777,7 +788,7 @@ namespace junklite
 
         public void Dash()
         {
-            if (!CanDash) return;
+            if (!DashEnabled || !CanDash) return;
 
             Vector3 dir = transform.right * (IsFacingRight ? 1f : -1f);
             if (Mathf.Abs(moveInput.x) > 0.1f)
@@ -972,6 +983,20 @@ namespace junklite
             gravityMultiplierOverride = -1f;
         }
 
+        /// <summary>
+        /// Falls slowly for <paramref name="duration"/> seconds: the falling gravity is multiplied by
+        /// <paramref name="gravityScale"/>. Rising is unaffected; landing ends it. Re-applying refreshes it.
+        /// </summary>
+        public void ApplyAirHang(float gravityScale, float duration)
+        {
+            if (duration <= 0f || isGrounded) return;
+            airHangScale = Mathf.Max(0f, gravityScale);
+            airHangUntil = Time.time + duration;
+        }
+
+        /// <summary>True while an air-hit hang is slowing the fall.</summary>
+        public bool IsAirHangActive => !isGrounded && Time.time < airHangUntil;
+
         private IEnumerator CoStopAllVelocitySmooth()
         {
             if (rb == null)
@@ -1117,6 +1142,8 @@ namespace junklite
             float currentGravityMultiplier = gravityMultiplierOverride >= 0f
                 ? gravityMultiplierOverride
                 : gravityMultiplier;
+            if (Time.time < airHangUntil && yVel < apexThreshold)
+                currentGravityMultiplier *= airHangScale;
             bool minHoldActive = Time.time < minJumpHoldEndTime;
 
             // Hold window expired → treat as released even if button is still down

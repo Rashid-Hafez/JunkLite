@@ -75,11 +75,13 @@ The trigger flips state every time it's crossed, so the same corner works in bot
 - **`DoorAccessRule`** (`Scripts/Objectives/`) on a door keeps it locked until an objective is complete and/or the player carries a key (`requiredKeyTag`, a Unity tag held in the player's `PlayerKeyring`), or forever (`lockedForever`). While unmet, the door shows a "Locked" prompt and Interact plays `lockedDialogue`; once met it is silent. A `LaneEntryTrigger` gating the same door hides its own prompt until the rule is met.
 - The prefab pivot is the frame's right edge (same as the pack). The door is 3.76 × 3 m at scale 1. Lane doors use Y rotation 270 (decorated face toward −X) and scale 2.87 to fill a 10.8 m bay.
 
-## Combat / mod mode
+## Combat and the arm weapon
 
-- Pressing Q, or clicking the left stick, fires the `CombatMode` input, which calls `WeaponManager.TryToggleCombatMode()`. That needs a weapon equipped, and fails if the player is mid-attack or input-locked. On success it raises `OnCombatModeChanged`.
-- In mod mode, weapons are visible and mods are active (`ModData.OnCombatModeEntered/Exited`).
-- `CombatModeScreenGlitch` (on the player prefab) plays a short screen glitch on each switch.
+- There is no combat mode and no weapon slots. `PlayerArmament` (on the player) holds exactly one `WeaponData`: fists by default, blades once acquired. `WeaponManager` always attacks with `PlayerArmament.Current`.
+- **Blades pickup:** `Prefabs/New Weapons/sword prefab (2)` carries `WeaponUpgradePickup`. Inside its radius the shared prompt shows "Take Blades"; **E** calls `PlayerArmament.TryAcquire`, which is permanent (saved with the profile), swaps the held visual and plays the acquisition pose, VFX and `ScreenGlitchEffect`. A pickup whose weapon the profile already owns disables itself.
+- Mods are always live (`ModManager` enables installed mods while the component is enabled). `ModData.OnCombatModeEntered/Exited` now mean enabled/disabled.
+- Weapons have no durability and never break.
+- **Upgrades.** Each level-up gives one upgrade point (bosses and pickups give more). Spend them in the **UPGRADES** tab (I menu): Blades, Vitality, Jump, Dash and Mods branches. Dash and double jump are locked until bought; a Mod Slot node unlocks one more slot. See `PROGRAMMER_AND_DESIGNER_GUIDE.md` §8.
 
 ## Level layout rules
 

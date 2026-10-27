@@ -193,6 +193,28 @@ namespace junklite
         public override string Validate() => string.IsNullOrEmpty(keyTag) ? "No item set." : null;
     }
 
+    [Serializable, LevelEventActionMenu("Progression/Grant Upgrade Points")]
+    public sealed class GrantUpgradePointsAction : LevelEventAction
+    {
+        [Min(1)] public int points = 1;
+        [Tooltip("Optional profile key so the grant happens once per save (e.g. \"service-floor/brute-bonus\"). Empty grants every time the event runs.")]
+        public string onceId;
+
+        public override IEnumerator Run(LevelEvent context)
+        {
+            PlayerUpgrades upgrades = PlayerUpgrades.Instance;
+            if (upgrades != null)
+            {
+                if (string.IsNullOrEmpty(onceId)) upgrades.AddBonusPoints(points);
+                else upgrades.TryCollectPoints(onceId, points);
+            }
+            yield break;
+        }
+
+        public override string Summary => $"Grant {points} upgrade point{(points == 1 ? "" : "s")}{(string.IsNullOrEmpty(onceId) ? "" : $" once ({onceId})")}";
+        public override string Validate() => points < 1 ? "Points must be at least 1." : null;
+    }
+
     [Serializable, LevelEventActionMenu("UI/Show Hint")]
     public sealed class ShowHintAction : LevelEventAction
     {

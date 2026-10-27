@@ -81,6 +81,10 @@ namespace junklite
         // idle horizontal zeroing are suspended until the owner ends the launch.
         private bool isLaunched;
         private bool launchArmed;
+        // A launched fall faster than this that keeps less than this fraction of its speed
+        // in one physics step was stopped by a collider: treat it as the landing.
+        private const float ContactStopMinFallSpeed = 2f;
+        private const float ContactStopKeptFraction = 0.25f;
         private bool landingPending;
         private bool launchEndsOnLanding;
         private float launchGravityScale = 1f;
@@ -88,6 +92,9 @@ namespace junklite
         // lighter hang gravity so the body floats at the top for air attacks.
         private float launchHangSpeed;
         private float launchHangGravityScale = 1f;
+        // Timed slow fall after a mid-air hit (scaled time, so hit-stop extends it).
+        private float launchFallHangScale = 1f;
+        private float launchFallHangUntil;
         private float lastAirVerticalSpeed;
         private float landingImpactSpeed;
 
@@ -342,8 +349,24 @@ namespace junklite
         {
             if (!isGrounded)
             {
+                // Contact stop: gravity only ever speeds a fall up, so a fall that lost most of
+                // its speed in one step hit something solid. Counts as a landing even when that
+                // floor is on a layer outside Ground Layers (otherwise the body lay on it in the
+                // flight pose until Max Air Time ran out).
+                float verticalSpeed = rb.linearVelocity.y;
+                if (launchArmed && lastAirVerticalSpeed < -ContactStopMinFallSpeed &&
+                    verticalSpeed > lastAirVerticalSpeed * ContactStopKeptFraction)
+                {
+                    launchArmed = false;
+                    landingImpactSpeed = -lastAirVerticalSpeed;
+                    landingPending = true;
+                    if (launchEndsOnLanding)
+                        EndLaunch();
+                    return;
+                }
+
                 launchArmed = true;
-                lastAirVerticalSpeed = rb.linearVelocity.y;
+                lastAirVerticalSpeed = verticalSpeed;
                 TryLandThisStep();
                 return;
             }
@@ -474,8 +497,23 @@ namespace junklite
             launchHangGravityScale = Mathf.Max(0.05f, gravityScale);
         }
 
+        /// <summary>
+        /// While launched and falling, use <paramref name="gravityScale"/> for <paramref name="seconds"/>
+        /// (the air time earned by a mid-air hit). Rising is unaffected. 0 seconds clears it.
+        /// </summary>
+        public void SetLaunchFallHang(float gravityScale, float seconds)
+        {
+            launchFallHangScale = Mathf.Max(0.05f, gravityScale);
+            launchFallHangUntil = seconds > 0f ? Time.time + seconds : 0f;
+        }
+
+        /// <summary>True while a mid-air hit's slow fall is still running.</summary>
+        public bool IsLaunchFallHangActive => isLaunched && Time.time < launchFallHangUntil;
+
         private float CurrentLaunchGravityScale()
         {
+            if (Time.time < launchFallHangUntil && rb != null && rb.linearVelocity.y <= 0f)
+                return launchFallHangScale;
             if (launchHangSpeed > 0f && rb != null && Mathf.Abs(rb.linearVelocity.y) < launchHangSpeed)
                 return launchHangGravityScale;
             return launchGravityScale;
@@ -487,6 +525,7 @@ namespace junklite
                 return;
 
             launchHangSpeed = 0f;
+            launchFallHangUntil = 0f;
 
             isLaunched = false;
             launchArmed = false;

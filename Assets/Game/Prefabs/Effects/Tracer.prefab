@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 8996263131552016596}
   - component: {fileID: 1084581380423562326}
-  - component: {fileID: 6009984609495932120}
   m_Layer: 14
   m_Name: Tracer
   m_TagString: Untagged
@@ -152,15 +151,3 @@ LineRenderer:
   m_UseWorldSpace: 1
   m_Loop: 0
   m_ApplyActiveColorSpace: 1
---- !u!114 &6009984609495932120
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1106992978755672801}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5242c3aae7b9cc547825a78d47e19f02, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.HitscanTracer

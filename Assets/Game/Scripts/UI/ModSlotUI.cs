@@ -78,8 +78,6 @@ namespace junklite
         public SlotType Type => slotType;
         public int SlotIndex => slotIndex;
         public bool IsLocked => isLocked;
-        public int RequiredLevel => slotType == SlotType.ActiveMod && modManager != null
-            ? modManager.GetActiveSlotUnlockLevel(slotIndex) : 0;
         public bool IsModSlot => slotType == SlotType.ActiveMod || slotType == SlotType.PassiveMod;
 
         #endregion
@@ -193,8 +191,7 @@ namespace junklite
 
             if (lockedLabel != null)
             {
-                int level = RequiredLevel;
-                lockedLabel.text = level > 0 ? $"LV {level}" : "LOCKED";
+                lockedLabel.text = "LOCKED";
                 lockedLabel.fontSize = 13f;
                 lockedLabel.gameObject.SetActive(isLocked);
             }

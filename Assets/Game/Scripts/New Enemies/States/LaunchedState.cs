@@ -201,6 +201,7 @@ namespace junklite
                         float fall = Mathf.Min(movement.Velocity.y, -down);
                         movement.SetLaunchGravityScale(settings.SpikeGravityScale);
                         movement.SetLaunchHang(0f, 1f);
+                        movement.SetLaunchFallHang(1f, 0f);
                         movement.SetLaunchVelocity(side + Vector3.up * fall);
                         juggleCount = settings.MaxJuggleHits;
                         spiked = true;
@@ -224,6 +225,8 @@ namespace junklite
                         movement.SetLaunchGravityScale(settings.GravityScale);
                         movement.SetLaunchHang(settings.ApexHangSpeed, settings.ApexHangGravityScale);
                         movement.SetLaunchVelocity(horizontal + Vector3.up * lift);
+                        // The reward for hitting it in the air: it comes down slowly for a moment.
+                        movement.SetLaunchFallHang(settings.AirHitFallGravityScale, settings.AirHitHangDuration);
                         bounced = false;
                         airTime = 0f;
                     }
@@ -286,6 +289,7 @@ namespace junklite
             velocity.y = impactSpeed * settings.BounceRestitution;
             movement.SetLaunchGravityScale(settings.BounceGravityScale);
             movement.SetLaunchHang(0f, 1f);
+            movement.SetLaunchFallHang(1f, 0f);
             movement.SetLaunchVelocity(velocity);
             apexY = Transform.position.y;
             startY = apexY;

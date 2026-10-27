@@ -12,7 +12,7 @@ namespace junklite
         [Header("Flight")]
         [Tooltip("How high the launch goes, in units above take-off (the feet), apex hang included. The launch speed is worked out from this, Gravity Scale and the hang, so the height stays put when you change them. 0 = use the upward knockback of the hit instead. With jump and double jump force 14 the player's sword reaches roughly 10 to 11 u at the top of a double jump (about 5 u on a single jump).")]
         [SerializeField, Min(0f)] private float apexHeight = 6.5f;
-        [Tooltip("Near the top, while the body moves slower than this vertically, it floats on Apex Hang Gravity Scale: the window for air attacks. 0 = no hang.")]
+        [Tooltip("Near the top, while the body moves slower than this vertically, it floats on Apex Hang Gravity Scale. 0 = no float: up fast, down fast, and the extra air time only comes from hitting it (Air Hit Hang).")]
         [SerializeField, Min(0f)] private float apexHangSpeed = 4f;
         [Tooltip("Gravity multiplier during the apex hang. 1.5 with a hang speed of 4 floats the body for ~0.5 s at the top.")]
         [SerializeField, Min(0.05f)] private float apexHangGravityScale = 1.5f;
@@ -60,6 +60,10 @@ namespace junklite
         [SerializeField, Min(0f)] private float juggleLift = 8f;
         [Tooltip("How much of the horizontal knockback of a mid-air hit is applied.")]
         [SerializeField, Range(0f, 1f)] private float juggleHorizontalScale = 0.15f;
+        [Tooltip("After a mid-air hit the enemy falls slowly for this long: the extra air time you earn by hitting it. 0 = no slow fall. The player gets the same (Weapon Manager > Air Hit Hang).")]
+        [SerializeField, Min(0f)] private float airHitHangDuration = 0.5f;
+        [Tooltip("Gravity multiplier while falling during the air-hit hang. 1.5 ≈ the player's air-hit hang (0.22 of its ~6.9 g fall), so both drift down together.")]
+        [SerializeField, Min(0.05f)] private float airHitFallGravityScale = 1.5f;
 
         [Header("Pose")]
         [Tooltip("Body tilt toward horizontal while airborne, in degrees (feet toward the attacker).")]
@@ -115,6 +119,8 @@ namespace junklite
         public int MaxJuggleHits => maxJuggleHits;
         public float JuggleLift => juggleLift;
         public float JuggleHorizontalScale => juggleHorizontalScale;
+        public float AirHitHangDuration => airHitHangDuration;
+        public float AirHitFallGravityScale => airHitFallGravityScale;
         public float AirTilt => airTilt;
         public float DownedTilt => downedTilt;
         public float TiltBlendSeconds => tiltBlendSeconds;

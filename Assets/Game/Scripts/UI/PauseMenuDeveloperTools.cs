@@ -74,14 +74,31 @@ namespace junklite
 
         private void BuildWeaponActions()
         {
-            AddWeapon("SWORD", "Assets/Game/Prefabs/New Weapons/sword prefab (2).prefab");
-            AddWeapon("GUN", "Assets/Game/Prefabs/New Weapons/Gun Prefab 1.prefab");
+            // Weapons are permanent arm upgrades, not spawnable items; grant or revoke them directly.
+            var blades = AssetDatabase.LoadAssetAtPath<WeaponData>("Assets/Game/Scripts/Weapons/Sword.asset");
+            weaponActions.Add(new ToolAction("GRANT BLADES", () => GrantWeapon(blades)));
+            weaponActions.Add(new ToolAction("REVERT TO FISTS", RevertWeapons));
         }
 
-        private void AddWeapon(string label, string assetPath)
+        private static string GrantWeapon(WeaponData weapon)
         {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
-            weaponActions.Add(new ToolAction(label, () => SpawnWeapon(label, prefab)));
+            if (weapon == null)
+                return "Missing weapon asset";
+            PlayerArmament armament = GetPlayer()?.GetComponent<PlayerArmament>();
+            if (armament == null)
+                return "Player armament is unavailable";
+            return armament.TryAcquire(weapon)
+                ? $"Granted {weapon.displayName}"
+                : $"{weapon.displayName} already equipped";
+        }
+
+        private static string RevertWeapons()
+        {
+            PlayerArmament armament = GetPlayer()?.GetComponent<PlayerArmament>();
+            if (armament == null)
+                return "Player armament is unavailable";
+            armament.RevertToDefault();
+            return "Reverted to fists; acquired weapons forgotten";
         }
 
         private void BuildModActions()
@@ -125,6 +142,8 @@ namespace junklite
             playerActions.Add(new ToolAction("HEAL TO FULL", HealPlayer));
             playerActions.Add(new ToolAction("TOGGLE INVINCIBLE", ToggleInvincibility));
             playerActions.Add(new ToolAction("UNLOCK MOD SLOTS", UnlockModSlots));
+            playerActions.Add(new ToolAction("+1 UPGRADE POINT", GrantUpgradePoint));
+            playerActions.Add(new ToolAction("RESET UPGRADES", ResetUpgrades));
             playerActions.Add(new ToolAction("PREVIEW +100 XP", PreviewExperience));
             playerActions.Add(new ToolAction("PREVIEW NEXT LEVEL", PreviewNextLevel));
             playerActions.Add(new ToolAction("END LEVEL PREVIEW", EndLevelPreview));
@@ -186,19 +205,6 @@ namespace junklite
                 return $"Granted {GetModName(mod)} (no drop manager)";
 
             return "No drop manager or inventory available";
-        }
-
-        private string SpawnWeapon(string label, GameObject prefab)
-        {
-            if (prefab == null)
-                return $"Missing weapon prefab: {label}";
-
-            if (!TryGetSpawnPlacement(out SpawnPlacement placement))
-                return "No ground found near the player";
-
-            GameObject spawned = InstantiateForCurrentPlane(prefab, placement);
-            spawned.name = $"[DEV] WEAPON / {label}";
-            return $"Spawned {label} pickup";
         }
 
         private bool TryGetSpawnPlacement(out SpawnPlacement placement)
@@ -322,14 +328,28 @@ namespace junklite
             const float surfaceClearance = 0.08f;
             if (float.IsPositiveInfinity(lowestSolidPoint))
             {
-                Vector3 position = spawned.transform.position;
-                position.y = groundHeight + surfaceClearance;
-                spawned.transform.position = position;
+                MoveSpawned(spawned, Vector3.up * (groundHeight + surfaceClearance - spawned.transform.position.y));
                 return;
             }
 
             float verticalAdjustment = groundHeight + surfaceClearance - lowestSolidPoint;
-            spawned.transform.position += Vector3.up * verticalAdjustment;
+            MoveSpawned(spawned, Vector3.up * verticalAdjustment);
+        }
+
+        /// <summary>
+        /// Moves a fresh spawn and every Rigidbody on it. Enemy bodies are interpolated, so moving only
+        /// the Transform was overwritten by the body's spawn pose and the enemy fell from the spawn height.
+        /// </summary>
+        private static void MoveSpawned(GameObject spawned, Vector3 offset)
+        {
+            spawned.transform.position += offset;
+            foreach (Rigidbody body in spawned.GetComponentsInChildren<Rigidbody>(true))
+            {
+                body.position += offset;
+                if (!body.isKinematic)
+                    body.linearVelocity = Vector3.zero;
+            }
+            Physics.SyncTransforms();
         }
 
         private static Vector3 SnapToHorizontalAxis(Vector3 direction)
@@ -383,6 +403,22 @@ namespace junklite
                 manager.UnlockPassiveSlot();
 
             return "All mod slots unlocked";
+        }
+
+        private static string GrantUpgradePoint()
+        {
+            PlayerUpgrades upgrades = PlayerUpgrades.Instance;
+            if (upgrades == null) return "Upgrades service is unavailable";
+            upgrades.AddBonusPoints(1);
+            return $"Upgrade points available: {upgrades.AvailablePoints}";
+        }
+
+        private static string ResetUpgrades()
+        {
+            PlayerUpgrades upgrades = PlayerUpgrades.Instance;
+            if (upgrades == null) return "Upgrades service is unavailable";
+            upgrades.ResetUpgrades();
+            return $"Purchases refunded; {upgrades.AvailablePoints} points available";
         }
 
         private static string PreviewExperience()

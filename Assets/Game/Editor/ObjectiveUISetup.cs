@@ -79,14 +79,12 @@ public static class ObjectiveUISetup
         rect.anchoredPosition = new Vector2(40f, -170f);
         rect.sizeDelta = new Vector2(1360f, 568f);
 
-        TMP_Text header = Text("Header", root.transform, "MISSIONS", 56f, Label, true, new Vector2(0f, 0f), new Vector2(800f, 64f));
-        header.characterSpacing = 4f;
-
+        // No page header: the inventory frame's title already names the active tab.
         var list = new GameObject("Rows", typeof(RectTransform), typeof(VerticalLayoutGroup)).GetComponent<RectTransform>();
         list.SetParent(root.transform, false);
         list.anchorMin = list.anchorMax = list.pivot = new Vector2(0f, 1f);
-        list.anchoredPosition = new Vector2(0f, -84f);
-        list.sizeDelta = new Vector2(1360f, 484f);
+        list.anchoredPosition = new Vector2(0f, 0f);
+        list.sizeDelta = new Vector2(1360f, 568f);
         var layout = list.GetComponent<VerticalLayoutGroup>();
         layout.spacing = 12f;
         layout.childControlHeight = false;

@@ -3,30 +3,26 @@ using System;
 
 namespace junklite
 {
+    /// <summary>
+    /// Player combat: attack input and buffering, combo timing, melee execution, hit detection,
+    /// damage requests/results and attack feedback for the player's current weapon
+    /// (<see cref="PlayerArmament.Current"/>). There is no combat mode: the player is always armed.
+    /// </summary>
     [RequireComponent(typeof(Collider))]
-    [RequireComponent(typeof(PlayerWeaponLoadout))]
+    [RequireComponent(typeof(PlayerArmament))]
     public class WeaponManager : MonoBehaviour
     {
         #region Fields
 
-        [Header("Fist Weapon")]
-        [SerializeField] private WeaponData fistWeaponData;
-
-        private CombatState fistCombat;
-
-        [Header("Legacy Loadout Migration")]
-        [Tooltip("Temporary fallback for player prefabs not yet serialized with PlayerWeaponLoadout.")]
+        [Header("Legacy Migration")]
+        [Tooltip("Fallback default weapon for player prefabs that predate PlayerArmament.defaultWeapon.")]
+        [SerializeField, HideInInspector] private WeaponData fistWeaponData;
         [SerializeField, HideInInspector] private Transform weaponHolder;
 
         [Header("Attack Transforms (Scene Anchors)")]
         [SerializeField] private Transform sideAttack;
         [SerializeField] private Transform upAttack;
         [SerializeField] private Transform downAttack;
-
-        [Header("Ranged")]
-        [SerializeField]
-        [Tooltip("Spawn point for hitscan rays and tracer origin. If unassigned, falls back to sideAttack.")]
-        private Transform muzzlePoint;
 
         [Header("Hit Leniency")]
         [Tooltip("Added on top of each step's hitRadius for all attacks. Tune this for forgiveness.")]
@@ -75,8 +71,11 @@ namespace junklite
         [Tooltip("Fallback push duration when ComboStep.forwardImpulseDuration is 0")]
         [SerializeField] private float defaultPushDuration = 0.08f;
 
-        [Header("Combat Mode Audio")]
-        [SerializeField] private SoundEntry modCombatEnterSfx;
+        [Header("Air Hit Hang")]
+        [Tooltip("After a hit lands while the player is in the air, the player falls slowly for this long (the air time earned by hitting). 0 = off. Down attacks are excluded: they have their own float and pogo.")]
+        [SerializeField, Min(0f)] private float airHitHangDuration = 0.5f;
+        [Tooltip("Falling gravity multiplier during the air-hit hang. 0.22 of the normal ~6.9 g fall matches a launched enemy's air-hit fall (Launch > Air Hit Fall Gravity Scale 1.5).")]
+        [SerializeField, Range(0f, 1f)] private float airHitHangGravityScale = 0.22f;
 
         [Header("Attack Input Lock")]
         [SerializeField] private bool lockMovementDuringAttack = true;
@@ -86,22 +85,19 @@ namespace junklite
         private PlayerState playerState;
         private Character2D5Controller controller;
         private SpineAnimationController spineController;
-        private PlayerWeaponLoadout weaponLoadout;
+        private PlayerArmament armament;
         private WeaponHitResolver hitResolver;
         private WeaponDamageResolver damageResolver;
         private WeaponAttackMotion attackMotion;
         private WeaponAttackExecutor attackExecutor;
 
-        // Combat mode
-        private bool isModCombat;
+        // One combo/cooldown tracker for the current weapon. Rebuilt when the weapon changes.
+        private CombatState combat;
+        private WeaponData combatWeapon;
 
         // Attack state
         private bool isAttacking;
-        private int activeWeaponSlot;
-        private WeaponInstance activeWeapon;
-        private CombatState activeCombatState;
         private WeaponData activeWeaponData;
-        private int lastAttackedSlot = -1;
         private AttackDirection currentAttackDir;
         private int currentComboIndex;
         private bool attackInputLockApplied;
@@ -112,41 +108,28 @@ namespace junklite
 
         // Input buffer
         private bool hasBufferedInput;
-        private int bufferedWeaponSlot;
         private Vector2 bufferedInput;
         private bool bufferedGrounded;
         private float bufferTimer;
-
-        #endregion
-
-        #region Properties
-
-        public bool IsModCombat => isModCombat;
-        public bool IsAttacking => isAttacking;
 
         // Recovery cancel: the swing can be cut short by a jump or dash once it has
         // connected, or once its hit window has passed if it missed. Startup and the
         // active frames stay committed; the player buffers the press until then.
         private float attackCancelableTime;
 
+        // Upgrade-driven multipliers (1 = authored values). Set by PlayerCharacter from runtime stats.
+        private float attackSpeedMultiplier = 1f;
+        private float finisherForceMultiplier = 1f;
+
+        #endregion
+
+        #region Properties
+
+        public bool IsAttacking => isAttacking;
+
         /// <summary>True while attacking and past the committed part of the swing.</summary>
         public bool IsAttackCancelable => isAttacking && Time.time >= attackCancelableTime;
 
-        /// <summary>
-        /// Ends the current attack so a jump or dash can start. True when there is no
-        /// attack or it is in recovery (then it is cancelled and input is released);
-        /// false during startup or the hit window (the caller should buffer the press).
-        /// </summary>
-        public bool TryCancelAttackForMovement()
-        {
-            if (!isAttacking)
-                return true;
-            if (Time.time < attackCancelableTime)
-                return false;
-
-            OnAttackInterrupted();
-            return true;
-        }
         public AttackDirection CurrentAttackDirection => currentAttackDir;
         public float Facing => controller != null ? controller.FacingSign : Mathf.Sign(playerTransform.localScale.x);
 
@@ -158,12 +141,35 @@ namespace junklite
         /// </summary>
         private Vector3 FacingAxis => controller != null ? controller.transform.right : Vector3.right;
 
-        public WeaponData FistWeaponData => fistWeaponData;
-        public PlayerWeaponLoadout Loadout => weaponLoadout;
-        public WeaponInstance ActiveWeapon => activeWeapon;
+        public PlayerArmament Armament => armament;
+        /// <summary>The weapon every attack uses right now.</summary>
+        public WeaponData CurrentWeapon => armament != null ? armament.Current : fistWeaponData;
+        public LayerMask EnemyLayer => enemyLayer;
+        public LayerMask EnvironmentLayer => environmentLayer;
 
-        public event Action OnCombatModeChanged;
-        public event Action OnCombatModeRejected;
+        /// <summary>
+        /// Multiplies attack animation speed and divides cooldown/combo timing. 1 is authored speed.
+        /// Owned by the upgrade system; weapons never set it.
+        /// </summary>
+        public float AttackSpeedMultiplier
+        {
+            get => attackSpeedMultiplier;
+            set
+            {
+                float next = Mathf.Max(0.1f, value);
+                if (Mathf.Approximately(next, attackSpeedMultiplier)) return;
+                attackSpeedMultiplier = next;
+                SyncCombatStateTimings();
+            }
+        }
+
+        /// <summary>Multiplies the knockback of launching finishers (Heavy Finisher upgrade). 1 is authored force.</summary>
+        public float FinisherForceMultiplier
+        {
+            get => finisherForceMultiplier;
+            set => finisherForceMultiplier = Mathf.Max(0f, value);
+        }
+
         /// <summary>Raised only after damage is applied. The float is the actual applied damage.</summary>
         public event Action<EnemyCharacter, float> OnEnemyHit;
         public event Action OnEnvironmentHit;
@@ -182,11 +188,9 @@ namespace junklite
                 playerTransform != null ? playerTransform.gameObject : gameObject);
             spineController = GetComponentInParent<SpineAnimationController>()
                            ?? GetComponentInChildren<SpineAnimationController>();
-            weaponLoadout = GetComponent<PlayerWeaponLoadout>()
-                         ?? gameObject.AddComponent<PlayerWeaponLoadout>();
-            weaponLoadout.ApplyDefaultsIfMissing(weaponHolder);
-            weaponLoadout.WeaponChanged += HandleLoadoutChanged;
-            weaponLoadout.WeaponBroken += HandleLoadoutWeaponBroken;
+            armament = GetComponent<PlayerArmament>() ?? gameObject.AddComponent<PlayerArmament>();
+            armament.ApplyDefaultsIfMissing(fistWeaponData, weaponHolder);
+            armament.WeaponChanged += HandleWeaponChanged;
 
             if (impulseSource == null)
             {
@@ -199,6 +203,7 @@ namespace junklite
             {
                 playerState.OnAttackAnimationComplete += OnAttackAnimationComplete;
                 playerState.OnAttackAnimationInterrupted += OnAttackInterrupted;
+                playerState.OnGroundedChanged += HandleGroundedChanged;
             }
 
             attackMotion = new WeaponAttackMotion(controller, defaultPushDuration);
@@ -207,9 +212,7 @@ namespace junklite
                 attackMotion,
                 hitResolver,
                 damageResolver,
-                spineController,
                 playerTransform,
-                muzzlePoint,
                 enemyLayer,
                 environmentLayer,
                 RequestAttackAnimation,
@@ -218,7 +221,7 @@ namespace junklite
                 () => OnEnvironmentHit?.Invoke(),
                 PlayHitFeedback);
 
-            CreateFistCombatState();
+            EnsureCombatState();
         }
 
         private void OnDestroy()
@@ -227,13 +230,11 @@ namespace junklite
             {
                 playerState.OnAttackAnimationComplete -= OnAttackAnimationComplete;
                 playerState.OnAttackAnimationInterrupted -= OnAttackInterrupted;
+                playerState.OnGroundedChanged -= HandleGroundedChanged;
             }
 
-            if (weaponLoadout != null)
-            {
-                weaponLoadout.WeaponChanged -= HandleLoadoutChanged;
-                weaponLoadout.WeaponBroken -= HandleLoadoutWeaponBroken;
-            }
+            if (armament != null)
+                armament.WeaponChanged -= HandleWeaponChanged;
 
             CancelActiveAttackExecution();
             ReleaseAttackInputLock();
@@ -241,7 +242,7 @@ namespace junklite
 
         private void Update()
         {
-            fistCombat?.Tick(Time.deltaTime);
+            combat?.Tick(Time.deltaTime);
 
             if (!hasBufferedInput) return;
 
@@ -258,12 +259,10 @@ namespace junklite
                 }
             }
 
-            var combat = GetCombatStateForSlot(bufferedWeaponSlot);
             if (!isAttacking && combat != null && combat.CanAttack)
             {
                 hasBufferedInput = false;
-                AttackDirection dir = ResolveAttackDirection(bufferedInput, bufferedGrounded, IsRangedSlot(bufferedWeaponSlot, bufferedGrounded));
-                StartAttack(bufferedWeaponSlot, dir);
+                StartAttack(ResolveAttackDirection(bufferedInput, bufferedGrounded));
             }
         }
 
@@ -297,67 +296,7 @@ namespace junklite
 
         #endregion
 
-        #region Combat Mode
-
-        public bool TryToggleCombatMode()
-        {
-            if (playerState != null && playerState.IsGrappleActive) return false;
-            if (isAttacking) return false;
-            if (spineController != null && spineController.IsForceOverrideActive) return false;
-
-            if (isModCombat)
-            {
-                ExitModCombat();
-                return true;
-            }
-
-            if (playerState != null && playerState.IsInputLocked) return false;
-
-            if (weaponLoadout == null || !weaponLoadout.HasAnyWeapon)
-            {
-                OnCombatModeRejected?.Invoke();
-                return false;
-            }
-
-            EnterModCombat();
-            return true;
-        }
-
-        private void EnterModCombat()
-        {
-            isModCombat = true;
-            fistCombat?.ResetCombo();
-            lastAttackedSlot = -1;
-            hasBufferedInput = false;
-
-            weaponLoadout.SetWeaponsVisible(true);
-
-            TryPrewarmRangedPool(weaponLoadout.WeaponSlot1);
-            TryPrewarmRangedPool(weaponLoadout.WeaponSlot2);
-            PlaySfxAtPlayer(modCombatEnterSfx);
-
-            OnCombatModeChanged?.Invoke();
-        }
-
-        private void ExitModCombat()
-        {
-            isModCombat = false;
-            weaponLoadout?.WeaponSlot1?.ResetCombo();
-            weaponLoadout?.WeaponSlot2?.ResetCombo();
-            lastAttackedSlot = -1;
-            hasBufferedInput = false;
-
-            weaponLoadout?.SetWeaponsVisible(false);
-
-            OnCombatModeChanged?.Invoke();
-        }
-
-        private void TryPrewarmRangedPool(WeaponInstance weapon)
-        {
-            if (weapon == null || weapon.weaponData is not RangedWeaponData ranged) return;
-            if (ranged.tracerPrefab == null) return;
-            ProjectileManager.Instance?.PrewarmPool(ranged.tracerPrefab, 10);
-        }
+        #region Audio
 
         private void PlaySfxAtPlayer(SoundEntry entry)
         {
@@ -371,7 +310,7 @@ namespace junklite
         {
             if (data == null) return;
 
-            SoundEntry entry = null;
+            SoundEntry entry;
             if (data.attackVariants != null && data.attackVariants.HasEntries)
                 entry = data.attackVariants.GetRandomEntry();
             else
@@ -384,91 +323,19 @@ namespace junklite
 
         #region Public API
 
+        /// <summary>Attack with the current weapon. Buffers the press while a swing or cooldown is running.</summary>
         public void Attack(Vector2 moveInput, bool isGrounded)
         {
-            Attack(0, moveInput, isGrounded);
-        }
-
-        public void Attack(int weaponSlot, Vector2 moveInput, bool isGrounded)
-        {
             if (playerState != null && playerState.IsGrappleActive) return;
-            var combat = GetCombatStateForSlot(weaponSlot);
-            if (combat == null) return;
+            if (!EnsureCombatState()) return;
 
-            if (weaponSlot != 0)
+            if (isAttacking || !combat.CanAttack)
             {
-                var weapon = GetWeaponForSlot(weaponSlot);
-                if (weapon == null || weapon.IsBroken) return;
-            }
-
-            if (!isModCombat && weaponSlot != 0) return;
-            if (isModCombat && weaponSlot == 0) return;
-
-            if (isAttacking)
-            {
-                BufferAttack(weaponSlot, moveInput, isGrounded);
+                BufferAttack(moveInput, isGrounded);
                 return;
             }
 
-            if (!combat.CanAttack)
-            {
-                BufferAttack(weaponSlot, moveInput, isGrounded);
-                return;
-            }
-
-            AttackDirection dir = ResolveAttackDirection(moveInput, isGrounded, IsRangedSlot(weaponSlot, isGrounded));
-            StartAttack(weaponSlot, dir);
-        }
-
-        private WeaponInstance GetWeaponForSlot(int slot)
-        {
-            return weaponLoadout?.GetWeapon(slot);
-        }
-
-        private CombatState GetCombatStateForSlot(int slot)
-        {
-            CombatState combat = slot switch
-            {
-                0 => fistCombat,
-                1 => weaponLoadout?.WeaponSlot1?.Combat,
-                2 => weaponLoadout?.WeaponSlot2?.Combat,
-                _ => null
-            };
-
-            if (combat != null)
-            {
-                combat.AttackCooldown = attackCooldown;
-                combat.ComboWindow = comboWindow;
-            }
-
-            return combat;
-        }
-
-        private WeaponData GetWeaponDataForSlot(int slot)
-        {
-            return slot switch
-            {
-                0 => fistWeaponData,
-                1 => weaponLoadout?.WeaponSlot1?.weaponData,
-                2 => weaponLoadout?.WeaponSlot2?.weaponData,
-                _ => null
-            };
-        }
-
-        public void DropWeapon(int slot)
-        {
-            if (isAttacking || weaponLoadout == null || playerTransform == null)
-                return;
-
-            Vector3 dropPosition = playerTransform.position + FacingAxis * Facing * 1.2f;
-            weaponLoadout.TryDropWeapon(slot, dropPosition);
-        }
-
-        public void SwapWeaponSlots()
-        {
-            if (isAttacking) return;
-
-            weaponLoadout?.TrySwapSlots();
+            StartAttack(ResolveAttackDirection(moveInput, isGrounded));
         }
 
         public Transform GetAttackTransform(AttackDirection dir)
@@ -483,21 +350,29 @@ namespace junklite
 
         public void SetWeaponVisible(bool visible)
         {
-            weaponLoadout?.SetWeaponsVisible(visible);
+            armament?.SetVisible(visible);
+        }
+
+        public void CancelBufferedAttack() => hasBufferedInput = false;
+
+        /// <summary>
+        /// Lets another player-owned damage source (the dash strike) report an applied hit so mods
+        /// charge and react exactly as they do for weapon hits. Call only with applied damage.
+        /// </summary>
+        public void ReportExternalHit(EnemyCharacter enemy, float appliedDamage)
+        {
+            if (appliedDamage <= 0f) return;
+            OnEnemyHit?.Invoke(enemy, appliedDamage);
         }
 
         #endregion
 
         #region Direction Resolution
 
-        private AttackDirection ResolveAttackDirection(Vector2 moveInput, bool isGrounded, bool preferDownWhenAirborne = false)
+        private AttackDirection ResolveAttackDirection(Vector2 moveInput, bool isGrounded)
         {
             if (moveInput.y > inputThreshold)
                 return AttackDirection.Up;
-
-            // Ranged weapons default to Down when airborne unless the player pushes up.
-            if (!isGrounded && preferDownWhenAirborne)
-                return AttackDirection.Down;
 
             if (moveInput.y < -inputThreshold && !isGrounded)
                 return AttackDirection.Down;
@@ -509,40 +384,24 @@ namespace junklite
 
         #region Attack Core
 
-        private void BufferAttack(int weaponSlot, Vector2 moveInput, bool isGrounded)
+        private void BufferAttack(Vector2 moveInput, bool isGrounded)
         {
             hasBufferedInput = true;
-            bufferedWeaponSlot = weaponSlot;
             bufferedInput = moveInput;
             bufferedGrounded = isGrounded;
             bufferTimer = bufferDuration;
         }
 
-        public void CancelBufferedAttack() => hasBufferedInput = false;
-
-        private void StartAttack(int slot, AttackDirection dir)
+        private void StartAttack(AttackDirection dir)
         {
             if (playerState != null && playerState.IsGrappleActive) return;
-            var combat = GetCombatStateForSlot(slot);
-            var data = GetWeaponDataForSlot(slot);
-            if (combat == null || data == null) return;
-
-            /* if (playerState != null && !playerState.IsGrounded && !playerState.CanAirAttack)
-             {
-                 return;
-             }*/ // Why are we blocking air attack??
-
-            if (lastAttackedSlot >= 0 && lastAttackedSlot != slot)
-            {
-                GetCombatStateForSlot(lastAttackedSlot)?.ResetCombo();
-            }
+            if (!EnsureCombatState()) return;
+            WeaponData data = combatWeapon;
 
             bool isGrounded = playerState == null || playerState.IsGrounded;
 
             if (!combat.TryBeginAttack(dir, isGrounded, data, out int comboIndex, out string animName))
-            {
                 return;
-            }
 
             if (playerState != null)
             {
@@ -553,11 +412,7 @@ namespace junklite
 
             isAttacking = true;
             attackCancelableTime = Time.time + animationLeadTime + delayBeforeAttack + attackOpenWindow;
-            activeWeaponSlot = slot;
-            activeWeapon = GetWeaponForSlot(slot);
-            activeCombatState = combat;
             activeWeaponData = data;
-            lastAttackedSlot = slot;
             currentAttackDir = dir;
             currentComboIndex = comboIndex;
             currentAttackGrounded = isGrounded;
@@ -565,13 +420,11 @@ namespace junklite
             int executionId = ++nextAttackExecutionId;
             var executionRequest = new WeaponAttackExecutionRequest(
                 executionId,
-                slot,
                 comboIndex,
                 dir,
                 isGrounded,
                 animName,
                 data,
-                activeWeapon,
                 GetAttackTransform(dir),
                 GetFallbackRadius(dir),
                 Facing,
@@ -582,7 +435,8 @@ namespace junklite
                     attackOpenWindow,
                     downAttackFloatNormalized,
                     enemyHitHitstopDuration,
-                    launchHitstopDuration));
+                    launchHitstopDuration,
+                    finisherForceMultiplier));
 
             activeAttackExecution = attackExecutor?.Prepare(executionRequest);
             if (activeAttackExecution == null)
@@ -598,7 +452,6 @@ namespace junklite
             if (playerState != null)
                 playerState.SetAttacking(true);
 
-            // Play weapon-specific attack sound (if assigned on the WeaponData)
             PlayWeaponAttackSfx(data);
 
             ApplyAttackInputLock();
@@ -615,20 +468,16 @@ namespace junklite
             if (!isAttacking)
                 return;
 
-            CombatState completedCombatState = activeCombatState;
+            CombatState completedCombatState = combat;
             WeaponData completedWeaponData = activeWeaponData;
             AttackDirection completedDirection = currentAttackDir;
             bool completedGrounded = currentAttackGrounded;
 
             CancelActiveAttackExecution();
-            completedCombatState?.OnAttackComplete(
-                completedDirection,
-                completedGrounded,
-                completedWeaponData);
+            if (completedCombatState != null && completedCombatState.Data == completedWeaponData)
+                completedCombatState.OnAttackComplete(completedDirection, completedGrounded, completedWeaponData);
 
             isAttacking = false;
-            activeWeapon = null;
-            activeCombatState = null;
             activeWeaponData = null;
             // Don't clear hasBufferedInput here — let Update() consume it
             // so buffered attacks fire immediately after this attack ends.
@@ -648,11 +497,9 @@ namespace junklite
                 return;
 
             CancelActiveAttackExecution();
-            activeCombatState?.OnAttackInterrupted();
+            combat?.OnAttackInterrupted();
 
             isAttacking = false;
-            activeWeapon = null;
-            activeCombatState = null;
             activeWeaponData = null;
             hasBufferedInput = false;
 
@@ -665,41 +512,66 @@ namespace junklite
             ReleaseAttackInputLock();
         }
 
+        /// <summary>
+        /// Ends the current attack so a jump or dash can start. True when there is no
+        /// attack or it is in recovery (then it is cancelled and input is released);
+        /// false during startup or the hit window (the caller should buffer the press).
+        /// </summary>
+        public bool TryCancelAttackForMovement()
+        {
+            if (!isAttacking)
+                return true;
+            if (Time.time < attackCancelableTime)
+                return false;
+
+            OnAttackInterrupted();
+            return true;
+        }
+
         #endregion
 
-        #region Pickups
+        #region Weapon Changes
 
-        public void PickupWeaponToSlot(int slot, WorldWeaponPickup pickup)
+        /// <summary>Touching the ground gives the air side chain back.</summary>
+        private void HandleGroundedChanged(bool grounded)
         {
-            if (isAttacking || weaponLoadout == null || playerTransform == null)
-                return;
-
-            Vector3 displacedWeaponDropPosition =
-                playerTransform.position + FacingAxis * Facing * 1.2f;
-            weaponLoadout.TryEquipWeapon(
-                slot,
-                pickup,
-                displacedWeaponDropPosition,
-                isModCombat);
+            if (grounded) combat?.ResetAirChain();
         }
 
-        private void HandleLoadoutChanged()
+        private void HandleWeaponChanged()
         {
-            lastAttackedSlot = -1;
-            SyncCombatStateTimings();
+            // A running swing keeps its own data; the next attack uses the new weapon with a fresh combo.
+            combat = null;
+            combatWeapon = null;
+            hasBufferedInput = false;
+            EnsureCombatState();
         }
+
+        /// <summary>Builds the combo tracker for the current weapon when missing. False without a weapon.</summary>
+        private bool EnsureCombatState()
+        {
+            WeaponData weapon = CurrentWeapon;
+            if (weapon == null)
+            {
+                if (combat == null)
+                    Debug.LogWarning("[WeaponManager] No weapon: assign PlayerArmament.defaultWeapon.", this);
+                return false;
+            }
+
+            if (combat != null && combatWeapon == weapon)
+                return true;
+
+            combatWeapon = weapon;
+            combat = new CombatState(weapon, ScaledCooldown, ScaledComboWindow);
+            return true;
+        }
+
+        private float ScaledCooldown => attackCooldown / attackSpeedMultiplier;
+        private float ScaledComboWindow => comboWindow / attackSpeedMultiplier;
 
         private void SyncCombatStateTimings()
         {
-            fistCombat?.SetTiming(attackCooldown, comboWindow);
-            weaponLoadout?.WeaponSlot1?.Combat?.SetTiming(attackCooldown, comboWindow);
-            weaponLoadout?.WeaponSlot2?.Combat?.SetTiming(attackCooldown, comboWindow);
-        }
-
-        private void HandleLoadoutWeaponBroken(int slot)
-        {
-            if (isModCombat && (weaponLoadout == null || !weaponLoadout.HasAnyWeapon))
-                ExitModCombat();
+            combat?.SetTiming(ScaledCooldown, ScaledComboWindow);
         }
 
         #endregion
@@ -738,16 +610,6 @@ namespace junklite
             execution?.Cancel();
         }
 
-        private void CreateFistCombatState()
-        {
-            if (fistWeaponData == null)
-            {
-                Debug.LogWarning("[WeaponManager] No fist WeaponData assigned!");
-                return;
-            }
-            fistCombat = new CombatState(fistWeaponData, attackCooldown, comboWindow);
-        }
-
         private float GetFallbackRadius(AttackDirection dir)
         {
             return dir switch
@@ -763,6 +625,11 @@ namespace junklite
             // The swing connected: its recovery can be cancelled into a jump or dash now.
             if (isAttacking)
                 attackCancelableTime = Mathf.Min(attackCancelableTime, Time.time);
+
+            // Hitting something in the air earns air time: fall slowly with the target.
+            if (controller != null && playerState != null && !playerState.IsGrounded &&
+                currentAttackDir != AttackDirection.Down && airHitHangDuration > 0f)
+                controller.ApplyAirHang(airHitHangGravityScale, airHitHangDuration);
 
             if (FeedbackManager.Instance != null)
             {
@@ -792,16 +659,6 @@ namespace junklite
             attackInputLockApplied = false;
         }
 
-        /// <summary>
-        /// Returns true if the given slot holds a ranged weapon AND the player is airborne.
-        /// Used to default ranged air attacks to Down when no directional input is held.
-        /// </summary>
-        private bool IsRangedSlot(int slot, bool isGrounded)
-        {
-            if (isGrounded) return false;
-            return GetWeaponDataForSlot(slot) is RangedWeaponData;
-        }
-
         #endregion
 
         #region Debug
@@ -818,12 +675,6 @@ namespace junklite
 
             Gizmos.color = Color.cyan;
             Gizmos.DrawWireSphere(downAttack.position, downRadius);
-
-            if (muzzlePoint != null)
-            {
-                Gizmos.color = Color.yellow;
-                Gizmos.DrawWireSphere(muzzlePoint.position, 0.08f);
-            }
         }
 
         #endregion

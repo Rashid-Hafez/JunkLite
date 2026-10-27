@@ -6,8 +6,9 @@ using UnityEngine.UI;
 namespace junklite
 {
     /// <summary>
-    /// Merged weapon + mod combat HUD. Visible only during Mod Combat state.
-    /// Manages two weapon slots with device-aware input hints and dynamic mod slots.
+    /// Active-mod HUD bar at the bottom of the screen. Mods are always live, so the bar is
+    /// visible whenever a player is bound. One slot per unlocked active mod slot, with
+    /// device-aware input hints. (Legacy code-built layout; convert to a prefab when asked.)
     /// </summary>
     [DisallowMultipleComponent]
     public class ModCombatUI : MonoBehaviour
@@ -16,10 +17,6 @@ namespace junklite
 
         [Header("Panel (child object to show/hide)")]
         [SerializeField] private GameObject panel;
-
-        [Header("Weapon Slots")]
-        [SerializeField] private WeaponSlotUI slot1; // Weapon 1
-        [SerializeField] private WeaponSlotUI slot2; // Weapon 2
 
         [Header("Active Mod Slots")]
         [SerializeField] private Transform activeModParent;
@@ -38,14 +35,9 @@ namespace junklite
         private static readonly Color Line = new(0.18f, 0.27f, 0.38f, 0.75f);
 
         // Runtime
-        private WeaponManager _weaponManager;
-        private PlayerWeaponLoadout _weaponLoadout;
         private ModManager _modManager;
         private PlayerCharacter _player;
         private GameInputManager subscribedInputManager;
-
-        private TMP_Text slot1InputHintText;
-        private TMP_Text slot2InputHintText;
 
         private readonly List<CombatModSlotUI> activeSlotUIs = new();
 
@@ -69,18 +61,8 @@ namespace junklite
         {
             Unbind();
 
-            _weaponManager = weaponManager;
-            _weaponLoadout = weaponManager != null ? weaponManager.Loadout : null;
             _modManager = modManager;
             _player = _modManager != null ? _modManager.GetComponent<PlayerCharacter>() : null;
-
-            if (_weaponManager != null)
-            {
-                _weaponManager.OnCombatModeChanged += OnCombatModeChanged;
-                _weaponManager.OnEnemyHit += OnEnemyHitHandler;
-            }
-            if (_weaponLoadout != null)
-                _weaponLoadout.WeaponChanged += RefreshWeapons;
 
             if (_modManager != null)
                 _modManager.OnModSlotsChanged += RefreshMods;
@@ -89,20 +71,12 @@ namespace junklite
             if (subscribedInputManager != null)
                 subscribedInputManager.OnInputDeviceChanged += HandleInputDeviceChanged;
 
-            RefreshInputHints();
-            OnCombatModeChanged();
+            SetVisible(_modManager != null);
+            RebuildAndRefreshMods();
         }
 
         public void Unbind()
         {
-            if (_weaponManager != null)
-            {
-                _weaponManager.OnCombatModeChanged -= OnCombatModeChanged;
-                _weaponManager.OnEnemyHit -= OnEnemyHitHandler;
-            }
-            if (_weaponLoadout != null)
-                _weaponLoadout.WeaponChanged -= RefreshWeapons;
-
             if (_modManager != null)
                 _modManager.OnModSlotsChanged -= RefreshMods;
 
@@ -112,37 +86,14 @@ namespace junklite
                 subscribedInputManager = null;
             }
 
-            _weaponManager = null;
-            _weaponLoadout = null;
             _modManager = null;
             _player = null;
 
             ClearModSlots();
-            ResetWeaponSlots();
             SetVisible(false);
         }
 
         #endregion
-
-        // -----------------------------------------------------------------------
-        #region Combat Mode Visibility
-
-        private void OnCombatModeChanged()
-        {
-            bool show = _weaponManager != null && _weaponManager.IsModCombat;
-            SetVisible(show);
-
-            if (show)
-            {
-                RefreshWeapons();
-                RebuildAndRefreshMods();
-            }
-            else
-            {
-                ClearModSlots();
-                ResetWeaponSlots();
-            }
-        }
 
         private void SetVisible(bool visible)
         {
@@ -150,67 +101,11 @@ namespace junklite
                 panel.SetActive(visible);
         }
 
-        #endregion
-
-        // -----------------------------------------------------------------------
-        #region Weapon Slots
-
-        private void RefreshWeapons()
+        private void HandleInputDeviceChanged(bool _)
         {
-            if (_weaponManager == null || _weaponLoadout == null) return;
-
-            if (slot1 != null)
-            {
-                var weapon1 = _weaponLoadout.WeaponSlot1;
-                if (weapon1 != null) slot1.Bind(weapon1, true);
-                else slot1.SetContentActive(false);
-            }
-
-            if (slot2 != null)
-            {
-                var weapon2 = _weaponLoadout.WeaponSlot2;
-                if (weapon2 != null) slot2.Bind(weapon2, true);
-                else slot2.SetContentActive(false);
-            }
-
-            UpdateActiveIndicators();
-        }
-
-        private void ResetWeaponSlots()
-        {
-            if (slot1 != null) slot1.SetContentActive(false);
-            if (slot2 != null) slot2.SetContentActive(false);
-        }
-
-        private void UpdateActiveIndicators()
-        {
-            if (_weaponManager == null || _weaponLoadout == null) return;
-            var active = _weaponManager.ActiveWeapon;
-            slot1?.SetActive(active != null && active == _weaponLoadout.WeaponSlot1);
-            slot2?.SetActive(active != null && active == _weaponLoadout.WeaponSlot2);
-        }
-
-        private void OnEnemyHitHandler(EnemyCharacter _, float __) => UpdateActiveIndicators();
-
-        private void HandleInputDeviceChanged(bool _) => RefreshInputHints();
-
-        private void RefreshInputHints()
-        {
-            GameInputManager input = subscribedInputManager ?? GameInputManager.Instance;
-            if (slot1InputHintText != null)
-                slot1InputHintText.text = input != null
-                    ? input.GetBindingHint("Player/Weapon1Attack")
-                    : "";
-            if (slot2InputHintText != null)
-                slot2InputHintText.text = input != null
-                    ? input.GetBindingHint("Player/Weapon2Attack")
-                    : "";
-
             if (_modManager != null)
                 RefreshModSlotContents();
         }
-
-        #endregion
 
         // -----------------------------------------------------------------------
         #region Mod Slots
@@ -219,11 +114,15 @@ namespace junklite
         {
             if (_modManager == null) return;
 
-            bool activeCountChanged = _modManager.UnlockedActiveSlots != lastActiveCount;
+            int previousCount = lastActiveCount;
+            bool activeCountChanged = _modManager.UnlockedActiveSlots != previousCount;
 
             if (activeCountChanged)
             {
                 RebuildAndRefreshMods();
+                // A bought Mod Slot upgrade: flash the slots that just appeared.
+                if (lastActiveCount > previousCount)
+                    HighlightUnlockedSlots(previousCount, lastActiveCount - previousCount, Magenta);
                 return;
             }
 
@@ -295,7 +194,7 @@ namespace junklite
             root.anchorMin = root.anchorMax = new Vector2(0.5f, 0f);
             root.pivot = new Vector2(0.5f, 0.5f);
             root.anchoredPosition = new Vector2(0f, 92f);
-            root.sizeDelta = new Vector2(980f, 144f);
+            root.sizeDelta = new Vector2(400f, 144f);
             root.localScale = Vector3.one;
 
             if (panel == null)
@@ -315,22 +214,17 @@ namespace junklite
             Stretch(frame.rectTransform);
             frame.raycastTarget = false;
             AddBorder(frame.rectTransform, Line);
-            RectImage("Cyan Edge", frame.transform, Cyan, 0f, 0f, 260f, 3f);
-            RectImage("Magenta Edge", frame.transform, Magenta, 780f, 141f, 200f, 3f);
+            RectImage("Cyan Edge", frame.transform, Cyan, 0f, 0f, 160f, 3f);
+            RectImage("Magenta Edge", frame.transform, Magenta, 240f, 141f, 160f, 3f);
 
-            slot1 = CreateWeaponSlot(frame.transform, "SLOT 01", 18f, Cyan,
-                out slot1InputHintText);
-            slot2 = CreateWeaponSlot(frame.transform, "SLOT 02", 788f, Magenta,
-                out slot2InputHintText);
-
-            Image modsCard = RectImage("Active Mods", frame.transform, Card, 212f, 18f, 556f, 108f);
+            Image modsCard = RectImage("Active Mods", frame.transform, Card, 18f, 18f, 364f, 108f);
             AddBorder(modsCard.rectTransform, Line);
             RectImage("Mods Accent", modsCard.transform, Cyan, 0f, 0f, 3f, 108f);
             TextAt("Mods Label", modsCard.transform, "ACTIVE MODS", 13f, Cyan,
                 16f, 8f, 180f, 20f, FontStyles.Bold);
 
             RectTransform modParent = CreateRect("Mod Slots", modsCard.transform);
-            Place(modParent, 14f, 32f, 528f, 66f);
+            Place(modParent, 14f, 32f, 336f, 66f);
             HorizontalLayoutGroup layout = modParent.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.childAlignment = TextAnchor.MiddleCenter;
             layout.spacing = 10f;
@@ -341,57 +235,6 @@ namespace junklite
             activeModParent = modParent;
 
             themedInterfaceBuilt = true;
-        }
-
-        private WeaponSlotUI CreateWeaponSlot(
-            Transform parent,
-            string slotLabel,
-            float x,
-            Color accent,
-            out TMP_Text inputHintText)
-        {
-            Image card = RectImage(slotLabel, parent, Card, x, 18f, 174f, 108f);
-            AddBorder(card.rectTransform, Line);
-            RectImage("Slot Accent", card.transform, accent, 0f, 0f, 3f, 108f);
-
-            TextAt("Slot Label", card.transform, slotLabel, 13f, accent,
-                14f, 7f, 82f, 20f, FontStyles.Bold);
-            TMP_Text hint = TextAt("Input Hint", card.transform, "", 12f, Muted,
-                112f, 7f, 46f, 20f, FontStyles.Bold);
-            hint.horizontalAlignment = HorizontalAlignmentOptions.Right;
-            inputHintText = hint;
-
-            Image iconWell = RectImage("Icon Well", card.transform, Well, 14f, 32f, 62f, 62f);
-            AddBorder(iconWell.rectTransform, new Color(accent.r, accent.g, accent.b, 0.28f));
-
-            Image icon = CreateImage("Weapon Icon", iconWell.transform, Color.white);
-            Place(icon.rectTransform, 7f, 7f, 48f, 48f);
-            icon.preserveAspect = true;
-            icon.raycastTarget = false;
-
-            TMP_Text empty = TextAt("Empty", card.transform, "EMPTY", 14f, Muted,
-                88f, 41f, 70f, 22f, FontStyles.Bold);
-
-            Image durabilityTrack = RectImage("Durability Track", card.transform, Line,
-                88f, 76f, 70f, 5f);
-            Image durability = CreateImage("Durability Fill", durabilityTrack.transform, accent);
-            Stretch(durability.rectTransform);
-            durability.type = Image.Type.Filled;
-            durability.fillMethod = Image.FillMethod.Horizontal;
-            durability.fillOrigin = 0;
-            durability.raycastTarget = false;
-
-            GameObject active = CreateRect("Active Indicator", card.transform).gameObject;
-            Stretch((RectTransform)active.transform);
-            Image activeTint = active.AddComponent<Image>();
-            activeTint.color = new Color(accent.r, accent.g, accent.b, 0.08f);
-            activeTint.raycastTarget = false;
-            AddBorder((RectTransform)active.transform, accent);
-            active.SetActive(false);
-
-            WeaponSlotUI slot = card.gameObject.AddComponent<WeaponSlotUI>();
-            slot.Configure(icon, durability, active, durabilityTrack.gameObject, empty);
-            return slot;
         }
 
         private void OnDestroy() => Unbind();

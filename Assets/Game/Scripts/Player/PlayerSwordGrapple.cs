@@ -17,12 +17,12 @@ namespace junklite
         private CapsuleCollider capsule;
         private Rigidbody body;
         private PlayerState state;
-        private PlayerWeaponLoadout loadout;
+        private PlayerArmament armament;
         private WeaponManager weapons;
         private GameInputManager input;
         private Camera viewCamera;
         private SwordGrappleVisuals visuals;
-        private WeaponInstance sword;
+        private WeaponData sword;
         private IDisposable movementLease;
         private IDisposable physicsLease;
         private SwordGrappleTarget target;
@@ -63,7 +63,7 @@ namespace junklite
             capsule = GetComponent<CapsuleCollider>();
             body = GetComponent<Rigidbody>();
             state = GetComponent<PlayerState>();
-            loadout = GetComponent<PlayerWeaponLoadout>();
+            armament = GetComponent<PlayerArmament>();
             weapons = GetComponent<WeaponManager>();
             controller.ConfigureWallTraversal(this);
         }
@@ -71,8 +71,7 @@ namespace junklite
         private void OnEnable()
         {
             controller.ExternalRepositioned += Cancel;
-            if (loadout != null) loadout.WeaponChanged += OnWeaponChanged;
-            if (weapons != null) weapons.OnCombatModeChanged += OnWeaponChanged;
+            if (armament != null) armament.WeaponChanged += OnWeaponChanged;
             if (state != null)
             {
                 state.OnDeath += Cancel;
@@ -85,8 +84,7 @@ namespace junklite
         {
             UnbindInput();
             if (controller != null) controller.ExternalRepositioned -= Cancel;
-            if (loadout != null) loadout.WeaponChanged -= OnWeaponChanged;
-            if (weapons != null) weapons.OnCombatModeChanged -= OnWeaponChanged;
+            if (armament != null) armament.WeaponChanged -= OnWeaponChanged;
             if (state != null)
             {
                 state.OnDeath -= Cancel;
@@ -123,10 +121,9 @@ namespace junklite
         /// <summary>The grapple hook is an item, not a mode: no combat mode or drawn sword needed.</summary>
         public bool HasGrappleHook => keyring != null && keyring.Has(PlayerKeyring.GrappleHook);
 
-        private bool IsEquippedSword(WeaponInstance weapon) => loadout != null && weapon != null &&
-            weapon.isActiveAndEnabled && weapon.transform.IsChildOf(transform) &&
-            (loadout.WeaponSlot1 == weapon || loadout.WeaponSlot2 == weapon) &&
-            weapon.weaponData is MeleeWeaponData && weapon.weaponData.enablesSwordGrapple && !weapon.IsBroken;
+        /// <summary>The current arm weapon when it is a grapple-capable blade, else null.</summary>
+        private WeaponData CurrentSword => armament != null && armament.Current is MeleeWeaponData melee &&
+                                           melee.enablesSwordGrapple ? melee : null;
 
         private bool CanContinue()
         {
@@ -146,7 +143,7 @@ namespace junklite
             if (Phase != SwordGrapplePhase.Idle && Phase != SwordGrapplePhase.Holding) return;
             if (!IsActive)
             {
-                sword = IsEquippedSword(loadout?.WeaponSlot1) ? loadout.WeaponSlot1 : loadout?.WeaponSlot2;
+                sword = CurrentSword;
                 if (!CanContinue() || controller.IsDashing) { sword = null; return; }
                 planeAxis = controller.MovementAxis;
             }
@@ -179,7 +176,7 @@ namespace junklite
                 UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(visuals.gameObject, gameObject.scene);
                 visuals.PrepareForUse();
                 visuals.Hide();
-                if (sword != null) visuals.SetSword(sword.weaponData.icon);
+                if (sword != null) visuals.SetSword(sword.icon);
                 reportedVisualError = false;
             }
             // Recover after a prefab reload or an external disable during play.
@@ -221,8 +218,8 @@ namespace junklite
                     deadline = Time.time + settings.maximumRange / Mathf.Max(1f, settings.throwSpeed) + 0.5f;
                     if (sword != null)
                     {
-                        loadout.SetGrappleWeaponHidden(sword);
-                        visuals?.SetSword(sword.weaponData.icon);
+                        armament.SetGrappleWeaponHidden(true);
+                        visuals?.SetSword(sword.icon);
                     }
                     visuals?.HideAim();
                     SetPhase(SwordGrapplePhase.Flying);
@@ -423,7 +420,7 @@ namespace junklite
                 // permanent extra gap. Continue swept movement to the anchor.
                 heldPosition = target.PlayerPosition;
                 holding = true;
-                loadout.SetGrappleWeaponHidden(null);
+                armament.SetGrappleWeaponHidden(false);
                 SetPhase(SwordGrapplePhase.Holding);
                 return;
             }
@@ -460,7 +457,7 @@ namespace junklite
 
         private void ReturnFromFailedThrow()
         {
-            loadout?.SetGrappleWeaponHidden(null);
+            armament?.SetGrappleWeaponHidden(false);
             if (holding && AnchorValid(heldTarget, heldMatrix)) SetPhase(SwordGrapplePhase.Holding);
             else Cancel();
         }
@@ -490,7 +487,7 @@ namespace junklite
             holding = false;
             impactDelayRemaining = 0f;
             HasValidAim = false;
-            loadout?.SetGrappleWeaponHidden(null);
+            armament?.SetGrappleWeaponHidden(false);
             physicsLease?.Dispose();
             movementLease?.Dispose();
             physicsLease = movementLease = null;

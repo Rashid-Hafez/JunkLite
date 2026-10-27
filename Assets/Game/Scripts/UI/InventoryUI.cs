@@ -14,11 +14,14 @@ namespace junklite
         [SerializeField] private MenuButton inventoryTabButton;
         [SerializeField] private MenuButton infoTabButton;
         [SerializeField] private MenuButton missionsTabButton;
+        [SerializeField] private MenuButton upgradesTabButton;
 
         [Header("Tab Screens")]
         [SerializeField] private GameObject inventoryScreen;
         [SerializeField] private GameObject infoScreen;
         [SerializeField] private GameObject missionsScreen;
+        [Tooltip("Authored Upgrades Page prefab (Tools > JunkLite > UI > Build Upgrades Page Prefab). Instantiated at runtime.")]
+        [SerializeField] private GameObject upgradesScreen;
 
         [Header("Inventory Slots")]
         [SerializeField] private GameObject inventorySlotPrefab;
@@ -31,10 +34,6 @@ namespace junklite
         [Header("Passive Mod Slots")]
         [SerializeField] private GameObject passiveModSlotPrefab;
         [SerializeField] private Transform passiveModSlotParent;
-
-        [Header("Weapon Slots")]
-        [SerializeField] private InventoryWeaponSlotUI weaponSlot1;
-        [SerializeField] private InventoryWeaponSlotUI weaponSlot2;
 
         [Header("Description Box")]
         [SerializeField] private ItemDescriptionUI descriptionUI;
@@ -60,7 +59,6 @@ namespace junklite
 
         private InventoryComponent inventory;
         private WeaponManager weaponManager;
-        private PlayerWeaponLoadout weaponLoadout;
         private ModManager modManager;
         private PlayerProgression progression;
         private PlayerCharacter player;
@@ -77,14 +75,17 @@ namespace junklite
         private readonly List<ModSlotUI> activeModSlots = new();
         private readonly List<ModSlotUI> passiveModSlots = new();
 
-        private enum Tab { Inventory, Info, Missions }
+        private enum Tab { Inventory, Info, Missions, Upgrades }
         private Tab activeTab = Tab.Inventory;
         private const float NavigateDeadZone = 0.45f;
         private const float NavigateRepeatDelay = 0.16f;
         private float nextNavigateTime;
         private bool themedInterfaceBuilt;
         private bool authoredMissionsPage;
+        private bool authoredUpgradesPage;
         private RectTransform frameTransform;
+        private TMP_Text frameTitle;
+        private PlayerUpgrades upgrades;
         private TMP_FontAsset generatedHeadingFont;
 
         #endregion
@@ -128,7 +129,6 @@ namespace junklite
 
             inventory = inv;
             weaponManager = wm;
-            weaponLoadout = wm != null ? wm.Loadout : null;
             modManager = wm != null ? wm.GetComponent<ModManager>() : null;
             progression = wm != null ? wm.GetComponent<PlayerRuntimeStats>()?.Progression : null;
             player = wm != null ? wm.GetComponent<PlayerCharacter>() : null;
@@ -143,9 +143,6 @@ namespace junklite
             if (inventory != null)
                 inventory.OnInventoryChanged += RefreshInventory;
 
-            if (weaponLoadout != null)
-                weaponLoadout.WeaponChanged += RefreshWeapons;
-
             if (modManager != null)
                 modManager.OnModSlotsChanged += RefreshModSlots;
 
@@ -153,8 +150,6 @@ namespace junklite
             ModSlotUI.OnModHoverExit += HandleHoverExit;
             ModSlotUI.OnModSelected += HandleModSelected;
             ModSlotUI.OnLockedSlotSelected += HandleLockedSlotSelected;
-            InventoryWeaponSlotUI.OnWeaponHovered += HandleWeaponHovered;
-            InventoryWeaponSlotUI.OnWeaponHoverExit += HandleHoverExit;
 
             if (GameInputManager.Instance != null)
                 GameInputManager.Instance.OnUINavigate += HandleUINavigate;
@@ -167,6 +162,13 @@ namespace junklite
 
             if (missionsTabButton != null)
                 missionsTabButton.OnClick += ShowMissionsTab;
+
+            if (upgradesTabButton != null)
+                upgradesTabButton.OnClick += ShowUpgradesTab;
+
+            upgrades = PlayerUpgrades.Instance;
+            if (upgrades != null) upgrades.Changed += RefreshUpgradesTabLabel;
+            RefreshUpgradesTabLabel();
 
             ShowInventoryTab();
             RefreshAll();
@@ -185,9 +187,6 @@ namespace junklite
             if (inventory != null)
                 inventory.OnInventoryChanged -= RefreshInventory;
 
-            if (weaponLoadout != null)
-                weaponLoadout.WeaponChanged -= RefreshWeapons;
-
             if (modManager != null)
                 modManager.OnModSlotsChanged -= RefreshModSlots;
 
@@ -195,8 +194,6 @@ namespace junklite
             ModSlotUI.OnModHoverExit -= HandleHoverExit;
             ModSlotUI.OnModSelected -= HandleModSelected;
             ModSlotUI.OnLockedSlotSelected -= HandleLockedSlotSelected;
-            InventoryWeaponSlotUI.OnWeaponHovered -= HandleWeaponHovered;
-            InventoryWeaponSlotUI.OnWeaponHoverExit -= HandleHoverExit;
 
             if (GameInputManager.Instance != null)
                 GameInputManager.Instance.OnUINavigate -= HandleUINavigate;
@@ -210,23 +207,26 @@ namespace junklite
             if (missionsTabButton != null)
                 missionsTabButton.OnClick -= ShowMissionsTab;
 
+            if (upgradesTabButton != null)
+                upgradesTabButton.OnClick -= ShowUpgradesTab;
+
+            if (upgrades != null) upgrades.Changed -= RefreshUpgradesTabLabel;
+            upgrades = null;
+
             ClearSlots(inventorySlots);
             ClearSlots(activeModSlots);
             ClearSlots(passiveModSlots);
-            ClearWeaponSlots();
 
             descriptionUI?.Clear();
 
             inventory = null;
             weaponManager = null;
-            weaponLoadout = null;
             modManager = null;
         }
 
         public void RefreshAll()
         {
             RefreshInventory();
-            RefreshWeapons();
             RefreshModSlots();
         }
 
@@ -244,14 +244,17 @@ namespace junklite
         {
             ClearPlayerSelection();
             activeTab = Tab.Inventory;
+            if (frameTitle != null) frameTitle.text = "INVENTORY";
 
             inventoryTabButton?.SetSelected(true);
             infoTabButton?.SetSelected(false);
             missionsTabButton?.SetSelected(false);
+            upgradesTabButton?.SetSelected(false);
 
             if (inventoryScreen != null) inventoryScreen.SetActive(true);
             if (infoScreen != null) infoScreen.SetActive(false);
             if (missionsScreen != null) missionsScreen.SetActive(false);
+            if (upgradesScreen != null) upgradesScreen.SetActive(false);
 
             descriptionUI?.Clear();
             TrySelectDefaultSlotIfGamepad();
@@ -261,14 +264,17 @@ namespace junklite
         {
             ClearPlayerSelection();
             activeTab = Tab.Info;
+            if (frameTitle != null) frameTitle.text = "CODEX";
 
             inventoryTabButton?.SetSelected(false);
             infoTabButton?.SetSelected(true);
             missionsTabButton?.SetSelected(false);
+            upgradesTabButton?.SetSelected(false);
 
             if (inventoryScreen != null) inventoryScreen.SetActive(false);
             if (infoScreen != null) infoScreen.SetActive(true);
             if (missionsScreen != null) missionsScreen.SetActive(false);
+            if (upgradesScreen != null) upgradesScreen.SetActive(false);
 
             descriptionUI?.Clear();
         }
@@ -277,16 +283,49 @@ namespace junklite
         {
             ClearPlayerSelection();
             activeTab = Tab.Missions;
+            if (frameTitle != null) frameTitle.text = "MISSIONS";
 
             inventoryTabButton?.SetSelected(false);
             infoTabButton?.SetSelected(false);
             missionsTabButton?.SetSelected(true);
+            upgradesTabButton?.SetSelected(false);
 
             if (inventoryScreen != null) inventoryScreen.SetActive(false);
             if (infoScreen != null) infoScreen.SetActive(false);
             if (missionsScreen != null) missionsScreen.SetActive(true);
+            if (upgradesScreen != null) upgradesScreen.SetActive(false);
 
             descriptionUI?.Clear();
+        }
+
+        private void ShowUpgradesTab()
+        {
+            ClearPlayerSelection();
+            activeTab = Tab.Upgrades;
+            if (frameTitle != null) frameTitle.text = "UPGRADES";
+
+            inventoryTabButton?.SetSelected(false);
+            infoTabButton?.SetSelected(false);
+            missionsTabButton?.SetSelected(false);
+            upgradesTabButton?.SetSelected(true);
+
+            if (inventoryScreen != null) inventoryScreen.SetActive(false);
+            if (infoScreen != null) infoScreen.SetActive(false);
+            if (missionsScreen != null) missionsScreen.SetActive(false);
+            if (upgradesScreen != null) upgradesScreen.SetActive(true);
+
+            descriptionUI?.Clear();
+        }
+
+        /// <summary>Opens the inventory menu on the UPGRADES tab (level-up toast, dev tools).</summary>
+        public void OpenUpgradesTab() => ShowUpgradesTab();
+
+        /// <summary>The tab button carries the unspent point count so it is visible from every tab.</summary>
+        private void RefreshUpgradesTabLabel()
+        {
+            if (upgradesTabButton == null) return;
+            int points = upgrades != null ? upgrades.AvailablePoints : 0;
+            upgradesTabButton.SetText(points > 0 ? $"UPGRADES  {points}" : "UPGRADES");
         }
 
         #endregion
@@ -336,14 +375,7 @@ namespace junklite
         {
             if (slot == null || !slot.transform.IsChildOf(transform) || activeTab != Tab.Inventory) return;
             showingItemPreview = true;
-            descriptionUI?.ShowLockedSlot(slot.RequiredLevel);
-        }
-
-        private void HandleWeaponHovered(WeaponInstance weapon)
-        {
-            showingItemPreview = weapon != null;
-            if (weapon == null) HandleHoverExit();
-            else descriptionUI?.ShowWeapon(weapon);
+            descriptionUI?.ShowLockedSlot();
         }
 
         private void HandleHoverExit()
@@ -409,26 +441,6 @@ namespace junklite
             }
 
             TrySelectDefaultSlotIfGamepad();
-        }
-
-        #endregion
-
-
-        #region Weapon Slots
-
-        private void RefreshWeapons()
-        {
-            playerDetailsDirty = true;
-            if (weaponManager == null || weaponLoadout == null) return;
-
-            weaponSlot1?.Bind(weaponManager, 1);
-            weaponSlot2?.Bind(weaponManager, 2);
-        }
-
-        private void ClearWeaponSlots()
-        {
-            weaponSlot1?.Unbind();
-            weaponSlot2?.Unbind();
         }
 
         #endregion
@@ -515,6 +527,15 @@ namespace junklite
                     missionsScreen.transform.SetParent(transform, false);
             }
 
+            authoredUpgradesPage = upgradesScreen != null && upgradesScreen.GetComponent<UpgradesPageView>() != null;
+            if (authoredUpgradesPage)
+            {
+                if (!upgradesScreen.scene.IsValid())
+                    upgradesScreen = Instantiate(upgradesScreen, transform, false);
+                else
+                    upgradesScreen.transform.SetParent(transform, false);
+            }
+
             if (panel == null && inventoryScreen != null && inventoryScreen.transform.parent != null)
                 panel = inventoryScreen.transform.parent.gameObject;
             if (panel == null && transform.childCount > 0)
@@ -570,12 +591,13 @@ namespace junklite
         {
             TextAt("Brand", frameTransform, "JUNKLITE  /  STORAGE LINK",
                 16f, Cyan, 40f, 24f, 620f, 24f, false, FontStyles.Bold);
-            TextAt("Title", frameTransform, "INVENTORY",
+            frameTitle = TextAt("Title", frameTransform, "INVENTORY",
                 48f, Paper, 38f, 52f, 650f, 64f, true, FontStyles.Bold);
 
-            inventoryTabButton = CreateTab("INVENTORY", 914f, 76f, 148f);
-            infoTabButton = CreateTab("CODEX", 1074f, 76f, 130f);
-            missionsTabButton = CreateTab("MISSIONS", 1216f, 76f, 174f);
+            inventoryTabButton = CreateTab("INVENTORY", 760f, 76f, 148f);
+            infoTabButton = CreateTab("CODEX", 920f, 76f, 118f);
+            missionsTabButton = CreateTab("MISSIONS", 1050f, 76f, 148f);
+            upgradesTabButton = CreateTab("UPGRADES", 1210f, 76f, 180f);
 
             RectImage("Header Rule", frameTransform, Line, 40f, 146f, 1360f, 1f);
             RectImage("Header Signal", frameTransform, Magenta, 40f, 146f, 96f, 3f);
@@ -618,21 +640,34 @@ namespace junklite
                 BuildEmptyPage((RectTransform)missionsScreen.transform, "MISSIONS", "NO ACTIVE MISSIONS");
             }
 
+            if (authoredUpgradesPage)
+            {
+                upgradesScreen.transform.SetParent(frameTransform, false);
+            }
+            else
+            {
+                upgradesScreen = CreateRect("Upgrades Page", frameTransform).gameObject;
+                Place((RectTransform)upgradesScreen.transform, 40f, 170f, 1360f, 568f);
+                BuildEmptyPage((RectTransform)upgradesScreen.transform, "UPGRADES",
+                    "RUN TOOLS > JUNKLITE > UI > BUILD UPGRADES PAGE PREFAB");
+            }
+
             infoScreen.SetActive(false);
             missionsScreen.SetActive(false);
+            upgradesScreen.SetActive(false);
         }
 
         private void BuildInventoryPage(RectTransform page)
         {
-            Image loadoutCard = RectImage("Loadout", page, Card, 0f, 0f, 320f, 568f);
+            Image loadoutCard = RectImage("Profile", page, Card, 0f, 0f, 200f, 568f);
             AddBorder(loadoutCard.rectTransform, Line);
-            RectImage("Loadout Accent", loadoutCard.transform, Magenta, 0f, 0f, 3f, 568f);
-            TextAt("Loadout Label", loadoutCard.transform, "LOADOUT", 14f, Magenta,
+            RectImage("Profile Accent", loadoutCard.transform, Magenta, 0f, 0f, 3f, 568f);
+            TextAt("Profile Label", loadoutCard.transform, "PROFILE", 14f, Magenta,
                 16f, 12f, 180f, 24f, false, FontStyles.Bold);
 
             if (characterVisual != null)
             {
-                Image target = RectImage("Player Stats Button", loadoutCard.transform, Color.clear, 126f, 50f, 178f, 494f);
+                Image target = RectImage("Player Stats Button", loadoutCard.transform, Color.clear, 11f, 50f, 178f, 494f);
                 target.raycastTarget = true;
                 characterButton = target.gameObject.AddComponent<Button>();
                 characterButton.targetGraphic = target;
@@ -678,10 +713,7 @@ namespace junklite
                 hint.horizontalAlignment = HorizontalAlignmentOptions.Center;
             }
 
-            weaponSlot1 = CreateWeaponSlot(loadoutCard.transform, "SLOT 01", 16f, 62f, Cyan);
-            weaponSlot2 = CreateWeaponSlot(loadoutCard.transform, "SLOT 02", 16f, 246f, Magenta);
-
-            Image equippedCard = RectImage("Equipped Mods", page, Card, 338f, 0f, 300f, 568f);
+            Image equippedCard = RectImage("Equipped Mods", page, Card, 218f, 0f, 300f, 568f);
             AddBorder(equippedCard.rectTransform, Line);
             RectImage("Equipped Accent", equippedCard.transform, Cyan, 0f, 0f, 3f, 568f);
             TextAt("Equipped Label", equippedCard.transform, "EQUIPPED MODS", 14f, Cyan,
@@ -700,49 +732,16 @@ namespace junklite
             Place((RectTransform)passiveModSlotParent, 16f, 330f, 268f, 188f);
             ConfigureGrid(passiveModSlotParent, 76f, 76f, 13f, 13f, 3);
 
-            Image inventoryCard = RectImage("Stored Mods", page, Card, 656f, 0f, 360f, 568f);
+            Image inventoryCard = RectImage("Stored Mods", page, Card, 536f, 0f, 480f, 568f);
             AddBorder(inventoryCard.rectTransform, Line);
             RectImage("Inventory Accent", inventoryCard.transform, Cyan, 0f, 0f, 3f, 568f);
             TextAt("Inventory Label", inventoryCard.transform, "STORED MODS", 14f, Cyan,
                 16f, 12f, 220f, 24f, false, FontStyles.Bold);
             inventorySlotParent = CreateRect("Inventory Grid", inventoryCard.transform);
-            Place((RectTransform)inventorySlotParent, 16f, 52f, 328f, 496f);
-            ConfigureGrid(inventorySlotParent, 72f, 72f, 13f, 13f, 4);
+            Place((RectTransform)inventorySlotParent, 16f, 52f, 448f, 496f);
+            ConfigureGrid(inventorySlotParent, 72f, 72f, 13f, 13f, 5);
 
             BuildDescriptionCard(page);
-        }
-
-        private InventoryWeaponSlotUI CreateWeaponSlot(
-            Transform parent, string label, float x, float y, Color accent)
-        {
-            Image card = RectImage(label, parent, Well, x, y, 96f, 160f);
-            card.raycastTarget = true;
-            AddBorder(card.rectTransform, new Color(accent.r, accent.g, accent.b, 0.3f));
-            TextAt("Slot Label", card.transform, label, 11f, accent,
-                10f, 8f, 76f, 18f, false, FontStyles.Bold);
-
-            Image icon = CreateImage("Weapon Icon", card.transform, Color.white);
-            Place(icon.rectTransform, 13f, 36f, 70f, 70f);
-            icon.preserveAspect = true;
-            icon.raycastTarget = false;
-
-            TMP_Text empty = TextAt("Empty", card.transform, "EMPTY", 12f, Muted,
-                10f, 59f, 76f, 24f, false, FontStyles.Bold);
-            empty.horizontalAlignment = HorizontalAlignmentOptions.Center;
-
-            Image track = RectImage("Durability Track", card.transform, Line,
-                13f, 125f, 70f, 6f);
-            Image fill = CreateFill(track.transform, accent);
-
-            Image highlight = CreateImage("Swap Target", card.transform,
-                new Color(accent.r, accent.g, accent.b, 0.15f));
-            Stretch(highlight.rectTransform);
-            highlight.raycastTarget = false;
-            highlight.enabled = false;
-
-            InventoryWeaponSlotUI slot = card.gameObject.AddComponent<InventoryWeaponSlotUI>();
-            slot.Configure(icon, fill, highlight, track.gameObject, empty);
-            return slot;
         }
 
         private void BuildDescriptionCard(RectTransform page)
@@ -873,9 +872,6 @@ namespace junklite
             Image card = RectImage(title, page, Card, 0f, 0f, 1360f, 568f);
             AddBorder(card.rectTransform, Line);
             RectImage("Page Accent", card.transform, Magenta, 0f, 0f, 3f, 568f);
-            TextAt("Page Title", card.transform, title, 36f, Paper,
-                40f, 34f, 700f, 54f, true, FontStyles.Bold);
-            RectImage("Page Rule", card.transform, Line, 40f, 112f, 1280f, 1f);
             TMP_Text empty = TextAt("Empty", card.transform, emptyMessage, 17f, Muted,
                 40f, 242f, 1280f, 42f, false, FontStyles.Bold);
             empty.horizontalAlignment = HorizontalAlignmentOptions.Center;
@@ -885,7 +881,7 @@ namespace junklite
         {
             RectImage("Footer Rule", frameTransform, Line, 40f, 760f, 1360f, 1f);
             TextAt("Input Hints", frameTransform,
-                "DRAG / CLICK  MOVE MOD     HOVER  DETAILS     CLICK CASSIDY  STATS     I / ESC  CLOSE",
+                "DRAG / CLICK  MOVE MOD     HOVER  DETAILS     CLICK CASSIDY  STATS     UPGRADES  SPEND POINTS     I / ESC  CLOSE",
                 13f, Muted, 40f, 775f, 1100f, 24f);
         }
 

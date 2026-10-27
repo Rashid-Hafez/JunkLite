@@ -95,7 +95,7 @@ namespace junklite
                 float armor = runtime != null ? runtime.Armor : player.Stats != null ? player.Stats.armor : 0f;
                 statsText.text = StatLine("HEALTH", healthValue) + "\n" +
                     StatLine("ARMOR", armor.ToString("0.##")) + "\n" +
-                    StatLine("DAMAGE", BonusText(profile, ProgressionStat.OutgoingDamage, level));
+                    StatLine("DAMAGE", BonusText(runtime));
             }
         }
 
@@ -103,20 +103,20 @@ namespace junklite
             $"<color=#{ColorUtility.ToHtmlStringRGB(statLabelColor)}>{label}</color>  " +
             $"<color=#{ColorUtility.ToHtmlStringRGB(statValueColor)}>{value}</color>";
 
-        public void ShowLockedSlot(int requiredLevel)
+        public void ShowLockedSlot()
         {
             Clear();
             SetEmptyState(false);
             if (itemNameText != null) itemNameText.text = "LOCKED MOD SLOT";
             if (descriptionText != null)
-                descriptionText.text = requiredLevel > 0 ? $"Reach {requiredLevel} level to unlock" : "Slot locked";
+                descriptionText.text = "Buy a Mod Slot upgrade in the UPGRADES tab to unlock";
         }
 
-        private static string BonusText(PlayerProgressionConfig profile, ProgressionStat stat, int level)
+        /// <summary>Cumulative outgoing-damage bonus from levels and upgrades, as a percentage of base damage.</summary>
+        private static string BonusText(PlayerRuntimeStats runtime)
         {
-            var bonus = profile != null ? profile.BonusAt(stat, level) : default;
-            if (bonus.flat > 0f && bonus.percent > 0f) return $"+{bonus.flat:0.##}, +{bonus.percent:0.##}%";
-            return bonus.percent > 0f ? $"+{bonus.percent:0.##}%" : $"+{bonus.flat:0.##}";
+            float percent = runtime != null ? runtime.ScaleDamage(100f) - 100f : 0f;
+            return $"{percent:+0.##;-0.##}%";
         }
 
         private void SetPlayerMode(bool playerMode)
@@ -155,45 +155,6 @@ namespace junklite
 
         // -----------------------------------------------------------------------
 
-        public void ShowWeapon(WeaponInstance instance)
-        {
-            SetPlayerMode(false);
-            if (instance == null || instance.weaponData == null)
-            {
-                Clear();
-                return;
-            }
-
-            var data = instance.weaponData;
-
-            SetEmptyState(false);
-
-            if (iconImage != null)
-            {
-                iconImage.sprite = data.icon;
-                iconImage.enabled = data.icon != null;
-            }
-
-            if (itemNameText != null)
-                itemNameText.text = string.IsNullOrEmpty(data.displayName) ? "Unknown Weapon" : data.displayName;
-
-            if (descriptionText != null)
-                descriptionText.text = string.IsNullOrEmpty(data.description) ? "" : data.description;
-
-            if (statsText != null)
-            {
-                int combos = data.GetComboLength(AttackDirection.Side, true);
-
-                statsText.text =
-                    StatLine("BASE DAMAGE", data.baseDamage.ToString()) + "\n" +
-                    StatLine("COMBOS", combos.ToString()) + "\n" +
-                    StatLine("MAX DURABILITY", data.maxWeaponDurability.ToString()) + "\n" +
-                    StatLine("CURRENT", instance.CurrentDurability.ToString("F0")) + "\n" +
-                    StatLine("PER HIT", data.durabilityPerHit.ToString());
-            }
-        }
-
-        // -----------------------------------------------------------------------
 
         public void ShowMod(ModInstance instance)
         {

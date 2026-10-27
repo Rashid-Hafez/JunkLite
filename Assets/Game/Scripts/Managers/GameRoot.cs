@@ -50,6 +50,7 @@ namespace junklite
             DontDestroyOnLoad(gameObject);
 
             PlayerProgression.Ensure(transform);
+            PlayerUpgrades.Ensure(transform);
 
             EnsureGameplayUIRoot();
             EnsureEventSystem();

@@ -93,7 +93,7 @@ namespace junklite.Tests
         public void TriggerWallCanBeReachedHeldAndChainedWithoutChangingItsTriggerState()
         {
             var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             var wall = CreateWall();
             wall.isTrigger = true;
             ReachWall(grapple);
@@ -108,7 +108,7 @@ namespace junklite.Tests
         public void NewTriggerWallInterceptsSwordFlight()
         {
             var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall().isTrigger = true;
             grapple.BeginAim();
             Physics.SyncTransforms();
@@ -157,7 +157,7 @@ namespace junklite.Tests
             var grapple = CreateGrapple();
             boundGrapple = grapple;
             Invoke(grapple, "OnEnable");
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             var controller = grapple.GetComponent<Character2D5Controller>();
             controller.RotatePLayer(yaw);
             controller.FreezePerpendicularAxis();
@@ -209,7 +209,7 @@ namespace junklite.Tests
             var grapple = CreateGrapple();
             boundGrapple = grapple;
             Invoke(grapple, "OnEnable");
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall();
             if (phase == SwordGrapplePhase.Holding) ReachWall(grapple);
             else if (phase == SwordGrapplePhase.Aiming) grapple.BeginAim();
@@ -240,7 +240,7 @@ namespace junklite.Tests
             Assert.That(controller.MovementLockCount, Is.Zero);
             Assert.That(controller.PhysicsOverrideCount, Is.Zero);
             Assert.That(grapple.GetComponent<PlayerState>().IsGrappleActive, Is.False);
-            Assert.That(GetField<WeaponInstance>(grapple.GetComponent<PlayerWeaponLoadout>(), "grappleHiddenWeapon"), Is.Null);
+            Assert.That(GetField<bool>(grapple.GetComponent<PlayerArmament>(), "grappleHidden"), Is.False);
             Assert.That(controller.GetComponent<Rigidbody>().constraints.HasFlag(RigidbodyConstraints.FreezePositionX), Is.True);
             var visuals = GetField<SwordGrappleVisuals>(grapple, "visuals");
             Assert.That(GetField<LineRenderer>(visuals, "rope").enabled, Is.False);
@@ -291,7 +291,7 @@ namespace junklite.Tests
             capsule.center = new Vector3(-0.17522341f, 1.27f, -0.06704581f);
             capsule.height = 2.55f;
             var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             var wall = CreateBox(new Vector3(side * 5f, 2f, 0f), new Vector3(1f, 20f, 4f), 12);
             wall.isTrigger = trigger;
             ReachWall(grapple, Vector3.right * side);
@@ -347,32 +347,29 @@ namespace junklite.Tests
         }
 
         [Test]
-        public void GrappleHookWorksWithoutCombatModeOrSword()
+        public void GrappleHookWorksWithoutSword()
         {
             var grapple = CreateGrapple();
             GiveHook(grapple);
-            Assert.That(grapple.GetComponent<WeaponManager>().IsModCombat, Is.False);
+            Assert.That(grapple.GetComponent<PlayerArmament>().HasUpgradedWeapon, Is.False);
             grapple.BeginAim();
             Assert.That(grapple.IsActive, Is.True);
         }
 
         [Test]
-        public void ThrowPullHoldAndReleasePreserveWeaponAndDurability()
+        public void ThrowPullHoldAndReleasePreserveWeapon()
         {
             PlayerSwordGrapple grapple = CreateGrapple();
-            WeaponInstance weapon = EquipSword(grapple, 2);
-            float durability = weapon.CurrentDurability;
+            WeaponData weapon = EquipSword(grapple);
             CreateWall();
             ReachWall(grapple);
             Assert.That(grapple.IsHolding, Is.True);
             Assert.That(grapple.GetComponent<PlayerState>().IsWallAttached, Is.True);
             Assert.That(grapple.GetComponent<Character2D5Controller>().IsPhysicsOverridden, Is.True);
-            Assert.That(grapple.GetComponent<PlayerWeaponLoadout>().TrySwapSlots(), Is.False);
-            Assert.That(weapon.CurrentDurability, Is.EqualTo(durability));
             Assert.That(grapple.ReleaseFromJump(), Is.True);
             Assert.That(grapple.Phase, Is.EqualTo(SwordGrapplePhase.Idle));
             Assert.That(grapple.GetComponent<Character2D5Controller>().IsPhysicsOverridden, Is.False);
-            Assert.That(grapple.GetComponent<PlayerWeaponLoadout>().WeaponSlot2, Is.SameAs(weapon));
+            Assert.That(grapple.GetComponent<PlayerArmament>().Current, Is.SameAs(weapon));
             Assert.That(grapple.GetComponent<PlayerState>().CanAttack, Is.True);
         }
 
@@ -381,9 +378,9 @@ namespace junklite.Tests
         {
             settings.impactToPullDelay = Time.fixedDeltaTime * 5f;
             var grapple = CreateGrapple();
-            var weapon = EquipSword(grapple, 1);
+            var weapon = EquipSword(grapple);
             var texture = Track(new Texture2D(8, 16));
-            weapon.weaponData.icon = Track(Sprite.Create(texture, new Rect(0, 0, 8, 16), Vector2.one * 0.5f));
+            weapon.icon = Track(Sprite.Create(texture, new Rect(0, 0, 8, 16), Vector2.one * 0.5f));
             CreateWall();
             ThrowUntilImpact(grapple);
             var body = grapple.GetComponent<Rigidbody>();
@@ -419,7 +416,7 @@ namespace junklite.Tests
         {
             settings.impactToPullDelay = 0f;
             var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall();
             ThrowUntilImpact(grapple, expected: SwordGrapplePhase.Pulling);
             Assert.That(grapple.GetComponent<Rigidbody>().linearVelocity.x, Is.GreaterThan(0f));
@@ -429,7 +426,7 @@ namespace junklite.Tests
         public void ObstacleEnteringDuringImpactDelayPreventsThePull()
         {
             var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall();
             ThrowUntilImpact(grapple);
             CreateBox(new Vector3(2f, 2f, 0f), new Vector3(0.5f, 6f, 4f), 0);
@@ -445,7 +442,7 @@ namespace junklite.Tests
         public void ChainedImpactDelayKeepsOldHoldAndRecoversWhenNewAnchorDisappears()
         {
             var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall();
             var oppositeWall = CreateBox(new Vector3(-4f, 2f, 0f), new Vector3(1f, 20f, 4f), 12);
             ReachWall(grapple);
@@ -466,7 +463,7 @@ namespace junklite.Tests
         public void ChainingCanReachHigherOnSameWallAndThenTheOppositeWall()
         {
             PlayerSwordGrapple grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall();
             CreateBox(new Vector3(-4f, 2f, 0f), new Vector3(1f, 20f, 4f), 12);
             ReachWall(grapple);
@@ -483,7 +480,7 @@ namespace junklite.Tests
         public void CancellationReleasesOnlyGrappleLocksAndPreservesExternalImpulse()
         {
             PlayerSwordGrapple grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall();
             ReachWall(grapple);
             var controller = grapple.GetComponent<Character2D5Controller>();
@@ -517,7 +514,7 @@ namespace junklite.Tests
         public void ReleasingCtrlCancelsPreviewButKeepsAnEstablishedWallHold()
         {
             PlayerSwordGrapple grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             grapple.BeginAim();
             Invoke(grapple, "LateUpdate");
             var visuals = GetField<object>(grapple, "visuals");
@@ -540,7 +537,7 @@ namespace junklite.Tests
         public void SceneTeardownCanDestroyVisualsBeforePlayerCancellation()
         {
             PlayerSwordGrapple grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall();
             ReachWall(grapple);
             var visuals = GetField<object>(grapple, "visuals");
@@ -607,7 +604,7 @@ namespace junklite.Tests
             PlayerSwordGrapple grapple = CreateGrapple();
             boundGrapple = grapple;
             Invoke(grapple, "OnEnable");
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall();
             Physics.SyncTransforms();
             var camera = Camera.main;
@@ -640,7 +637,7 @@ namespace junklite.Tests
             var grapple = CreateGrapple();
             boundGrapple = grapple;
             Invoke(grapple, "OnEnable");
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall();
             Physics.SyncTransforms();
             var camera = Camera.main;
@@ -690,7 +687,7 @@ namespace junklite.Tests
             sourceRope.textureScale = new Vector2(2.5f, 1f);
             sourceRope.startColor = sourceRope.endColor = Color.yellow;
             var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             grapple.BeginAim();
             var visuals = GetField<SwordGrappleVisuals>(grapple, "visuals");
             Assert.That(visuals, Is.Not.SameAs(settings.visualsPrefab));
@@ -712,9 +709,9 @@ namespace junklite.Tests
         public void PlayerPrefabReferenceAndVisualRecoveryKeepAimSwordAndRopeVisible()
         {
             var grapple = CreateGrapple();
-            var weapon = EquipSword(grapple, 1);
+            var weapon = EquipSword(grapple);
             var texture = Track(new Texture2D(8, 16));
-            weapon.weaponData.icon = Track(Sprite.Create(texture, new Rect(0, 0, 8, 16), Vector2.one * 0.5f));
+            weapon.icon = Track(Sprite.Create(texture, new Rect(0, 0, 8, 16), Vector2.one * 0.5f));
             SetField(grapple, "visualsPrefab", settings.visualsPrefab);
             settings.visualsPrefab = null; // Direct prefab wiring is independently sufficient.
             CreateWall();
@@ -737,7 +734,7 @@ namespace junklite.Tests
             visuals.gameObject.SetActive(false);
             Invoke(grapple, "LateUpdate");
             Assert.That(visuals.gameObject.activeInHierarchy, Is.True);
-            Assert.That(GetField<SpriteRenderer>(visuals, "sword").sprite, Is.SameAs(weapon.weaponData.icon));
+            Assert.That(GetField<SpriteRenderer>(visuals, "sword").sprite, Is.SameAs(weapon.icon));
             Assert.That(grapple.HasGrappleHook, Is.True, "Hiding the in-hand renderer during flight must not unequip the reserved sword.");
         }
 
@@ -824,7 +821,7 @@ namespace junklite.Tests
             settings.pullSpeed = speed;
             settings.impactToPullDelay = 0f;
             var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall();
             ThrowUntilImpact(grapple, expected: SwordGrapplePhase.Pulling);
             var controller = grapple.GetComponent<Character2D5Controller>();
@@ -846,7 +843,7 @@ namespace junklite.Tests
             var grapple = CreateGrapple();
             boundGrapple = grapple;
             Invoke(grapple, "OnEnable");
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall();
             Physics.SyncTransforms();
             Camera.main.pixelRect = new Rect(0f, 0f, 800f, 600f);
@@ -867,7 +864,7 @@ namespace junklite.Tests
         public void HoldIsAutomaticAndOnlyDownLetsGo(float side)
         {
             var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateBox(new Vector3(side * 5f, 2f, 0f), new Vector3(1f, 20f, 4f), 12).isTrigger = true;
             ReachWall(grapple, Vector3.right * side);
             // Real keyboard from here on; the grapple binds it on its next Update.
@@ -941,7 +938,7 @@ namespace junklite.Tests
         public void JumpTouchingAWallWithTheHookIsNotAWallKick(float side)
         {
             var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             var controller = grapple.GetComponent<Character2D5Controller>();
             CreateBox(controller.MovementAxis * side * 0.875f + Vector3.up * 2f, new Vector3(1f, 20f, 4f), 12);
             Physics.SyncTransforms();
@@ -962,7 +959,7 @@ namespace junklite.Tests
         public void JumpFromHoldPushesAwayEvenWithSpentAirJumpAndPreservesLaunch(float side)
         {
             var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateBox(new Vector3(side * 5f, 2f, 0f), new Vector3(1f, 20f, 4f), 12);
             ReachWall(grapple, Vector3.right * side);
             var controller = grapple.GetComponent<Character2D5Controller>();
@@ -986,7 +983,7 @@ namespace junklite.Tests
         public void ChainedFlightKeepsOldHoldUntilTheNewWall()
         {
             var grapple = CreateGrapple();
-            EquipSword(grapple, 1);
+            EquipSword(grapple);
             CreateWall();
             CreateBox(new Vector3(-4f, 2f, 0f), new Vector3(1f, 20f, 4f), 12);
             ReachWall(grapple);
@@ -1106,7 +1103,7 @@ namespace junklite.Tests
             var player = capsule.gameObject;
             player.AddComponent<Rigidbody>().useGravity = false;
             player.AddComponent<PlayerState>();
-            player.AddComponent<PlayerWeaponLoadout>();
+            player.AddComponent<PlayerArmament>();
             player.AddComponent<PlayerKeyring>();
             var controller = player.AddComponent<Character2D5Controller>();
             Invoke(controller, "Awake");
@@ -1143,19 +1140,15 @@ namespace junklite.Tests
             return template;
         }
 
-        private WeaponInstance EquipSword(PlayerSwordGrapple grapple, int slot, bool draw = true)
+        /// <summary>Permanently upgrades the test player to grapple-capable blades.</summary>
+        private WeaponData EquipSword(PlayerSwordGrapple grapple)
         {
             var data = Track(ScriptableObject.CreateInstance<MeleeWeaponData>());
+            data.displayName = "Blades";
             data.enablesSwordGrapple = true;
-            data.maxWeaponDurability = 100;
-            var weapon = CreateObject("Equipped sword", Vector3.zero).AddComponent<WeaponInstance>();
-            weapon.weaponData = data;
-            weapon.transform.SetParent(grapple.transform, false);
-            SetField(grapple.GetComponent<PlayerWeaponLoadout>(), "weaponSlot" + slot, weapon);
+            Assert.That(grapple.GetComponent<PlayerArmament>().TryAcquire(data), Is.True);
             GiveHook(grapple);
-            if (draw && !grapple.GetComponent<WeaponManager>().IsModCombat)
-                Assert.That(grapple.GetComponent<WeaponManager>().TryToggleCombatMode(), Is.True);
-            return weapon;
+            return data;
         }
 
         private static void GiveHook(PlayerSwordGrapple grapple)

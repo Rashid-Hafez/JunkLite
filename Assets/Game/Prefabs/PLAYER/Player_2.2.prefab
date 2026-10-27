@@ -279,9 +279,101 @@ Transform:
   m_LocalPosition: {x: -0.44940698, y: 1.1649518, z: -0.464}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 7731008412055129002}
   m_Father: {fileID: 2489384785993987126}
   m_LocalEulerAnglesHint: {x: 0.51, y: -0.992, z: -17.15}
+--- !u!1 &7731008412055129001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7731008412055129002}
+  - component: {fileID: 7731008412055129003}
+  m_Layer: 16
+  m_Name: Blades Visual
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &7731008412055129002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7731008412055129001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0.5735764, w: 0.8191521}
+  m_LocalPosition: {x: 0, y: 0, z: 0.24}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4764703469501611834}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 70}
+--- !u!212 &7731008412055129003
+SpriteRenderer:
+  serializedVersion: 2
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7731008412055129001}
+  m_Enabled: 1
+  m_CastShadows: 0
+  m_ReceiveShadows: 0
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 0
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 4294967295
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: 56e52a3e1addd49bdbf2035a39c0887a, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 0
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 1448948369
+  m_SortingLayer: 1
+  m_SortingOrder: 11
+  m_MaskInteraction: 0
+  m_Sprite: {fileID: 21300000, guid: 42fa0bf02bb4c4c0ca426802f8dc1a4a, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_FlipX: 0
+  m_FlipY: 0
+  m_DrawMode: 0
+  m_Size: {x: 1.28, y: 1.28}
+  m_AdaptiveModeThreshold: 0.5
+  m_SpriteTileMode: 0
+  m_WasSpriteAssigned: 1
+  m_SpriteSortPoint: 0
 --- !u!114 &612097181165957970
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1053,8 +1145,14 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3d4fe0aa64714639a0ab23f93672c433, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerWeaponLoadout
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerArmament
+  defaultWeapon: {fileID: 11400000, guid: 7e989493f101c4fc78059e432b6ef052, type: 2}
+  upgradePath:
+  - {fileID: 11400000, guid: 5607a0a4523020449aa5a84d02ba2119, type: 2}
   weaponHolder: {fileID: 4764703469501611834}
+  heldVisuals:
+  - weapon: {fileID: 11400000, guid: 5607a0a4523020449aa5a84d02ba2119, type: 2}
+    visual: {fileID: 7731008412055129001}
 --- !u!114 &7181291251784971520
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1469,9 +1567,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f0857f4bf2b3e4e119b11e1d4a826954, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.CombatModeScreenGlitch
-  playOnEnter: 1
-  playOnExit: 1
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.ScreenGlitchEffect
   duration: 0.3
   weightCurve:
     serializedVersion: 2

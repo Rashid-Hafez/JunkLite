@@ -16,6 +16,11 @@ namespace junklite
         { PreviousLevel = previous; Level = level; ExperienceGained = gained; Earned = earned; }
     }
 
+    /// <summary>
+    /// Permanent experience and level. Owns the profile save file; <see cref="PlayerUpgrades"/> attaches
+    /// to it and stores its upgrade data in the same file. A level-up grants upgrade points through
+    /// <see cref="PlayerUpgrades"/>; stat growth now comes from bought upgrades, not from the level table.
+    /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerProgression : MonoBehaviour
     {
@@ -32,6 +37,8 @@ namespace junklite
         public bool IsPreviewing { get; private set; }
         public event Action<ProgressionChange> Changed;
         private ProgressionSaveStore store;
+        private ProgressionSaveData loadedData;
+        private PlayerUpgrades upgrades;
         private bool dirty;
         private bool saveAllowed = true;
         private float saveAt;
@@ -63,12 +70,14 @@ namespace junklite
             store = new ProgressionSaveStore(Path.Combine(Application.persistentDataPath, "player-progression.json"));
             if (store.TryLoad(out var data, out string warning))
             {
+                loadedData = data;
                 TotalExperience = RestoreExperience(config, data);
                 dirty = data.configRevision != config.revision;
                 saveAt = Time.unscaledTime + 1f;
             }
             else if (warning != null) saveAllowed = false;
             if (warning != null) Debug.LogWarning("[Progression] " + warning, this);
+            if (upgrades != null) upgrades.LoadFrom(loadedData);
             SceneManager.activeSceneChanged += OnSceneChanged;
         }
 
@@ -89,17 +98,34 @@ namespace junklite
             return Math.Min(xp, profile.ExperienceToReach(profile.MaxLevel));
         }
 
+        /// <summary>The upgrades service stores its data in this profile. Loaded data is handed over at once.</summary>
+        internal void AttachUpgrades(PlayerUpgrades service)
+        {
+            if (service == null || upgrades == service) return;
+            upgrades = service;
+            if (store != null) upgrades.LoadFrom(loadedData);
+        }
+
+        internal void DetachUpgrades(PlayerUpgrades service)
+        {
+            if (upgrades == service) upgrades = null;
+        }
+
+        /// <summary>Schedules a debounced save (upgrade purchases, points, weapons). Ignored while previewing.</summary>
+        internal void MarkDirty()
+        {
+            if (IsPreviewing) return;
+            if (!dirty) saveAt = Time.unscaledTime + 1f;
+            dirty = true;
+        }
+
         public void AddExperience(int amount)
         {
             if (amount <= 0 || AtMaximum) return;
             int oldLevel = Level;
             long oldXP = TotalExperience;
             TotalExperience = Math.Min(TotalExperience + amount, config.ExperienceToReach(config.MaxLevel));
-            if (!IsPreviewing)
-            {
-                if (!dirty) saveAt = Time.unscaledTime + 1f;
-                dirty = true;
-            }
+            MarkDirty();
             Changed?.Invoke(new ProgressionChange(oldLevel, Level, TotalExperience - oldXP, true));
             if (Level > oldLevel) Flush();
         }
@@ -128,7 +154,16 @@ namespace junklite
             if (!dirty || !saveAllowed || IsPreviewing || store == null) return;
             var data = new ProgressionSaveData
             { configRevision = config.revision, totalExperience = TotalExperience, level = Level, levelProgress = Progress };
-            if (store.TrySave(data, out string error)) dirty = false;
+            if (upgrades != null) upgrades.WriteTo(data);
+            else if (loadedData != null)
+            {
+                // Keep upgrade data from the file when no upgrades service is alive.
+                data.bonusUpgradePoints = loadedData.bonusUpgradePoints;
+                data.purchasedUpgrades = loadedData.purchasedUpgrades;
+                data.ownedWeapons = loadedData.ownedWeapons;
+                data.collectedPointSources = loadedData.collectedPointSources;
+            }
+            if (store.TrySave(data, out string error)) { dirty = false; loadedData = data; }
             else { Debug.LogWarning("[Progression] Save failed: " + error, this); saveAt = Time.unscaledTime + 10f; }
         }
         private void OnSceneChanged(Scene previous, Scene next) => Flush();

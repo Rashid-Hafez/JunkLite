@@ -23,6 +23,7 @@ namespace junklite
             [Header("Combat")]
             public float damageMultiplier;
             public float hitRadius;
+            [Tooltip("Off (default): the swing hits only the enemy nearest the player. On: every enemy inside the hit sphere, for collateral / sweep attacks.")]
             public bool piercing;
 
             [Header("VFX")]
@@ -61,6 +62,7 @@ namespace junklite
         public MeleeComboStep[] sideCombo;
 
         [Header("Air Side Combo (1 → 2 → 3...)")]
+        [Tooltip("Side attacks in the air. Each step can be used once per jump, in order, and landing resets the chain: one step = one air attack per jump, three steps = an air 1-2-3 string.")]
         public MeleeComboStep[] airSideCombo;
 
         [Header("Directional Attacks")]
