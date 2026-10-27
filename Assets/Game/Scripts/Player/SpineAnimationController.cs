@@ -33,6 +33,8 @@ namespace junklite
         [Header("Locomotion Animations")]
         [SerializeField] private string idle = "idle";
         [SerializeField] private string run = "run";
+        [Tooltip("Short one-shot played when Run stops, then Idle. Leave empty to go straight to Idle (no animation yet).")]
+        [SerializeField] private string runStop = "";
         [SerializeField] private string jumpStart = "Jump_1_Start";
         [SerializeField] private string jumpAir = "Jump_2_Air";
         [SerializeField] private string landing = "Jump_3_Land";
@@ -57,6 +59,7 @@ namespace junklite
         [Header("Animation Timing (TimeScale)")]
         [SerializeField, Range(0.1f, 3f)] private float idleTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float runTimeScale = 1f;
+        [SerializeField, Range(0.1f, 3f)] private float runStopTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float jumpStartTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float jumpAirTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float landingTimeScale = 1f;
@@ -68,6 +71,8 @@ namespace junklite
 
         [Header("Locomotion Settings")]
         [SerializeField] private float speedThreshold = 0.1f;
+        [SerializeField, Tooltip("Seconds speed must stay under the threshold before Run switches to Idle. Hides brief stops (door blockers, bumps).")]
+        private float idleDelay = 0.1f;
         [SerializeField] private float locomotionBlend = 0.1f;
         [SerializeField] private float minRunTimeScale = 0.8f;
         [SerializeField] private float maxRunTimeScale = 1.3f;
@@ -111,6 +116,7 @@ namespace junklite
         // State tracking
         private bool wasAirborne = false;
         private string currentLocomotionAnim = "";
+        private float stoppedTime;
         private bool attackActive = false;
         private TrackEntry currentAttackEntry = null;
         private bool forceOverrideActive = false;
@@ -1181,15 +1187,45 @@ namespace junklite
 
         private void UpdateLocomotionFromSpeed()
         {
+            float speed = GetSpeed();
+            stoppedTime = speed > speedThreshold ? 0f : stoppedTime + Time.deltaTime;
+
             if (!playerState.IsGrounded || IsPlayingTransientAnim() || attackActive || forceOverrideActive)
                 return;
 
-            float speed = GetSpeed();
+            string current = GetCurrentLocomotionName();
             string targetAnim = speed > speedThreshold ? run : idle;
 
-            if (GetCurrentLocomotionName() != targetAnim)
+            // Keep running through brief stops so Run doesn't restart.
+            if (targetAnim == idle && current == run && stoppedTime < idleDelay)
+                return;
+
+            // Let the stop animation finish into its queued Idle; moving again cancels it.
+            if (targetAnim == idle && IsRunStop(current))
+                return;
+
+            if (targetAnim == idle && current == run && HasAnimation(runStop))
+            {
+                PlayRunStop();
+                return;
+            }
+
+            if (current != targetAnim)
                 PlayLocomotion(targetAnim, true);
         }
+
+        private void PlayRunStop()
+        {
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, runStop, false);
+            entry.MixDuration = locomotionBlend;
+            entry.TimeScale = GetTimeScaleFor(runStop, 1f);
+            currentLocomotionAnim = runStop;
+
+            var idleEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, idle, GetLoopFor(idle, true), 0f);
+            idleEntry.TimeScale = GetTimeScaleFor(idle, 1f);
+        }
+
+        private bool IsRunStop(string animName) => !string.IsNullOrEmpty(runStop) && animName == runStop;
 
         private void UpdateRunSpeed()
         {
@@ -1279,6 +1315,7 @@ namespace junklite
             if (string.IsNullOrEmpty(animName)) return fallback;
             if (animName == idle) return idleTimeScale;
             if (animName == run) return runTimeScale;
+            if (animName == runStop) return runStopTimeScale;
             if (animName == jumpStart) return jumpStartTimeScale;
             if (animName == jumpAir) return jumpAirTimeScale;
             if (animName == landing) return landingTimeScale;
@@ -1298,6 +1335,8 @@ namespace junklite
             SafeSetMix(data, run, idle, locomotionBlend);
             SafeSetMix(data, landing, idle, locomotionBlend);
             SafeSetMix(data, landing, run, locomotionBlend);
+            SafeSetMix(data, runStop, idle, locomotionBlend);
+            SafeSetMix(data, runStop, run, locomotionBlend);
             SafeSetMix(data, jumpStart, jumpAir, 0f);
             SafeSetMix(data, jumpAir, landing, locomotionBlend);
         }
