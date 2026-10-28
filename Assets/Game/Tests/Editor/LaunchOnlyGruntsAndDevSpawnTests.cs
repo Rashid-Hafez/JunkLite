@@ -23,7 +23,7 @@ namespace junklite.Tests
         }
 
         [Test]
-        public void OnlyTheGruntCanBeLaunched()
+        public void OnlyGruntsAndHyenasCanBeLaunched()
         {
             string[] guids = AssetDatabase.FindAssets("t:Prefab", new[] { "Assets/Game/ENEMIES", "Assets/Game/Prefabs/Enemies" });
             int checkedEnemies = 0;
@@ -34,8 +34,9 @@ namespace junklite.Tests
                 EnemyCharacter enemy = prefab != null ? prefab.GetComponent<EnemyCharacter>() : null;
                 if (enemy == null) continue;
                 checkedEnemies++;
-                bool isGrunt = enemy is GruntEnemy;
-                Assert.That(enemy.CanBeLaunched, Is.EqualTo(isGrunt), $"{path}: only grunts are launched");
+                // Launch is a per-prefab toggle; bosses (Brute), robots and dummies stay grounded.
+                bool launchable = enemy is GruntEnemy || enemy is HyenaEnemy;
+                Assert.That(enemy.CanBeLaunched, Is.EqualTo(launchable), $"{path}: only grunts and hyenas are launched");
             }
             Assert.That(checkedEnemies, Is.GreaterThan(3), "the enemy prefabs were found");
         }

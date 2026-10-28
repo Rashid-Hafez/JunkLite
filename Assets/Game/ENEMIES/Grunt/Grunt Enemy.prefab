@@ -4973,6 +4973,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GruntEnemy
   baseStats: {fileID: 11400000, guid: b5724a9977ebfe14d8322c712134d296, type: 2}
   experienceReward: 25
+  upgradePointReward: 0
   attributes: {fileID: 0}
   config: {fileID: 11400000, guid: c5c0ff987fbdb654dbb975aa3831b41d, type: 2}
   soundProfile: {fileID: 11400000, guid: 8ea661e92a2b9cc48aa6bfa6c75a470e, type: 2}
@@ -4984,7 +4985,7 @@ MonoBehaviour:
   canBeKnockedBack: 1
   canBeLaunched: 1
   launch:
-    apexHeight: 6.5
+    apexHeight: 4
     apexHangSpeed: 0
     apexHangGravityScale: 2.5
     gravityScale: 9

@@ -195,6 +195,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.HyenaEnemy
   baseStats: {fileID: 11400000, guid: 9c72d1ca99bf4a341b6578b22cb2b01c, type: 2}
   experienceReward: 25
+  upgradePointReward: 0
   attributes: {fileID: 0}
   config: {fileID: 11400000, guid: 7306fe64eecbb124db49dca8d5795fad, type: 2}
   soundProfile: {fileID: 11400000, guid: 8ea661e92a2b9cc48aa6bfa6c75a470e, type: 2}
@@ -204,29 +205,31 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1
   canBeKnockedBack: 1
-  canBeLaunched: 0
+  canBeLaunched: 1
   launch:
-    apexHeight: 6.5
-    apexHangSpeed: 4
-    apexHangGravityScale: 1.5
-    gravityScale: 4
+    apexHeight: 4
+    apexHangSpeed: 0
+    apexHangGravityScale: 2.5
+    gravityScale: 9
     passThroughEnemies: 1
     maxAirTime: 4
     bounceEnabled: 1
     bounceMinSpeed: 3
     bounceRestitution: 0.08
     bounceHorizontalKeep: 0.2
-    bounceGravityScale: 8
+    bounceGravityScale: 10
     downedDurationRange: {x: 0.8, y: 1.2}
     downedHitExtend: 0.2
     downedMaxTotal: 2
     getUpDuration: 0.45
     knockDownAgainTime: 0.4
-    spikeGravityScale: 7
+    spikeGravityScale: 13
     spikeSkidKeep: 1.5
     maxJuggleHits: 3
-    juggleLift: 8
+    juggleLift: 12
     juggleHorizontalScale: 0.15
+    airHitHangDuration: 0.5
+    airHitFallGravityScale: 1.5
     airTilt: 75
     downedTilt: 90
     tiltBlendSeconds: 0.12

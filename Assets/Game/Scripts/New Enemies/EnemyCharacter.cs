@@ -854,8 +854,10 @@ namespace junklite
                     knockbackDir = Vector3.right;
             }
 
+            // Only launchable enemies leave the ground: heavies and bosses (Brute) never float.
+            float lift = canBeLaunched ? request.KnockbackForce.y : 0f;
             Vector3 knockback = knockbackDir * request.KnockbackForce.x
-                              + Vector3.up * request.KnockbackForce.y;
+                              + Vector3.up * lift;
 
             if (movement != null)
                 movement.ApplyKnockback(knockback);

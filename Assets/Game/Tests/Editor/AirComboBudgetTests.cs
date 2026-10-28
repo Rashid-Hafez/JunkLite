@@ -85,10 +85,15 @@ namespace junklite.Tests
         }
 
         [Test]
-        public void ShippedBladesHaveOneAirAttackAndTheGruntBarelyHangs()
+        public void ShippedBladesLaunchFromTheUpAttackAndSpikeOnTheThirdAirHit()
         {
             var blades = AssetDatabase.LoadAssetAtPath<MeleeWeaponData>("Assets/Game/Scripts/Weapons/Sword.asset");
-            Assert.That(blades.airSideCombo.Length, Is.EqualTo(1));
+            Assert.That(blades.sideCombo[2].reactionKind, Is.EqualTo(HitReactionKind.Flinch), "the ground finisher pushes, it does not launch");
+            Assert.That(blades.upAttack.reactionKind, Is.EqualTo(HitReactionKind.Launch), "the up attack is the launcher");
+            Assert.That(blades.airSideCombo.Length, Is.EqualTo(3));
+            Assert.That(blades.airSideCombo[2].reactionKind, Is.EqualTo(HitReactionKind.Spike), "the last air hit sends the enemy down");
+            foreach (var step in blades.airSideCombo)
+                Assert.That(step.verticalImpulse, Is.EqualTo(0f), "air steps never hold the player up on a whiff");
 
             var grunt = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Game/ENEMIES/Grunt/Grunt Enemy.prefab");
             var launch = new SerializedObject(grunt.GetComponent<EnemyCharacter>()).FindProperty("launch");

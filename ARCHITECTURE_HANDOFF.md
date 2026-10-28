@@ -14,6 +14,14 @@
 - **Tests:** `LaunchLandingAndSpawnSetupTests` (contact-stop landing, apex and juggle are not landings, enemy floor masks, Game Root follows the Game Manager prefab, settings-source rules).
 - **Scene edit (direct YAML, no Editor bridge):** Rooftop v2, the 11 `groundLayers` override values only.
 
+### Combat pass: up-attack launcher, air 1-2-3 (2026-10-29)
+
+- **Why:** the ground finisher launched (only grunts could, so it read as broken on hyenas), bosses could be pushed up, the launch was too high, and air swings floated the player even on a whiff.
+- **Changed (data, `Scripts/Weapons/Sword.asset` / `Fist.asset`):** ground step 3 is now Flinch with its own knockback (Sword (16, 2), Fist (8, 1.5)). Sword `upAttack` is the launcher (Launch, override knockback (0.5, 20); height still comes from `EnemyLaunchSettings.apexHeight`). Sword `airSideCombo` is Attack_1, Attack_2 (Flinch (3, 0)) then the existing Attack_Air Spike; every air step has `verticalImpulse` 0, so a whiff falls and only an applied hit gives the float (`WeaponManager` air hit hang + `SetLaunchFallHang` on a launched enemy). The air budget follows the step count (3 per jump). Fists have no up or air attacks (no clips).
+- **Changed (code):** `EnemyCharacter.ApplyKnockback` drops the vertical part unless `canBeLaunched`, so only launchable enemies (grunts and hyenas) ever leave the ground; `BruteEnemy` already ignores knockback. All four Hyena prefabs now have `canBeLaunched` on with the Grunt's launch settings (`LaunchOnlyGruntsAndDevSpawnTests.OnlyGruntsAndHyenasCanBeLaunched`).
+- **Tuning:** Grunt prefab `launch.apexHeight` 6.5 → 4. Rooftop Scene v2 has three unpacked grunts that still store 6.5.
+- **Tests:** `AirComboBudgetTests.ShippedBladesLaunchFromTheUpAttackAndSpikeOnTheThirdAirHit`.
+
 ### Enemy hit VFX placement (2026-10-29)
 
 - **Why:** hit VFX spawned on the collider edge (`ClosestPoint`), not on the drawn body, and the old Z-roll was wrong on Z lanes.
