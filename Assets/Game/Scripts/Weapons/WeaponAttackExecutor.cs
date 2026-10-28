@@ -13,6 +13,8 @@ namespace junklite
         public float DownAttackFloatNormalized { get; }
         public float EnemyHitHitstopDuration { get; }
         public float LaunchHitstopDuration { get; }
+        /// <summary>Knockback multiplier applied to Launch finishers (upgrade). 1 = authored.</summary>
+        public float FinisherForceMultiplier { get; }
 
         public WeaponAttackExecutionSettings(
             float delayBeforeAttack,
@@ -20,8 +22,10 @@ namespace junklite
             float attackOpenWindow,
             float downAttackFloatNormalized,
             float enemyHitHitstopDuration,
-            float launchHitstopDuration = 0f)
+            float launchHitstopDuration = 0f,
+            float finisherForceMultiplier = 1f)
         {
+            FinisherForceMultiplier = Mathf.Max(0f, finisherForceMultiplier);
             DelayBeforeAttack = Mathf.Max(0f, delayBeforeAttack);
             AnimationLeadTime = Mathf.Max(0f, animationLeadTime);
             AttackOpenWindow = Mathf.Max(0f, attackOpenWindow);
@@ -34,13 +38,11 @@ namespace junklite
     internal readonly struct WeaponAttackExecutionRequest
     {
         public int ExecutionId { get; }
-        public int WeaponSlot { get; }
         public int ComboIndex { get; }
         public AttackDirection Direction { get; }
         public bool WasGrounded { get; }
         public string AnimationName { get; }
         public WeaponData WeaponData { get; }
-        public WeaponInstance Weapon { get; }
         public Transform AttackAnchor { get; }
         public float FallbackRadius { get; }
         public float Facing { get; }
@@ -49,13 +51,11 @@ namespace junklite
 
         public WeaponAttackExecutionRequest(
             int executionId,
-            int weaponSlot,
             int comboIndex,
             AttackDirection direction,
             bool wasGrounded,
             string animationName,
             WeaponData weaponData,
-            WeaponInstance weapon,
             Transform attackAnchor,
             float fallbackRadius,
             float facing,
@@ -63,13 +63,11 @@ namespace junklite
             WeaponAttackExecutionSettings settings)
         {
             ExecutionId = executionId;
-            WeaponSlot = weaponSlot;
             ComboIndex = comboIndex;
             Direction = direction;
             WasGrounded = wasGrounded;
             AnimationName = animationName;
             WeaponData = weaponData;
-            Weapon = weapon;
             AttackAnchor = attackAnchor;
             FallbackRadius = fallbackRadius;
             Facing = facing;
@@ -79,7 +77,7 @@ namespace junklite
     }
 
     /// <summary>
-    /// Runs the temporal portion of an already-approved weapon attack. WeaponManager
+    /// Runs the temporal portion of an already-approved melee attack. WeaponManager
     /// owns selection, combo state and cancellation; this class only performs the
     /// supplied attack until its execution handle is cancelled.
     /// </summary>
@@ -89,9 +87,7 @@ namespace junklite
         private readonly WeaponAttackMotion motion;
         private readonly WeaponHitResolver hitResolver;
         private readonly WeaponDamageResolver damageResolver;
-        private readonly SpineAnimationController spineController;
         private readonly Transform playerTransform;
-        private readonly Transform muzzlePoint;
         private readonly LayerMask enemyLayer;
         private readonly LayerMask environmentLayer;
         private readonly Action<int, string> requestAnimation;
@@ -99,21 +95,14 @@ namespace junklite
         private readonly Action<EnemyCharacter, float> enemyHitApplied;
         private readonly Action environmentHit;
         private readonly Action playHitFeedback;
-        private Collider[] overlapBuffer = new Collider[64];
-        private RaycastHit[] piercingHitBuffer = new RaycastHit[128];
         private readonly HashSet<int> processedReceivers = new();
-        private const int MaxPhysicsQueryCapacity = 512;
-        private static readonly IComparer<RaycastHit> HitDistanceComparer =
-            Comparer<RaycastHit>.Create((a, b) => a.distance.CompareTo(b.distance));
 
         public WeaponAttackExecutor(
             MonoBehaviour coroutineHost,
             WeaponAttackMotion motion,
             WeaponHitResolver hitResolver,
             WeaponDamageResolver damageResolver,
-            SpineAnimationController spineController,
             Transform playerTransform,
-            Transform muzzlePoint,
             LayerMask enemyLayer,
             LayerMask environmentLayer,
             Action<int, string> requestAnimation,
@@ -126,9 +115,7 @@ namespace junklite
             this.motion = motion;
             this.hitResolver = hitResolver;
             this.damageResolver = damageResolver;
-            this.spineController = spineController;
             this.playerTransform = playerTransform;
-            this.muzzlePoint = muzzlePoint;
             this.enemyLayer = enemyLayer;
             this.environmentLayer = environmentLayer;
             this.requestAnimation = requestAnimation;
@@ -143,31 +130,12 @@ namespace junklite
             if (coroutineHost == null || motion == null || request.WeaponData == null)
                 return null;
 
-            Func<Execution, IEnumerator> routineFactory;
-
-            if (request.WeaponData is MeleeWeaponData meleeData &&
-                meleeData.TryGetMeleeStep(
+            if (request.WeaponData is not MeleeWeaponData meleeData ||
+                !meleeData.TryGetMeleeStep(
                     request.Direction,
                     request.ComboIndex,
                     request.WasGrounded,
                     out MeleeWeaponData.MeleeComboStep meleeStep))
-            {
-                routineFactory = execution => RunMelee(execution, request, meleeStep);
-            }
-            else if (request.WeaponData is RangedWeaponData rangedData &&
-                     rangedData.TryGetRangedStep(
-                         request.Direction,
-                         request.ComboIndex,
-                         request.WasGrounded,
-                         out RangedWeaponData.RangedComboStep rangedStep))
-            {
-                routineFactory = execution => RunRanged(
-                    execution,
-                    request,
-                    rangedStep,
-                    rangedData);
-            }
-            else
             {
                 return null;
             }
@@ -176,7 +144,7 @@ namespace junklite
                 coroutineHost,
                 motion,
                 request.ExecutionId,
-                routineFactory);
+                execution => RunMelee(execution, request, meleeStep));
         }
 
         private IEnumerator RunMelee(
@@ -231,28 +199,28 @@ namespace junklite
             if (!execution.IsActive)
                 yield break;
 
-            bool isPiercing = step.piercing || (request.Weapon?.PiercingOverride ?? false);
+            bool isPiercing = step.piercing;
             float radius = step.hitRadius + request.FallbackRadius;
             Vector2 knockback = step.overrideKnockback
                 ? step.knockback
                 : request.WeaponData.knockbackForce;
-            bool hasHitEnemy = false;
+            if (step.reactionKind == HitReactionKind.Launch)
+                knockback *= request.Settings.FinisherForceMultiplier;
             bool hasHitEnvironment = false;
             float windowEnd = Time.time + request.Settings.AttackOpenWindow;
-            Vector3 hitOrigin = ResolveHitOrigin(request);
 
             while (execution.IsActive && Time.time < windowEnd)
             {
                 // Follow the player: lunges and air attacks move during the window.
-                hitOrigin = ResolveHitOrigin(request);
+                Vector3 hitOrigin = ResolveHitOrigin(request);
                 WeaponHitDetectionResult hitResult = hitResolver.Detect(
                     hitOrigin,
                     radius,
-                    isPiercing);
+                    isPiercing,
+                    playerTransform.position);
 
-                if (hitResult.Type == AttackHitResult.Enemy && !hasHitEnemy)
+                if (hitResult.Type == AttackHitResult.Enemy)
                 {
-                    hasHitEnemy = true;
                     bool damageApplied = isPiercing && hitResult.AllTargets != null
                         ? DealDamageToAll(request, hitResult.AllTargets, hitResult.AllTargetCount, step.damageMultiplier, knockback, step.reactionKind)
                         : hitResult.Target != null &&
@@ -307,314 +275,6 @@ namespace junklite
             }
         }
 
-        private IEnumerator RunRanged(
-            Execution execution,
-            WeaponAttackExecutionRequest request,
-            RangedWeaponData.RangedComboStep step,
-            RangedWeaponData rangedData)
-        {
-            RequestAnimation(request);
-            if (!execution.IsActive)
-                yield break;
-
-            bool useHover = step.hoverGravityMultiplier >= 0f;
-            if (useHover)
-                motion.BeginHover(request.ExecutionId, step.hoverGravityMultiplier);
-
-            yield return WaitForFirePose(execution, request, step.fireAtNormalizedTime);
-            if (!execution.IsActive)
-                yield break;
-
-            if (!Mathf.Approximately(step.forwardImpulse, 0f))
-            {
-                execution.StartOwned(motion.ApplyPush(
-                    request.ExecutionId,
-                    request.Direction,
-                    request.Facing,
-                    step.forwardImpulse,
-                    0f,
-                    step.forwardImpulseDuration,
-                    null));
-            }
-
-            bool useBulletTime = step.bulletTimeScale > 0f && step.bulletTimeScale < 1f;
-            if (useBulletTime)
-                execution.BeginBulletTime(step.bulletTimeScale);
-
-            bool isDirectional = request.Direction is AttackDirection.Down or AttackDirection.Up;
-            bool hitAnyEnemy;
-            if (isDirectional)
-                hitAnyEnemy = FireDirectionalBlast(request, step, rangedData);
-            else
-                hitAnyEnemy = FireSideHitscan(request, step, rangedData);
-
-            if (hitAnyEnemy)
-            {
-                execution.StartOwned(motion.ApplyHitstop(
-                    request.ExecutionId,
-                    request.Settings.EnemyHitHitstopDuration));
-            }
-
-            if (useBulletTime && step.bulletTimeDuration > 0f)
-            {
-                float elapsed = 0f;
-                while (execution.IsActive && elapsed < step.bulletTimeDuration)
-                {
-                    elapsed += Time.unscaledDeltaTime;
-                    yield return null;
-                }
-            }
-
-            if (!execution.IsActive)
-                yield break;
-
-            if (!Mathf.Approximately(step.hitRecoil, 0f))
-            {
-                execution.StartOwned(motion.ApplySmoothRecoil(
-                    request.ExecutionId,
-                    request.Direction,
-                    request.Facing,
-                    step.hitRecoil,
-                    step.recoilDuration));
-            }
-
-            if (useBulletTime)
-            {
-                float restoreDuration = step.bulletTimeRestoreDuration > 0f
-                    ? step.bulletTimeRestoreDuration
-                    : 0.1f;
-                execution.StartOwned(execution.RestoreBulletTime(restoreDuration));
-            }
-
-            if (useHover)
-                motion.EndHover(request.ExecutionId);
-        }
-
-        private bool FireDirectionalBlast(
-            WeaponAttackExecutionRequest request,
-            RangedWeaponData.RangedComboStep step,
-            RangedWeaponData rangedData)
-        {
-            int durabilityCost = Mathf.Max(
-                1,
-                Mathf.RoundToInt(step.durabilityMultiplier > 0f
-                    ? step.durabilityMultiplier
-                    : 1f));
-            if (!TryConsumeUseDurability(request.Weapon, durabilityCost))
-                return false;
-
-            float damage = rangedData.baseDamage *
-                           (step.damageMultiplier > 0f ? step.damageMultiplier : 1f);
-            Vector2 knockback = rangedData.knockbackForce;
-            float blastRadius = step.blastDamageRadius > 0f
-                ? step.blastDamageRadius
-                : 1.5f;
-            Vector3 blastOrigin = ResolveBlastOrigin(
-                request,
-                blastRadius,
-                step.blastForwardOffset);
-            int enemyHitCount = QueryBlastOverlaps(blastOrigin, blastRadius);
-            bool hitAnyEnemy = false;
-            processedReceivers.Clear();
-
-            for (int i = 0; i < enemyHitCount; i++)
-            {
-                Collider hit = overlapBuffer[i];
-                if (hit == null)
-                    continue;
-                DamageResult result = ResolveDamage(
-                    hit,
-                    damage,
-                    knockback,
-                    HitReactionKind.Flinch,
-                    processedReceivers);
-                if (!result.WasApplied)
-                    continue;
-
-                hitAnyEnemy = true;
-                if (CombatEffectsManager.Instance != null)
-                {
-                    Vector3 hitPoint = hit.ClosestPoint(blastOrigin);
-                    Vector3 hitDirection = (hitPoint - blastOrigin).normalized;
-                    CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDirection);
-                    CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, hitDirection);
-                }
-            }
-
-            if (hitAnyEnemy)
-                playHitFeedback?.Invoke();
-
-            bool hitAnyEnvironment = SpawnDirectionalEnvironmentHits(
-                request,
-                blastOrigin,
-                blastRadius);
-            if (hitAnyEnvironment && !hitAnyEnemy)
-                environmentHit?.Invoke();
-
-            return hitAnyEnemy;
-        }
-
-        private bool FireSideHitscan(
-            WeaponAttackExecutionRequest request,
-            RangedWeaponData.RangedComboStep step,
-            RangedWeaponData rangedData)
-        {
-            int durabilityCost = Mathf.Max(
-                1,
-                Mathf.RoundToInt(step.durabilityMultiplier > 0f
-                    ? step.durabilityMultiplier
-                    : 1f));
-            if (!TryConsumeUseDurability(request.Weapon, durabilityCost))
-                return false;
-
-            Transform muzzle = muzzlePoint != null ? muzzlePoint : request.AttackAnchor;
-            Vector3 origin = muzzle != null ? muzzle.position : playerTransform.position;
-            Vector3 direction = request.FacingAxis * request.Facing;
-            float maxRange = step.maxRange > 0f ? step.maxRange : 50f;
-            float castRadius = step.bulletRadius;
-            float tracerDuration = step.tracerDuration > 0f ? step.tracerDuration : 0.06f;
-            float damage = rangedData.baseDamage *
-                           (step.damageMultiplier > 0f ? step.damageMultiplier : 1f);
-            Vector2 knockback = rangedData.knockbackForce;
-            bool piercing = rangedData.piercing;
-            Vector3 tracerEnd = origin + direction * maxRange;
-            bool hitAnyEnemy = false;
-
-            if (piercing)
-            {
-                int allHitCount = QueryPiercingHits(origin, castRadius, direction, maxRange);
-                Array.Sort(piercingHitBuffer, 0, allHitCount, HitDistanceComparer);
-
-                bool hitEnvironment = false;
-                processedReceivers.Clear();
-                for (int i = 0; i < allHitCount; i++)
-                {
-                    RaycastHit hit = piercingHitBuffer[i];
-                    int hitMask = 1 << hit.collider.gameObject.layer;
-                    if ((hitMask & enemyLayer) != 0)
-                    {
-                        DamageResult result = ResolveDamage(
-                            hit.collider,
-                            damage,
-                            knockback,
-                            HitReactionKind.Flinch,
-                            processedReceivers);
-                        if (!result.WasApplied)
-                            continue;
-
-                        hitAnyEnemy = true;
-                        SpawnEnemyHitVfx(hit.point, -direction);
-                    }
-                    else if ((hitMask & environmentLayer) != 0 && !hitEnvironment)
-                    {
-                        hitEnvironment = true;
-                        tracerEnd = hit.point;
-                        SpawnEnvironmentHitVfx(hit.point, hit.normal);
-                        if (!hitAnyEnemy)
-                            environmentHit?.Invoke();
-                    }
-                }
-
-                if (hitAnyEnemy)
-                    playHitFeedback?.Invoke();
-            }
-            else
-            {
-                bool hitSomething;
-                RaycastHit hit;
-                if (castRadius > 0f)
-                {
-                    hitSomething = Physics.SphereCast(
-                        origin,
-                        castRadius,
-                        direction,
-                        out hit,
-                        maxRange,
-                        enemyLayer | environmentLayer,
-                        QueryTriggerInteraction.Ignore);
-                }
-                else
-                {
-                    hitSomething = Physics.Raycast(
-                        origin,
-                        direction,
-                        out hit,
-                        maxRange,
-                        enemyLayer | environmentLayer,
-                        QueryTriggerInteraction.Ignore);
-                }
-
-                if (hitSomething)
-                {
-                    tracerEnd = hit.point;
-                    int hitMask = 1 << hit.collider.gameObject.layer;
-                    if ((hitMask & enemyLayer) != 0)
-                    {
-                        DamageResult result = ResolveDamage(
-                            hit.collider,
-                            damage,
-                            knockback,
-                            HitReactionKind.Flinch,
-                            null);
-                        if (result.WasApplied)
-                        {
-                            hitAnyEnemy = true;
-                            playHitFeedback?.Invoke();
-                            SpawnEnemyHitVfx(hit.point, -direction);
-                        }
-                    }
-                    else if ((hitMask & environmentLayer) != 0)
-                    {
-                        SpawnEnvironmentHitVfx(hit.point, hit.normal);
-                        environmentHit?.Invoke();
-                    }
-                }
-            }
-
-            if (rangedData.tracerPrefab != null && ProjectileManager.Instance != null)
-            {
-                ProjectileManager.Instance.FireTracer(
-                    rangedData.tracerPrefab,
-                    origin,
-                    tracerEnd,
-                    tracerDuration);
-            }
-
-            return hitAnyEnemy;
-        }
-
-        private IEnumerator WaitForFirePose(
-            Execution execution,
-            WeaponAttackExecutionRequest request,
-            float normalizedTime)
-        {
-            if (spineController == null)
-            {
-                if (request.Settings.DelayBeforeAttack > 0f)
-                    yield return new WaitForSeconds(request.Settings.DelayBeforeAttack);
-                yield break;
-            }
-
-            yield return null;
-            float elapsed = 0f;
-            float timeout = Mathf.Max(request.Settings.DelayBeforeAttack * 4f, 0.5f);
-
-            while (execution.IsActive && elapsed < timeout)
-            {
-                var entry = spineController.CurrentAttackEntry;
-                if (entry != null && entry.AnimationEnd > 0f)
-                {
-                    float normalizedProgress = entry.TrackTime / entry.AnimationEnd;
-                    if (normalizedProgress >= normalizedTime)
-                        yield break;
-                }
-
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-
-        }
-
         private void RequestAnimation(WeaponAttackExecutionRequest request)
         {
             if (!string.IsNullOrEmpty(request.AnimationName))
@@ -635,8 +295,6 @@ namespace junklite
             if (!result.WasApplied)
                 return result;
 
-            if (request.WeaponSlot != 0 && request.Weapon != null)
-                request.Weapon.ConsumeDurability();
             SpawnEnemyHitVfx(request, target);
             return result;
         }
@@ -672,54 +330,7 @@ namespace junklite
                 SpawnEnemyHitVfx(request, target);
             }
 
-            if (anyHit && request.WeaponSlot != 0 && request.Weapon != null)
-                request.Weapon.ConsumeDurability();
             return anyHit;
-        }
-
-        private int QueryBlastOverlaps(Vector3 origin, float radius)
-        {
-            while (true)
-            {
-                int count = Physics.OverlapSphereNonAlloc(
-                    origin,
-                    radius,
-                    overlapBuffer,
-                    enemyLayer,
-                    QueryTriggerInteraction.Ignore);
-                if (count < overlapBuffer.Length || overlapBuffer.Length >= MaxPhysicsQueryCapacity)
-                    return count;
-
-                overlapBuffer = new Collider[Mathf.Min(overlapBuffer.Length * 2, MaxPhysicsQueryCapacity)];
-            }
-        }
-
-        private int QueryPiercingHits(Vector3 origin, float radius, Vector3 direction, float maxRange)
-        {
-            while (true)
-            {
-                int count = radius > 0f
-                    ? Physics.SphereCastNonAlloc(
-                        origin,
-                        radius,
-                        direction,
-                        piercingHitBuffer,
-                        maxRange,
-                        enemyLayer | environmentLayer,
-                        QueryTriggerInteraction.Ignore)
-                    : Physics.RaycastNonAlloc(
-                        origin,
-                        direction,
-                        piercingHitBuffer,
-                        maxRange,
-                        enemyLayer | environmentLayer,
-                        QueryTriggerInteraction.Ignore);
-
-                if (count < piercingHitBuffer.Length || piercingHitBuffer.Length >= MaxPhysicsQueryCapacity)
-                    return count;
-
-                piercingHitBuffer = new RaycastHit[Mathf.Min(piercingHitBuffer.Length * 2, MaxPhysicsQueryCapacity)];
-            }
         }
 
         /// <summary>Melee pushes along the swing (facing), not away from the player's position.</summary>
@@ -748,63 +359,6 @@ namespace junklite
             return resolution.Result;
         }
 
-        private bool SpawnDirectionalEnvironmentHits(
-            WeaponAttackExecutionRequest request,
-            Vector3 blastOrigin,
-            float blastRadius)
-        {
-            if (CombatEffectsManager.Instance == null)
-                return false;
-
-            float rayLength = blastRadius * 2f;
-            bool hitAnyEnvironment = false;
-
-            if (Physics.Raycast(
-                    blastOrigin,
-                    Vector3.down,
-                    out RaycastHit groundHit,
-                    rayLength,
-                    environmentLayer,
-                    QueryTriggerInteraction.Ignore))
-            {
-                SpawnEnvironmentHitVfx(groundHit.point, groundHit.normal);
-                hitAnyEnvironment = true;
-            }
-
-            Vector3 forwardDirection = request.FacingAxis * request.Facing;
-            if (Physics.Raycast(
-                    blastOrigin,
-                    forwardDirection,
-                    out RaycastHit wallHit,
-                    rayLength,
-                    environmentLayer,
-                    QueryTriggerInteraction.Ignore))
-            {
-                SpawnEnvironmentHitVfx(wallHit.point, wallHit.normal);
-                hitAnyEnvironment = true;
-            }
-
-            Vector3 attackVector = request.Direction == AttackDirection.Down
-                ? Vector3.down
-                : Vector3.up;
-            if (attackVector != Vector3.down || !hitAnyEnvironment)
-            {
-                if (Physics.Raycast(
-                        playerTransform.position,
-                        attackVector,
-                        out RaycastHit directionHit,
-                        rayLength,
-                        environmentLayer,
-                        QueryTriggerInteraction.Ignore))
-                {
-                    SpawnEnvironmentHitVfx(directionHit.point, directionHit.normal);
-                    hitAnyEnvironment = true;
-                }
-            }
-
-            return hitAnyEnvironment;
-        }
-
         private Vector3 ResolveHitOrigin(WeaponAttackExecutionRequest request)
         {
             Transform anchor = request.AttackAnchor;
@@ -825,22 +379,6 @@ namespace junklite
                     playerTransform.position.z),
                 _ => playerTransform.position
             };
-        }
-
-        private Vector3 ResolveBlastOrigin(
-            WeaponAttackExecutionRequest request,
-            float radius,
-            float forwardOffset)
-        {
-            Vector3 origin = playerTransform.position;
-            if (forwardOffset > 0f)
-                origin += request.FacingAxis * request.Facing * forwardOffset;
-
-            if (request.Direction == AttackDirection.Down)
-                origin.y -= radius * 0.5f;
-            else if (request.Direction == AttackDirection.Up)
-                origin.y += radius * 0.5f;
-            return origin;
         }
 
         private Vector3 ResolveImpactPoint(
@@ -884,20 +422,6 @@ namespace junklite
             return damageMultiplier > 0f ? damage * damageMultiplier : damage;
         }
 
-        private static bool TryConsumeUseDurability(WeaponInstance weapon, int cost)
-        {
-            if (weapon == null)
-                return true;
-
-            for (int index = 0; index < cost; index++)
-            {
-                if (weapon.ConsumeDurability())
-                    return false;
-            }
-
-            return !weapon.IsBroken;
-        }
-
         private static Vector3 GetAttackDirection(WeaponAttackExecutionRequest request)
         {
             return request.Direction switch
@@ -931,14 +455,6 @@ namespace junklite
             SpawnEnemyHitVfx(hitPoint, hitDirection);
         }
 
-        private static void SpawnEnvironmentHitVfx(Vector3 point, Vector3 normal)
-        {
-            if (CombatEffectsManager.Instance == null)
-                return;
-            CombatEffectsManager.Instance.SpawnEnvHitParticle(point, normal);
-            CombatEffectsManager.Instance.SpawnHitCross(point);
-        }
-
         internal sealed class Execution : IDisposable
         {
             private readonly MonoBehaviour coroutineHost;
@@ -949,9 +465,6 @@ namespace junklite
 
             private bool started;
             private bool cancelled;
-            private bool ownsTimeScale;
-            private float savedTimeScale;
-            private float savedFixedDeltaTime;
 
             public bool IsActive => started && !cancelled;
 
@@ -987,48 +500,6 @@ namespace junklite
                     ownedCoroutines.Add(coroutine);
             }
 
-            public void BeginBulletTime(float timeScale)
-            {
-                if (!IsActive || ownsTimeScale)
-                    return;
-
-                savedTimeScale = Time.timeScale;
-                savedFixedDeltaTime = Time.fixedDeltaTime;
-                ownsTimeScale = true;
-
-                float baselineScale = Mathf.Max(0.0001f, savedTimeScale);
-                Time.timeScale = timeScale;
-                Time.fixedDeltaTime = savedFixedDeltaTime * (timeScale / baselineScale);
-            }
-
-            public IEnumerator RestoreBulletTime(float realDuration)
-            {
-                if (!IsActive || !ownsTimeScale)
-                    yield break;
-
-                float startScale = Time.timeScale;
-                float startFixedDelta = Time.fixedDeltaTime;
-                float elapsed = 0f;
-                float duration = Mathf.Max(0.01f, realDuration);
-
-                while (IsActive && elapsed < duration)
-                {
-                    elapsed += Time.unscaledDeltaTime;
-                    float t = Mathf.Clamp01(elapsed / duration);
-                    Time.timeScale = Mathf.Lerp(startScale, savedTimeScale, t);
-                    Time.fixedDeltaTime = Mathf.Lerp(
-                        startFixedDelta,
-                        savedFixedDeltaTime,
-                        t);
-                    yield return null;
-                }
-
-                if (!IsActive)
-                    yield break;
-
-                RestoreTimeScaleImmediate();
-            }
-
             public void Dispose()
             {
                 Cancel();
@@ -1048,18 +519,7 @@ namespace junklite
                 }
                 ownedCoroutines.Clear();
 
-                RestoreTimeScaleImmediate();
                 motion.EndExecution(executionId);
-            }
-
-            private void RestoreTimeScaleImmediate()
-            {
-                if (!ownsTimeScale)
-                    return;
-
-                Time.timeScale = savedTimeScale;
-                Time.fixedDeltaTime = savedFixedDeltaTime;
-                ownsTimeScale = false;
             }
         }
     }

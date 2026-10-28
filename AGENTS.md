@@ -61,14 +61,17 @@ Producers (weapons, hazards, mods, status effects) build a `DamageRequest` and s
 **Player vs enemy: no shared character base.**
 `PlayerCharacter` derives directly from `MonoBehaviour` and owns input, parry, shields, immunity, death, and respawn. Enemies derive from the small `EnemyBase` (via `EnemyCharacter`), and AI is composed per archetype. Do not add a universal character base class. `CharacterBase` is legacy and is being removed.
 
-**Weapons.**
-`PlayerWeaponLoadout` owns the two equipped slots, pickups, attach/swap/drop/break, and the `WeaponChanged` event. `WeaponManager` owns combat rules, attack input, combos, hit detection, and damage requests. UI should subscribe to `PlayerWeaponLoadout`, not to `WeaponManager` slots.
+**Weapons are permanent arm upgrades, not items.**
+There is no combat mode, no weapon slots and no durability. `PlayerArmament` owns the one current `WeaponData` (fists by default, blades after the `WeaponUpgradePickup`), its authored held visual and the `WeaponChanged` event; ownership persists in `PlayerUpgrades`. `WeaponManager` owns combat rules, attack input, combos, hit detection, and damage requests for `PlayerArmament.Current`. UI subscribes to `PlayerArmament`, never to slots. Mods are always live.
 
 **Mods and abilities.**
 - Mod ScriptableObjects are **read-only config**. Cooldowns, charges, durability, VFX refs, and flags belong on `ModInstance` (one per slot), not on the asset.
 - `ModExecutionRunner` (player-owned) starts each activation with a `ModExecutionContext`. That context owns cancellation callbacks and lock scopes.
 - Lifecycle: `OnInstalled` and `OnRemoved` mean slot ownership. `OnCombatModeEntered` and `OnCombatModeExited` mean temporary availability. Do not mix them up.
 - Input, movement, and immunity locks are disposable leases that compose. Never set or clear them directly. Each long-running ability needs exactly one owner and one cleanup path covering completion, cancel, removal, mode exit, disable, and death.
+
+**Progression and upgrades.**
+`PlayerProgression` owns XP/level and the profile save; `PlayerUpgrades` (same Game Root) owns upgrade points, purchased nodes, owned weapons and one-shot point sources in the same file. The tree is one read-only asset, `Resources/UpgradeTreeConfig.asset` (nodes embedded, effects = StatBonus / UnlockAbility / ModSlot). A level-up grants points only. `PlayerRuntimeStats.Evaluate` is the one stat formula; `PlayerCharacter.ApplyUpgrades` is the one place upgrades reach the controller, `WeaponManager` and `PlayerDashStrike`. Gameplay code never reads the tree asset directly. New stats/abilities get an enum value and exactly one consumer.
 
 **Runtime roots and managers.**
 - **Game Root** (`Prefabs/Manager/Game Root.prefab`) is persistent and duplicate-safe. It holds `GameManager`, `PlayerLifecycle`, `GameUIManager`, `GameInputManager`, `PlayerCombatTracker`, the gameplay canvas, and the EventSystem.

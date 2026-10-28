@@ -122,7 +122,7 @@ namespace junklite
             ObjectiveTwo, PlatformTwoComplete, ThirdPlatformDialogue,
             ObjectiveThree, PlatformThreeComplete, CombatIntroDialogue,
             EnemyWave, WaitModPickup, PostEnemyDialogue, WeaponPickup,
-            WaitCombatMode, InventoryPrompt, WaitModSlotted, WaitModActivation,
+            InventoryPrompt, WaitModSlotted, WaitModActivation,
             FinalGlitchRamp, FinalDialogue, OutroVideo, LoadNextScene, Done
         }
 
@@ -130,20 +130,19 @@ namespace junklite
         private PlayerCharacter currentPlayer;
         private Light playerLight;
         private WeaponManager currentWeaponManager;
-        private PlayerWeaponLoadout currentWeaponLoadout;
+        private PlayerArmament currentArmament;
         private ModManager currentModManager;
         private SpineAnimationController currentSpineAnimationController;
         private Coroutine revealFadeRoutine;
         private bool platformCompleteBeatRunning;
 
         private readonly HashSet<EnemyCharacter> tutorialEncounterEnemies = new();
-        private WorldWeaponPickup activeTutorialPickup;
+        private WeaponUpgradePickup activeTutorialPickup;
         private bool tutorialModHyenaSpawnHandled;
 
         private bool dialogueFinished;
         private bool timelineFinished;
         private bool objectiveHit;
-        private bool combatModeToggled;
         private bool modActivated;
         private bool weaponPickedUp;
         private bool modSlotsChanged;
@@ -200,7 +199,7 @@ namespace junklite
             if (platformCompleteDirector != null) platformCompleteDirector.stopped -= OnTimelineStopped;
             if (endCinematicDirector != null) endCinematicDirector.stopped -= OnTimelineStopped;
             if (completionAnimation != null) completionAnimation.Stop();
-            if (currentWeaponLoadout != null) currentWeaponLoadout.WeaponChanged -= OnWeaponPickedUp;
+            if (currentArmament != null) currentArmament.WeaponChanged -= OnWeaponPickedUp;
             if (currentModManager != null)
             {
                 currentModManager.OnActiveModActivated -= OnActiveModActivated;
@@ -210,10 +209,6 @@ namespace junklite
             EndParryGate(cleared: false);
             if (revealFadeRoutine != null) StopCoroutine(revealFadeRoutine);
 
-            if (GameInputManager.Instance != null)
-            {
-                GameInputManager.Instance.OnCombatModeToggle -= OnCombatModeToggled;
-            }
         }
 
         #endregion
@@ -334,11 +329,6 @@ namespace junklite
             SpawnTutorialWeaponPickup();
             promptHud.Show(new TutorialPromptHUD.Entry("Player/Interact", "Equip the weapon"));
             yield return WaitForWeaponPickup();
-            promptHud.Complete();
-
-            SetStage(Stage.WaitCombatMode);
-            promptHud.Show(new TutorialPromptHUD.Entry("Player/CombatMode", "Combat mode"));
-            yield return WaitForCombatModeToggle();
             promptHud.Complete();
 
             SetStage(Stage.InventoryPrompt);
@@ -480,9 +470,9 @@ namespace junklite
             if (currentPlayer != null)
             {
                 currentWeaponManager = currentPlayer.GetComponentInChildren<WeaponManager>(true);
-                currentWeaponLoadout = currentWeaponManager != null
-                    ? currentWeaponManager.Loadout
-                    : currentPlayer.GetComponentInChildren<PlayerWeaponLoadout>(true);
+                currentArmament = currentWeaponManager != null
+                    ? currentWeaponManager.Armament
+                    : currentPlayer.GetComponentInChildren<PlayerArmament>(true);
                 currentModManager = currentPlayer.GetComponentInChildren<ModManager>(true);
                 currentSpineAnimationController = currentPlayer.GetComponentInChildren<SpineAnimationController>(true);
             }
@@ -845,26 +835,27 @@ namespace junklite
                 : centerRoomSpawn != null ? centerRoomSpawn.position : Vector3.zero;
 
             var go = Instantiate(tutorialWeaponPickupPrefab, pos, Quaternion.identity);
-            activeTutorialPickup = go.GetComponent<WorldWeaponPickup>();
+            activeTutorialPickup = go.GetComponent<WeaponUpgradePickup>();
         }
 
         private IEnumerator WaitForWeaponPickup()
         {
             RefreshPlayerRef();
 
-            if (currentWeaponLoadout == null)
+            if (currentArmament == null)
             {
-                Debug.LogWarning("[Level0Sequence] No PlayerWeaponLoadout found on current player.");
+                Debug.LogWarning("[Level0Sequence] No PlayerArmament found on current player.");
                 yield break;
             }
 
-            weaponPickedUp = false;
-            currentWeaponLoadout.WeaponChanged += OnWeaponPickedUp;
+            // Already upgraded on an earlier run: the pickup disables itself, so do not wait.
+            weaponPickedUp = currentArmament.HasUpgradedWeapon;
+            currentArmament.WeaponChanged += OnWeaponPickedUp;
 
             while (!weaponPickedUp)
                 yield return null;
 
-            currentWeaponLoadout.WeaponChanged -= OnWeaponPickedUp;
+            currentArmament.WeaponChanged -= OnWeaponPickedUp;
             activeTutorialPickup = null;
         }
 
@@ -873,19 +864,6 @@ namespace junklite
         #endregion
 
         #region Combat & Inventory Gates
-
-        private IEnumerator WaitForCombatModeToggle()
-        {
-            combatModeToggled = false;
-            GameInputManager.Instance.OnCombatModeToggle += OnCombatModeToggled;
-
-            while (!combatModeToggled)
-                yield return null;
-
-            GameInputManager.Instance.OnCombatModeToggle -= OnCombatModeToggled;
-        }
-
-        private void OnCombatModeToggled() => combatModeToggled = true;
 
         private static bool IsInventoryOpen =>
             GameUIManager.Instance != null && GameUIManager.Instance.PlayerHUD != null &&
@@ -967,14 +945,6 @@ namespace junklite
             RefreshPlayerRef();
             if (!IsTutorialModSlotted(out bool isActiveSlot, out int slotIndex) || !isActiveSlot || slotIndex > 3)
                 yield break;
-
-            // Active mods only run in combat mode; re-teach the toggle if inventory dropped it.
-            if (currentWeaponManager != null && !currentWeaponManager.IsModCombat)
-            {
-                promptHud.Show(new TutorialPromptHUD.Entry("Player/CombatMode", "Combat mode"));
-                yield return WaitForCombatModeToggle();
-                promptHud.Complete();
-            }
 
             promptHud.Show(new TutorialPromptHUD.Entry($"Player/ModActivate{slotIndex + 1}", "Activate mod"));
             yield return WaitForActiveModActivation();

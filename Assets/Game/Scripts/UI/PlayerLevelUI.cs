@@ -171,17 +171,14 @@ namespace junklite
             notificationTitle.text = $"LEVEL UP  -  LEVEL {change.Level}";
             notificationTitle.color = config.levelUpColor;
             var message = new StringBuilder();
-            AppendReward(message, config, ProgressionStat.MaxHealth, "HEALTH", celebrationFromLevel, change.Level);
-            AppendReward(message, config, ProgressionStat.OutgoingDamage, "DAMAGE", celebrationFromLevel, change.Level);
-            AppendReward(message, config, ProgressionStat.Armor, "ARMOR", celebrationFromLevel, change.Level);
-            int fromSlots = config.ActiveSlotsAt(celebrationFromLevel);
-            int toSlots = config.ActiveSlotsAt(change.Level);
-            if (toSlots > fromSlots)
-            {
-                message.Append($"\nACTIVE MOD SLOT{(toSlots - fromSlots > 1 ? "S" : "")} ")
-                    .Append(toSlots - fromSlots > 1 ? $"{fromSlots + 1}-{toSlots}" : toSlots.ToString()).Append(" UNLOCKED");
-                GetComponentInParent<PlayerUI>()?.HighlightUnlockedModSlots(fromSlots, toSlots - fromSlots, config.levelUpColor);
-            }
+            int pointsPerLevel = PlayerUpgrades.Instance != null ? PlayerUpgrades.Instance.PointsPerLevel : 1;
+            int points = Mathf.Max(0, change.Level - celebrationFromLevel) * pointsPerLevel;
+            if (points > 0)
+                message.Append($"+{points} UPGRADE POINT{(points > 1 ? "S" : "")}   ");
+            AppendReward(message, config, PlayerStat.MaxHealth, "HEALTH", celebrationFromLevel, change.Level);
+            AppendReward(message, config, PlayerStat.OutgoingDamage, "DAMAGE", celebrationFromLevel, change.Level);
+            AppendReward(message, config, PlayerStat.Armor, "ARMOR", celebrationFromLevel, change.Level);
+            if (points > 0) message.Append("\nOPEN THE UPGRADES TAB TO SPEND");
             notification.text = message.ToString();
             notification.color = config.levelUpColor;
             notificationGroup.alpha = 1f;
@@ -224,7 +221,7 @@ namespace junklite
         }
 
         private static void AppendReward(StringBuilder message, PlayerProgressionConfig config,
-            ProgressionStat stat, string label, int previous, int level)
+            PlayerStat stat, string label, int previous, int level)
         {
             var before = config.BonusAt(stat, previous);
             var after = config.BonusAt(stat, level);

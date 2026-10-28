@@ -83,6 +83,16 @@ namespace junklite
         public PlayerState State => playerState;
         public CharacterStats Stats => baseStats;
         public PlayerRuntimeStats RuntimeStats { get; private set; }
+        /// <summary>Dash Strike upgrade component (added at runtime when the prefab lacks it).</summary>
+        public PlayerDashStrike DashStrike { get; private set; }
+
+        [Header("Upgrades")]
+        [Tooltip("Dash and double jump start locked until their upgrade nodes are bought. Turn off for sandbox scenes.")]
+        [SerializeField] private bool lockAbilitiesUntilUpgraded = true;
+        private float baseDoubleJumpForce;
+        private float baseDashCooldown;
+        private int baseMaxAirJumps;
+        private bool movementBaselineCaptured;
         public StatusEffectHandler StatusEffects => statusEffects;
         public Attribute Health => attributes ? attributes.Health : null;
         public bool IsAlive => attributes ? attributes.IsAlive : true;
@@ -137,7 +147,10 @@ namespace junklite
 
             RuntimeStats = GetComponent<PlayerRuntimeStats>();
             if (RuntimeStats == null) RuntimeStats = gameObject.AddComponent<PlayerRuntimeStats>();
-            RuntimeStats.Initialize(baseStats, attributes, PlayerProgression.Ensure());
+            PlayerProgression progression = PlayerProgression.Ensure();
+            RuntimeStats.Initialize(baseStats, attributes, progression, PlayerUpgrades.Ensure(progression.transform));
+            RuntimeStats.Refreshed += ApplyUpgrades;
+            DashStrike = GetComponent<PlayerDashStrike>() ?? gameObject.AddComponent<PlayerDashStrike>();
 
             if (damageable != null)
                 damageable.Bind(baseStats, attributes, playerState);
@@ -172,7 +185,7 @@ namespace junklite
             // Pipe controller events into CharacterState flags
             ConnectController();
 
-            // Apply movement stats to controller
+            // Apply movement stats and owned upgrades to the controller, weapon manager and dash strike.
             UpdateControllerStats();
 
             ////// SCREENSHAKE AND FEEDBACK, VIBRATION CONTROLLER, FLASH VFX ETC
@@ -198,6 +211,8 @@ namespace junklite
         {
             if (attributes != null)
                 attributes.OnDeath -= HandleDeath;
+            if (RuntimeStats != null)
+                RuntimeStats.Refreshed -= ApplyUpgrades;
 
             if (controller != null && playerState != null)
             {
@@ -241,17 +256,59 @@ namespace junklite
             playerState.SetMoving(isMoving);
         }
 
-        // Apply baseStats movement into controller
+        // Apply baseStats movement into the controller, then the owned upgrades on top.
         protected virtual void UpdateControllerStats()
         {
-            if (controller == null || baseStats == null) return;
+            if (controller == null) return;
+            CaptureMovementBaseline();
+            if (baseStats != null)
+            {
+                controller.MoveSpeed = baseStats.moveSpeed;
+                controller.JumpForce = baseStats.jumpForce;
+                controller.DashForce = baseStats.dashForce;
+                controller.DashDuration = baseStats.dashDuration;
+            }
+            ApplyUpgrades();
+        }
 
-            controller.MoveSpeed = baseStats.moveSpeed;
+        /// <summary>Remembers the prefab-authored values that have no CharacterStats field, before any multiplier is applied.</summary>
+        private void CaptureMovementBaseline()
+        {
+            if (movementBaselineCaptured || controller == null) return;
+            baseDoubleJumpForce = controller.DoubleJumpForce;
+            baseDashCooldown = controller.DashCooldown;
+            baseMaxAirJumps = Mathf.Max(1, controller.MaxAirJumps);
+            movementBaselineCaptured = true;
+        }
 
-            // set optional fields if they exist
-            SetControllerProperty("JumpForce", baseStats.jumpForce);
-            SetControllerProperty("DashForce", baseStats.dashForce);
-            SetControllerProperty("DashDuration", baseStats.dashDuration);
+        /// <summary>
+        /// The one place upgrades reach the mechanics: movement stats, ability locks, attack speed,
+        /// finisher force and the dash strike. Runs on spawn and whenever runtime stats refresh.
+        /// </summary>
+        public void ApplyUpgrades()
+        {
+            PlayerRuntimeStats stats = RuntimeStats;
+            if (controller != null)
+            {
+                CaptureMovementBaseline();
+                float baseMove = baseStats != null ? baseStats.moveSpeed : controller.MoveSpeed;
+                float baseJump = baseStats != null ? baseStats.jumpForce : controller.JumpForce;
+                controller.MoveSpeed = stats != null ? stats.Evaluate(PlayerStat.MoveSpeed, baseMove) : baseMove;
+                controller.JumpForce = stats != null ? stats.Evaluate(PlayerStat.JumpForce, baseJump) : baseJump;
+                controller.DoubleJumpForce = stats != null ? stats.Evaluate(PlayerStat.DoubleJumpForce, baseDoubleJumpForce) : baseDoubleJumpForce;
+                controller.DashCooldown = stats != null ? stats.Evaluate(PlayerStat.DashCooldown, baseDashCooldown) : baseDashCooldown;
+                bool dashUnlocked = !lockAbilitiesUntilUpgraded || (stats != null && stats.HasAbility(PlayerAbility.Dash));
+                bool doubleJumpUnlocked = !lockAbilitiesUntilUpgraded || (stats != null && stats.HasAbility(PlayerAbility.DoubleJump));
+                controller.DashEnabled = dashUnlocked;
+                controller.MaxAirJumps = doubleJumpUnlocked ? baseMaxAirJumps : 0;
+            }
+            if (_weaponManager != null)
+            {
+                _weaponManager.AttackSpeedMultiplier = stats != null ? stats.Multiplier(PlayerStat.AttackSpeed) : 1f;
+                _weaponManager.FinisherForceMultiplier = stats != null ? stats.Multiplier(PlayerStat.FinisherForce) : 1f;
+            }
+            if (DashStrike != null)
+                DashStrike.Unlocked = stats != null && stats.HasAbility(PlayerAbility.DashStrike);
         }
 
         public Attribute GetAttribute(AttributeType type) => attributes ? attributes.Get(type) : null;
@@ -272,12 +329,6 @@ namespace junklite
         protected void InstantDeath()
         {
             Kill();
-        }
-
-        private void SetControllerProperty(string prop, object value)
-        {
-            var p = controller.GetType().GetProperty(prop);
-            if (p != null && p.CanWrite) p.SetValue(controller, value);
         }
 
         // ====================================================================
@@ -473,9 +524,6 @@ namespace junklite
                 inputManager.InteractBlocker = () => IsInCombat;
 
                 
-                inputManager.OnCombatModeToggle += HandleCombatModeToggle;
-                inputManager.OnWeapon1Attack += HandleWeapon1Attack;
-                inputManager.OnWeapon2Attack += HandleWeapon2Attack;
                 inputManager.OnModActivate1 += HandleModActivate1;
                 inputManager.OnModActivate2 += HandleModActivate2;
                 inputManager.OnModActivate3 += HandleModActivate3;
@@ -515,9 +563,6 @@ namespace junklite
                 inputManager.InteractBlocker = null;
 
                 // TODO: Unwire when added to GameInputManager
-                inputManager.OnCombatModeToggle -= HandleCombatModeToggle;
-                inputManager.OnWeapon1Attack -= HandleWeapon1Attack;
-                inputManager.OnWeapon2Attack -= HandleWeapon2Attack;
                 inputManager.OnModActivate1 -= HandleModActivate1;
                 inputManager.OnModActivate2 -= HandleModActivate2;
                 inputManager.OnModActivate3 -= HandleModActivate3;
@@ -760,32 +805,8 @@ namespace junklite
             if (playerState == null || !playerState.CanAttack || _weaponManager == null)
                 return;
 
-            // Regular mode: fists (slot 0). Mod combat uses weapon-specific inputs.
-            if (!_weaponManager.IsModCombat)
-                _weaponManager.Attack(0, inputManager.MoveDirection, playerState.IsGrounded);
-        }
-
-        void HandleWeapon1Attack()
-        {
-            if (playerState == null || !playerState.CanAttack || _weaponManager == null)
-                return;
-
-            if (_weaponManager.IsModCombat)
-                _weaponManager.Attack(1, inputManager.MoveDirection, playerState.IsGrounded);
-        }
-
-        void HandleWeapon2Attack()
-        {
-            if (playerState == null || !playerState.CanAttack || _weaponManager == null)
-                return;
-
-            if (_weaponManager.IsModCombat)
-                _weaponManager.Attack(2, inputManager.MoveDirection, playerState.IsGrounded);
-        }
-
-        void HandleCombatModeToggle()
-        {
-            _weaponManager?.TryToggleCombatMode();
+            // One attack input, one weapon: whatever the arm currently carries.
+            _weaponManager.Attack(inputManager.MoveDirection, playerState.IsGrounded);
         }
 
         void HandleModActivate1() => _modManager?.TryActivateMod(0);

@@ -27,7 +27,7 @@ namespace junklite.Editor
             if (createdProfile) ConfigureTrainingTargets();
             AssetDatabase.SaveAssets();
             Selection.activeObject = profile;
-            Debug.Log("[Progression] Installed profile, root service and four player slots. Scenes were not edited.");
+            Debug.Log("[Progression] Installed profile, root services (progression + upgrades) and four player slots. Scenes were not edited.");
         }
 
         private static void ConfigureRoot(string path, PlayerProgressionConfig profile)
@@ -43,6 +43,7 @@ namespace junklite.Editor
                     serialized.FindProperty("config").objectReferenceValue = profile;
                     serialized.ApplyModifiedPropertiesWithoutUndo();
                 }
+                if (root.GetComponent<PlayerUpgrades>() == null) root.AddComponent<PlayerUpgrades>();
                 PrefabUtility.SaveAsPrefabAsset(root, path);
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }

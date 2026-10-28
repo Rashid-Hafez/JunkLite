@@ -37,10 +37,6 @@ namespace junklite
         [SerializeField] private GameObject inventoryPanel;
         [SerializeField] private InventoryUI inventoryUI;
 
-        [Header("Weapon Pickup Panel")]
-        [SerializeField] private GameObject weaponPickupPanel;
-        [SerializeField] private WeaponPickupUI weaponPickupUI;
-
         // Runtime
         private PlayerCharacter player;
         private AttributeManager attributes;
@@ -48,8 +44,6 @@ namespace junklite
         private ModManager _modManager;
         private InventoryComponent inventory;
         private bool isInventoryOpen;
-        private bool isWeaponPickupOpen;
-        private WeaponPickupInteractable activeInteractable;
         private PlayerLifecycle subscribedPlayerLifecycle;
         private PlayerLevelUI levelUI;
 
@@ -142,12 +136,6 @@ namespace junklite
             if (armorBar != null) armorBar.Unbind();
             if (modCombatUI != null) modCombatUI.Unbind();
 
-            if (weaponPickupUI != null)
-            {
-                weaponPickupUI.OnClosed -= HandleWeaponPickupClosed;
-                weaponPickupUI.Unbind();
-            }
-
             player = null;
             attributes = null;
             _weaponManager = null;
@@ -165,12 +153,10 @@ namespace junklite
             if (input != null)
             {
                 input.OnInventoryToggle += HandleInventoryToggle;
-                input.OnInteract += HandleInteract;
                 input.OnUICancel += HandleUICancel;
             }
 
             CloseInventory();
-            CloseWeaponPickup(false);
         }
 
         private void Start()
@@ -187,15 +173,11 @@ namespace junklite
             if (input != null)
             {
                 input.OnInventoryToggle -= HandleInventoryToggle;
-                input.OnInteract -= HandleInteract;
                 input.OnUICancel -= HandleUICancel;
             }
 
             if (isInventoryOpen && GameInputManager.Instance != null)
                 GameInputManager.Instance.SetGameplayInputEnabled(true);
-
-            if (isWeaponPickupOpen && GameInputManager.Instance != null)
-                GameInputManager.Instance.SwitchToPlayerActionMap();
 
             Unbind();
         }
@@ -206,9 +188,6 @@ namespace junklite
 
             if (isInventoryOpen && GameInputManager.Instance != null)
                 GameInputManager.Instance.SetGameplayInputEnabled(true);
-
-            if (isWeaponPickupOpen && GameInputManager.Instance != null)
-                GameInputManager.Instance.SwitchToPlayerActionMap();
 
             Unbind();
         }
@@ -250,25 +229,7 @@ namespace junklite
         private void HandlePlayerDeath()
         {
             if (isInventoryOpen) CloseInventory();
-            if (isWeaponPickupOpen) CloseWeaponPickup(false);
             if (hideOnDeath) SetVisible(false);
-        }
-
-        // -----------------------------------------------------------------------
-        // INTERACT
-        // -----------------------------------------------------------------------
-
-        private void HandleInteract()
-        {
-            if (isWeaponPickupOpen || isInventoryOpen) return;
-            if (player == null || _weaponManager == null) return;
-
-            var interactable = WeaponPickupInteractable.Current;
-            if (interactable == null || interactable.WeaponPickup == null) return;
-
-            activeInteractable = interactable;
-            TutorialPromptHUD.HideInteract(interactable, instant: true);
-            OpenWeaponPickup(interactable.WeaponPickup);
         }
 
         // -----------------------------------------------------------------------
@@ -277,15 +238,12 @@ namespace junklite
 
         private void HandleInventoryToggle()
         {
-            if (isWeaponPickupOpen) return;
-
             if (isInventoryOpen) CloseInventory();
             else OpenInventory();
         }
 
         private void HandleUICancel()
         {
-            if (isWeaponPickupOpen) return;
             if (!isInventoryOpen) return;
             CloseInventory();
         }
@@ -327,61 +285,6 @@ namespace junklite
                 GameInputManager.Instance.SetGameplayInputEnabled(true);
                 GameInputManager.Instance.SwitchToPlayerActionMap();
             }
-        }
-
-        // -----------------------------------------------------------------------
-        // WEAPON PICKUP
-        // -----------------------------------------------------------------------
-
-        private void OpenWeaponPickup(WorldWeaponPickup pickup)
-        {
-            if (isWeaponPickupOpen) return;
-            isWeaponPickupOpen = true;
-
-            if (weaponPickupPanel != null)
-                weaponPickupPanel.SetActive(true);
-
-            if (weaponPickupUI != null)
-            {
-                weaponPickupUI.Bind(_weaponManager, pickup);
-                weaponPickupUI.OnClosed += HandleWeaponPickupClosed;
-            }
-
-            if (GameInputManager.Instance != null)
-                GameInputManager.Instance.SwitchToUIActionMap();
-        }
-
-        private void HandleWeaponPickupClosed(bool pickedUp)
-        {
-            CloseWeaponPickup(!pickedUp);
-        }
-
-        private void CloseWeaponPickup(bool reEnablePrompt)
-        {
-            if (!isWeaponPickupOpen && weaponPickupPanel != null && !weaponPickupPanel.activeSelf)
-            {
-                weaponPickupPanel.SetActive(false);
-                return;
-            }
-
-            isWeaponPickupOpen = false;
-
-            if (weaponPickupUI != null)
-            {
-                weaponPickupUI.OnClosed -= HandleWeaponPickupClosed;
-                weaponPickupUI.Unbind();
-            }
-
-            if (weaponPickupPanel != null)
-                weaponPickupPanel.SetActive(false);
-
-            if (GameInputManager.Instance != null)
-                GameInputManager.Instance.SwitchToPlayerActionMap();
-
-            if (reEnablePrompt && activeInteractable != null)
-                activeInteractable.ReEnablePrompt();
-
-            activeInteractable = null;
         }
 
         // -----------------------------------------------------------------------

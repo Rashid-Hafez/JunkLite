@@ -21,7 +21,7 @@ namespace junklite.Tests
         public void SetUp()
         {
             config = Own(ScriptableObject.CreateInstance<PlayerProgressionConfig>());
-            config.Generate();
+            config.Generate(20, 100, 50, healthPerLevel: 10f, damagePercentPerLevel: 3f);
             // An inactive service never runs Awake or reads/writes the actual player's save.
             var root = Own(new GameObject("Progression Test Service"));
             root.SetActive(false);
@@ -60,14 +60,9 @@ namespace junklite.Tests
             var fists = Own(ScriptableObject.CreateInstance<MeleeWeaponData>());
             fists.baseDamage = 10f;
             SetField(weapons, "fistWeaponData", fists);
-            var loadout = runtime.GetComponent<PlayerWeaponLoadout>();
-            SetField(weapons, "weaponLoadout", loadout);
-            var swordObject = Own(new GameObject("Presentation Sword"));
-            swordObject.SetActive(false);
-            var sword = swordObject.AddComponent<WeaponInstance>();
-            sword.weaponData = Own(ScriptableObject.CreateInstance<MeleeWeaponData>());
-            sword.weaponData.baseDamage = 20f;
-            SetField(loadout, "weaponSlot1", sword);
+            var armament = runtime.gameObject.AddComponent<PlayerArmament>();
+            armament.ApplyDefaultsIfMissing(fists, null);
+            SetField(weapons, "armament", armament);
             return player;
         }
 
@@ -184,7 +179,9 @@ namespace junklite.Tests
             Assert.That(PlainText(FindText("Stats")), Is.EqualTo("HEALTH  90 / 110\nARMOR  5\nDAMAGE  +3%"));
             var fill = Array.Find(root.GetComponentsInChildren<Image>(true), i => i.name == "XP Fill");
             Assert.That(fill.rectTransform.anchorMax.x, Is.EqualTo(0.5f));
-            Call(ui, "HandleWeaponHovered", weapons.Loadout.WeaponSlot1);
+            var hoveredMod = Own(ScriptableObject.CreateInstance<FireModData>());
+            hoveredMod.baseDamage = 20f;
+            Call(ui, "HandleModHovered", new ModInstance(hoveredMod));
             Assert.That(PlainText(FindText("Stats")), Does.Contain("BASE DAMAGE  20"));
             Assert.That(FindText("Description").gameObject.activeSelf, Is.True);
             Assert.That(FindText("Stats").rectTransform.anchoredPosition.y, Is.EqualTo(-344f));
@@ -196,7 +193,6 @@ namespace junklite.Tests
             Call(ui, "LateUpdate");
             Assert.That(FindText("Next Level").text, Is.EqualTo("MAX LEVEL"));
             Assert.That(fill.rectTransform.anchorMax.x, Is.EqualTo(1f));
-            Assert.That(weapons.Loadout.WeaponSlot1.weaponData.baseDamage, Is.EqualTo(20f));
             // EditMode does not run EventSystem's enable lifecycle automatically.
             Call(eventSystem, "OnEnable");
             try
@@ -210,11 +206,9 @@ namespace junklite.Tests
             ui.Unbind();
         }
 
-        [TestCase(5)]
-        [TestCase(7)]
-        public void LockedSlotClickAndControllerConfirmShowConfiguredUnlockLevel(int requiredLevel)
+        [Test]
+        public void LockedSlotClickAndControllerConfirmExplainTheUpgrade()
         {
-            config.activeSlotLevels[1] = requiredLevel;
             var player = MakePresentationPlayer(out var weapons);
             var mods = player.gameObject.AddComponent<ModManager>();
             Call(mods, "Awake");
@@ -231,37 +225,37 @@ namespace junklite.Tests
             Assert.That(slot.GetComponent<Selectable>().IsInteractable(), Is.True);
             ExecuteEvents.Execute(slot.gameObject, new PointerEventData(events), ExecuteEvents.pointerClickHandler);
             TMP_Text description = Array.Find(root.GetComponentsInChildren<TMP_Text>(true), t => t.name == "Description");
-            Assert.That(description.text, Is.EqualTo($"Reach {requiredLevel} level to unlock"));
+            Assert.That(description.text, Does.Contain("Mod Slot upgrade"));
             Assert.That(description.gameObject.activeSelf, Is.True);
             ExecuteEvents.Execute(slot.gameObject, new PointerEventData(events), ExecuteEvents.pointerExitHandler);
             ExecuteEvents.Execute(slot.gameObject, new BaseEventData(events), ExecuteEvents.submitHandler);
-            Assert.That(description.text, Is.EqualTo($"Reach {requiredLevel} level to unlock"));
+            Assert.That(description.text, Does.Contain("Mod Slot upgrade"));
             Assert.That(mods.UnlockedActiveSlots, Is.EqualTo(1));
             Assert.That(mods.GetActiveMod(1), Is.Null, "Inspecting a lock must not equip anything.");
             ui.Unbind();
         }
 
-        [TestCase(1, 0, 1)]
-        [TestCase(5, 700, 2)]
-        [TestCase(10, 2700, 3)]
-        [TestCase(15, 5950, 4)]
-        public void DefaultThresholdsAndSlots(int level, long experience, int slots)
+        [TestCase(1, 0)]
+        [TestCase(5, 700)]
+        [TestCase(10, 2700)]
+        [TestCase(15, 5950)]
+        public void DefaultThresholds(int level, long experience)
         {
             Assert.That(config.ExperienceToReach(level), Is.EqualTo(experience));
             Assert.That(config.LevelForExperience(experience), Is.EqualTo(level));
-            Assert.That(config.ActiveSlotsAt(level), Is.EqualTo(slots));
             if (level > 1) Assert.That(config.LevelForExperience(experience - 1), Is.EqualTo(level - 1));
         }
 
         [Test]
-        public void UnlockScheduleAndIndividualRewardsAreEditable()
+        public void IndividualLevelRewardsAreEditableAndShipEmpty()
         {
-            config.activeSlotLevels = new[] { 1, 3, 8, 12 };
-            config.levels[1].bonuses.Add(new ProgressionStatBonus { stat = ProgressionStat.Armor, flat = 4 });
-            Assert.That(config.ActiveSlotsAt(3), Is.EqualTo(2));
-            Assert.That(config.ActiveSlotsAt(12), Is.EqualTo(4));
-            Assert.That(config.Evaluate(ProgressionStat.Armor, 5, 3), Is.EqualTo(9));
+            config.levels[1].bonuses.Add(new ProgressionStatBonus { stat = PlayerStat.Armor, flat = 4 });
+            Assert.That(config.Evaluate(PlayerStat.Armor, 5, 3), Is.EqualTo(9));
             Assert.That(config.Validate(out _), Is.True);
+            var bare = Own(ScriptableObject.CreateInstance<PlayerProgressionConfig>());
+            bare.Generate();
+            Assert.That(bare.Evaluate(PlayerStat.MaxHealth, 100, bare.MaxLevel), Is.EqualTo(100), "default growth comes from the upgrade tree, not the level table");
+            Assert.That(bare.Validate(out _), Is.True);
         }
 
         [Test]
@@ -316,12 +310,9 @@ namespace junklite.Tests
         }
 
         [Test]
-        public void ValidationRejectsUnreachableSlotsAndInvalidBonuses()
+        public void ValidationRejectsInvalidBonuses()
         {
-            config.activeSlotLevels[3] = 25;
-            Assert.That(config.Validate(out _), Is.False);
-            config.activeSlotLevels[3] = 15;
-            config.levels[0].bonuses.Add(new ProgressionStatBonus { stat = ProgressionStat.MaxHealth, flat = float.NaN });
+            config.levels[0].bonuses.Add(new ProgressionStatBonus { stat = PlayerStat.MaxHealth, flat = float.NaN });
             Assert.That(config.Validate(out _), Is.False);
         }
 
@@ -453,7 +444,7 @@ namespace junklite.Tests
         [Test]
         public void ArmorRewardUpdatesMitigationAndDisplayedValue()
         {
-            config.levels[0].bonuses.Add(new ProgressionStatBonus { stat = ProgressionStat.Armor, flat = 4 });
+            config.levels[0].bonuses.Add(new ProgressionStatBonus { stat = PlayerStat.Armor, flat = 4 });
             var runtime = MakeSource(out var attributes);
             var receiver = runtime.gameObject.AddComponent<Damageable>();
             receiver.Bind(null, attributes, null);
@@ -471,22 +462,23 @@ namespace junklite.Tests
             var manager = root.AddComponent<ModManager>();
             typeof(ModManager).GetMethod("Awake", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 .Invoke(manager, null);
-            manager.ApplyProgressionSlots(1);
+            manager.ApplyUnlockedSlots(0, 0);
             var mod = Own(ScriptableObject.CreateInstance<EnergyWaveMod>());
             var instance = new ModInstance(mod);
             Assert.That(manager.MaxActiveSlots, Is.EqualTo(4));
+            Assert.That(manager.UnlockedActiveSlots, Is.EqualTo(1), "the prefab's starting slot is the floor");
             Assert.That(manager.EquipModAt(instance, true, 1), Is.False);
-            manager.ApplyProgressionSlots(2);
+            manager.ApplyUnlockedSlots(1, 0);
             Assert.That(manager.EquipModAt(instance, true, 1), Is.True);
-            manager.ApplyProgressionSlots(1);
+            manager.ApplyUnlockedSlots(0, 0);
             Assert.That(manager.GetActiveMod(1), Is.SameAs(instance));
             Assert.That(manager.TryActivateMod(1), Is.False);
-            manager.ApplyProgressionSlots(2);
+            manager.ApplyUnlockedSlots(1, 0);
             Assert.That(manager.GetActiveMod(1), Is.SameAs(instance));
         }
 
         [Test]
-        public void ProgressionAutomaticallySynchronizesEverySlotMilestone()
+        public void LevelsAloneNeverUnlockModSlots()
         {
             var runtime = MakeSource(out var attributes);
             var manager = runtime.gameObject.AddComponent<ModManager>();
@@ -494,11 +486,8 @@ namespace junklite.Tests
                 .Invoke(manager, null);
             runtime.Initialize(null, attributes, progression);
             Assert.That(manager.UnlockedActiveSlots, Is.EqualTo(1));
-            foreach (int level in new[] { 5, 10, 15 })
-            {
-                progression.AddExperience((int)(config.ExperienceToReach(level) - progression.TotalExperience));
-                Assert.That(manager.UnlockedActiveSlots, Is.EqualTo(config.ActiveSlotsAt(level)));
-            }
+            progression.AddExperience((int)config.ExperienceToReach(15));
+            Assert.That(manager.UnlockedActiveSlots, Is.EqualTo(1), "slots are bought in the upgrade tree");
         }
 
         [Test]

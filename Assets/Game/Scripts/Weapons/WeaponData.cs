@@ -3,78 +3,35 @@ using UnityEngine;
 namespace junklite
 {
     /// <summary>
-    /// Abstract base for all weapon types. Holds only universal data — identity, stats,
-    /// timing, and socket offsets. Subclasses define their own ComboStep structs and arrays
-    /// containing only fields relevant to their weapon type.
+    /// Read-only configuration for one arm weapon (fists, blades). The player holds exactly
+    /// one of these at a time (see <see cref="PlayerArmament"/>); weapons are permanent
+    /// upgrades, not items, so there is no durability, rarity or slot data here.
+    /// Subclasses define their own combo step structs and arrays.
     /// </summary>
     public abstract class WeaponData : ScriptableObject
     {
-        // =====================================================================
-        // ENUMS
-        // =====================================================================
-
-        public enum Rarity
-        {
-            Common,
-            Uncommon,
-            Rare,
-            Epic,
-            Legendary
-        }
-
-        // =====================================================================
-        // WEAPON IDENTITY
-        // =====================================================================
-
         [Header("Identity")]
+        [Tooltip("Stable id written to the player profile when this weapon is acquired. Never change it on a shipped asset.")]
         public string weaponId;
         public string displayName;
-        [Tooltip("Allows this equipped weapon to be used for sword grappling.")]
+        [Tooltip("Allows this weapon to be used for sword grappling.")]
         public bool enablesSwordGrapple;
-        public WeaponType type;
-        public Rarity rarity;
         public Sprite icon;
 
         [Header("Description")]
         [TextArea(2, 5)]
         public string description;
 
-        // =====================================================================
-        // BASE STATS
-        // =====================================================================
-
         [Header("Base Stats")]
         public float baseDamage = 10f;
-        public float baseAttackSpeed = 1f;
         public Vector2 knockbackForce = new Vector2(8f, 4f);
-        public int maxWeaponDurability = 100;
-        [Tooltip("Durability consumed per confirmed hit")]
-        public float durabilityPerHit = 1f;
-        
-        // =====================================================================
-        // SOCKET OFFSETS
-        // =====================================================================
 
-        [System.Serializable]
-        public struct WeaponSocketOffset
-        {
-            public Vector3 localPositionOffset;
-            public Vector3 localRotationOffsetEuler;
-            public bool flipLocalScaleX;
-            public bool flipLocalScaleY;
-        }
-
-        [Header("Weapon Socket Offsets")]
-        public WeaponSocketOffset socketOffset;
-
-        // =====================================================================
         [Header("Audio")]
         public SoundEntry attackSfx;
         public SoundEntryGroup attackVariants;
-        
-        // =====================================================================
-        // ABSTRACT INTERFACE
-        // =====================================================================
+
+        /// <summary>The id used in the profile; falls back to the asset name for assets authored without one.</summary>
+        public string ProfileId => string.IsNullOrEmpty(weaponId) ? name : weaponId;
 
         public abstract int GetComboLength(AttackDirection dir, bool isGrounded);
         public abstract bool TryGetAnimationName(AttackDirection dir, int comboIndex, bool isGrounded, out string animationName);

@@ -113,39 +113,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""priority"": 0
                 },
                 {
-                    ""name"": ""CombatMode"",
-                    ""type"": ""Button"",
-                    ""id"": ""eb480090-2738-47ce-b87e-cfe4a5f97717"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false,
-                    ""priority"": 0
-                },
-                {
                     ""name"": ""Attack"",
                     ""type"": ""Button"",
                     ""id"": ""f7aec838-f980-4f59-a2b7-d45e5ee5980f"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false,
-                    ""priority"": 0
-                },
-                {
-                    ""name"": ""Weapon1Attack"",
-                    ""type"": ""Button"",
-                    ""id"": ""6c2ab1b8-8984-453a-af3d-a3c78ae1679a"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false,
-                    ""priority"": 0
-                },
-                {
-                    ""name"": ""Weapon2Attack"",
-                    ""type"": ""Button"",
-                    ""id"": ""92c4f524-6c64-4066-86b6-8e64f35dd1ee"",
                     ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
@@ -511,28 +481,6 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                 },
                 {
                     ""name"": """",
-                    ""id"": ""05f6913d-c316-48b2-a6bb-e225f14c7960"",
-                    ""path"": ""<Mouse>/leftButton"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": "";Keyboard&Mouse"",
-                    ""action"": ""Weapon1Attack"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""69d02520-0cad-4a59-bf16-8f97a6a587a6"",
-                    ""path"": ""<Gamepad>/buttonWest"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": "";Gamepad"",
-                    ""action"": ""Weapon1Attack"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
                     ""id"": ""a1502303-96d7-45e2-a37a-5b239af79124"",
                     ""path"": ""<Mouse>/leftButton"",
                     ""interactions"": """",
@@ -550,28 +498,6 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""groups"": "";Gamepad"",
                     ""action"": ""Attack"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""ecdb826c-18ac-4d32-8ee6-c0a6f4759461"",
-                    ""path"": ""<Mouse>/rightButton"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": "";Keyboard&Mouse"",
-                    ""action"": ""Weapon2Attack"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""b0fa85bf-4ab8-4acd-aead-2963e4749e63"",
-                    ""path"": ""<Gamepad>/buttonNorth"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": "";Gamepad"",
-                    ""action"": ""Weapon2Attack"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
@@ -847,28 +773,6 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""groups"": "";Touch"",
                     ""action"": ""Inventory"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""32001f6c-d3ea-4ef3-a2fc-5bc713b72186"",
-                    ""path"": ""<Keyboard>/q"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": """",
-                    ""action"": ""CombatMode"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""65529429-8814-4f66-946c-e2e01f7f61a5"",
-                    ""path"": ""<Gamepad>/leftStickPress"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": "";Gamepad"",
-                    ""action"": ""CombatMode"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
@@ -1687,10 +1591,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_Player = asset.FindActionMap("Player", throwIfNotFound: true);
         m_Player_Move = m_Player.FindAction("Move", throwIfNotFound: true);
         m_Player_Look = m_Player.FindAction("Look", throwIfNotFound: true);
-        m_Player_CombatMode = m_Player.FindAction("CombatMode", throwIfNotFound: true);
         m_Player_Attack = m_Player.FindAction("Attack", throwIfNotFound: true);
-        m_Player_Weapon1Attack = m_Player.FindAction("Weapon1Attack", throwIfNotFound: true);
-        m_Player_Weapon2Attack = m_Player.FindAction("Weapon2Attack", throwIfNotFound: true);
         m_Player_ModActivate1 = m_Player.FindAction("ModActivate1", throwIfNotFound: true);
         m_Player_ModActivate2 = m_Player.FindAction("ModActivate2", throwIfNotFound: true);
         m_Player_ModActivate3 = m_Player.FindAction("ModActivate3", throwIfNotFound: true);
@@ -1806,10 +1707,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     private List<IPlayerActions> m_PlayerActionsCallbackInterfaces = new List<IPlayerActions>();
     private readonly InputAction m_Player_Move;
     private readonly InputAction m_Player_Look;
-    private readonly InputAction m_Player_CombatMode;
     private readonly InputAction m_Player_Attack;
-    private readonly InputAction m_Player_Weapon1Attack;
-    private readonly InputAction m_Player_Weapon2Attack;
     private readonly InputAction m_Player_ModActivate1;
     private readonly InputAction m_Player_ModActivate2;
     private readonly InputAction m_Player_ModActivate3;
@@ -1849,21 +1747,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// </summary>
         public InputAction @Look => m_Wrapper.m_Player_Look;
         /// <summary>
-        /// Provides access to the underlying input action "Player/CombatMode".
-        /// </summary>
-        public InputAction @CombatMode => m_Wrapper.m_Player_CombatMode;
-        /// <summary>
         /// Provides access to the underlying input action "Player/Attack".
         /// </summary>
         public InputAction @Attack => m_Wrapper.m_Player_Attack;
-        /// <summary>
-        /// Provides access to the underlying input action "Player/Weapon1Attack".
-        /// </summary>
-        public InputAction @Weapon1Attack => m_Wrapper.m_Player_Weapon1Attack;
-        /// <summary>
-        /// Provides access to the underlying input action "Player/Weapon2Attack".
-        /// </summary>
-        public InputAction @Weapon2Attack => m_Wrapper.m_Player_Weapon2Attack;
         /// <summary>
         /// Provides access to the underlying input action "Player/ModActivate1".
         /// </summary>
@@ -1972,18 +1858,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @Look.started += instance.OnLook;
             @Look.performed += instance.OnLook;
             @Look.canceled += instance.OnLook;
-            @CombatMode.started += instance.OnCombatMode;
-            @CombatMode.performed += instance.OnCombatMode;
-            @CombatMode.canceled += instance.OnCombatMode;
             @Attack.started += instance.OnAttack;
             @Attack.performed += instance.OnAttack;
             @Attack.canceled += instance.OnAttack;
-            @Weapon1Attack.started += instance.OnWeapon1Attack;
-            @Weapon1Attack.performed += instance.OnWeapon1Attack;
-            @Weapon1Attack.canceled += instance.OnWeapon1Attack;
-            @Weapon2Attack.started += instance.OnWeapon2Attack;
-            @Weapon2Attack.performed += instance.OnWeapon2Attack;
-            @Weapon2Attack.canceled += instance.OnWeapon2Attack;
             @ModActivate1.started += instance.OnModActivate1;
             @ModActivate1.performed += instance.OnModActivate1;
             @ModActivate1.canceled += instance.OnModActivate1;
@@ -2058,18 +1935,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @Look.started -= instance.OnLook;
             @Look.performed -= instance.OnLook;
             @Look.canceled -= instance.OnLook;
-            @CombatMode.started -= instance.OnCombatMode;
-            @CombatMode.performed -= instance.OnCombatMode;
-            @CombatMode.canceled -= instance.OnCombatMode;
             @Attack.started -= instance.OnAttack;
             @Attack.performed -= instance.OnAttack;
             @Attack.canceled -= instance.OnAttack;
-            @Weapon1Attack.started -= instance.OnWeapon1Attack;
-            @Weapon1Attack.performed -= instance.OnWeapon1Attack;
-            @Weapon1Attack.canceled -= instance.OnWeapon1Attack;
-            @Weapon2Attack.started -= instance.OnWeapon2Attack;
-            @Weapon2Attack.performed -= instance.OnWeapon2Attack;
-            @Weapon2Attack.canceled -= instance.OnWeapon2Attack;
             @ModActivate1.started -= instance.OnModActivate1;
             @ModActivate1.performed -= instance.OnModActivate1;
             @ModActivate1.canceled -= instance.OnModActivate1;
@@ -2453,33 +2321,12 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnLook(InputAction.CallbackContext context);
         /// <summary>
-        /// Method invoked when associated input action "CombatMode" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-        /// </summary>
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnCombatMode(InputAction.CallbackContext context);
-        /// <summary>
         /// Method invoked when associated input action "Attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
         /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnAttack(InputAction.CallbackContext context);
-        /// <summary>
-        /// Method invoked when associated input action "Weapon1Attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-        /// </summary>
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnWeapon1Attack(InputAction.CallbackContext context);
-        /// <summary>
-        /// Method invoked when associated input action "Weapon2Attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-        /// </summary>
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnWeapon2Attack(InputAction.CallbackContext context);
         /// <summary>
         /// Method invoked when associated input action "ModActivate1" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>

@@ -27,6 +27,8 @@ namespace junklite
 
         private bool isActive;
         private bool developerSlotOverride;
+        private int baseActiveSlots;
+        private int basePassiveSlots;
 
         #endregion
 
@@ -61,18 +63,19 @@ namespace junklite
 
             unlockedActiveSlots = Mathf.Clamp(unlockedActiveSlots, 0, maxActiveSlots);
             unlockedPassiveSlots = Mathf.Clamp(unlockedPassiveSlots, 0, maxPassiveSlots);
+            // The prefab's starting counts are the floor; upgrade nodes add to them.
+            baseActiveSlots = unlockedActiveSlots;
+            basePassiveSlots = unlockedPassiveSlots;
         }
 
         private void OnEnable()
         {
             if (weaponManager != null)
-            {
-                weaponManager.OnCombatModeChanged += OnCombatModeChanged;
                 weaponManager.OnEnemyHit += OnEnemyHit;
 
-                if (weaponManager.IsModCombat)
-                    Activate();
-            }
+            // Mods are always live: there is no combat mode to enter. Installed mods are
+            // enabled while this component is, and disabled (executions cancelled) with it.
+            Activate();
         }
 
         private void OnDisable()
@@ -80,23 +83,12 @@ namespace junklite
             Deactivate();
 
             if (weaponManager != null)
-            {
-                weaponManager.OnCombatModeChanged -= OnCombatModeChanged;
                 weaponManager.OnEnemyHit -= OnEnemyHit;
-            }
         }
 
         #endregion
 
-        #region Combat Mode
-
-        private void OnCombatModeChanged()
-        {
-            if (weaponManager.IsModCombat)
-                Activate();
-            else
-                Deactivate();
-        }
+        #region Enable / Disable
 
         private void Activate()
         {
@@ -335,59 +327,66 @@ namespace junklite
             OnModSlotsChanged?.Invoke();
         }
 
+        /// <summary>Developer override: unlock one more active slot regardless of upgrades.</summary>
         public void UnlockActiveSlot()
         {
             developerSlotOverride = true;
             if (unlockedActiveSlots < maxActiveSlots)
-            {
-                unlockedActiveSlots++;
-                OnModSlotsChanged?.Invoke();
-            }
+                SetUnlockedCounts(unlockedActiveSlots + 1, unlockedPassiveSlots);
         }
 
+        /// <summary>Developer override: unlock one more passive slot regardless of upgrades.</summary>
         public void UnlockPassiveSlot()
         {
+            developerSlotOverride = true;
             if (unlockedPassiveSlots < maxPassiveSlots)
-            {
-                unlockedPassiveSlots++;
-                OnModSlotsChanged?.Invoke();
-            }
+                SetUnlockedCounts(unlockedActiveSlots, unlockedPassiveSlots + 1);
         }
 
-        public int GetActiveSlotUnlockLevel(int index)
-        {
-            var progression = playerCharacter != null ? playerCharacter.RuntimeStats?.Progression : null;
-            progression ??= PlayerProgression.Instance;
-            return progression != null && progression.Config != null ? progression.Config.SlotUnlockLevel(index) : 0;
-        }
-
-        public void ApplyProgressionSlots(int count)
+        /// <summary>
+        /// Unlocked slots = the prefab's starting slots plus the extra slots bought in the upgrade tree.
+        /// Called by <see cref="PlayerRuntimeStats"/> on every upgrade change. Installed items in slots that
+        /// become locked are retained but suspended.
+        /// </summary>
+        public void ApplyUnlockedSlots(int extraActive, int extraPassive)
         {
             if (developerSlotOverride || activeSlots == null) return;
-            count = Mathf.Clamp(count, 0, maxActiveSlots);
-            if (count == unlockedActiveSlots) return;
-            // Retain installed items during a developer preview or configuration rebalance,
-            // but suspend executions/bonuses in slots that become locked.
-            for (int i = count; i < unlockedActiveSlots; i++)
+            SetUnlockedCounts(baseActiveSlots + Mathf.Max(0, extraActive), basePassiveSlots + Mathf.Max(0, extraPassive));
+        }
+
+        private void SetUnlockedCounts(int active, int passive)
+        {
+            active = Mathf.Clamp(active, 0, maxActiveSlots);
+            passive = Mathf.Clamp(passive, 0, maxPassiveSlots);
+            if (active == unlockedActiveSlots && passive == unlockedPassiveSlots) return;
+            ResizeUnlocked(activeSlots, ref unlockedActiveSlots, active);
+            ResizeUnlocked(passiveSlots, ref unlockedPassiveSlots, passive);
+            OnModSlotsChanged?.Invoke();
+        }
+
+        private void ResizeUnlocked(ModInstance[] slots, ref int unlocked, int count)
+        {
+            if (count == unlocked) return;
+            for (int i = count; i < unlocked; i++)
             {
-                var mod = activeSlots[i];
+                var mod = slots[i];
                 if (mod == null) continue;
                 executionRunner?.Cancel(mod);
                 if (isActive) mod.Data.OnCombatModeExited(mod, playerCharacter);
             }
             if (isActive)
-                for (int i = unlockedActiveSlots; i < count; i++)
-                    if (activeSlots[i] != null && !activeSlots[i].IsBroken)
-                        activeSlots[i].Data.OnCombatModeEntered(activeSlots[i], playerCharacter);
-            unlockedActiveSlots = count;
-            OnModSlotsChanged?.Invoke();
+                for (int i = unlocked; i < count; i++)
+                    if (slots[i] != null && !slots[i].IsBroken)
+                        slots[i].Data.OnCombatModeEntered(slots[i], playerCharacter);
+            unlocked = count;
         }
 
         public void ClearDeveloperSlotOverride()
         {
             developerSlotOverride = false;
-            if (PlayerProgression.Instance != null)
-                ApplyProgressionSlots(PlayerProgression.Instance.Config.ActiveSlotsAt(PlayerProgression.Instance.Level));
+            PlayerUpgrades upgrades = PlayerUpgrades.Instance;
+            ApplyUnlockedSlots(upgrades != null ? upgrades.ExtraModSlots(ModSlotKind.Active) : 0,
+                upgrades != null ? upgrades.ExtraModSlots(ModSlotKind.Passive) : 0);
         }
 
         #endregion

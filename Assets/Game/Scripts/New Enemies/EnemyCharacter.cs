@@ -648,8 +648,10 @@ namespace junklite
                             return result;
                     }
 
-                    // A spike on a grounded enemy is a normal hit pushed sideways only.
-                    if (request.HitReaction.IsSpike)
+                    // A spike on a grounded enemy, or a launch on one that cannot be launched
+                    // (Hyena, Robot, Brute, dummies), is a normal hit pushed sideways only: the
+                    // launch's knockback is mostly upward and would throw it into the air.
+                    if (request.HitReaction.IsSpike || request.HitReaction.IsLaunch)
                         request.KnockbackForce = new Vector2(request.KnockbackForce.x, 0f);
 
                     // 1. Knockback FIRST — starts the push immediately

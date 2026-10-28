@@ -17,6 +17,9 @@ namespace junklite
         [Tooltip("XP for a player-attributed lethal hit. Use 0 for training targets or scripted enemies.")]
         [SerializeField, Min(0)] private int experienceReward = 25;
         public int ExperienceReward => experienceReward;
+        [Tooltip("Upgrade points for a player-attributed lethal hit. Bosses: 1. Granted once per profile per enemy object (scene + name).")]
+        [SerializeField, Min(0)] private int upgradePointReward = 0;
+        public int UpgradePointReward => upgradePointReward;
 
         [HideInInspector] public AttributeManager attributes;
         protected Damageable damageable;
@@ -60,6 +63,8 @@ namespace junklite
             {
                 var owner = request.Source.GetComponentInParent<PlayerRuntimeStats>(true);
                 owner?.Progression?.AddExperience(experienceReward);
+                if (upgradePointReward > 0 && owner != null)
+                    owner.Upgrades?.TryCollectPoints($"{gameObject.scene.name}/{gameObject.name}", upgradePointReward);
             }
             return result;
         }

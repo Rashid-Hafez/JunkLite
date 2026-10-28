@@ -64454,7 +64454,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1752394634}
-  - component: {fileID: 1752394633}
   m_Layer: 0
   m_Name: Projectile Manager
   m_TagString: Untagged
@@ -64462,20 +64461,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1752394633
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1752394632}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d45d21299eaeb224ab8b019f64b8a375, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.ProjectileManager
-  prewarmCount: 10
-  poolParent: {fileID: 1036789350}
 --- !u!4 &1752394634
 Transform:
   m_ObjectHideFlags: 0

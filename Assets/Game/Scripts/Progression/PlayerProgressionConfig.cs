@@ -4,14 +4,13 @@ using UnityEngine;
 
 namespace junklite
 {
-    public enum ProgressionStat { MaxHealth, OutgoingDamage, Armor }
     public enum LevelUpHealthPolicy { KeepCurrent, KeepPercentage, AddCapacity, FullHeal }
     public enum ProgressionMigrationPolicy { PreserveLevelAndProgress, PreserveTotalExperience }
 
     [Serializable]
     public struct ProgressionStatBonus
     {
-        public ProgressionStat stat;
+        public PlayerStat stat;
         public float flat;
         [Tooltip("Additive percentage points: 3 means +3%, not x3.")]
         public float percent;
@@ -22,10 +21,14 @@ namespace junklite
     {
         [Min(1), Tooltip("XP needed from the preceding level. Entry 0 grants level 2.")]
         public int experienceRequired = 100;
-        [Tooltip("Bonuses earned at this level, added to earlier level rewards.")]
+        [Tooltip("Optional automatic bonuses earned at this level. The shipped profile leaves these empty: growth comes from the upgrade tree.")]
         public List<ProgressionStatBonus> bonuses = new();
     }
 
+    /// <summary>
+    /// XP table and level-up presentation. Each earned level grants upgrade points
+    /// (<see cref="UpgradeTreeConfig.pointsPerLevel"/>); per-level stat bonuses remain supported but ship empty.
+    /// </summary>
     [CreateAssetMenu(menuName = "Junklite/Progression/Player Progression", fileName = "PlayerProgressionConfig")]
     public sealed class PlayerProgressionConfig : ScriptableObject
     {
@@ -34,8 +37,6 @@ namespace junklite
         [Min(1)] public int revision = 1;
         public ProgressionMigrationPolicy migrationPolicy = ProgressionMigrationPolicy.PreserveLevelAndProgress;
         public LevelUpHealthPolicy healthPolicy = LevelUpHealthPolicy.AddCapacity;
-        [Tooltip("Required levels for active slots 1..4, in ascending order. Repeated levels unlock together.")]
-        public int[] activeSlotLevels = { 1, 5, 10, 15 };
         [Tooltip("Entry 0 = level 2. The last entry determines the maximum level.")]
         public List<ProgressionLevel> levels = new();
 
@@ -86,23 +87,7 @@ namespace junklite
             return MaxLevel;
         }
 
-        public int ActiveSlotsAt(int level)
-        {
-            int count = 0;
-            if (activeSlotLevels == null) return count;
-            for (int i = 0; i < Mathf.Min(4, activeSlotLevels.Length); i++)
-            {
-                if (level < activeSlotLevels[i]) break;
-                count++;
-            }
-            return count;
-        }
-
-        public int SlotUnlockLevel(int index) =>
-            activeSlotLevels != null && index >= 0 && index < activeSlotLevels.Length
-                ? activeSlotLevels[index] : 0;
-
-        public ProgressionStatBonus BonusAt(ProgressionStat stat, int level)
+        public ProgressionStatBonus BonusAt(PlayerStat stat, int level)
         {
             var total = new ProgressionStatBonus { stat = stat };
             for (int i = 0; i < Mathf.Clamp(level - 1, 0, MaxLevel - 1); i++)
@@ -118,47 +103,46 @@ namespace junklite
             return total;
         }
 
-        public float Evaluate(ProgressionStat stat, float baseValue, int level)
+        public float Evaluate(PlayerStat stat, float baseValue, int level)
         {
             ProgressionStatBonus bonus = BonusAt(stat, level);
             return Mathf.Max(0f, (baseValue + bonus.flat) * (1f + bonus.percent * 0.01f));
         }
 
+        /// <summary>
+        /// Builds the XP table. Per-level stat growth defaults to zero because growth is bought in the
+        /// upgrade tree; pass values to generate the old automatic rewards.
+        /// </summary>
         public void Generate(int maximumLevel = 20, int initialCost = 100, int costGrowth = 50,
-            float healthPerLevel = 10f, float damagePercentPerLevel = 3f)
+            float healthPerLevel = 0f, float damagePercentPerLevel = 0f)
         {
             levels = new List<ProgressionLevel>();
             for (int level = 2; level <= Mathf.Clamp(maximumLevel, 2, 1000); level++)
             {
-                levels.Add(new ProgressionLevel
+                var entry = new ProgressionLevel
                 {
                     experienceRequired = (int)Math.Min(int.MaxValue,
                         Math.Max(1L, (long)initialCost + (long)(level - 2) * costGrowth)),
-                    bonuses = new List<ProgressionStatBonus>
-                    {
-                        new() { stat = ProgressionStat.MaxHealth, flat = healthPerLevel },
-                        new() { stat = ProgressionStat.OutgoingDamage, percent = damagePercentPerLevel }
-                    }
-                });
+                    bonuses = new List<ProgressionStatBonus>()
+                };
+                if (healthPerLevel > 0f)
+                    entry.bonuses.Add(new ProgressionStatBonus { stat = PlayerStat.MaxHealth, flat = healthPerLevel });
+                if (damagePercentPerLevel > 0f)
+                    entry.bonuses.Add(new ProgressionStatBonus { stat = PlayerStat.OutgoingDamage, percent = damagePercentPerLevel });
+                levels.Add(entry);
             }
         }
 
         public bool Validate(out string error)
         {
             if (revision < 1 || levels == null || levels.Count == 0)
-            { error = "A positive revision and at least one level reward are required."; return false; }
-            if (activeSlotLevels == null || activeSlotLevels.Length != 4 || activeSlotLevels[0] != 1)
-            { error = "Configure four active slot levels; the first slot must unlock at level 1."; return false; }
-            for (int i = 0; i < 4; i++)
-                if (activeSlotLevels[i] < 1 || activeSlotLevels[i] > MaxLevel ||
-                    (i > 0 && activeSlotLevels[i] < activeSlotLevels[i - 1]))
-                { error = "Slot levels must be ascending and within the level table."; return false; }
+            { error = "A positive revision and at least one level are required."; return false; }
             foreach (var level in levels)
             {
                 if (level == null || level.experienceRequired < 1 || level.bonuses == null)
                 { error = "Every level needs a positive XP cost and a bonus list."; return false; }
                 foreach (var bonus in level.bonuses)
-                    if (!Enum.IsDefined(typeof(ProgressionStat), bonus.stat) ||
+                    if (!Enum.IsDefined(typeof(PlayerStat), bonus.stat) ||
                         !float.IsFinite(bonus.flat) || !float.IsFinite(bonus.percent) ||
                         bonus.flat < 0f || bonus.percent < 0f)
                     { error = "Stat rewards must use supported stats and finite, non-negative values."; return false; }

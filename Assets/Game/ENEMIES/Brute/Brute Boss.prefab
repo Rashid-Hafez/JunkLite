@@ -5033,6 +5033,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GruntEnemy
   baseStats: {fileID: 11400000, guid: a9bbb670399f84448928422c8d99a77c, type: 2}
   experienceReward: 25
+  upgradePointReward: 1
   attributes: {fileID: 0}
   config: {fileID: 11400000, guid: c5c0ff987fbdb654dbb975aa3831b41d, type: 2}
   soundProfile: {fileID: 11400000, guid: a5afdc28a8b9f4b9ab9035e1a4cc5b9a, type: 2}
@@ -5118,7 +5119,7 @@ MonoBehaviour:
   groundCheckDistance: 0.1
   groundLayers:
     serializedVersion: 2
-    m_Bits: 2048
+    m_Bits: 6145
   settledGroundCheckInterval: 3
 --- !u!114 &3043498055550172741
 MonoBehaviour:

@@ -4,17 +4,28 @@ using UnityEngine;
 
 namespace junklite
 {
+    /// <summary>
+    /// One small character profile: experience plus permanent upgrades. Version 1 saves (XP only)
+    /// load with empty upgrade data. No scene, inventory or transient combat state.
+    /// </summary>
     [Serializable]
     public sealed class ProgressionSaveData
     {
-        public int version = 1;
+        public const int CurrentVersion = 2;
+
+        public int version = CurrentVersion;
         public int configRevision;
         public long totalExperience;
         public int level = 1;
         public double levelProgress;
+
+        // Version 2: permanent upgrades.
+        public int bonusUpgradePoints;
+        public string[] purchasedUpgrades = Array.Empty<string>();
+        public string[] ownedWeapons = Array.Empty<string>();
+        public string[] collectedPointSources = Array.Empty<string>();
     }
 
-    /// <summary>One small character profile. No scene, inventory or transient combat state.</summary>
     public sealed class ProgressionSaveStore
     {
         private readonly string path;
@@ -47,9 +58,16 @@ namespace junklite
                 // JsonUtility otherwise accepts empty objects as a new save.
                 if (!json.Contains("\"totalExperience\"") || !json.Contains("\"version\"")) return false;
                 data = JsonUtility.FromJson<ProgressionSaveData>(json);
-                return data != null && data.version == 1 && data.totalExperience >= 0 &&
-                    data.level >= 1 && !double.IsNaN(data.levelProgress) &&
-                    !double.IsInfinity(data.levelProgress) && data.levelProgress >= 0 && data.levelProgress <= 1;
+                if (data == null || data.version < 1 || data.version > ProgressionSaveData.CurrentVersion ||
+                    data.totalExperience < 0 || data.level < 1 || double.IsNaN(data.levelProgress) ||
+                    double.IsInfinity(data.levelProgress) || data.levelProgress < 0 || data.levelProgress > 1 ||
+                    data.bonusUpgradePoints < 0)
+                    return false;
+                data.purchasedUpgrades ??= Array.Empty<string>();
+                data.ownedWeapons ??= Array.Empty<string>();
+                data.collectedPointSources ??= Array.Empty<string>();
+                data.version = ProgressionSaveData.CurrentVersion;
+                return true;
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is ArgumentException)
             { return false; }

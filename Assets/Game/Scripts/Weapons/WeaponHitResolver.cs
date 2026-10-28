@@ -2,6 +2,13 @@ using UnityEngine;
 
 namespace junklite
 {
+    public enum AttackHitResult
+    {
+        None,
+        Enemy,
+        Environment
+    }
+
     internal readonly struct WeaponHitDetectionResult
     {
         public AttackHitResult Type { get; }
@@ -43,8 +50,14 @@ namespace junklite
             this.environmentLayer = environmentLayer;
         }
 
-        public WeaponHitDetectionResult Detect(Vector3 origin, float radius, bool piercing)
+        /// <summary>
+        /// Overlaps a sphere at <paramref name="origin"/>. Non-piercing hits return the one enemy nearest
+        /// <paramref name="attacker"/> (the front of a pack, never the one standing behind it); piercing
+        /// hits return every enemy in the sphere.
+        /// </summary>
+        public WeaponHitDetectionResult Detect(Vector3 origin, float radius, bool piercing, Vector3? attacker = null)
         {
+            Vector3 reference = attacker ?? origin;
             int hitCount = QueryOverlaps(origin, radius);
 
             Collider closestEnemy = null;
@@ -67,7 +80,9 @@ namespace junklite
                         continue;
                     }
 
-                    float distance = Vector3.Distance(origin, hit.transform.position);
+                    // Nearest body surface to the attacker: the enemy in front, not the one whose
+                    // centre happens to sit closest to the middle of the swing.
+                    float distance = (hit.ClosestPointOnBounds(reference) - reference).sqrMagnitude;
                     if (distance < closestDistance)
                     {
                         closestDistance = distance;

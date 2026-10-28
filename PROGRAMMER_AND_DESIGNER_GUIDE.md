@@ -13,7 +13,7 @@ Read this before working on JunkLite, with or without AI agents. It's the short 
 - You move **left and right on a lane**. A lane is a straight line along world X or Z.
 - **The world rotates.** At the end of a lane, a **Camera Switch Trigger** swings the camera 90°, puts you on a new lane, and the level continues. The reference is `Scenes/Level 1/V2/Rooftop Scene v2`.
 - **Free-move rooms** (safe and explore rooms, e.g. Service Floor Room 0) lead into lane rooms through a door. You press **E to proceed**, which snaps you onto the lane.
-- **Combat / mod mode.** **Q** or a left-stick click toggles it. It needs a weapon. Weapons show and mods become active.
+- **Always armed.** There is no combat mode. Cassidy fights with her fists from the start and mods are always live. The **blades** are a permanent arm upgrade: press **E** on the pickup and the fists are replaced for good.
 
 ---
 
@@ -101,13 +101,13 @@ Place them roughly on the lane, then run **Tools > JunkLite > Level > Snap All E
 - **Switch players** on the **Player Lifecycle** component of `Game Root` / `Game Manager` (prefabs under `Prefabs/Manager/`): tick **Use New Player** for `Player_Cass`, untick it to playtest with the old `Player_2.2`. It applies on the next spawn after a scene load.
 - **Cass never flips by scale.** She has two skeletons, `Cass_R` (facing right) and `Cass_L` (facing left), under `BODY SPINE`; the **Spine Animation Controller** swaps them. Both need the same animation names and the `RightHand` bone (the weapon hand).
 - **Anything with a left/right offset** on the new player needs a **Facing Mirror**: author it for facing right. Tick **Turn On Y** for VFX groups so their particles and children mirror too. Code must read `Character2D5Controller.IsFacingRight` / `FacingSign`, never `localScale.x`.
-- **Weapon draw order:** **Player Weapon Loadout > Weapon Sorting Order Facing Left** puts the weapon behind the body when the right hand is the far arm.
+- **Weapon draw order:** **Player Armament > Weapon Sorting Order Facing Left** puts the held visual behind the body when the right hand is the far arm. The blades visual is the authored, inactive `Blades Visual` child of `Weaponsocket`; `PlayerArmament` only toggles it.
 
 ## 5. Dev tools
 
 | Tool | Where | Use |
 | --- | --- | --- |
-| **Dev Console** (in-game) | Starts hidden each Play session, even with saved access enabled. **F10** enables/opens or hides it (Editor only). Explicitly enabling **JunkLite > Dev Tools > Enable In-Game Panel** or the pause-menu switch during play opens it. Status window: **JunkLite > Dev Tools Console**. | Player tab: infinite ammo and durability, heal, invincible, unlock mod slots, clear inventory, defeat, respawn. Spawn tab: enemies, weapons, mods. Mods tab and Run tab (run control). Disabling tools hides their UI and clears overrides; F10 remains available. |
+| **Dev Console** (in-game) | Starts hidden each Play session, even with saved access enabled. **F10** enables/opens or hides it (Editor only). Explicitly enabling **JunkLite > Dev Tools > Enable In-Game Panel** or the pause-menu switch during play opens it. Status window: **JunkLite > Dev Tools Console**. | Player tab: infinite mod durability, heal, invincible, unlock mod slots, +1 upgrade point, reset upgrades, clear inventory, defeat, respawn. Spawn tab: enemies, mods; Grant Blades / Revert To Fists. Mods tab and Run tab (run control). Disabling tools hides their UI and clears overrides; F10 remains available. |
 | **Performance overlay** | Starts hidden; **F9** in Play mode shows/hides it. | FPS, frame time, and a spike graph. Spikes are logged to CSV (**Tools > JunkLite > Performance > Open Frame Spike Logs**). |
 | **Level tools** | **Tools > JunkLite > Level** | Snap Selected / Snap All Enemies To Lane Path; Replace Mesh Colliders With Boxes; Remove Mesh Colliders. Each is one Undo step. |
 | **Validators** | **Tools > JunkLite > Systems > Validate**, **Validate Enemies**, **Validate Encounters** | Check scene setup: Game Root, cameras, enemies, encounters. |
@@ -119,7 +119,7 @@ Place them roughly on the lane, then run **Tools > JunkLite > Level > Snap All E
 
 **Investigating stutters:** reproduce with F10 and movement, then open the latest frame-spike CSV after leaving Play Mode. The `frame` column identifies the preceding completed gameplay frame. New captures include the last F10 command, its duration and age in frames, GC collection time, synchronous audio/asset loading, and logger disk I/O. `-1` means a counter is unavailable. `delayed_*` CPU/GPU timings arrive several frames late and are context only; they do not identify the cause of that row's hitch. Allocation volume alone does not prove a collection. Subsystem timings can overlap (physics includes trigger callbacks); compare candidates with the Unity Profiler timeline. Severe consecutive hitches (100 ms+) bypass the normal log cooldown.
 
-The console resolves its spawn prefabs when it is created. Infinite ammo/durability still updates equipped items each frame, but world-weapon discovery runs four times per second and immediately after commands/toggles. Level startup prepares the combat music and initializes DOTween so first contact does not pay those initialization costs. These changes require no Inspector wiring.
+The console resolves its spawn prefabs when it is created. Infinite mod durability still updates equipped and stored mods each frame. Level startup prepares the combat music and initializes DOTween so first contact does not pay those initialization costs. These changes require no Inspector wiring.
 
 ---
 
@@ -129,13 +129,15 @@ The console resolves its spawn prefabs when it is created. Infinite ammo/durabil
 - **Never store runtime state on an SO** (current HP, cooldown timers, charges, durability left). SOs are shared assets, so state written to one leaks between instances and into the next play session in the Editor.
 - Runtime state lives on an **instance** created from the SO:
   - `ModData` → `ModInstance` (a plain C# object per slot)
-  - `WeaponData` → `WeaponInstance` (a component on the spawned weapon)
+  - `WeaponData` → the player's `PlayerArmament` holds the current one; combo/cooldown state lives in `WeaponManager`'s `CombatState`
 
 | Create menu (right-click > Create) | Asset | What it configures |
 | --- | --- | --- |
 | Junklite/Mods/… (Fire, Electric, Lifesteal, Pogo, Energy Wave, Pulse Barrier, Phantom Strike, Social Distance, Dont Blink) | `ModData` subclasses | Mod name, icon, rarity, element, damage, charges, cooldown, VFX prefab |
-| Junklite/Melee Weapon Data, Junklite/Ranged Weapon Data | `WeaponData` | Weapon stats, combos, projectiles |
+| Junklite/Melee Weapon Data | `WeaponData` | Arm weapon stats and combos (Fist, Sword). Acquired permanently through a `WeaponUpgradePickup`; no durability |
 | Junklite/Character Stats | `CharacterStats` | Player base stats (e.g. `Player Stats.asset`) |
+| Junklite/Progression/Upgrade Tree | `UpgradeTreeConfig` | The whole upgrade tree: branches, nodes, costs, prerequisites, effects (`Resources/UpgradeTreeConfig.asset`) |
+| Junklite/Progression/Player Progression | `PlayerProgressionConfig` | XP table and level-up presentation (`Resources/PlayerProgressionConfig.asset`) |
 | JunkLite/Enemy Config | `EnemyConfig` | Enemy tuning per archetype |
 | Junklite/Combat/Status Effect | `StatusEffectDefinition` | Burn, shock, and similar effects |
 | Junklite/Drop Table | `DropTable` | Loot drops |
@@ -231,11 +233,11 @@ Animation: the grunt skeleton has no Roll, Walk, Backstep, Alert, Knockdown or G
 
 **Concepts**
 - A **mod** is a ScriptableObject (`ModData`) plus a runtime `ModInstance` per equipped slot.
-- **Passive mods** run automatically while you're in mod (combat) mode, e.g. Fire, Electric, Lifesteal, Pogo.
+- **Passive mods** run automatically whenever they are installed (mods are always live; there is no combat mode), e.g. Fire, Electric, Lifesteal, Pogo.
 - **Active mods** are triggered by their input. They build **charges** on hits and then go on **cooldown**, e.g. Energy Wave, Pulse Barrier, Phantom Strike.
 - Each successful use consumes **durability**. A mod at 0 durability is **broken** and stops working.
 - `ModManager` (on the player) owns the slots. Slots unlock over time (`UnlockActiveSlot` / `UnlockPassiveSlot`).
-- Long abilities (dashes, channels) run through the player's `ModExecutionRunner`. It gives each activation a `ModExecutionContext` that owns cleanup and input, movement and immunity locks, so cancelling, dying, or leaving mod mode always cleans up.
+- Long abilities (dashes, channels) run through the player's `ModExecutionRunner`. It gives each activation a `ModExecutionContext` that owns cleanup and input, movement and immunity locks, so cancelling, dying, or disabling the player always cleans up.
 
 ```mermaid
 classDiagram
@@ -308,13 +310,13 @@ classDiagram
 ```
 
 **Flow**
-1. The player toggles mod mode, and `WeaponManager.OnCombatModeChanged` fires. `ModManager` then calls `OnCombatModeEntered` or `OnCombatModeExited` on each equipped, unbroken mod.
+1. `ModManager` enables every installed, unbroken mod when it is enabled (`OnCombatModeEntered`) and disables them when it is disabled (`OnCombatModeExited`). The hook names are historical; they mean enabled/disabled.
 2. A hit lands, and `WeaponManager.OnEnemyHit` fires with the **actually applied** damage. Every equipped mod gets `OnHitRegistered`: passives react, and actives gain a charge.
 3. The mod input calls `ModManager.TryActivateMod(slot)`, which runs `ActiveModData.TryActivate`:
    - It checks `CanActivate` (not running, not on cooldown, enough charges).
    - It calls `ExecuteAbility`.
    - If the ability was used, it starts the cooldown, and `ModManager` consumes durability.
-4. A long ability calls `executionRunner.TryStart(instance, ctx => Routine(ctx))`. Inside, it takes locks via `ctx.LockPlayerControl(...)` and registers `ctx.AddCleanup(...)`. Both are released automatically on finish, cancel, removal, mode exit, disable, or death.
+4. A long ability calls `executionRunner.TryStart(instance, ctx => Routine(ctx))`. Inside, it takes locks via `ctx.LockPlayerControl(...)` and registers `ctx.AddCleanup(...)`. Both are released automatically on finish, cancel, removal, disable, or death.
 
 **Making a new mod**
 1. Create a class deriving from `PassiveModData` or `ActiveModData` and give it `[CreateAssetMenu(menuName = "Junklite/Mods/Your Mod")]`.
@@ -326,7 +328,29 @@ classDiagram
 
 ---
 
-## 8. Core code rules
+## 8. Upgrades (the skill tree)
+
+**How it plays.** Every level-up grants one upgrade point (`UpgradeTreeConfig.pointsPerLevel`); bosses (`EnemyBase > Upgrade Point Reward`), `UpgradePointPickup` objects and the *Progression/Grant Upgrade Points* level-event step grant more, once per profile. Points are spent in the **UPGRADES** tab of the I menu. Dash and double jump start locked and are bought there. Blades nodes stay greyed out until the blades pickup has been taken.
+
+**Data.** One asset, `Assets/Game/Resources/UpgradeTreeConfig.asset` (create it with **Tools > JunkLite > Progression > Install Upgrade Tree**; **Reset Upgrade Tree To Defaults** restores the shipped nodes). Each node has an **Id** (stable; written to the save), name, description, icon, **Branch** (column), **Tier** (row), **Cost**, **Prerequisite Ids**, an optional **Required Weapon**, and **Effects**:
+
+| Effect kind | Fields used | What it changes |
+| --- | --- | --- |
+| Stat Bonus | Stat, Flat, Percent | `PlayerRuntimeStats.Evaluate`: (base + Σflat) × (1 + Σ% / 100). Stats: Max Health, Damage, Armor, Move Speed, Jump Force, Double Jump Force, Dash Cooldown (negative % shortens it), Attack Speed, Finisher Force |
+| Unlock Ability | Ability | Dash (input dash), Double Jump (air jumps), Dash Strike (dashing damages enemies) |
+| Mod Slot | Slot Kind | +1 active or passive mod slot on top of the player prefab's starting slots |
+
+**Build switches** (on the tree asset): **Starting Points** is the grant every profile has on top of level and bonus points (5 for the playtest build; it is not saved, so changing it updates existing saves). **Max Available Tier** caps what can be bought: 1 = only the first node of each branch, everything above shows *Currently Unavailable* and cannot be bought; 0 = the whole tree. **Reset Upgrade Tree To Defaults** replaces the nodes but keeps both switches.
+
+**Adding a node:** add an entry to the tree asset, give it an id and a tier above its prerequisite, pick effects, save. No code. **Adding a new stat or ability:** add the enum value in `UpgradeTypes.cs`, then give it exactly one consumer in `PlayerCharacter.ApplyUpgrades` (movement/combat) or in the component that owns the mechanic. Never read the tree asset from gameplay code; read `PlayerRuntimeStats` / `PlayerUpgrades`.
+
+**Runtime.** `PlayerUpgrades` (Game Root) owns points, purchases, owned weapons and collected sources and saves them in `player-progression.json` with the XP. `PlayerRuntimeStats` combines level-table bonuses (shipped empty) and upgrade bonuses; `PlayerCharacter.ApplyUpgrades` pushes the result into the controller, `WeaponManager` (attack speed, finisher force) and `PlayerDashStrike`. `ModManager.ApplyUnlockedSlots` adds bought slots to the prefab's starting counts.
+
+**Icons.** Node cards are hexagons showing the upgrade's icon; the name is only in the details card. Icons are white-on-transparent PNGs in `Assets/Game/New UI/Icons/Upgrades/`, one per node id (`dash.strike.png`), plus `hex-fill`, `hex-frame` and `hex-frame-bold` for the cards. Anything dropped in that folder imports as a UI sprite automatically; **Tools > JunkLite > Progression > Assign Upgrade Icons** puts each sprite on its node (Install Upgrade Tree does it too). The shipped set is generated from vector shapes by `Tools/UpgradeIcons/make-upgrade-icons.js` (run `node Tools/UpgradeIcons/make-upgrade-icons.js .` from the repo root; `icon-sheet.js` renders a preview sheet), so it can be edited and regenerated; replacing a PNG with hand-drawn art is fine, keep it white on transparent and square. After changing the hexagon sprites run **Rebuild Upgrades Page Prefab**.
+
+**UI.** `Upgrades Page.prefab` is authored once with **Tools > JunkLite > UI > Build Upgrades Page Prefab** and then edited in the Inspector like any prefab; `UpgradesPageView` only copies the inactive node template into the branch columns and binds text/state objects. Fonts: ZuumeEdge titles, Satoshi body.
+
+## 9. Core code rules
 
 - **Damage has one path.**
   - Build a `DamageRequest`, send it to an `IDamageReceiver`, and react only to a successful `DamageResult` (its *applied* amount).
@@ -335,7 +359,7 @@ classDiagram
 - **Player and enemies don't share a base class.**
   - `PlayerCharacter` owns its own input, parry, death and respawn.
   - Enemies derive from `EnemyBase`, with AI composed per type.
-- **Weapons.** UI listens to `PlayerWeaponLoadout`, which owns the slots. `WeaponManager` owns combat.
+- **Weapons.** `PlayerArmament` owns the one current weapon (fists → blades, permanent) and its held visual; `WeaponManager` owns combat. UI listens to `PlayerArmament.WeaponChanged`.
 - **Managers.**
   - The persistent **Game Root** holds GameManager, PlayerLifecycle, GameUIManager, input, the combat tracker and UI.
   - Each scene has a scene-local `CameraManager` and Level Context.

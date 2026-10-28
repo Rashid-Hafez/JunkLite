@@ -60,6 +60,7 @@ namespace junklite.Editor
         {
             Scene scene = OpenTrainingScene();
             ValidateTrainingScene(scene);
+            ValidateUpgradeSetup();
             Debug.Log("[GameRootMigration] V2.5 redesigned infrastructure validation passed.");
         }
 
@@ -98,9 +99,21 @@ namespace junklite.Editor
                 if (root.GetComponent<PlayerProgression>() == null)
                     root.AddComponent<PlayerProgression>();
 
+                if (root.GetComponent<PlayerUpgrades>() == null)
+                    root.AddComponent<PlayerUpgrades>();
+
                 PlayerLifecycle lifecycle = root.GetComponent<PlayerLifecycle>();
                 if (lifecycle == null)
                     lifecycle = root.AddComponent<PlayerLifecycle>();
+
+                // The Game Manager prefab stays the one place that picks the player.
+                PlayerLifecycle sourceLifecycle = sourcePrefab.GetComponent<PlayerLifecycle>();
+                if (sourceLifecycle != null)
+                {
+                    var serializedLifecycle = new SerializedObject(lifecycle);
+                    serializedLifecycle.FindProperty("playerSettingsSource").objectReferenceValue = sourceLifecycle;
+                    serializedLifecycle.ApplyModifiedPropertiesWithoutUndo();
+                }
 
                 GameUIManager uiManager = root.GetComponent<GameUIManager>();
                 if (uiManager == null)
@@ -402,19 +415,24 @@ namespace junklite.Editor
             if (playerPrefab.GetComponent<PlayerCharacter>() == null ||
                 playerPrefab.GetComponent<Damageable>() == null ||
                 playerPrefab.GetComponent<ModManager>() == null ||
-                playerPrefab.GetComponent<PlayerWeaponLoadout>() == null)
+                playerPrefab.GetComponent<PlayerArmament>() == null)
             {
                 throw new MissingReferenceException(
                     "The configured player prefab is missing PlayerCharacter, Damageable, " +
-                    "ModManager, or PlayerWeaponLoadout.");
+                    "ModManager, or PlayerArmament.");
             }
 
-            var serializedLoadout = new SerializedObject(
-                playerPrefab.GetComponent<PlayerWeaponLoadout>());
-            if (serializedLoadout.FindProperty("weaponHolder").objectReferenceValue == null)
+            var serializedArmament = new SerializedObject(
+                playerPrefab.GetComponent<PlayerArmament>());
+            if (serializedArmament.FindProperty("weaponHolder").objectReferenceValue == null)
             {
                 throw new MissingReferenceException(
-                    "The configured PlayerWeaponLoadout has no weapon holder assigned.");
+                    "The configured PlayerArmament has no weapon holder assigned.");
+            }
+            if (serializedArmament.FindProperty("defaultWeapon").objectReferenceValue == null)
+            {
+                throw new MissingReferenceException(
+                    "The configured PlayerArmament has no default weapon (fists) assigned.");
             }
 
             ValidateGameUIPrefabs(uiManagers[0]);
@@ -433,6 +451,30 @@ namespace junklite.Editor
                 throw new MissingReferenceException("Game Root prefab has no PlayerProgression component.");
             if (prefab.GetComponentInChildren<LevelContext>(true) != null)
                 throw new System.InvalidOperationException("Game Root prefab still contains scene-local LevelContext data.");
+        }
+
+        /// <summary>Upgrade redesign assets. Missing installer output is a warning: the game falls back to built-in defaults.</summary>
+        private static void ValidateUpgradeSetup()
+        {
+            var tree = AssetDatabase.LoadAssetAtPath<UpgradeTreeConfig>(UpgradeTreeSetup.ConfigPath);
+            if (tree == null)
+                Debug.LogWarning("[GameRootMigration] No Resources/UpgradeTreeConfig.asset. Run Tools > JunkLite > Progression > Install Upgrade Tree.");
+            else if (!tree.Validate(out string treeError))
+                throw new System.InvalidOperationException("UpgradeTreeConfig is invalid: " + treeError);
+
+            var profile = AssetDatabase.LoadAssetAtPath<PlayerProgressionConfig>(PlayerProgressionSetup.ConfigPath);
+            if (profile == null)
+                throw new MissingReferenceException("PlayerProgressionConfig is missing. Run Tools > JunkLite > Progression > Install Defaults.");
+            if (!profile.Validate(out string profileError))
+                throw new System.InvalidOperationException("PlayerProgressionConfig is invalid: " + profileError);
+
+            var page = AssetDatabase.LoadAssetAtPath<GameObject>(UpgradesUISetup.PagePath);
+            if (page == null || page.GetComponent<UpgradesPageView>() == null)
+                Debug.LogWarning("[GameRootMigration] No authored Upgrades Page prefab. Run Tools > JunkLite > UI > Build Upgrades Page Prefab.");
+
+            var blades = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Game/Prefabs/New Weapons/sword prefab (2).prefab");
+            if (blades == null || blades.GetComponent<WeaponUpgradePickup>() == null || blades.GetComponent<WeaponUpgradePickup>().WeaponData == null)
+                throw new MissingReferenceException("The blades pickup prefab needs a WeaponUpgradePickup with a WeaponData.");
         }
 
         private static void ValidateGameUIPrefabs(GameUIManager uiManager)

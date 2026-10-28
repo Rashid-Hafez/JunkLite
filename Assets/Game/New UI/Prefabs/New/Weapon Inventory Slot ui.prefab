@@ -234,7 +234,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7729384413980221394}
-  - component: {fileID: 4562138955022654452}
   m_Layer: 5
   m_Name: Weapon Inventory Slot ui
   m_TagString: Untagged
@@ -264,21 +263,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 186.4643, y: 89.3021}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &4562138955022654452
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4984490401915298965}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 807014de0fd513c459b9599375c7f3fb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.InventoryWeaponSlotUI
-  iconImage: {fileID: 752766402254565580}
-  durabilityFill: {fileID: 1884983390953687954}
-  highlightImage: {fileID: 537868800142982254}
 --- !u!1 &6284787532938354056
 GameObject:
   m_ObjectHideFlags: 0

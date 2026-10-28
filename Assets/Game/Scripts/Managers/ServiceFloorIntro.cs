@@ -17,7 +17,7 @@ namespace junklite
     /// </summary>
     public class ServiceFloorIntro : MonoBehaviour
     {
-        // Must outrank the CinemachineVolumeSettings volumes (~998), same as CombatModeScreenGlitch.
+        // Must outrank the CinemachineVolumeSettings volumes (~998), same as ScreenGlitchEffect.
         private const float VolumePriority = 10000f;
         private const int TearCount = 10;
 

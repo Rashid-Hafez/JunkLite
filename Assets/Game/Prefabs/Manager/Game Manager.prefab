@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 7433742776496313932}
   - component: {fileID: 6193730749670565681}
   - component: {fileID: 8123456789012345678}
+  - component: {fileID: 5970421176190243466}
   m_Layer: 0
   m_Name: Game Manager
   m_TagString: Untagged
@@ -72,7 +73,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerLifecycle
   playerPrefab: {fileID: 7038683931279381878, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
   newPlayerPrefab: {fileID: 7038683931279381878, guid: da6952dea573744dfa28b37d99bffcd7, type: 3}
-  useNewPlayer: 1
+  useNewPlayer: 0
   respawnDelay: 2
   deathPresentationFallbackDelay: 1.25
 --- !u!114 &6123456789012345678
@@ -225,3 +226,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerProgression
   config: {fileID: 11400000, guid: 7916ad4de4ed46145875ef71da4ff75b, type: 2}
+--- !u!114 &5970421176190243466
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8053377969660216567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2174d7d7a4b60541b915c3b27903eb9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerUpgrades
+  config: {fileID: 11400000, guid: 69af870430ffcdc4ca71198f38d0c1e3, type: 2}

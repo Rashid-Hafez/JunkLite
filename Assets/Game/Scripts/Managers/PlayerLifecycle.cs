@@ -17,6 +17,9 @@ namespace junklite
         public static PlayerLifecycle Instance { get; private set; }
 
         [Header("Player")]
+        [Tooltip("Optional. Take the player prefabs and Use New Player from this other lifecycle instead of the fields below. " +
+                 "The Game Root prefab points at the Game Manager prefab, so the Game Manager prefab's checkbox decides the player in every scene.")]
+        [SerializeField] private PlayerLifecycle playerSettingsSource;
         [Tooltip("Old player (single mirrored skeleton). Used while Use New Player is off.")]
         [SerializeField] private GameObject playerPrefab;
         [Tooltip("New Cass player (left/right skeletons). Used while Use New Player is on.")]
@@ -35,8 +38,22 @@ namespace junklite
         private Coroutine respawnRoutine;
 
         public PlayerCharacter Player => currentPlayer;
-        /// <summary>The prefab the next spawn uses: the new player when selected and assigned, else the old one.</summary>
-        public GameObject PlayerPrefab => useNewPlayer && newPlayerPrefab != null ? newPlayerPrefab : playerPrefab;
+        /// <summary>
+        /// The prefab the next spawn uses: the new player when selected and assigned, else the old one.
+        /// Read from <see cref="playerSettingsSource"/> when one is assigned (one level deep, never itself).
+        /// </summary>
+        public GameObject PlayerPrefab
+        {
+            get
+            {
+                PlayerLifecycle settings = playerSettingsSource != null && playerSettingsSource != this
+                    ? playerSettingsSource : this;
+                GameObject chosen = settings.OwnPlayerPrefab;
+                return chosen != null ? chosen : OwnPlayerPrefab;
+            }
+        }
+
+        private GameObject OwnPlayerPrefab => useNewPlayer && newPlayerPrefab != null ? newPlayerPrefab : playerPrefab;
         public int CurrentSpawnIndex => currentSpawnIndex;
         public bool ShouldSpawnPlayer => levelContext != null
             ? levelContext.SpawnPlayer
