@@ -87,8 +87,6 @@ namespace junklite
         public PlayerDashStrike DashStrike { get; private set; }
 
         [Header("Upgrades")]
-        [Tooltip("Dash and double jump start locked until their upgrade nodes are bought. Turn off for sandbox scenes.")]
-        [SerializeField] private bool lockAbilitiesUntilUpgraded = true;
         private float baseDoubleJumpForce;
         private float baseDashCooldown;
         private int baseMaxAirJumps;
@@ -282,7 +280,7 @@ namespace junklite
         }
 
         /// <summary>
-        /// The one place upgrades reach the mechanics: movement stats, ability locks, attack speed,
+        /// The one place upgrades reach the mechanics: movement stats, attack speed,
         /// finisher force and the dash strike. Runs on spawn and whenever runtime stats refresh.
         /// </summary>
         public void ApplyUpgrades()
@@ -297,10 +295,8 @@ namespace junklite
                 controller.JumpForce = stats != null ? stats.Evaluate(PlayerStat.JumpForce, baseJump) : baseJump;
                 controller.DoubleJumpForce = stats != null ? stats.Evaluate(PlayerStat.DoubleJumpForce, baseDoubleJumpForce) : baseDoubleJumpForce;
                 controller.DashCooldown = stats != null ? stats.Evaluate(PlayerStat.DashCooldown, baseDashCooldown) : baseDashCooldown;
-                bool dashUnlocked = !lockAbilitiesUntilUpgraded || (stats != null && stats.HasAbility(PlayerAbility.Dash));
-                bool doubleJumpUnlocked = !lockAbilitiesUntilUpgraded || (stats != null && stats.HasAbility(PlayerAbility.DoubleJump));
-                controller.DashEnabled = dashUnlocked;
-                controller.MaxAirJumps = doubleJumpUnlocked ? baseMaxAirJumps : 0;
+                controller.DashEnabled = true;
+                controller.MaxAirJumps = baseMaxAirJumps;
             }
             if (_weaponManager != null)
             {

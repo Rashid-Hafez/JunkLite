@@ -84,6 +84,31 @@ namespace junklite.Editor
             }
         }
 
+        /// <summary>Wipes XP, upgrade points, purchases and acquired weapons. In Play Mode resets the live profile; otherwise deletes the save file.</summary>
+        [MenuItem("Tools/JunkLite/Progression/Reset Saved Progress")]
+        public static void ResetSavedProgress()
+        {
+            if (!EditorUtility.DisplayDialog("Reset Saved Progress",
+                    "Wipe XP, level, upgrade points, bought upgrades and acquired weapons from the player profile?", "Reset", "Cancel"))
+                return;
+            if (Application.isPlaying && PlayerProgression.Instance != null)
+            {
+                PlayerProgression.Instance.ResetProfile();
+                PlayerLifecycle.Instance?.Player?.GetComponent<PlayerArmament>()?.RevertToDefault();
+                Debug.Log("[Progression] Live profile reset and saved.");
+                return;
+            }
+            string path = PlayerProgression.SavePath;
+            bool deleted = false;
+            foreach (string file in new[] { path, path + ".bak", path + ".tmp" })
+            {
+                if (!System.IO.File.Exists(file)) continue;
+                System.IO.File.Delete(file);
+                deleted = true;
+            }
+            Debug.Log(deleted ? $"[Progression] Deleted saved progress at {path}." : "[Progression] No saved progress to delete.");
+        }
+
         [MenuItem("Tools/JunkLite/Progression/Select Profile")]
         public static void SelectProfile() => Selection.activeObject = AssetDatabase.LoadAssetAtPath<PlayerProgressionConfig>(ConfigPath);
     }

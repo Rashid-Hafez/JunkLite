@@ -226,6 +226,19 @@ namespace junklite
                 FitVisualHurtbox();
         }
 
+        public override bool TryGetBodyCenter(out Vector3 center)
+        {
+            // Mesh bounds are local, so they stay on the body when it is tilted.
+            Mesh mesh = bodyMeshFilter != null ? bodyMeshFilter.sharedMesh : null;
+            if (mesh != null && mesh.vertexCount > 0)
+            {
+                center = bodyMeshFilter.transform.TransformPoint(mesh.bounds.center);
+                return true;
+            }
+            center = bodyRenderer != null ? bodyRenderer.bounds.center : default;
+            return bodyRenderer != null;
+        }
+
         private void FitVisualHurtbox()
         {
             if (visualHurtbox == null || !visualHurtbox.enabled)

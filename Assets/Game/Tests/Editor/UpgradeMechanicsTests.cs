@@ -97,28 +97,9 @@ namespace junklite.Tests
         }
 
         [Test]
-        public void DashAndDoubleJumpStartLockedAndUnlockWhenBought()
+        public void DashAndDoubleJumpAlwaysAvailable()
         {
             MakePlayer(out var controller, out _, out _);
-            Assert.That(controller.DashEnabled, Is.False);
-            Assert.That(controller.MaxAirJumps, Is.Zero);
-            Assert.That(controller.CanDash, Is.True, "the controller itself can dash; only the player input is gated");
-            controller.Dash();
-            Assert.That(controller.IsDashing, Is.False, "the input dash is refused while locked");
-
-            Buy("dash.unlock");
-            Assert.That(controller.DashEnabled, Is.True);
-            Buy("jump.spring");
-            Buy("jump.double");
-            Assert.That(controller.MaxAirJumps, Is.EqualTo(1), "the prefab's air jump count returns when unlocked");
-        }
-
-        [Test]
-        public void SandboxFlagLeavesAbilitiesUnlocked()
-        {
-            var player = MakePlayer(out var controller, out _, out _);
-            SetField(player, "lockAbilitiesUntilUpgraded", false);
-            player.ApplyUpgrades();
             Assert.That(controller.DashEnabled, Is.True);
             Assert.That(controller.MaxAirJumps, Is.EqualTo(1));
         }
@@ -133,11 +114,9 @@ namespace junklite.Tests
 
             Buy("jump.spring");
             Assert.That(controller.JumpForce, Is.EqualTo(12f * 1.15f).Within(0.001f));
-            Buy("jump.double");
             Buy("jump.thrusters");
             Assert.That(controller.DoubleJumpForce, Is.EqualTo(12.5f).Within(0.001f));
 
-            Buy("dash.unlock");
             Buy("dash.strike");
             Buy("dash.afterburner");
             Assert.That(controller.DashCooldown, Is.EqualTo(0.7f).Within(0.001f));
@@ -156,11 +135,11 @@ namespace junklite.Tests
             var player = MakePlayer(out var controller, out var weapons, out _);
             var strike = player.DashStrike;
             Assert.That(strike.Unlocked, Is.False);
-            Buy("dash.unlock");
             Buy("dash.strike");
             Assert.That(strike.Unlocked, Is.True);
 
-            var enemyLayer = LayerMask.NameToLayer("Enemy");
+            var enemyLayer = LayerMask.NameToLayer("Enemies");
+            Assert.That(enemyLayer, Is.GreaterThanOrEqualTo(0), "the project's enemy layer is named 'Enemies'");
             SetField(weapons, "enemyLayer", (LayerMask)(1 << enemyLayer));
             var target = Own(new GameObject("Dash Target"));
             target.layer = enemyLayer;
@@ -172,6 +151,8 @@ namespace junklite.Tests
             attributes.Initialize(stats);
             var receiver = target.AddComponent<Damageable>();
             receiver.Bind(stats, attributes, null);
+            // Damageable is not an IDamageReceiver; enemies forward to it. Stand in for EnemyBase.
+            target.AddComponent<DashStrikeTestReceiver>().Damageable = receiver;
             Physics.SyncTransforms();
 
             float reported = 0f;
@@ -192,6 +173,42 @@ namespace junklite.Tests
                 Assert.That(GetField<bool>(strike, "dashing"), Is.False, "a locked strike never arms");
             }
             finally { player.gameObject.SetActive(false); }
+        }
+
+        [Test]
+        public void StrikeTrailEmitsOnlyWhileDashingWithDashStrikeUnlocked()
+        {
+            var player = MakePlayer(out _, out _, out _);
+            var strike = player.DashStrike;
+            var trail = Own(new GameObject("Strike Trail")).AddComponent<TrailRenderer>();
+            SetField(strike, "strikeTrail", trail);
+
+            Call(strike, "HandleDashStarted");
+            Assert.That(trail.emitting, Is.False, "a locked strike shows no trail");
+            Buy("dash.strike");
+            Call(strike, "HandleDashStarted");
+            Assert.That(trail.emitting, Is.True);
+            Call(strike, "HandleDashEnded");
+            Assert.That(trail.emitting, Is.False);
+        }
+
+        [Test]
+        public void HitSlashSpawnsThroughTheHitPointAlongTheFlattenedDash()
+        {
+            var player = MakePlayer(out _, out _, out _);
+            var strike = player.DashStrike;
+            var template = Own(new GameObject("Slash Template"));
+            SetField(strike, "hitSlashPrefab", template);
+            SetField(strike, "hitSlashTilt", 0f);
+
+            var point = new Vector3(3f, 1.2f, -2f);
+            Call(strike, "SpawnSlash", point, new Vector3(-2f, 0.5f, 0f));
+            var slash = GameObject.Find("Slash Template(Clone)");
+            Assert.That(slash, Is.Not.Null);
+            Own(slash);
+            Assert.That(Vector3.Distance(slash.transform.position, point), Is.LessThan(0.001f));
+            Assert.That(Vector3.Dot(slash.transform.right, Vector3.left), Is.GreaterThan(0.999f), "the line runs along the dash, flattened");
+            Assert.That(Mathf.Abs(slash.transform.up.y), Is.GreaterThan(0.999f), "no tilt when the tilt range is zero");
         }
 
         [Test]
@@ -218,5 +235,13 @@ namespace junklite.Tests
             Assert.That(mods.UnlockedActiveSlots, Is.EqualTo(4));
             Assert.That(mods.UnlockedPassiveSlots, Is.EqualTo(2), "passive slots are capped by the prefab maximum");
         }
+    }
+
+    /// <summary>Minimal enemy-side receiver for tests: forwards to Damageable like EnemyBase does.</summary>
+    public sealed class DashStrikeTestReceiver : MonoBehaviour, IDamageReceiver
+    {
+        public Damageable Damageable;
+        public bool IsAlive => GetComponent<AttributeManager>().IsAlive;
+        public DamageResult ReceiveDamage(DamageRequest request) => Damageable.ReceiveDamage(request);
     }
 }

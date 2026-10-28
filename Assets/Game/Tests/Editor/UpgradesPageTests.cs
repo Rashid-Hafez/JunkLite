@@ -169,12 +169,12 @@ namespace junklite.Tests
             var view = MakePage();
             upgrades.AddBonusPoints(1);
             var details = view.GetComponentInChildren<UpgradeDetailsView>(true);
-            UpgradeNodeView dash = view.Views.First(v => v.Node.id == "dash.unlock");
+            UpgradeNodeView dash = view.Views.First(v => v.Node.id == "dash.strike");
             Call(view, "HandleFocused", dash);
             Button buy = details.GetComponentsInChildren<Button>(true).First(b => b.name == "Buy Button");
             Assert.That(buy.interactable, Is.True);
             buy.onClick.Invoke();
-            Assert.That(upgrades.HasAbility(PlayerAbility.Dash), Is.True);
+            Assert.That(upgrades.HasAbility(PlayerAbility.DashStrike), Is.True);
             Assert.That(buy.interactable, Is.False);
 
             upgrades.AddBonusPoints(1);

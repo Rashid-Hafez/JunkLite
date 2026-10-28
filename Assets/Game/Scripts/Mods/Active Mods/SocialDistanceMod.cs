@@ -158,7 +158,7 @@ namespace junklite
             var enemyCollider = enemy.GetComponent<Collider>();
             if (enemyCollider == null) return;
 
-            Vector3 hitPoint = enemyCollider.bounds.center;
+            Vector3 hitPoint = CombatEffectsManager.BodyHitPoint(enemyCollider);
             Vector3 hitDir = (hitPoint - attackOrigin).normalized;
 
             CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDir);

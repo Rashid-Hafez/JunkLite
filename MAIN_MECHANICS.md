@@ -81,7 +81,7 @@ The trigger flips state every time it's crossed, so the same corner works in bot
 - **Blades pickup:** `Prefabs/New Weapons/sword prefab (2)` carries `WeaponUpgradePickup`. Inside its radius the shared prompt shows "Take Blades"; **E** calls `PlayerArmament.TryAcquire`, which is permanent (saved with the profile), swaps the held visual and plays the acquisition pose, VFX and `ScreenGlitchEffect`. A pickup whose weapon the profile already owns disables itself.
 - Mods are always live (`ModManager` enables installed mods while the component is enabled). `ModData.OnCombatModeEntered/Exited` now mean enabled/disabled.
 - Weapons have no durability and never break.
-- **Upgrades.** Each level-up gives one upgrade point (bosses and pickups give more). Spend them in the **UPGRADES** tab (I menu): Blades, Vitality, Jump, Dash and Mods branches. Dash and double jump are locked until bought; a Mod Slot node unlocks one more slot. See `PROGRAMMER_AND_DESIGNER_GUIDE.md` §8.
+- **Upgrades.** Each level-up gives one upgrade point (bosses and pickups give more). Spend them in the **UPGRADES** tab (I menu): Blades, Vitality, Jump, Dash and Mods branches. Dash and double jump are always on (demo). A Mod Slot node unlocks one more slot. See `PROGRAMMER_AND_DESIGNER_GUIDE.md` §8.
 
 ## Level layout rules
 

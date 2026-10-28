@@ -66,8 +66,6 @@ namespace junklite.Tests
                 for (int i = 1; i < branch.Count; i++) Assert.That(branch[i].tier, Is.GreaterThanOrEqualTo(branch[i - 1].tier));
             }
             Assert.That(Node("blades.honed").requiredWeapon, Is.SameAs(blades));
-            Assert.That(Node("dash.unlock").effects[0].ability, Is.EqualTo(PlayerAbility.Dash));
-            Assert.That(Node("jump.double").effects[0].ability, Is.EqualTo(PlayerAbility.DoubleJump));
             Assert.That(Node("dash.strike").effects[0].ability, Is.EqualTo(PlayerAbility.DashStrike));
             Assert.That(Node("mods.slot2").effects[0].slotKind, Is.EqualTo(ModSlotKind.Passive));
         }
@@ -143,7 +141,7 @@ namespace junklite.Tests
             upgrades.AddBonusPoints(20);
             upgrades.GrantWeapon(blades);
             foreach (string id in new[] { "vitality.frame1", "vitality.plating1", "vitality.frame2", "blades.honed", "blades.quick",
-                         "jump.spring", "jump.double", "dash.unlock", "dash.strike", "dash.afterburner", "mods.slot1", "mods.slot2" })
+                         "jump.spring", "jump.thrusters", "dash.strike", "dash.afterburner", "mods.slot1", "mods.slot2" })
                 Assert.That(upgrades.TryPurchase(Node(id)), Is.True, id);
 
             upgrades.GetStatBonus(PlayerStat.MaxHealth, out float flat, out float percent);
@@ -153,14 +151,12 @@ namespace junklite.Tests
             Assert.That(percent, Is.EqualTo(20f));
             upgrades.GetStatBonus(PlayerStat.DashCooldown, out _, out percent);
             Assert.That(percent, Is.EqualTo(-30f));
-            Assert.That(upgrades.HasAbility(PlayerAbility.Dash), Is.True);
-            Assert.That(upgrades.HasAbility(PlayerAbility.DoubleJump), Is.True);
             Assert.That(upgrades.HasAbility(PlayerAbility.DashStrike), Is.True);
             Assert.That(upgrades.ExtraModSlots(ModSlotKind.Active), Is.EqualTo(1));
             Assert.That(upgrades.ExtraModSlots(ModSlotKind.Passive), Is.EqualTo(1));
 
             upgrades.ResetUpgrades();
-            Assert.That(upgrades.HasAbility(PlayerAbility.Dash), Is.False);
+            Assert.That(upgrades.HasAbility(PlayerAbility.DashStrike), Is.False);
             Assert.That(upgrades.AvailablePoints, Is.EqualTo(20));
             Assert.That(upgrades.OwnsWeapon(blades), Is.True, "a refund keeps acquired weapons");
         }
@@ -204,7 +200,27 @@ namespace junklite.Tests
             Assert.That(runtime.Multiplier(PlayerStat.JumpForce), Is.EqualTo(1f));
             Assert.That(upgrades.TryPurchase(Node("jump.spring")), Is.True);
             Assert.That(runtime.Multiplier(PlayerStat.JumpForce), Is.EqualTo(1.15f).Within(0.001f));
-            Assert.That(runtime.HasAbility(PlayerAbility.Dash), Is.False);
+        }
+
+        [Test]
+        public void ResetProfileWipesLevelPointsPurchasesWeaponsAndSources()
+        {
+            progression.AddExperience(100000);
+            upgrades.AddBonusPoints(3);
+            upgrades.GrantWeapon(blades);
+            Assert.That(upgrades.TryPurchase(Node("vitality.frame1")), Is.True);
+            Assert.That(upgrades.TryCollectPoints("boss", 1), Is.True);
+            Assert.That(progression.Level, Is.GreaterThan(1));
+
+            progression.ResetProfile();
+
+            Assert.That(progression.Level, Is.EqualTo(1));
+            Assert.That(progression.TotalExperience, Is.Zero);
+            Assert.That(upgrades.BonusPoints, Is.Zero);
+            Assert.That(upgrades.AvailablePoints, Is.EqualTo(upgrades.StartingPoints));
+            Assert.That(upgrades.IsOwned("vitality.frame1"), Is.False);
+            Assert.That(upgrades.OwnsWeapon(blades), Is.False);
+            Assert.That(upgrades.HasCollected("boss"), Is.False);
         }
 
         [Test]
@@ -324,15 +340,14 @@ namespace junklite.Tests
         }
 
         [Test]
-        public void TheShippedTreeStartsWithFivePointsAndOnlyTierOne()
+        public void TheShippedTreeStartsWithNoPointsAndEveryTierBuyable()
         {
             var shipped = AssetDatabase.LoadAssetAtPath<UpgradeTreeConfig>("Assets/Game/Resources/UpgradeTreeConfig.asset");
             Assert.That(shipped, Is.Not.Null);
             Assert.That(shipped.Validate(out string error), Is.True, error);
-            Assert.That(shipped.startingPoints, Is.EqualTo(5));
-            Assert.That(shipped.maxAvailableTier, Is.EqualTo(1));
-            Assert.That(shipped.IsTierAvailable(1), Is.True);
-            Assert.That(shipped.IsTierAvailable(2), Is.False);
+            Assert.That(shipped.startingPoints, Is.Zero, "upgrades are earned in play or granted from the dev tools");
+            Assert.That(shipped.maxAvailableTier, Is.Zero, "every tier can be bought once its prerequisite is owned");
+            Assert.That(shipped.IsTierAvailable(4), Is.True);
         }
 
         [Test]

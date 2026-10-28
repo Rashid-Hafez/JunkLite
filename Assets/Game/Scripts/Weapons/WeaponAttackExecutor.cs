@@ -447,12 +447,7 @@ namespace junklite
             if (CombatEffectsManager.Instance == null || target == null)
                 return;
 
-            Vector3 origin = request.AttackAnchor != null
-                ? request.AttackAnchor.position
-                : playerTransform.position + Vector3.up;
-            Vector3 hitPoint = target.ClosestPoint(origin);
-            Vector3 hitDirection = (hitPoint - origin).normalized;
-            SpawnEnemyHitVfx(hitPoint, hitDirection);
+            SpawnEnemyHitVfx(CombatEffectsManager.BodyHitPoint(target), GetAttackDirection(request));
         }
 
         internal sealed class Execution : IDisposable

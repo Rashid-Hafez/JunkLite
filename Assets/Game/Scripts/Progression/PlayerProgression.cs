@@ -67,7 +67,7 @@ namespace junklite
                 ownsConfig = true;
                 saveAllowed = false; // A broken configuration must not overwrite an existing profile.
             }
-            store = new ProgressionSaveStore(Path.Combine(Application.persistentDataPath, "player-progression.json"));
+            store = new ProgressionSaveStore(SavePath);
             if (store.TryLoad(out var data, out string warning))
             {
                 loadedData = data;
@@ -147,6 +147,21 @@ namespace junklite
             IsPreviewing = false;
             Changed?.Invoke(new ProgressionChange(oldLevel, Level, 0, false));
         }
+
+        /// <summary>Wipes the profile: level 1, no XP, and an empty upgrades state. Saved at once.</summary>
+        public void ResetProfile()
+        {
+            EndPreview();
+            int oldLevel = Level;
+            TotalExperience = 0;
+            upgrades?.ClearProfile();
+            dirty = true;
+            Flush();
+            Changed?.Invoke(new ProgressionChange(oldLevel, Level, 0, false));
+        }
+
+        /// <summary>Profile save path. Editor tooling deletes it to reset progress outside Play Mode.</summary>
+        public static string SavePath => Path.Combine(Application.persistentDataPath, "player-progression.json");
 
         private void Update() { if (dirty && Time.unscaledTime >= saveAt) Flush(); }
         public void Flush()

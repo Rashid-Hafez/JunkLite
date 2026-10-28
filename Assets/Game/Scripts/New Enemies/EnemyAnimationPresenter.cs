@@ -68,5 +68,12 @@ namespace junklite
         /// instead of only the upright physics capsule.
         /// </summary>
         public virtual void SetVisualHurtboxActive(bool active) { }
+
+        /// <summary>Middle of the drawn body in world space, for hit VFX. False when the presenter can't tell.</summary>
+        public virtual bool TryGetBodyCenter(out Vector3 center)
+        {
+            center = default;
+            return false;
+        }
     }
 }

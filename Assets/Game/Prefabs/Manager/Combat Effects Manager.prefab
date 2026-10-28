@@ -47,9 +47,12 @@ MonoBehaviour:
   envHitParticlePrefab: {fileID: 9066207848555103289, guid: 47c1cc4b51c7d564aa5c081fd8c65583, type: 3}
   envHitPoolSize: 8
   envHitLifetime: 0.5
-  enemyHitVFXPrefab: {fileID: 3042519775331041172, guid: 841004c4c6a39e244abe2257394de913, type: 3}
+  enemyHitVFXPrefab: {fileID: 7050980707501164485, guid: 1bf28c0adb6534aea9228305fe210f90, type: 3}
   enemyHitVFXPoolSize: 8
-  enemyHitVFXLifetime: 0.3
+  enemyHitVFXLifetime: 0.5
+  enemyHitVFXLocalOffset: {x: 0, y: 0, z: 0}
+  enemyHitVFXRandomRoll: 12
+  enemyHitVFXRandomOffset: 0.25
   enemyHurtParticlePrefab: {fileID: 9011770033359894996, guid: 4c510a185f6fcec488942b1e0e4e9d42, type: 3}
   enemyHurtPoolSize: 8
   enemyHurtLifetime: 2

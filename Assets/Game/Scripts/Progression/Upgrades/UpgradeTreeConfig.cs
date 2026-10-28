@@ -123,16 +123,12 @@ namespace junklite
 
                 Node("jump.spring", "Spring Legs", "Jump 15% higher.", UpgradeBranch.Jump, 1,
                     new[] { UpgradeEffect.Stat(PlayerStat.JumpForce, percent: 15f) }),
-                Node("jump.double", "Double Jump", "Jump again in the air.", UpgradeBranch.Jump, 2,
-                    new[] { UpgradeEffect.Unlock(PlayerAbility.DoubleJump) }, "jump.spring"),
-                Node("jump.thrusters", "Thrusters", "The double jump launches 25% harder.", UpgradeBranch.Jump, 3,
-                    new[] { UpgradeEffect.Stat(PlayerStat.DoubleJumpForce, percent: 25f) }, "jump.double"),
+                Node("jump.thrusters", "Thrusters", "The double jump launches 25% harder.", UpgradeBranch.Jump, 2,
+                    new[] { UpgradeEffect.Stat(PlayerStat.DoubleJumpForce, percent: 25f) }, "jump.spring"),
 
-                Node("dash.unlock", "Dash", "Unlock the dash.", UpgradeBranch.Dash, 1,
-                    new[] { UpgradeEffect.Unlock(PlayerAbility.Dash) }),
-                Node("dash.strike", "Dash Strike", "Dashing through enemies damages them.", UpgradeBranch.Dash, 2,
-                    new[] { UpgradeEffect.Unlock(PlayerAbility.DashStrike) }, "dash.unlock"),
-                Node("dash.afterburner", "Afterburner", "Dash cooldown reduced by 30%.", UpgradeBranch.Dash, 3,
+                Node("dash.strike", "Dash Strike", "Dashing through enemies damages them.", UpgradeBranch.Dash, 1,
+                    new[] { UpgradeEffect.Unlock(PlayerAbility.DashStrike) }),
+                Node("dash.afterburner", "Afterburner", "Dash cooldown reduced by 30%.", UpgradeBranch.Dash, 2,
                     new[] { UpgradeEffect.Stat(PlayerStat.DashCooldown, percent: -30f) }, "dash.strike"),
 
                 Node("mods.slot1", "Mod Slot I", "Unlock a second active mod slot.", UpgradeBranch.Mods, 1,

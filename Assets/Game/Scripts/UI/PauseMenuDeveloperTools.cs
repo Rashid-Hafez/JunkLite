@@ -142,8 +142,10 @@ namespace junklite
             playerActions.Add(new ToolAction("HEAL TO FULL", HealPlayer));
             playerActions.Add(new ToolAction("TOGGLE INVINCIBLE", ToggleInvincibility));
             playerActions.Add(new ToolAction("UNLOCK MOD SLOTS", UnlockModSlots));
-            playerActions.Add(new ToolAction("+1 UPGRADE POINT", GrantUpgradePoint));
+            playerActions.Add(new ToolAction("+1 UPGRADE POINT", () => GrantUpgradePoints(1)));
+            playerActions.Add(new ToolAction("+5 UPGRADE POINTS", () => GrantUpgradePoints(5)));
             playerActions.Add(new ToolAction("RESET UPGRADES", ResetUpgrades));
+            playerActions.Add(new ToolAction("RESET PROGRESS", ResetProgress));
             playerActions.Add(new ToolAction("PREVIEW +100 XP", PreviewExperience));
             playerActions.Add(new ToolAction("PREVIEW NEXT LEVEL", PreviewNextLevel));
             playerActions.Add(new ToolAction("END LEVEL PREVIEW", EndLevelPreview));
@@ -405,12 +407,21 @@ namespace junklite
             return "All mod slots unlocked";
         }
 
-        private static string GrantUpgradePoint()
+        private static string GrantUpgradePoints(int amount)
         {
             PlayerUpgrades upgrades = PlayerUpgrades.Instance;
             if (upgrades == null) return "Upgrades service is unavailable";
-            upgrades.AddBonusPoints(1);
+            upgrades.AddBonusPoints(amount);
             return $"Upgrade points available: {upgrades.AvailablePoints}";
+        }
+
+        private static string ResetProgress()
+        {
+            PlayerProgression progression = PlayerProgression.Instance;
+            if (progression == null) return "Progression service is unavailable";
+            progression.ResetProfile();
+            GetPlayer()?.GetComponent<PlayerArmament>()?.RevertToDefault();
+            return $"Progress reset: level {progression.Level}, {PlayerUpgrades.Instance?.AvailablePoints ?? 0} upgrade points";
         }
 
         private static string ResetUpgrades()

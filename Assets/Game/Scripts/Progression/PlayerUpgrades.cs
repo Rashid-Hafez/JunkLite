@@ -142,6 +142,16 @@ namespace junklite
             MarkChanged();
         }
 
+        /// <summary>Profile reset: no purchases, bonus points, weapons or collected point sources. Saved by the progression.</summary>
+        internal void ClearProfile()
+        {
+            purchased.Clear();
+            ownedWeapons.Clear();
+            collectedSources.Clear();
+            bonusPoints = 0;
+            MarkChanged();
+        }
+
         // ---------------------------------------------------------------- nodes
 
         public bool IsOwned(UpgradeNode node) => node != null && purchased.Contains(node.id);

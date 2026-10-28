@@ -42,6 +42,7 @@ namespace junklite.Editor
                 return;
             Undo.RecordObject(config, "Reset Upgrade Tree");
             UpgradeTreeConfig.PopulateDefaults(config, AssetDatabase.LoadAssetAtPath<WeaponData>(BladesPath));
+            AssignIcons(config);
             EditorUtility.SetDirty(config);
             AssetDatabase.SaveAssets();
         }

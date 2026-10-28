@@ -21,6 +21,19 @@ namespace junklite
         [Tooltip("Height of the sweep capsule's center above the player's position.")]
         [SerializeField] private float sweepHeight = 1f;
 
+        [Header("Visual")]
+        [Tooltip("Optional authored trail (child TrailRenderer). Emits only while dashing with Dash Strike unlocked. Colour, width and material live on the TrailRenderer.")]
+        [SerializeField] private TrailRenderer strikeTrail;
+        [Tooltip("Slash VFX prefab spawned on each enemy the dash hits (e.g. Dash Strike Slash, which wraps the Free Slash VFX pack). Its +Z faces away from the camera and its X runs along the dash; its particle systems are played on spawn.")]
+        [SerializeField] private GameObject hitSlashPrefab;
+        [Tooltip("Extra rotation applied to the slash prefab, to match how it was authored.")]
+        [SerializeField] private Vector3 hitSlashRotationOffset;
+        [SerializeField, Min(0.05f)] private float hitSlashScale = 1f;
+        [Tooltip("Random tilt of the slash, in degrees either way.")]
+        [SerializeField, Range(0f, 45f)] private float hitSlashTilt;
+        [Tooltip("Seconds before a spawned slash is destroyed.")]
+        [SerializeField, Min(0.1f)] private float hitSlashLifetime = 1f;
+
         private Character2D5Controller controller;
         private WeaponManager weapons;
         private WeaponDamageResolver damageResolver;
@@ -39,6 +52,7 @@ namespace junklite
             controller = GetComponent<Character2D5Controller>();
             weapons = GetComponent<WeaponManager>();
             damageResolver = new WeaponDamageResolver(gameObject);
+            SetTrail(false);
         }
 
         private void OnEnable()
@@ -56,6 +70,7 @@ namespace junklite
                 controller.OnDashEnded -= HandleDashEnded;
             }
             dashing = false;
+            SetTrail(false);
         }
 
         private void HandleDashStarted()
@@ -63,9 +78,40 @@ namespace junklite
             hitThisDash.Clear();
             previousPosition = transform.position;
             dashing = Unlocked;
+            SetTrail(dashing);
         }
 
-        private void HandleDashEnded() => dashing = false;
+        private void HandleDashEnded()
+        {
+            dashing = false;
+            SetTrail(false);
+        }
+
+        /// <summary>Slash VFX at the hit point: local X along the flattened dash, tilted about the lane's view axis.</summary>
+        private void SpawnSlash(Vector3 point, Vector3 direction)
+        {
+            if (hitSlashPrefab == null) return;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 0.0001f) direction = Vector3.right;
+            direction.Normalize();
+            Vector3 viewAxis = Vector3.Cross(direction, Vector3.up);
+            Quaternion rotation = Quaternion.AngleAxis(Random.Range(-hitSlashTilt, hitSlashTilt), viewAxis)
+                                  * Quaternion.LookRotation(viewAxis, Vector3.up)
+                                  * Quaternion.Euler(hitSlashRotationOffset);
+            GameObject slash = Instantiate(hitSlashPrefab, point, rotation);
+            slash.transform.localScale *= hitSlashScale;
+            // Packs like Free Slash VFX ship with Play On Awake off.
+            foreach (ParticleSystem system in slash.GetComponentsInChildren<ParticleSystem>())
+                system.Play(false);
+            if (Application.isPlaying) Destroy(slash, hitSlashLifetime);
+        }
+
+        private void SetTrail(bool on)
+        {
+            if (strikeTrail == null) return;
+            if (on) strikeTrail.Clear();
+            strikeTrail.emitting = on;
+        }
 
         private void FixedUpdate()
         {
@@ -97,9 +143,10 @@ namespace junklite
                 if (!resolution.Result.WasApplied) continue;
                 applied++;
                 weapons.ReportExternalHit(resolution.Enemy, resolution.Result.AppliedDamage);
+                Vector3 point = CombatEffectsManager.BodyHitPoint(target);
+                SpawnSlash(point, direction);
                 if (CombatEffectsManager.Instance != null)
                 {
-                    Vector3 point = target.ClosestPoint(to + lift);
                     CombatEffectsManager.Instance.SpawnEnemyHitVFX(point, direction);
                     CombatEffectsManager.Instance.SpawnEnemyHurtParticle(point, direction);
                 }

@@ -22,6 +22,10 @@ namespace junklite
         [SerializeField] private int enemyHitVFXPoolSize = 8;
         [SerializeField] private float enemyHitVFXLifetime = 0.3f;
         [SerializeField] private Vector3 enemyHitVFXLocalOffset = Vector3.zero;
+        [Tooltip("Random roll in degrees, either way, so repeated hits don't look identical.")]
+        [SerializeField, Range(0f, 45f)] private float enemyHitVFXRandomRoll = 12f;
+        [Tooltip("Random shift in metres on screen, so repeated hits don't stack on one spot.")]
+        [SerializeField, Min(0f)] private float enemyHitVFXRandomOffset = 0.25f;
 
         [Header("Enemy Hurt Particle (Blood)")]
         [SerializeField] private GameObject enemyHurtParticlePrefab;
@@ -127,6 +131,21 @@ namespace junklite
         #region Public Spawn Methods
 
         /// <summary>
+        /// Where enemy hit VFX go: the middle of the drawn body (else the hit collider's
+        /// center), pulled toward the camera so the effect draws over the sprite.
+        /// </summary>
+        public static Vector3 BodyHitPoint(Collider target)
+        {
+            EnemyCharacter enemy = target.GetComponentInParent<EnemyCharacter>();
+            EnemyAnimationPresenter presenter = enemy != null ? enemy.AnimationPresenter : null;
+            Vector3 point = presenter != null && presenter.TryGetBodyCenter(out Vector3 center)
+                ? center
+                : target.bounds.center;
+            Camera camera = Camera.main;
+            return camera != null ? point - camera.transform.forward * 0.3f : point;
+        }
+
+        /// <summary>
         /// Spawn environment hit particle at position with direction.
         /// </summary>
         public void SpawnEnvHitParticle(Vector3 position, Vector3 attackDirection)
@@ -148,7 +167,9 @@ namespace junklite
                 return;
 
             GameObject go = GetFromPool(enemyHitVFXPool, enemyHitVFXPrefab, enemyHitVFXPoolRoot);
-            SetupParticle(go, position, attackDirection, enemyHitVFXLocalOffset);
+            SetupParticle(go, position, attackDirection,
+                enemyHitVFXLocalOffset + (Vector3)(Random.insideUnitCircle * enemyHitVFXRandomOffset));
+            go.transform.Rotate(0f, 0f, Random.Range(-enemyHitVFXRandomRoll, enemyHitVFXRandomRoll), Space.Self);
             StartCoroutine(ReturnAfterDelay(go, enemyHitVFXPool, enemyHitVFXPoolRoot, enemyHitVFXLifetime));
         }
 
@@ -218,16 +239,28 @@ namespace junklite
         {
             go.transform.SetParent(null);
 
+            // Lay the effect in the camera's view plane (+Z away from the camera), rolled toward
+            // the attack on screen, so it reads the same on X and Z lanes.
+            Camera camera = Camera.main;
+            Quaternion view = camera != null
+                ? Quaternion.LookRotation(camera.transform.forward, Vector3.up)
+                : Quaternion.identity;
+            // Leftward hits mirror instead of rolling 180°, so the effect isn't upside down.
+            float mirror = 1f;
             if (attackDirection != Vector3.zero)
             {
-                float angle = Mathf.Atan2(attackDirection.y, attackDirection.x) * Mathf.Rad2Deg;
-                go.transform.rotation = Quaternion.Euler(0f, 0f, angle);
+                Vector3 local = Quaternion.Inverse(view) * attackDirection;
+                mirror = local.x < 0f ? -1f : 1f;
+                view *= Quaternion.Euler(0f, 0f, Mathf.Atan2(local.y, Mathf.Abs(local.x)) * mirror * Mathf.Rad2Deg);
             }
+            go.transform.rotation = view;
+            go.transform.localScale = new Vector3(mirror, 1f, 1f);
 
             go.transform.position = position + go.transform.TransformVector(localOffset);
             go.SetActive(true);
 
-            var ps = go.GetComponent<ParticleSystem>();
+            // Wrapper prefabs keep the particle system on a child.
+            var ps = go.GetComponentInChildren<ParticleSystem>();
             if (ps != null)
             {
                 ps.Clear(true);
