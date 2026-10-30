@@ -16,6 +16,8 @@ namespace junklite
         private int horizontalMotionOwners;
         private int verticalMotionOwners;
         private bool gravityOverrideActive;
+        // Set when a swing connects: the lunge ends there so the recoil can push the player back.
+        private bool lungeStopped;
 
         public WeaponAttackMotion(
             Character2D5Controller controller,
@@ -34,6 +36,7 @@ namespace junklite
             horizontalMotionOwners = 0;
             verticalMotionOwners = 0;
             gravityOverrideActive = false;
+            lungeStopped = false;
         }
 
         public IEnumerator ApplyPush(
@@ -77,7 +80,7 @@ namespace junklite
             float resolvedDuration = duration > 0f ? duration : defaultPushDuration;
             float elapsed = 0f;
 
-            while (elapsed < resolvedDuration && IsCurrent(executionId))
+            while (elapsed < resolvedDuration && IsCurrent(executionId) && !(lungeStopped && ownsHorizontal))
             {
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / resolvedDuration);
@@ -102,8 +105,9 @@ namespace junklite
                 yield return null;
             }
 
+            // A stopped lunge already gave up the horizontal axis.
             if (IsCurrent(executionId))
-                ReleaseMotionAxes(ownsHorizontal, ownsVertical, right, up);
+                ReleaseMotionAxes(ownsHorizontal && !lungeStopped, ownsVertical, right, up);
         }
 
         public IEnumerator ApplySmoothRecoil(
@@ -219,6 +223,14 @@ namespace junklite
                 direction != AttackDirection.Side || Mathf.Approximately(recoilMagnitude, 0f))
             {
                 return;
+            }
+
+            // End the lunge first, or it keeps driving the player forward and erases the recoil.
+            lungeStopped = true;
+            if (horizontalMotionOwners > 0)
+            {
+                horizontalMotionOwners = 0;
+                ClearControlledVelocity(true, false, controller.transform.right.normalized, controller.transform.up.normalized);
             }
 
             controller.ApplyExternalImpulse(

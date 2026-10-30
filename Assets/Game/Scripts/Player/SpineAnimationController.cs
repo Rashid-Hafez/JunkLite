@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Spine;
 using Spine.Unity;
@@ -19,8 +20,14 @@ namespace junklite
         [SerializeField] private SkeletonAnimation rightSkeleton;
         [Tooltip("Shown while facing left. Authored facing left, never mirrored by scale.")]
         [SerializeField] private SkeletonAnimation leftSkeleton;
+        [Tooltip("Optional. Shown while walking toward the camera (free-roam depth movement). Leave empty to keep the side view.")]
+        [SerializeField] private SkeletonAnimation frontSkeleton;
+        [Tooltip("Optional. Shown while walking away from the camera (free-roam depth movement). Leave empty to keep the side view.")]
+        [SerializeField] private SkeletonAnimation backSkeleton;
         [Tooltip("Followers moved onto the shown skeleton (weapon socket, muzzle). Both skeletons need each follower's bone.")]
         [SerializeField] private BoneFollower[] boneFollowers;
+        [Tooltip("Slots cleared on every skeleton after animations apply (e.g. Demo_Sword, the art's baked-in sword). Rigs without the slot ignore it.")]
+        [SerializeField] private string[] hiddenSlots;
 
         [Tooltip("Local forward offset of the Spine artwork during a wall hold/slide. Aligns the hand pose without moving the physics capsule.")]
         [SerializeField] private float wallPoseForwardOffset;
@@ -73,14 +80,15 @@ namespace junklite
         [SerializeField] private float speedThreshold = 0.1f;
         [SerializeField, Tooltip("Seconds speed must stay under the threshold before Run switches to Idle. Hides brief stops (door blockers, bumps).")]
         private float idleDelay = 0.1f;
-        [SerializeField] private float locomotionBlend = 0.1f;
+        [SerializeField, Tooltip("Mix seconds between movement clips (idle, run, jump, wall, land). 0 = instant switch, no blending.")] private float locomotionBlend = 0f;
         [SerializeField] private float minRunTimeScale = 0.8f;
         [SerializeField] private float maxRunTimeScale = 1.3f;
-        [SerializeField] private float doubleJumpBlend = 0.05f;
+        [SerializeField] private float doubleJumpBlend = 0f;
 
         [Header("Attack Animation Settings")]
         [SerializeField] private bool attackOverwrite = false;
         [SerializeField] private float attackMix = 0.1f;
+        [Tooltip("Seconds to blend from a finished attack back to idle/run.")]
         [SerializeField] private float attackMixOut = 0.25f;
         [SerializeField] private float attackMixOutDelay = 0.05f;
         [Tooltip("Attack clip speed while the arm still carries the default weapon (fists).")]
@@ -118,6 +126,8 @@ namespace junklite
         private string currentLocomotionAnim = "";
         private float stoppedTime;
         private bool attackActive = false;
+        // Lunge/recoil velocity after a swing is not running: hold the stance until it fades or the player steers.
+        private bool settlingFromAttack;
         private TrackEntry currentAttackEntry = null;
         private bool forceOverrideActive = false;
 
@@ -165,6 +175,8 @@ namespace junklite
                 InitializeSkeleton(leftSkeleton);
                 rightSkeleton.gameObject.SetActive(facingRight);
                 leftSkeleton.gameObject.SetActive(!facingRight);
+                if (frontSkeleton != null) { InitializeSkeleton(frontSkeleton); frontSkeleton.gameObject.SetActive(false); }
+                if (backSkeleton != null) { InitializeSkeleton(backSkeleton); backSkeleton.gameObject.SetActive(false); }
                 SetBoneFollowerTarget(skeletonAnimation);
                 return;
             }
@@ -180,6 +192,26 @@ namespace junklite
             if (target == null) return;
             target.Initialize(false);
             ConfigureMixes(target.AnimationState?.Data);
+            HideSlots(target);
+        }
+
+        // Animations key attachments, so clear the slot after they apply and before the mesh is built.
+        private void HideSlots(SkeletonAnimation target)
+        {
+            if (hiddenSlots == null || hiddenSlots.Length == 0) return;
+
+            var slots = new List<Spine.Slot>(hiddenSlots.Length);
+            foreach (string slotName in hiddenSlots)
+            {
+                Spine.Slot slot = target.Skeleton.FindSlot(slotName);
+                if (slot != null) slots.Add(slot);
+            }
+            if (slots.Count == 0) return;
+
+            target.UpdateComplete += _ =>
+            {
+                for (int i = 0; i < slots.Count; i++) slots[i].Attachment = null;
+            };
         }
 
         private void Start()
@@ -213,6 +245,8 @@ namespace junklite
             {
                 rightSkeleton.AnimationState.Event += HandleSpineEvent;
                 leftSkeleton.AnimationState.Event += HandleSpineEvent;
+                if (frontSkeleton != null) frontSkeleton.AnimationState.Event += HandleSpineEvent;
+                if (backSkeleton != null) backSkeleton.AnimationState.Event += HandleSpineEvent;
             }
             else if (skeletonAnimation != null)
             {
@@ -296,6 +330,8 @@ namespace junklite
             {
                 if (rightSkeleton.AnimationState != null) rightSkeleton.AnimationState.Event -= HandleSpineEvent;
                 if (leftSkeleton.AnimationState != null) leftSkeleton.AnimationState.Event -= HandleSpineEvent;
+                if (frontSkeleton != null && frontSkeleton.AnimationState != null) frontSkeleton.AnimationState.Event -= HandleSpineEvent;
+                if (backSkeleton != null && backSkeleton.AnimationState != null) backSkeleton.AnimationState.Event -= HandleSpineEvent;
             }
             else if (skeletonAnimation != null)
             {
@@ -312,9 +348,28 @@ namespace junklite
             // A force override's restore callback lives on its track entry, so wait until it ends.
             if (!HasSidedSkeletons || forceOverrideActive) return;
 
-            SkeletonAnimation shown = controller.IsFacingRight ? rightSkeleton : leftSkeleton;
+            SkeletonAnimation shown = PickSkeleton();
             if (shown != skeletonAnimation)
                 SwapSkeleton(shown);
+        }
+
+        // Side view by default. Walking straight in depth on the ground shows the front/back rig:
+        // forward (away from the camera) is the back view, backward is the front view.
+        private SkeletonAnimation PickSkeleton()
+        {
+            SkeletonAnimation side = controller.IsFacingRight ? rightSkeleton : leftSkeleton;
+            if ((frontSkeleton == null && backSkeleton == null) || !controller.IsGrounded ||
+                attackActive || IsPlayingTransientAnim() || IsDead)
+                return side;
+
+            // Any sideways movement uses the side view: the front/back run cycle read as bent legs on diagonals.
+            Vector3 v = controller.Velocity;
+            float depth = Vector3.Dot(v, controller.transform.forward);
+            float lateral = Mathf.Abs(Vector3.Dot(v, controller.transform.right));
+            if (lateral > speedThreshold || Mathf.Abs(depth) <= speedThreshold) return side;
+
+            SkeletonAnimation depthRig = depth > 0f ? backSkeleton : frontSkeleton;
+            return depthRig != null ? depthRig : side;
         }
 
         private void SwapSkeleton(SkeletonAnimation next)
@@ -327,6 +382,9 @@ namespace junklite
             Spine.AnimationState from = previous.AnimationState;
             Spine.AnimationState to = next.AnimationState;
             to.ClearTracks();
+            // Fresh tracks have no "from" entry to reset keys the old clip set (bones, mesh deform),
+            // so a rig shown again kept its last clip's bent feet. Start it from the setup pose.
+            next.Skeleton.SetToSetupPose();
 
             var tracks = from.Tracks;
             for (int track = 0; track < tracks.Count; track++)
@@ -558,8 +616,11 @@ namespace junklite
             {
                 if (playerState.IsGrounded)
                 {
-                    float speed = GetSpeed();
-                    PlayLocomotion(speed > speedThreshold ? run : idle, true);
+                    settlingFromAttack = true;
+                    PlayLocomotion(GetSpeed() > speedThreshold && IsSteering ? run : idle, true);
+                    // Ease out of the finished swing instead of snapping to the stance.
+                    TrackEntry back = skeletonAnimation.AnimationState.GetCurrent(locomotionTrack);
+                    if (back != null && back.MixingFrom != null) back.MixDuration = attackMixOut;
                 }
                 else
                 {
@@ -1194,8 +1255,16 @@ namespace junklite
             float speed = GetSpeed();
             stoppedTime = speed > speedThreshold ? 0f : stoppedTime + Time.deltaTime;
 
-            if (!playerState.IsGrounded || IsPlayingTransientAnim() || attackActive || forceOverrideActive)
+            // IsAttacking also covers the lead before the clip starts, when the lunge is already moving her.
+            if (!playerState.IsGrounded || IsPlayingTransientAnim() || attackActive || forceOverrideActive ||
+                (weaponManager != null && weaponManager.IsAttacking))
                 return;
+
+            if (settlingFromAttack)
+            {
+                if (speed > speedThreshold && !IsSteering) return;
+                settlingFromAttack = false;
+            }
 
             string current = GetCurrentLocomotionName();
             string targetAnim = speed > speedThreshold ? run : idle;
@@ -1281,6 +1350,8 @@ namespace junklite
             var entry = skeletonAnimation.AnimationState?.GetCurrent(locomotionTrack);
             return entry?.Animation?.Name ?? currentLocomotionAnim;
         }
+
+        private bool IsSteering => controller != null && Mathf.Abs(controller.HorizontalInput) > 0.1f;
 
         private float GetSpeed()
         {

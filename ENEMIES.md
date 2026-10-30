@@ -71,7 +71,7 @@ Read `MAIN_MECHANICS.md` first: characters live on straight lanes (`LanePath`) a
 4. Keep the prefab connection (don't unpack). Unpacked copies keep old values when the prefab is retuned; Rooftop Scene v2 has three unpacked grunts like that.
 
 **Encounter enemies (spawned by waves)**
-1. On the `EncounterController`, add an entry to a wave. **Source Mode** is either *Spawn*, using **Enemy Prefab** + **Spawn Transform**, or *Existing*, using **Existing Enemy** + **Activate Existing Enemy**.
+1. On the `EncounterController`, add an entry to a wave. **Source Mode** is either *Spawn Prefab*, using **Enemy Prefab** + **Spawn Transform**, or *Existing Enemy*, using **Existing Enemy** + **Activate Existing Enemy**.
 2. A Spawn Transform is an empty object under `[Gameplay]`. The enemy spawns with its position **and rotation**, so snap the spawn point too: select it and run **Snap Selected To Lane Path**. Set its height to the body centre (feet on the floor), the same as a placed enemy.
 3. `Tools > JunkLite > Systems > Validate Encounters`.
 

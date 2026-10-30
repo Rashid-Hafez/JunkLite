@@ -62963,7 +62963,7 @@ MonoBehaviour:
   FocusTracking: 0
   FocusTarget: {fileID: 0}
   FocusOffset: 0
-  Profile: {fileID: 11400000, guid: 83ba2e375bed45f48bce43e5a5f7c88a, type: 2}
+  Profile: {fileID: 11400000, guid: 182a82306f8ff44cc9fdd5607ed19cac, type: 2}
 --- !u!114 &151122701
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -189141,7 +189141,7 @@ Light:
   serializedVersion: 12
   m_Type: 2
   m_Color: {r: 0.08, g: 0.65, b: 1, a: 1}
-  m_Intensity: 0.9543043
+  m_Intensity: 1.3796457
   m_Range: 4.5
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -723966,7 +723966,7 @@ Light:
   serializedVersion: 12
   m_Type: 2
   m_Color: {r: 0.12, g: 0.82, b: 1, a: 1}
-  m_Intensity: 1.4015415
+  m_Intensity: 1.1710975
   m_Range: 6.5
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -862565,7 +862565,7 @@ MonoBehaviour:
   FocusTracking: 0
   FocusTarget: {fileID: 0}
   FocusOffset: 0
-  Profile: {fileID: 11400000, guid: 83ba2e375bed45f48bce43e5a5f7c88a, type: 2}
+  Profile: {fileID: 11400000, guid: 182a82306f8ff44cc9fdd5607ed19cac, type: 2}
 --- !u!4 &343873528647833381
 Transform:
   m_ObjectHideFlags: 0
@@ -872468,16 +872468,8 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
-      propertyPath: enemyHitVFXPrefab
-      value: 
-      objectReference: {fileID: 5545173171955001552, guid: 7ac879c2caac1ca41b6c438e77d8b25d, type: 3}
-    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
       propertyPath: bloodSplatterPrefab
       value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
-      propertyPath: enemyHitVFXPoolSize
-      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
       propertyPath: bloodSplatterLifetime
@@ -872486,22 +872478,6 @@ PrefabInstance:
     - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
       propertyPath: bloodSplatterPoolSize
       value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
-      propertyPath: enemyHitVFXRightOffset
-      value: 0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
-      propertyPath: enemyHitVFXLocalOffset.x
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
-      propertyPath: enemyHitVFXLocalOffset.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
-      propertyPath: enemyHitVFXLocalOffset.z
-      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5290022273384436843, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
       propertyPath: m_Name
@@ -873439,7 +873415,7 @@ PrefabInstance:
       objectReference: {fileID: 321132548}
     - target: {fileID: 7123456789012345678, guid: 8b89a65709c0ecd40a2644c08718f1bc, type: 3}
       propertyPath: useNewPlayer
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7724700367755847198, guid: 8b89a65709c0ecd40a2644c08718f1bc, type: 3}
       propertyPath: m_LocalPosition.x
@@ -904776,7 +904752,7 @@ MonoBehaviour:
   FocusTracking: 0
   FocusTarget: {fileID: 0}
   FocusOffset: 0
-  Profile: {fileID: 11400000, guid: 83ba2e375bed45f48bce43e5a5f7c88a, type: 2}
+  Profile: {fileID: 11400000, guid: 182a82306f8ff44cc9fdd5607ed19cac, type: 2}
 --- !u!222 &7830038738785188922
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -904924,7 +904900,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1475170997830509475}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
+  m_LocalRotation: {x: -0, y: 0.7071068, z: -0, w: 0.7071068}
   m_LocalPosition: {x: 164.01709, y: 2.72, z: -0.40000153}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -904971,7 +904947,7 @@ MonoBehaviour:
   FocusTracking: 0
   FocusTarget: {fileID: 0}
   FocusOffset: 0
-  Profile: {fileID: 11400000, guid: 83ba2e375bed45f48bce43e5a5f7c88a, type: 2}
+  Profile: {fileID: 11400000, guid: 182a82306f8ff44cc9fdd5607ed19cac, type: 2}
 --- !u!223 &8184270627027192224
 Canvas:
   m_ObjectHideFlags: 0
@@ -905196,7 +905172,7 @@ MonoBehaviour:
   FocusTracking: 0
   FocusTarget: {fileID: 0}
   FocusOffset: 0
-  Profile: {fileID: 11400000, guid: 83ba2e375bed45f48bce43e5a5f7c88a, type: 2}
+  Profile: {fileID: 11400000, guid: 182a82306f8ff44cc9fdd5607ed19cac, type: 2}
 --- !u!199 &8481197747158227372
 ParticleSystemRenderer:
   serializedVersion: 7

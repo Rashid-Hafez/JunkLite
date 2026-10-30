@@ -5,6 +5,7 @@ namespace junklite
     /// <summary>
     /// Locks the game at 60 fps on boot, before any scene loads.
     /// 60/120/240 Hz screens use VSync with a divider (no tearing); other rates fall back to a plain 60 fps cap.
+    /// Runs after SteamDeckQuality, whose quality-level switch would otherwise reset VSync.
     /// </summary>
     public static class FrameRateLock
     {

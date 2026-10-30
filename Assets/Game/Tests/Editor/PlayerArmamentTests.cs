@@ -71,6 +71,18 @@ namespace junklite.Tests
         }
 
         [Test]
+        public void PickingUpSharedBladesGivesTheCharactersOwnCopy()
+        {
+            var armament = MakeArmament(out _, out var ownBlades, out _);
+            var sharedBlades = Own(ScriptableObject.CreateInstance<MeleeWeaponData>());
+            sharedBlades.weaponId = ownBlades.weaponId;
+
+            Assert.That(armament.TryAcquire(sharedBlades), Is.True);
+            Assert.That(armament.Current, Is.SameAs(ownBlades), "same weapon id, the character's own animations");
+            Assert.That(armament.TryAcquire(sharedBlades), Is.False, "already holding it");
+        }
+
+        [Test]
         public void AcquiringBladesIsPermanentAndNotifiesOnce()
         {
             var armament = MakeArmament(out _, out var blades, out var visual);
@@ -200,10 +212,16 @@ namespace junklite.Tests
                 var armament = prefab.GetComponent<PlayerArmament>();
                 Assert.That(armament, Is.Not.Null, path);
                 var serialized = new SerializedObject(armament);
-                Assert.That(serialized.FindProperty("defaultWeapon").objectReferenceValue, Is.SameAs(fists), path);
+                var ownFists = serialized.FindProperty("defaultWeapon").objectReferenceValue as WeaponData;
+                Assert.That(ownFists, Is.Not.Null, path);
+                Assert.That(ownFists.ProfileId, Is.EqualTo(fists.ProfileId), path);
                 var upgradePath = serialized.FindProperty("upgradePath");
                 Assert.That(upgradePath.arraySize, Is.EqualTo(1), path);
-                Assert.That(upgradePath.GetArrayElementAtIndex(0).objectReferenceValue, Is.SameAs(blades), path);
+                // A character may carry its own copy of the blades (own animations), keyed by the same weapon id.
+                var ownBlades = upgradePath.GetArrayElementAtIndex(0).objectReferenceValue as WeaponData;
+                Assert.That(ownBlades, Is.Not.Null, path);
+                Assert.That(ownBlades.ProfileId, Is.EqualTo(blades.ProfileId), path);
+                Assert.That(ownBlades.enablesSwordGrapple, Is.True, path);
                 var holder = serialized.FindProperty("weaponHolder").objectReferenceValue as Transform;
                 Assert.That(holder, Is.Not.Null, path);
                 var visuals = serialized.FindProperty("heldVisuals");

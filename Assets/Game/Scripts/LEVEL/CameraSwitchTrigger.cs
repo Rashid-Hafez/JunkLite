@@ -17,7 +17,6 @@ namespace junklite
         public bool rotateOnTrigger;
         public float rotationA; // first rotation (Y-axis)
         public float rotationB; // second rotation (Y-axis)
-        [SerializeField, Tooltip("Set to true if the rotation from A to B is Counter-clockwise.")] private bool ccwAB = true;
 
         [Header("Camera Settings")]
         public bool switchCameras;
@@ -372,13 +371,16 @@ namespace junklite
                     new Vector3(pointA.position.x, controller.transform.position.y, pointA.position.z)
                     : new Vector3(pointB.position.x, controller.transform.position.y, pointB.position.z);
 
+                float fromYaw = controller.transform.eulerAngles.y;
                 controller.RotatePLayer(usingFirstState ? rotationA : rotationB);
+                // Signed from the actual turn, so walking the corner back spins the sprite the other way.
+                float turn = Mathf.DeltaAngle(controller.transform.eulerAngles.y, fromYaw);
                 controller.FreezePerpendicularAxis();
 
                 CancelBillboardRotation();
                 if (cinemachineBrain != null && switchCameras && cameraBlendDuration > 0f &&
                     cameraA != null && cameraB != null && cameraA != cameraB)
-                    billboardRoutine = StartCoroutine(BillboardRotate(playerSpine));
+                    billboardRoutine = StartCoroutine(BillboardRotate(playerSpine, turn));
             }
         }
 
@@ -453,14 +455,15 @@ namespace junklite
             }
         }
 
-        public IEnumerator BillboardRotate(Transform playerSpine)
+        /// <summary>Starts the sprite at its old world facing (turnDegrees back) and eases it to rest with the camera blend.</summary>
+        public IEnumerator BillboardRotate(Transform playerSpine, float turnDegrees)
         {
             if (playerSpine == null)
                 yield break;
 
             billboardTarget = playerSpine;
             billboardRestRotation = playerSpine.localRotation;
-            Quaternion offset = Quaternion.Euler(0f, ccwAB ? 90f : -90f, 0f);
+            Quaternion offset = Quaternion.Euler(0f, turnDegrees, 0f);
 
             try
             {

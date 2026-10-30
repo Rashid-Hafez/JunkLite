@@ -208,11 +208,24 @@ namespace junklite.Tests
             Quaternion restRotation = Quaternion.Euler(0f, 12f, 5f);
             sprite.localRotation = restRotation;
 
-            var rotation = trigger.BillboardRotate(sprite);
+            var rotation = trigger.BillboardRotate(sprite, 90f);
             Assert.That(rotation.MoveNext(), Is.True);
             Assert.That(Quaternion.Angle(sprite.localRotation, restRotation), Is.GreaterThan(1f));
             Assert.That(rotation.MoveNext(), Is.False);
             Assert.That(Quaternion.Angle(sprite.localRotation, restRotation), Is.LessThan(0.01f));
+        }
+
+        [TestCase(90f)]
+        [TestCase(-90f)]
+        public void BillboardStartsAtTheOldFacingForEitherTurnDirection(float turn)
+        {
+            CameraSwitchTrigger trigger = CreateTrigger();
+            Transform sprite = CreateObject("Player Sprite").transform;
+
+            var rotation = trigger.BillboardRotate(sprite, turn);
+            Assert.That(rotation.MoveNext(), Is.True);
+            Assert.That(Quaternion.Angle(sprite.localRotation, Quaternion.Euler(0f, turn, 0f)), Is.LessThan(0.01f));
+            ((IDisposable)rotation).Dispose();
         }
 
         [TestCase("OnDisable")]
@@ -224,7 +237,7 @@ namespace junklite.Tests
             Quaternion restRotation = Quaternion.Euler(0f, 12f, 5f);
             sprite.localRotation = restRotation;
 
-            var rotation = trigger.BillboardRotate(sprite);
+            var rotation = trigger.BillboardRotate(sprite, 90f);
             Assert.That(rotation.MoveNext(), Is.True);
             Invoke(trigger, interruption);
             Assert.That(Quaternion.Angle(sprite.localRotation, restRotation), Is.LessThan(0.01f));

@@ -1344,7 +1344,10 @@ MonoBehaviour:
   skeletonAnimation: {fileID: 2205524235645085863}
   rightSkeleton: {fileID: 0}
   leftSkeleton: {fileID: 0}
+  frontSkeleton: {fileID: 0}
+  backSkeleton: {fileID: 0}
   boneFollowers: []
+  hiddenSlots: []
   wallPoseForwardOffset: 0.345
   locomotionTrack: 0
   overlayTrack: 1
@@ -1382,10 +1385,11 @@ MonoBehaviour:
   deathTimeScale: 1
   speedThreshold: 0.1
   idleDelay: 0.1
-  locomotionBlend: 0.1
+  depthEnterRatio: 1.5
+  locomotionBlend: 0
   minRunTimeScale: 0.8
   maxRunTimeScale: 1.3
-  doubleJumpBlend: 0.05
+  doubleJumpBlend: 0
   attackOverwrite: 1
   attackMix: 0.05
   attackMixOut: 0.05

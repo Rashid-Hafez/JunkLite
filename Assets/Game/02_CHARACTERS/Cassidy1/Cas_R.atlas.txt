@@ -109,7 +109,7 @@ QuarterLeftFront/CasOctober52026-QuarterLeftFront-Head
 bounds:2,202,20,22
 rotate:90
 QuarterLeftFront/CasOctober52026-QuarterLeftFront-Torso
-bounds:2,344,24,23
+bounds:2,344,25,23
 offsets:0,80,33,103
 QuarterLeftFront/CasOctober52026-QuarterLeftFront-UpperArm_L
 bounds:26,187,13,22
@@ -192,7 +192,7 @@ rotate:90
 QuarterRightFront/CasOctober52026-QuarterRightFront-UpperArm_R
 bounds:48,107,12,20
 QuarterRightFront/CasOctober52026-QuarterRightFront-Waist
-bounds:33,343,19,24
+bounds:29,343,19,24
 rotate:90
 Right/CasOctober52026-Right-Blink
 bounds:2,224,22,22
@@ -210,7 +210,7 @@ rotate:90
 Right/CasOctober52026-Right-Head
 bounds:26,224,22,22
 Right/CasOctober52026-Right-Thigh_R
-bounds:28,360,3,7
+bounds:55,355,3,7
 offsets:7,20,15,35
 Right/CasOctober52026-Right-Torso
 bounds:28,320,21,23

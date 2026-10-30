@@ -25,6 +25,7 @@ JunkLite is a **single-player** Unity 6 (6000.3.x) URP game. First-party code li
 | Any architecture, combat, mod, manager, camera, enemy, or encounter work | `ARCHITECTURE_HANDOFF.md` (source of truth: status, known gaps, safe next steps) |
 | Onboarding overview for humans (dev tools, ScriptableObjects, mod system, lane setup) | `PROGRAMMER_AND_DESIGNER_GUIDE.md` (keep it in sync when those systems change) |
 | Any level, scene, collider, camera, lane, or world-rotation work | `MAIN_MECHANICS.md` (how the game plays: 2.5D lanes, world rotation, Camera Switch Triggers, level rules) |
+| Making a new enemy or placing enemies in a level | `ENEMIES.md` (prefab checklist, registration, lane snapping, encounters, automation steps) |
 | UI, fonts, HUD, in-world prompts | The **UI rules** section below (full copy: `Assets/Game/New UI/UI INSTRUCTIONS FOR AI AGENTS.pdf`) |
 
 If you change an architectural boundary, update `ARCHITECTURE_HANDOFF.md` in the same change.

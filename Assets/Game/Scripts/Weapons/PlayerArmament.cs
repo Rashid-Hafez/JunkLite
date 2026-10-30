@@ -103,6 +103,7 @@ namespace junklite
         /// </summary>
         public bool TryAcquire(WeaponData weapon)
         {
+            weapon = OwnVersionOf(weapon);
             if (weapon == null || weapon == Current) return false;
 
             PlayerUpgrades upgrades = PlayerUpgrades.Instance;
@@ -135,6 +136,15 @@ namespace junklite
         {
             visible = isVisible;
             ApplyVisibility();
+        }
+
+        // A character can carry its own copy of a weapon (same weapon id, own animations) in its upgrade path.
+        private WeaponData OwnVersionOf(WeaponData weapon)
+        {
+            if (weapon == null || upgradePath == null) return weapon;
+            foreach (WeaponData own in upgradePath)
+                if (own != null && own.ProfileId == weapon.ProfileId) return own;
+            return weapon;
         }
 
         private void RestoreFromProfile()
