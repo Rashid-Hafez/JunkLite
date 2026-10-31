@@ -53,8 +53,7 @@ namespace junklite
             PlayerUpgrades.Ensure(transform);
 
             EnsureGameplayUIRoot();
-            EnsureEventSystem();
-            RemoveDuplicateEventSystems();
+            RefreshEventSystem();
         }
 
         private void OnEnable()
@@ -78,8 +77,7 @@ namespace junklite
             if (Instance != this) return;
 
             EnsureGameplayUIRoot();
-            EnsureEventSystem();
-            RemoveDuplicateEventSystems();
+            RefreshEventSystem();
         }
 
         /// <summary>
@@ -124,33 +122,40 @@ namespace junklite
             GameplayUIRoot = uiObject.transform;
         }
 
-        private void EnsureEventSystem()
+        /// <summary>
+        /// The scene's own EventSystem wins; the persistent one is only a fallback for
+        /// scenes without one. Enabling a second system logs Unity's "only one active
+        /// Event System" warning, so the fallback stays inactive while a scene provides one.
+        /// </summary>
+        private void RefreshEventSystem()
         {
-            if (ownedEventSystem != null) return;
+            EnsureEventSystem();
 
-            var eventObject = new GameObject(
-                "Persistent Event System",
-                typeof(EventSystem),
-                typeof(InputSystemUIInputModule));
-
-            eventObject.transform.SetParent(transform, false);
-            ownedEventSystem = eventObject.GetComponent<EventSystem>();
-        }
-
-        private void RemoveDuplicateEventSystems()
-        {
+            bool sceneHasEventSystem = false;
             var eventSystems = FindObjectsByType<EventSystem>(
-                FindObjectsInactive.Include,
+                FindObjectsInactive.Exclude,
                 FindObjectsSortMode.None);
 
             foreach (EventSystem eventSystem in eventSystems)
             {
-                if (eventSystem == null || eventSystem == ownedEventSystem) continue;
-
-                eventSystem.enabled = false;
-                foreach (BaseInputModule inputModule in eventSystem.GetComponents<BaseInputModule>())
-                    inputModule.enabled = false;
+                if (eventSystem == ownedEventSystem || !eventSystem.isActiveAndEnabled) continue;
+                sceneHasEventSystem = true;
+                break;
             }
+
+            ownedEventSystem.gameObject.SetActive(!sceneHasEventSystem);
+        }
+
+        private void EnsureEventSystem()
+        {
+            if (ownedEventSystem != null) return;
+
+            // Build it inactive so its OnEnable never runs alongside a scene EventSystem.
+            var eventObject = new GameObject("Persistent Event System");
+            eventObject.SetActive(false);
+            eventObject.transform.SetParent(transform, false);
+            ownedEventSystem = eventObject.AddComponent<EventSystem>();
+            eventObject.AddComponent<InputSystemUIInputModule>();
         }
     }
 }

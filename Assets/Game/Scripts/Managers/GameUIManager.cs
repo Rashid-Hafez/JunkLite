@@ -43,7 +43,10 @@ namespace junklite
             if (Instance != null && Instance != this)
             {
                 enabled = false;
-                Destroy(this);
+                // A co-located GameManager [RequireComponent]s this, so Unity refuses to
+                // remove it; the disabled duplicate unloads with its scene instead.
+                if (!TryGetComponent(out GameManager _))
+                    Destroy(this);
                 return;
             }
 

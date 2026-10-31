@@ -71,6 +71,17 @@ namespace junklite
             //PlayAmbienceIfAvailable();
         }
 
+        void OnDestroy()
+        {
+            if (Instance == this)
+                Instance = null;
+        }
+
+        // Domain reload is disabled, so a destroyed manager from the previous Play
+        // session would otherwise survive as a stale Instance.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics() => Instance = null;
+
         #region Init
 
         private void InitPool()

@@ -103,6 +103,12 @@ Full checklist for making and placing enemies: `ENEMIES.md`. Place them roughly 
 - **Anything with a left/right offset** on the new player needs a **Facing Mirror**: author it for facing right. Tick **Turn On Y** for VFX groups so their particles and children mirror too. Code must read `Character2D5Controller.IsFacingRight` / `FacingSign`, never `localScale.x`.
 - **Weapon draw order:** **Player Armament > Weapon Sorting Order Facing Left** puts the held visual behind the body when the right hand is the far arm. The blades visual is the authored, inactive `Blades Visual` child of `Weaponsocket`; `PlayerArmament` only toggles it.
 
+### Menu controller navigation
+- Put a **UI Navigation Group** on the parent of a list of buttons (e.g. the title menu's `Menu Column`). It links every active, interactable button under it **in hierarchy order**, so adding, reordering, hiding or disabling buttons needs no other change. Choose **Axis** (Vertical/Horizontal), **Wrap Around**, and an optional **Default Selection** (empty = first button).
+- It also re-selects a button when the controller is used after a mouse click cleared the selection, and (with **Select On Hover**) makes the mouse select what it hovers, so only one button is ever highlighted.
+- To leave a button out, set its **Navigation** to **None**. Put a separate group on each list; nested lists are not linked to each other automatically.
+- EventSystems should use `Assets/Game/Input System/InputSystem_Actions` (its **UI/Navigate** is a *Value* action). Unity's default actions use *PassThrough*, which lets stick noise cancel D-pad presses.
+
 ## 5. Dev tools
 
 | Tool | Where | Use |

@@ -58,7 +58,8 @@ namespace junklite
 
         private void Start()
         {
-            // Gamepad / keyboard navigation needs a starting selection.
+            // Play is the starting focus; UINavigationGroup on Menu Column owns
+            // controller/keyboard navigation and selection recovery.
             if (playButton != null && EventSystem.current != null)
                 EventSystem.current.SetSelectedGameObject(playButton.gameObject);
         }

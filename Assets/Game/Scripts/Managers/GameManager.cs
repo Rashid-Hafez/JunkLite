@@ -115,6 +115,10 @@ namespace junklite
             UnsubscribeFromCombatTracker();
 
             UnsubscribePauseInput();
+
+            // Domain reload is disabled; never leave a destroyed manager as Instance.
+            if (Instance == this)
+                Instance = null;
         }
 
         private void SubscribeToPlayerLifecycle()
