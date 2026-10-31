@@ -79,6 +79,11 @@ namespace junklite
         private Tab activeTab = Tab.Inventory;
         private const float NavigateDeadZone = 0.45f;
         private const float NavigateRepeatDelay = 0.16f;
+        // Pixels a target must lie ahead of the current slot; rejects same-row/column slots.
+        private const float NavigateMinStep = 4f;
+        // Sideways offset costs this much more than distance ahead, so rows/columns win.
+        private const float NavigateCrossAxisWeight = 2f;
+        private readonly List<Selectable> navigableBuffer = new();
         private float nextNavigateTime;
         private bool themedInterfaceBuilt;
         private bool authoredMissionsPage;
@@ -679,6 +684,7 @@ namespace junklite
                 characterButton.colors = colors;
                 // The tint needs a white source graphic; Button supplies its transparent idle color.
                 target.color = Color.white;
+                characterButton.navigation = new Navigation { mode = Navigation.Mode.None };
                 characterButton.onClick.AddListener(ShowPlayerDetails);
                 var trigger = target.gameObject.AddComponent<EventTrigger>();
                 var select = new EventTrigger.Entry { eventID = EventTriggerType.Select };
@@ -1126,35 +1132,38 @@ namespace junklite
         {
             var currentObj = EventSystem.current.currentSelectedGameObject;
             var currentSlot = currentObj != null ? currentObj.GetComponent<Selectable>() : null;
-            var allSlots = GetAllNavigableSlots();
-            if (allSlots.Count == 0) return false;
+            CollectNavigableSlots(navigableBuffer);
+            if (navigableBuffer.Count == 0) return false;
 
-            if (currentSlot == null || !allSlots.Contains(currentSlot))
+            if (currentSlot == null || !navigableBuffer.Contains(currentSlot))
             {
-                EventSystem.current.SetSelectedGameObject(allSlots[0].gameObject);
+                EventSystem.current.SetSelectedGameObject(navigableBuffer[0].gameObject);
                 return true;
             }
 
-            var currentPos = (Vector2)currentSlot.transform.position;
-            Selectable bestCandidate = null;
-            float bestScore = float.NegativeInfinity;
+            // Snap to the dominant axis so a slightly diagonal stick still moves along a row
+            // or column, then pick the nearest slot ahead, preferring the same row/column.
+            Vector2 axis = Mathf.Abs(direction.x) >= Mathf.Abs(direction.y)
+                ? new Vector2(Mathf.Sign(direction.x), 0f)
+                : new Vector2(0f, Mathf.Sign(direction.y));
+            Vector2 across = new(-axis.y, axis.x);
+            Vector2 origin = RectCenter(currentSlot);
 
-            foreach (var candidate in allSlots)
+            Selectable bestCandidate = null;
+            float bestCost = float.PositiveInfinity;
+
+            foreach (var candidate in navigableBuffer)
             {
                 if (candidate == currentSlot) continue;
 
-                Vector2 toCandidate = (Vector2)candidate.transform.position - currentPos;
-                float distance = toCandidate.magnitude;
-                if (distance <= 0.001f) continue;
+                Vector2 offset = RectCenter(candidate) - origin;
+                float ahead = Vector2.Dot(offset, axis);
+                if (ahead <= NavigateMinStep) continue;
 
-                Vector2 dir = toCandidate / distance;
-                float alignment = Vector2.Dot(direction, dir);
-                if (alignment <= 0.2f) continue;
-
-                float score = (alignment * 1000f) - distance;
-                if (score > bestScore)
+                float cost = ahead + Mathf.Abs(Vector2.Dot(offset, across)) * NavigateCrossAxisWeight;
+                if (cost < bestCost)
                 {
-                    bestScore = score;
+                    bestCost = cost;
                     bestCandidate = candidate;
                 }
             }
@@ -1165,15 +1174,20 @@ namespace junklite
             return true;
         }
 
-        private List<Selectable> GetAllNavigableSlots()
+        private static Vector2 RectCenter(Selectable selectable)
         {
-            var result = new List<Selectable>(activeModSlots.Count + passiveModSlots.Count + inventorySlots.Count + 1);
+            var rect = (RectTransform)selectable.transform;
+            return rect.TransformPoint(rect.rect.center);
+        }
+
+        private void CollectNavigableSlots(List<Selectable> result)
+        {
+            result.Clear();
             AddNavigableSlots(activeModSlots, result);
             AddNavigableSlots(passiveModSlots, result);
             AddNavigableSlots(inventorySlots, result);
             if (characterButton != null && characterButton.gameObject.activeInHierarchy && characterButton.IsInteractable())
                 result.Add(characterButton);
-            return result;
         }
 
         private static void AddNavigableSlots(List<ModSlotUI> source, List<Selectable> target)
@@ -1198,9 +1212,9 @@ namespace junklite
             var selectable = slot.GetComponent<Selectable>();
             if (selectable == null) return;
 
-            var navigation = selectable.navigation;
-            navigation.mode = Navigation.Mode.Automatic;
-            selectable.navigation = navigation;
+            // HandleUINavigate is the only thing that moves between slots. Automatic
+            // navigation made the EventSystem move too, so one press could skip a slot.
+            selectable.navigation = new Navigation { mode = Navigation.Mode.None };
         }
 
         #endregion

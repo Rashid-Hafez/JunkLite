@@ -93,7 +93,7 @@ namespace junklite
                         view.gameObject.SetActive(true);
                         view.Focused += HandleFocused;
                         view.Confirmed += HandleConfirmed;
-                        view.Bind(scratch[i], ResolveState(scratch[i]), showLink: i > 0);
+                        view.Bind(scratch[i], ResolveState(scratch[i]), showLink: HasPrerequisite(scratch[i]));
                         views.Add(view);
                     }
                 }
@@ -109,8 +109,7 @@ namespace junklite
             foreach (UpgradeNodeView view in views)
             {
                 if (view == null || view.Node == null) continue;
-                int indexInColumn = view.transform.GetSiblingIndex() - (nodeTemplate != null && nodeTemplate.transform.parent == view.transform.parent ? 1 : 0);
-                view.Bind(view.Node, ResolveState(view.Node), showLink: indexInColumn > 0);
+                view.Bind(view.Node, ResolveState(view.Node), showLink: HasPrerequisite(view.Node));
                 view.SetSelected(view == selected);
             }
             if (selected != null) ShowDetails(selected);
@@ -124,6 +123,10 @@ namespace junklite
             EventSystem.current.SetSelectedGameObject(target.gameObject);
             HandleFocused(target);
         }
+
+        // The link line shows a real requirement, not just column order.
+        private static bool HasPrerequisite(UpgradeNode node) =>
+            node.prerequisiteIds != null && node.prerequisiteIds.Length > 0;
 
         private UpgradeNodeState ResolveState(UpgradeNode node)
         {
