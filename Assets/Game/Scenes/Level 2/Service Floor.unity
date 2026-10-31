@@ -193511,7 +193511,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &458869546
 RectTransform:
   m_ObjectHideFlags: 0
@@ -262914,7 +262914,6 @@ GameObject:
   - component: {fileID: 634932954}
   - component: {fileID: 634932953}
   - component: {fileID: 634932952}
-  - component: {fileID: 634932955}
   m_Layer: 0
   m_Name: Room8_BasementExit
   m_TagString: Untagged
@@ -262995,27 +262994,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1583861877}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!65 &634932955
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 634932951}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 7.5085754, y: 6.8970194, z: 7.9642}
-  m_Center: {x: -20.044144, y: 1.9955468, z: -0.8489661}
 --- !u!1001 &635067830
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -531158,6 +531136,7 @@ Transform:
   - {fileID: 727226920}
   - {fileID: 1685981201}
   - {fileID: 1783479100}
+  - {fileID: 1783479198}
   m_Father: {fileID: 1158355626}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &1280806123 stripped
@@ -746610,6 +746589,59 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1783479099}
+  m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 11.5, z: 6}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &1783479197
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1783479198}
+  - component: {fileID: 1783479199}
+  m_Layer: 12
+  m_Name: Wall_Pit_West
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1783479198
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1783479197}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 155.5, y: -4.25, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1280308588}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &1783479199
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1783479197}
   m_Material: {fileID: 13400000, guid: 570d30f1f23f4d847adea5671a227149, type: 2}
   m_IncludeLayers:
     serializedVersion: 2

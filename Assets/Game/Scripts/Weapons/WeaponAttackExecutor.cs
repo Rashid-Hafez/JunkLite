@@ -11,6 +11,8 @@ namespace junklite
         public float AnimationLeadTime { get; }
         public float AttackOpenWindow { get; }
         public float DownAttackFloatNormalized { get; }
+        /// <summary>Same as DownAttackFloatNormalized, for side and up attacks started in the air.</summary>
+        public float AirAttackFloatNormalized { get; }
         public float EnemyHitHitstopDuration { get; }
         public float LaunchHitstopDuration { get; }
         /// <summary>Knockback multiplier applied to Launch finishers (upgrade). 1 = authored.</summary>
@@ -21,6 +23,7 @@ namespace junklite
             float animationLeadTime,
             float attackOpenWindow,
             float downAttackFloatNormalized,
+            float airAttackFloatNormalized,
             float enemyHitHitstopDuration,
             float launchHitstopDuration = 0f,
             float finisherForceMultiplier = 1f)
@@ -30,6 +33,7 @@ namespace junklite
             AnimationLeadTime = Mathf.Max(0f, animationLeadTime);
             AttackOpenWindow = Mathf.Max(0f, attackOpenWindow);
             DownAttackFloatNormalized = Mathf.Clamp01(downAttackFloatNormalized);
+            AirAttackFloatNormalized = Mathf.Clamp01(airAttackFloatNormalized);
             EnemyHitHitstopDuration = Mathf.Max(0f, enemyHitHitstopDuration);
             LaunchHitstopDuration = Mathf.Max(EnemyHitHitstopDuration, launchHitstopDuration);
         }
@@ -88,7 +92,6 @@ namespace junklite
         private readonly WeaponHitResolver hitResolver;
         private readonly WeaponDamageResolver damageResolver;
         private readonly Transform playerTransform;
-        private readonly LayerMask enemyLayer;
         private readonly LayerMask environmentLayer;
         private readonly Action<int, string> requestAnimation;
         private readonly Action<int> completeWithoutAnimation;
@@ -103,7 +106,6 @@ namespace junklite
             WeaponHitResolver hitResolver,
             WeaponDamageResolver damageResolver,
             Transform playerTransform,
-            LayerMask enemyLayer,
             LayerMask environmentLayer,
             Action<int, string> requestAnimation,
             Action<int> completeWithoutAnimation,
@@ -116,7 +118,6 @@ namespace junklite
             this.hitResolver = hitResolver;
             this.damageResolver = damageResolver;
             this.playerTransform = playerTransform;
-            this.enemyLayer = enemyLayer;
             this.environmentLayer = environmentLayer;
             this.requestAnimation = requestAnimation;
             this.completeWithoutAnimation = completeWithoutAnimation;
@@ -161,9 +162,11 @@ namespace junklite
                 step.forwardImpulseDuration,
                 step.lungeCurve));
 
-            if (request.Direction == AttackDirection.Down &&
-                !request.WasGrounded &&
-                request.Settings.DownAttackFloatNormalized > 0f)
+            // Air attacks stall the fall for part of the swing, then gravity resumes.
+            float floatNormalized = request.Direction == AttackDirection.Down
+                ? request.Settings.DownAttackFloatNormalized
+                : request.Settings.AirAttackFloatNormalized;
+            if (!request.WasGrounded && floatNormalized > 0f)
             {
                 float hitDelay = step.hitDelay > 0f
                     ? step.hitDelay
@@ -173,9 +176,9 @@ namespace junklite
                 float totalDuration = request.Settings.AnimationLeadTime +
                                       hitDelay +
                                       request.Settings.AttackOpenWindow;
-                execution.StartOwned(motion.HoldDownAttackFloat(
+                execution.StartOwned(motion.HoldAirAttackFloat(
                     request.ExecutionId,
-                    request.Settings.DownAttackFloatNormalized * totalDuration));
+                    floatNormalized * totalDuration));
             }
 
             if (request.Settings.AnimationLeadTime > 0f)
@@ -244,16 +247,12 @@ namespace junklite
                     yield break;
                 }
 
-                if (hitResult.Type == AttackHitResult.Environment && !hasHitEnvironment)
+                // The overlap also touches the floor under the player whenever the sphere
+                // reaches below the feet; only geometry on the swing line counts as struck.
+                if (hitResult.Type == AttackHitResult.Environment && !hasHitEnvironment &&
+                    TryResolveEnvironmentImpact(request, hitOrigin, radius, out Vector3 impactPoint))
                 {
                     hasHitEnvironment = true;
-                    float radiusForVfx = step.hitRadius > 0f
-                        ? step.hitRadius
-                        : request.FallbackRadius;
-                    Vector3 impactPoint = ResolveImpactPoint(
-                        request,
-                        hitOrigin,
-                        radiusForVfx);
                     Vector3 attackDirection = GetAttackDirection(request);
                     if (CombatEffectsManager.Instance != null)
                     {
@@ -381,39 +380,38 @@ namespace junklite
             };
         }
 
-        private Vector3 ResolveImpactPoint(
+        /// <summary>
+        /// Casts along the swing (side: facing, up/down: vertical) through the hit sphere. Succeeds
+        /// only when environment lies on that line, e.g. a wall ahead or the floor under a down
+        /// attack, and returns the presentation point on its surface.
+        /// </summary>
+        private bool TryResolveEnvironmentImpact(
             WeaponAttackExecutionRequest request,
             Vector3 origin,
-            float radius)
+            float radius,
+            out Vector3 point)
         {
             Vector3 attackDirection = GetAttackDirection(request);
             Vector3 rayStart = origin - attackDirection * (radius + 0.25f);
             float rayLength = (radius + 0.25f) + (radius + 0.5f);
-            Vector3 point;
-            Vector3 normal;
 
-            if (Physics.Raycast(
+            if (!Physics.Raycast(
                     rayStart,
                     attackDirection,
                     out RaycastHit hit,
                     rayLength,
-                    enemyLayer | environmentLayer,
+                    environmentLayer,
                     QueryTriggerInteraction.Ignore))
             {
-                point = hit.point;
-                normal = hit.normal;
-            }
-            else
-            {
-                point = origin + attackDirection * radius;
-                normal = -attackDirection;
+                point = default;
+                return false;
             }
 
-            point += normal * 0.06f;
+            point = hit.point + hit.normal * 0.06f;
             Camera camera = Camera.main;
             if (camera != null)
                 point += -camera.transform.forward * 0.1f;
-            return point;
+            return true;
         }
 
         private static float CalculateDamage(WeaponData data, float damageMultiplier)

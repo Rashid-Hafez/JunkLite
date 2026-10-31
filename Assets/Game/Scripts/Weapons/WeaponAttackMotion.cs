@@ -163,7 +163,7 @@ namespace junklite
             }
         }
 
-        public IEnumerator HoldDownAttackFloat(int executionId, float duration)
+        public IEnumerator HoldAirAttackFloat(int executionId, float duration)
         {
             if (!IsCurrent(executionId) || controller == null || duration <= 0f)
                 yield break;

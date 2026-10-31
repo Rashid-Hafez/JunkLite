@@ -1,5 +1,25 @@
 # JunkLite Architecture Refactor Handoff
 
+### Kills and timer HUD removed from gameplay (2026-10-31)
+
+- `Canvas/Level HUD` is now **inactive** in Rooftop Scene v2, Rooftop Scene v3 and Service Floor. It holds the code-built `LevelHUD` cards (legacy code-built UI) and their old anchor placeholders. No other prefab or scene uses `LevelHUD`.
+- `LevelStatsTracker` still records time and kills for the Level Results Screen.
+- To bring the cards back, re-enable that object. A new version should be an authored prefab, per the UI rules.
+
+### Air attacks hang in place (2026-10-31)
+
+- **Before:** only airborne down attacks floated (`downAttackFloatNormalized`). Side and up attacks in the air kept full fall gravity. Their only hang was the after-hit `Air Hit Hang`, so a whiff dropped straight down.
+- **Now:** `WeaponManager.airAttackFloatNormalized` (default 1) does the same for side and up attacks started in the air.
+  - At the start of the swing, vertical speed is zeroed and gravity is overridden to 0 for that fraction of `lead + hitDelay + open window` (≈0.36 s). Then the player falls normally.
+  - The float is set up in `WeaponAttackExecutor.RunMelee` and held by `WeaponAttackMotion.HoldAirAttackFloat` (renamed from `HoldDownAttackFloat`).
+  - Execution cleanup clears it, so cancels and interrupts can't leave gravity off.
+  - Attacking while rising also stops the rise. Lower the value to soften this; 0 restores the old fall.
+
+### Phantom environment hits on the old player's punch 2 (2026-10-31)
+
+- **Cause:** a melee step reports `AttackHitResult.Environment` when its overlap sphere touches the `Ground`/`Wall` layers. Player_2.2 (root scale 1.1) puts the side anchor at ≈1.48 above the feet, and `Fist.asset` punch 2 uses `hitRadius` 1.5, so the sphere dipped into the floor every swing. That spawned the env-hit particle and hit cross and applied the step's recoil (4) with nothing in front. Punches 1/3 (1.0/1.2) and Cass (`Fist (Cass)` 1.12 at ≈1.83) stay above the floor.
+- **Fix:** `WeaponAttackExecutor.TryResolveEnvironmentImpact` now gates environment feedback: the existing impact ray along the swing (facing for side, vertical for up/down) must hit the environment layers within the sphere. The floor under a side or up swing no longer counts; a wall ahead or the floor under a down attack still does. Enemy detection is unchanged. The unused `enemyLayer` argument was removed from the executor constructor.
+
 ### Title menu scaling and loading screen (2026-10-31)
 
 - **Menu scaling root cause:** `Menu.unity` → `Canvas` used `CanvasScaler` Scale With Screen Size, 3840×2160, **Match Width (0)**. Matching width keeps the canvas 3840 wide, so any screen wider than 16:9 (ultrawide, or a maximized Free Aspect Game view) shrinks the canvas height below 2160 (2560×1080 → 1620). The layout is authored in fixed pixel offsets from the top (`Title Band` -240, `Menu Column` -880 + 1200 tall) and a 2000-tall bottom-anchored `Character Art`, so the lower buttons, footer and art's head fell outside the frame. 16:10 (Steam Deck) only grew the canvas, so it was fine.
@@ -179,6 +199,10 @@ Design and phase plan: `GRUNT_BEHAVIOR_PLAN.md`. Phases 1–3 are implemented (c
 - **Kill Y:** Service Floor had no `DeathTrigger`. `[Gameplay]/Kill Y` is a 700×20×800 trigger slab (top at y = -30; basement floor is -10.5) that kills anything that clips through the floor. Other levels: add the same slab if they lack one.
 - **Death animation:** once `PlayerState.IsAlive` is false, `SpineAnimationController` refuses every non-death play path (attack, forced override, locomotion, jump, landing, wall, double jump), so queued combo hits or late Spine events can no longer replace the death pose. `PlayerLifecycle.CompleteDeathPresentation` waits the death length in scaled time (matching the animation under hit-stop/slow-mo), capped at length + 5 s unscaled.
 - **Service Floor basement:** `Wall_Basement_West/East` now reach the upper lane floor (y = 0.5) and are 1.5 thick; the old 1.14-unit gap above them led out of the level. All `Colliders` boxes use `Non Slip`.
+  - **Update (2026-10-31):** the pit's west rim (`Crater/Rim_West`, art only) had no collider, so the player walked under the west floor.
+  - `Colliders/Basement/Wall_Pit_West` (Wall layer, x 155–156, y -10 to 1.5, top flush with the lane) now closes it and is a grapple anchor, so the player can climb out west.
+  - The chimney's east wall `Wall_Chimney_Rim` was already on the Wall layer. From the main pit, `Broken_Slab` hides it.
+  - A stray solid box on `Room8_BasementExit` (x 147–155, y 2–9) was removed. It came from the "dressing pass 2" commit, turned on with the exit event after the collapse, and blocked the lane west of the hole on the way back.
 - **Names:** player-facing text says "Server Room Key" / "Server Room door" and "KRF Porta Box". The Unity tag `Z Key` (`DoorAccessRule.requiredKeyTag`, `KeyPickup`) and scene object names are unchanged.
 
 ### Title menu and playtest build order (2026-10-14)

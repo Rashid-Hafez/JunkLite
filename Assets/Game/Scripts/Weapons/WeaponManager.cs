@@ -63,6 +63,11 @@ namespace junklite
         [Tooltip("Fraction of the total attack duration the player floats when performing an airborne down attack. 0 = no float, 1 = full window.")]
         private float downAttackFloatNormalized = 0.4f;
 
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("Fraction of the total attack duration the player hangs in place when performing an airborne side or up attack. 0 = keep falling, 1 = hang for the whole swing, then fall.")]
+        private float airAttackFloatNormalized = 1f;
+
         [Header("Attack Settings")]
         [SerializeField] private float facingLockDuration = 0.25f;
         [SerializeField] private float inputThreshold = 0.5f;
@@ -213,7 +218,6 @@ namespace junklite
                 hitResolver,
                 damageResolver,
                 playerTransform,
-                enemyLayer,
                 environmentLayer,
                 RequestAttackAnimation,
                 CompleteAttackWithoutAnimation,
@@ -434,6 +438,7 @@ namespace junklite
                     animationLeadTime,
                     attackOpenWindow,
                     downAttackFloatNormalized,
+                    airAttackFloatNormalized,
                     enemyHitHitstopDuration,
                     launchHitstopDuration,
                     finisherForceMultiplier));
