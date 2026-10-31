@@ -1,5 +1,11 @@
 # JunkLite Architecture Refactor Handoff
 
+### Per-level player choice (2026-10-31)
+
+- `LevelContext` and the legacy `SceneSettings` have a **Player Choice** (`LevelPlayerChoice`: Game Default / Old Player / New Player). `PlayerLifecycle.LevelPlayerPrefab` applies it at spawn, taking the prefabs from `playerSettingsSource` like `PlayerPrefab`. Game Default keeps the Game Manager prefab's **Use New Player** rule.
+- Service Floor's `SceneSettings` is set to **New Player**, so it always spawns `Player_Cass`. Every other scene still follows the global checkbox (off).
+- `Sword (Cass).asset` is now **Mantis Blades**: same punch animations as `Fist (Cass)`, base damage 18 instead of 10. It keeps weapon id 2, so the sword pickup and saved profiles map to it.
+
 ### Level Results Screen draws over the HUD (2026-10-31)
 
 - **Cause:** `LevelResultsScreen` (legacy code-built UI) builds `ResultsCanvas` at order 100 under its own object. In Rooftop v2/v3 and Service Floor that object is `Canvas/Level Results Screen`, so the results canvas was nested in the scene `Canvas` (order 0). A nested canvas ignores its order unless it overrides sorting, so the persistent gameplay HUD (order 10) drew over the results buttons.

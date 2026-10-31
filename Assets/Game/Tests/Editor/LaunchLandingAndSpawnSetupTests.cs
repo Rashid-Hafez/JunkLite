@@ -185,7 +185,11 @@ namespace junklite.Tests
             SetField(source, "playerPrefab", oldPlayer);
             SetField(source, "newPlayerPrefab", newPlayer);
             SetField(source, "useNewPlayer", false);
-            var follower = holder.AddComponent<PlayerLifecycle>();
+            // PlayerLifecycle is DisallowMultipleComponent, so the follower needs its own object.
+            var followerHolder = new GameObject("Follower");
+            owned.Add(followerHolder);
+            followerHolder.SetActive(false);
+            var follower = followerHolder.AddComponent<PlayerLifecycle>();
             SetField(follower, "playerPrefab", oldPlayer);
             SetField(follower, "newPlayerPrefab", newPlayer);
             SetField(follower, "useNewPlayer", true);

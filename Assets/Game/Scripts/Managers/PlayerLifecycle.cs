@@ -54,6 +54,25 @@ namespace junklite
         }
 
         private GameObject OwnPlayerPrefab => useNewPlayer && newPlayerPrefab != null ? newPlayerPrefab : playerPrefab;
+
+        /// <summary>The prefab the current level spawns: its LevelContext/SceneSettings override, else <see cref="PlayerPrefab"/>.</summary>
+        public GameObject LevelPlayerPrefab
+        {
+            get
+            {
+                LevelPlayerChoice choice = levelContext != null ? levelContext.PlayerChoice
+                    : legacySceneSettings != null ? legacySceneSettings.PlayerChoice
+                    : LevelPlayerChoice.GameDefault;
+                if (choice == LevelPlayerChoice.GameDefault) return PlayerPrefab;
+
+                PlayerLifecycle settings = playerSettingsSource != null && playerSettingsSource != this
+                    ? playerSettingsSource : this;
+                GameObject chosen = choice == LevelPlayerChoice.NewPlayer
+                    ? (settings.newPlayerPrefab != null ? settings.newPlayerPrefab : newPlayerPrefab)
+                    : (settings.playerPrefab != null ? settings.playerPrefab : playerPrefab);
+                return chosen != null ? chosen : PlayerPrefab;
+            }
+        }
         public int CurrentSpawnIndex => currentSpawnIndex;
         public bool ShouldSpawnPlayer => levelContext != null
             ? levelContext.SpawnPlayer
@@ -140,7 +159,7 @@ namespace junklite
 
             if (currentPlayer == null)
             {
-                GameObject prefab = PlayerPrefab;
+                GameObject prefab = LevelPlayerPrefab;
                 if (prefab == null)
                 {
                     Debug.LogError("[PlayerLifecycle] No player prefab assigned.");

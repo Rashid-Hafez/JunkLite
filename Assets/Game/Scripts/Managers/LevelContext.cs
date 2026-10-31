@@ -3,6 +3,14 @@ using UnityEngine;
 
 namespace junklite
 {
+    /// <summary>Which player prefab a level spawns. Game Default follows the Game Manager prefab's Use New Player.</summary>
+    public enum LevelPlayerChoice
+    {
+        GameDefault,
+        OldPlayer,
+        NewPlayer,
+    }
+
     /// <summary>
     /// Scene-local configuration consumed by the persistent GameRoot.
     /// Keep this object in the level; it must never be marked DontDestroyOnLoad.
@@ -18,6 +26,8 @@ namespace junklite
 
         [Header("Player")]
         [SerializeField] private bool spawnPlayer = true;
+        [Tooltip("Override the player this level spawns. Game Default uses the Game Manager prefab's Use New Player.")]
+        [SerializeField] private LevelPlayerChoice playerChoice = LevelPlayerChoice.GameDefault;
         [SerializeField] private SpawnPoint primaryPlayerSpawn;
         [SerializeField] private List<SpawnPoint> additionalPlayerSpawns = new();
 
@@ -25,6 +35,7 @@ namespace junklite
         public string DisplayName => displayName;
         public bool IsTrainingLevel => trainingLevel;
         public bool SpawnPlayer => spawnPlayer;
+        public LevelPlayerChoice PlayerChoice => playerChoice;
 
         public IReadOnlyList<Transform> GetPlayerSpawns()
         {
