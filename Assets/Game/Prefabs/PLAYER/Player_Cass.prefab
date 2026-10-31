@@ -201,7 +201,7 @@ Transform:
   m_GameObject: {fileID: 1702023447902654451}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0.581626, w: 0.8134563}
-  m_LocalPosition: {x: -0.31104702, y: 1.2664872, z: -0.011599999}
+  m_LocalPosition: {x: -0.29571503, y: 1.2375307, z: -0.0348}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -895,7 +895,7 @@ MeshRenderer:
   m_RenderingLayerMask: 3
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a675b97e1fc794fa7b807f5b688935e0, type: 2}
+  - {fileID: 2100000, guid: 57a8a194546304739913f442bbb047c6, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1591,6 +1591,7 @@ MonoBehaviour:
   animationLeadTime: 0.05
   attackOpenWindow: 0.28
   downAttackFloatNormalized: 0.5
+  airAttackFloatNormalized: 1
   facingLockDuration: 0.25
   inputThreshold: 0.5
   defaultPushDuration: 0.08
