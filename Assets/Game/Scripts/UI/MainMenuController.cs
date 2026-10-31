@@ -26,6 +26,11 @@ namespace junklite
         [SerializeField] private string serviceFloorScene = "Service Floor";
         [SerializeField] private string sandboxScene = "SANDBOX";
 
+        [Header("Transition")]
+        [Tooltip("Persistent Game Root spawned on the first click when the game starts on this menu, " +
+                 "so every scene change goes through GameManager's async loading screen.")]
+        [SerializeField] private GameObject gameRootPrefab;
+
         private bool loading;
 
         private void OnEnable()
@@ -77,11 +82,20 @@ namespace junklite
             if (loading || string.IsNullOrEmpty(sceneName)) return;
             loading = true;
 
-            // Coming back from a run, the persistent GameManager owns the transition screen.
+            // Coming back from a run the persistent root already exists. On a cold start
+            // the menu creates it, and the level's own root removes itself as a duplicate.
+            if (GameManager.Instance == null && gameRootPrefab != null)
+                Instantiate(gameRootPrefab).name = gameRootPrefab.name;
+
+            // GameManager owns async loading, the loading screen and the reveal after spawn.
             if (GameManager.Instance != null)
+            {
                 GameManager.Instance.LoadLevel(sceneName);
-            else
-                SceneManager.LoadScene(sceneName);
+                return;
+            }
+
+            Debug.LogWarning("[MainMenu] No GameManager or Game Root prefab; loading without a loading screen.", this);
+            SceneManager.LoadScene(sceneName);
         }
 
         private static void Bind(Button button, UnityEngine.Events.UnityAction action)

@@ -1,4 +1,6 @@
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Video;
 
 namespace junklite
@@ -9,6 +11,15 @@ namespace junklite
 
         [SerializeField] private GameObject panel;
         [SerializeField] private VideoPlayer videoPlayer;
+
+        [Header("Progress (optional, authored in the prefab)")]
+        [Tooltip("Filled Image whose fillAmount follows scene-load progress.")]
+        [SerializeField] private Image progressFill;
+        [Tooltip("Label showing the load percentage.")]
+        [SerializeField] private TMP_Text progressLabel;
+        [SerializeField] private string progressFormat = "LOADING  {0}%";
+
+        private int shownPercent = -1;
 
         private AudioSource videoAudioSource;
         private bool videoFinished;
@@ -24,6 +35,9 @@ namespace junklite
         private void Awake()
         {
             DontDestroyOnLoad(gameObject);
+
+            if (progressLabel != null)
+                UIFonts.ApplyHudBody(progressLabel);
 
             if (videoPlayer != null)
             {
@@ -67,6 +81,8 @@ namespace junklite
         {
             videoFinished = false;
             panel?.SetActive(true);
+            shownPercent = -1;
+            SetProgress(0f);
 
             if (videoPlayer == null)
             {
@@ -100,6 +116,20 @@ namespace junklite
         {
             panel?.SetActive(false);
             videoPlayer?.Stop();
+        }
+
+        /// <summary>Binds normalized (0-1) load progress to the authored bar and label.</summary>
+        public void SetProgress(float normalized)
+        {
+            normalized = Mathf.Clamp01(normalized);
+            if (progressFill != null)
+                progressFill.fillAmount = normalized;
+
+            // Only rebuild the label mesh when the visible percentage changes.
+            int percent = Mathf.RoundToInt(normalized * 100f);
+            if (progressLabel == null || percent == shownPercent) return;
+            shownPercent = percent;
+            progressLabel.SetText(progressFormat, percent);
         }
 
         #endregion

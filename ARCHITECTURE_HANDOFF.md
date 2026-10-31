@@ -1,5 +1,13 @@
 # JunkLite Architecture Refactor Handoff
 
+### Title menu scaling and loading screen (2026-10-31)
+
+- **Menu scaling root cause:** `Menu.unity` → `Canvas` used `CanvasScaler` Scale With Screen Size, 3840×2160, **Match Width (0)**. Matching width keeps the canvas 3840 wide, so any screen wider than 16:9 (ultrawide, or a maximized Free Aspect Game view) shrinks the canvas height below 2160 (2560×1080 → 1620). The layout is authored in fixed pixel offsets from the top (`Title Band` -240, `Menu Column` -880 + 1200 tall) and a 2000-tall bottom-anchored `Character Art`, so the lower buttons, footer and art's head fell outside the frame. 16:10 (Steam Deck) only grew the canvas, so it was fine.
+- **Fix:** Screen Match Mode is now **Expand** on the menu canvas and on `LoadingScreenUI.prefab`. The canvas is never smaller than the reference in either axis: 16:9 is unchanged, 16:10 gets extra height, ultrawide gets extra width. Anchors were already edge-correct (column top-left, art bottom-right, footer bottom-left, background stretch), so no RectTransforms changed.
+- **Loading flow:** every scene button on the title menu goes through `GameManager.LoadLevel`. On a cold start (no persistent manager yet) `MainMenuController` instantiates its `gameRootPrefab` (`Prefabs/Manager/Game Root.prefab`) first; the level's own Game Manager/Game Root then removes its duplicate components as before. `SceneManager.LoadScene` remains only as a warned fallback when that prefab is unassigned.
+- `LoadLevelWithScreen` reports `asyncOp.progress / 0.9` each frame through `GameUIManager.SetLoadingProgress` → `LoadingScreenUI.SetProgress` (authored `Progress/Fill` filled Image + `Progress/Label` Satoshi TMP in the prefab; both optional).
+- **Reveal after setup:** `GameUIManager` tracks an active transition. `InitializeForScene` no longer hides the loading screen while one is active; `GameManager` calls `EndSceneTransition` one frame after `InitializeForNewScene` spawns the player, so cameras and HUD rebind behind the loading screen. `CancelSceneTransition` (failed load) still hides it immediately.
+
 ### No wall sticking without Non Slip (2026-10-31)
 
 - **Problem:** pressing into any wall in the air pushed the capsule against it, and friction held the player there. The level `Colliders` used the `Non Slip` physics material to hide this. Only Wall-layer grapple walls were guarded (`TryGetDirectionalWall`).
@@ -165,7 +173,7 @@ Design and phase plan: `GRUNT_BEHAVIOR_PLAN.md`. Phases 1–3 are implemented (c
 ### Title menu and playtest build order (2026-10-14)
 
 - Build order: `Menu` (0) → `SimulationCinematicDemo` → `Service Floor` → `EndCard` → `Rooftop Scene v2`. Index 0 is the title, so `GameManager.RestartGame` (pause menu "Return to title") lands on the menu. Index-based fallbacks (`ServiceElevator`, `Level0SequenceManager`) still reach EndCard from Service Floor; Sim → Service Floor and Rooftop/Service Floor → EndCard are set by scene name.
-- `Menu.unity` → `Canvas/Main Menu` is an authored layout (CMA "Main menu" board: orange title band, Play + level select, Cassidy art from `New UI/Character/Cassidy_Full.png`). `MainMenuController` only binds the four buttons to scene names, selects Play for gamepad, and uses `GameManager.LoadLevel` when the persistent manager exists (returning from a run), else `SceneManager.LoadScene`. `Scene Settings` keeps `spawnPlayer` off. The old intro (VideoPlayer with a missing clip, `FadeoutSwirtch` any-key loader, `BLACK` fade panel) is disabled, not deleted.
+- `Menu.unity` → `Canvas/Main Menu` is an authored layout (CMA "Main menu" board: orange title band, Play + level select, Cassidy art from `New UI/Character/Cassidy_Full.png`). `MainMenuController` only binds the four buttons to scene names, selects Play for gamepad, and always loads through `GameManager.LoadLevel` (it spawns `Game Root` first on a cold start; see "Title menu scaling and loading screen", 2026-10-31). `Scene Settings` keeps `spawnPlayer` off. The old intro (VideoPlayer with a missing clip, `FadeoutSwirtch` any-key loader, `BLACK` fade panel) is disabled, not deleted.
 - Terrain Holes is off on every URP asset (only `HIGH ASSET RENDER FEATURES` is used; quality levels have no override). No Terrain objects in build scenes.
 
 ### Grapple hook item, gamepad grapple, no interact in combat (2026-10-13)

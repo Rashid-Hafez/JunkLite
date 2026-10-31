@@ -203,6 +203,11 @@ namespace junklite
 
             RefreshSceneReferences();
             InitializeForNewScene();
+
+            // Keep the loading screen up for one more frame so cameras and the HUD
+            // rebind to the spawned player before the first visible frame.
+            yield return null;
+            gameUIManager?.EndSceneTransition();
             sceneInitializationRoutine = null;
         }
 
@@ -398,10 +403,15 @@ namespace junklite
             playerLifecycle?.PrepareForSceneChange();
             asyncOp.allowSceneActivation = false;
 
+            // With activation held, Unity stops loading at 0.9; map that to 0-1.
             while (asyncOp.progress < 0.9f ||
                    (gameUIManager != null && !gameUIManager.IsLoadingPresentationFinished))
+            {
+                gameUIManager?.SetLoadingProgress(asyncOp.progress / 0.9f);
                 yield return null;
+            }
 
+            gameUIManager?.SetLoadingProgress(1f);
             asyncOp.allowSceneActivation = true;
         }
 

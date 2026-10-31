@@ -26,6 +26,7 @@ namespace junklite
         private GameManager subscribedGameManager;
         private PlayerLifecycle subscribedPlayerLifecycle;
         private bool playerHudAllowed;
+        private bool sceneTransitionActive;
 
         public GameObject PlayerUIPrefab => playerUIPrefab;
         public GameObject PauseMenuUIPrefab => pauseMenuUIPrefab;
@@ -109,7 +110,10 @@ namespace junklite
             EnsureLoadingScreenUI();
             EnsurePauseMenuUI();
 
-            loadingScreenUIInstance?.Hide();
+            // During a transition the loading screen stays up until GameManager
+            // calls EndSceneTransition, after the player has spawned.
+            if (!sceneTransitionActive)
+                loadingScreenUIInstance?.Hide();
 
             if (!playerHudAllowed)
             {
@@ -130,11 +134,26 @@ namespace junklite
             ResolveGameplayCanvas();
             EnsureLoadingScreenUI();
             SetPlayerHUDActive(false);
+            sceneTransitionActive = true;
             loadingScreenUIInstance?.Show();
+        }
+
+        /// <summary>Normalized (0-1) scene-load progress for the loading screen.</summary>
+        public void SetLoadingProgress(float normalized)
+        {
+            loadingScreenUIInstance?.SetProgress(normalized);
+        }
+
+        /// <summary>Reveals the new scene once it and its player are initialized.</summary>
+        public void EndSceneTransition()
+        {
+            sceneTransitionActive = false;
+            loadingScreenUIInstance?.Hide();
         }
 
         public void CancelSceneTransition()
         {
+            sceneTransitionActive = false;
             loadingScreenUIInstance?.Hide();
 
             if (subscribedGameManager != null)

@@ -181,6 +181,7 @@ MonoBehaviour:
   rooftopScene: Rooftop Scene v2
   serviceFloorScene: Service Floor
   sandboxScene: SANDBOX
+  gameRootPrefab: {fileID: 8053377969660216567, guid: 2ee95a3fe7f743b98548b03add9e9e2b, type: 3}
 --- !u!1 &47163226
 GameObject:
   m_ObjectHideFlags: 0
@@ -1458,7 +1459,7 @@ MonoBehaviour:
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
   m_ReferenceResolution: {x: 3840, y: 2160}
-  m_ScreenMatchMode: 0
+  m_ScreenMatchMode: 1
   m_MatchWidthOrHeight: 0
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
