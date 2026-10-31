@@ -1,5 +1,10 @@
 # JunkLite Architecture Refactor Handoff
 
+### Level Results Screen draws over the HUD (2026-10-31)
+
+- **Cause:** `LevelResultsScreen` (legacy code-built UI) builds `ResultsCanvas` at order 100 under its own object. In Rooftop v2/v3 and Service Floor that object is `Canvas/Level Results Screen`, so the results canvas was nested in the scene `Canvas` (order 0). A nested canvas ignores its order unless it overrides sorting, so the persistent gameplay HUD (order 10) drew over the results buttons.
+- **Fix:** `ResultsCanvas` sets `overrideSorting`, so order 100 applies. Retry and Continue hide it before loading, so it doesn't cover the loading screen (order 20).
+
 ### Kills and timer HUD removed from gameplay (2026-10-31)
 
 - `Canvas/Level HUD` is now **inactive** in Rooftop Scene v2, Rooftop Scene v3 and Service Floor. It holds the code-built `LevelHUD` cards (legacy code-built UI) and their old anchor placeholders. No other prefab or scene uses `LevelHUD`.

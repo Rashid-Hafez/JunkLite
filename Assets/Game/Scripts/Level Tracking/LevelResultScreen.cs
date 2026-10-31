@@ -192,6 +192,9 @@ namespace junklite
 
             var canvas = cGO.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            // The screen sits under the level's scene Canvas (order 0), so without an
+            // override this nested canvas ignores its order and the HUD (10) draws on top.
+            canvas.overrideSorting = true;
             canvas.sortingOrder = 100;
 
             var scaler = cGO.AddComponent<CanvasScaler>();
@@ -507,12 +510,15 @@ namespace junklite
             retry.onClick.AddListener(() =>
             {
                 Time.timeScale = 1f;
+                // Get out of the way of the loading screen (order 20).
+                cGO.SetActive(false);
                 GameManager.Instance?.RestartCurrentScene();
             });
 
             cont.onClick.AddListener(() =>
             {
                 Time.timeScale = 1f;
+                cGO.SetActive(false);
                 if (!string.IsNullOrWhiteSpace(continueSceneName))
                 {
                     if (GameManager.Instance != null)
