@@ -74,6 +74,8 @@ namespace junklite
         [Header("Locomotion Scaling")]
         [Tooltip("Lowest time scale applied to the walk clip while an enemy shuffles slowly in place. Keeps a Run clip from looking frozen.")]
         [SerializeField, Range(0.1f, 1f)] private float minLocomotionTimeScale = 0.35f;
+        [Tooltip("Multiplies the walk/run clip speed after scaling. Raise it when the stride looks slow-motion for the lane speed.")]
+        [SerializeField, Min(0.1f)] private float locomotionPlaybackSpeed = 1f;
 
         [Header("Step Walks (hold, shuffle, back-off, flinch)")]
         [Tooltip("Clip for slow steps toward the facing direction while holding a slot or creeping back in. Empty = Walk.")]
@@ -694,7 +696,7 @@ namespace junklite
             }
 
             if (current != null)
-                current.TimeScale = moving ? Mathf.Clamp(speed01, minLocomotionTimeScale, maxTimeScale) : 1f;
+                current.TimeScale = moving ? Mathf.Clamp(speed01, minLocomotionTimeScale, maxTimeScale) * locomotionPlaybackSpeed : 1f;
         }
 
         public override void PlayLeapTelegraph(float gameplayDuration)

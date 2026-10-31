@@ -1,5 +1,18 @@
 # JunkLite Architecture Refactor Handoff
 
+### No wall sticking without Non Slip (2026-10-31)
+
+- **Problem:** pressing into any wall in the air pushed the capsule against it, and friction held the player there. The level `Colliders` used the `Non Slip` physics material to hide this. Only Wall-layer grapple walls were guarded (`TryGetDirectionalWall`).
+- **Fix:** `Character2D5Controller.StopPushingIntoWallsFixed` runs after every airborne `FixedUpdate` path (stun, wall kick-off, grapple-wall guard, move and dash). It removes the velocity into any wall (contact normal |y| < 0.7), taking the normal from last step's `OnCollisionEnter/Stay` contacts or a `Rigidbody.SweepTest` along this step's horizontal motion. With no push, friction has nothing to grip, whatever the wall's material. The grapple still holds walls, because it overrides physics.
+- **Verified in Play:** the player was dropped against the basement wall (not on the Wall layer) with every level collider at friction 1 / Maximum, holding into the wall. She fell at full gravity.
+- **Non Slip** is no longer needed for the player. It is still on 46 Service Floor colliders and in other scenes. Enemies (`EnemyMovement`, launched grunts) do not have this fix yet, so check them before removing the material.
+- **Double jump is a fixed, snappy impulse:**
+  - When the double-jump stall ends, `isAirJumpArc` is set along with `isPogoBounce`, so holding Jump is ignored and there is no jump cut. The arc has its own gravity: `doubleJumpRiseGravity` (3) on the way up and `doubleJumpFallGravity` (×1.5 on top of the fall gravity) on the way down. The flag clears on landing, a wall kick-off, a pogo or an external bounce.
+  - `doubleJumpForce`: Player_Cass 11.34, Player_2.2 12.61. These are ×√3 of 6.55 / 7.28, so the height stays at the −30%/−20% target (about 1.7 m with the +25% upgrade).
+  - Measured in Play with a real held input: held and tapped are the same, about 0.5–0.55 s airborne after the double jump (was ~0.70 s), rising for about 0.3 s including the 0.05 s stall.
+  - Do not test the hold by calling `SetJumpHeld`: `PlayerCharacter` rewrites it from `GameInputManager.IsJumpHeld` every frame.
+- **Also today:** `Character2D5Controller.MoveInput` (read-only accepted input) feeds `SpineAnimationController.HasMoveInput`. Landing while running now plays part of `Jump_3_Land`, then blends into Run (`landIntoRunPortion`, `landToRunBlend`) on the rig for the move direction. `PickSkeleton` lets Land use the front/back rig. `depthRunTimeScale` slows only the front/back run. `EnemySpineAnimationController.locomotionPlaybackSpeed` multiplies the locomotion clip speed.
+
 ### One player switch, launch landings on every floor, faster grunt launch (2026-10-27)
 
 - **Player choice:** the Game Root prefab (used by SANDBOX) and the Game Manager prefab (Rooftop v2, Service Floor) each had their own `PlayerLifecycle` **Use New Player**, so unticking it on Game Manager never reached SANDBOX. `PlayerLifecycle.playerSettingsSource` now lets one lifecycle take the player prefabs and the checkbox from another; Game Root points at the Game Manager prefab, so **the Game Manager prefab's Use New Player decides the player in every scene**. It is off: the old `Player_2.2` (old animations) is the playtest player; `Player_Cass` stays as the separate new prefab. `Tools > JunkLite > Systems > Rebuild Game Root` keeps the link.

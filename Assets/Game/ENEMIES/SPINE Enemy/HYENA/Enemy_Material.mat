@@ -34,6 +34,7 @@ Material:
     - _AlphaClipThreshold: 1
     - _AmountToFlash: 1
     - _BaseAlpha: 1
+    - _EmissionBoost: 0
     - _FlashPower: 1.71
     - _FlashStrength: 3.55
     - _GlowIntensity: 3.21

@@ -21,7 +21,24 @@ namespace junklite
 
         [Header("Popup Behavior")]
         [SerializeField] private float moveSpeed = 1f;
-        [SerializeField] private float lifetime = 1f;
+        [Tooltip("Total seconds on screen, including the fade at the end.")]
+        [SerializeField] private float lifetime = 1.25f;
+
+        [Header("Pop-in Bounce & Fade")]
+        [Tooltip("Seconds at the end of the lifetime spent fading out. Before that the number stays fully visible.")]
+        [SerializeField, Min(0.05f)] private float fadeDuration = 0.25f;
+        [Tooltip("Scale the number springs from on spawn (it overshoots past full size, then settles).")]
+        [SerializeField, Range(0.05f, 1f)] private float popStartScale = 0.2f;
+        [Tooltip("How fast the pop-in wobble settles. Lower = bouncier.")]
+        [SerializeField, Min(0f)] private float bounceDamping = 9f;
+        [Tooltip("Wobble speed of the pop-in, in radians per second.")]
+        [SerializeField, Min(0f)] private float bounceFrequency = 24f;
+
+        [Header("Glow Materials")]
+        [Tooltip("Play-font material with glow for damage numbers. Empty = the plain world font material.")]
+        [SerializeField] private Material damageGlowMaterial;
+        [Tooltip("Play-font material with glow for XP numbers. Empty = the plain world font material.")]
+        [SerializeField] private Material experienceGlowMaterial;
 
         [Header("Damage Type Colors")]
         [SerializeField] private Color physicalDamageColor = new Color32(235, 244, 250, 255);
@@ -31,7 +48,7 @@ namespace junklite
 
         [Header("Damage Typography & Motion")]
         [Tooltip("Visible digit height at 1080p. Scales with the camera viewport, including camera blends.")]
-        [SerializeField, Range(16f, 48f)] private float damageTextHeight = 28f;
+        [SerializeField, Range(16f, 72f)] private float damageTextHeight = 40f;
         [SerializeField, Range(0.5f, 1f)] private float tickScale = 0.78f;
         [Tooltip("Heavy hits grow instead of changing their damage-type color.")]
         [SerializeField] private float mediumDamageThreshold = 20f;
@@ -48,6 +65,12 @@ namespace junklite
         public float MoveSpeed => moveSpeed;
         public float Lifetime => lifetime;
         public float DamageTextHeight => damageTextHeight;
+        public float FadeDuration => fadeDuration;
+        public float PopStartScale => popStartScale;
+        public float BounceDamping => bounceDamping;
+        public float BounceFrequency => bounceFrequency;
+        public Material DamageGlowMaterial => damageGlowMaterial;
+        public Material ExperienceGlowMaterial => experienceGlowMaterial;
 
         public Color GetDamageColor(DamageType type) => type switch
         {

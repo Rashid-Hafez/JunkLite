@@ -66,10 +66,16 @@ namespace junklite
         [Header("Animation Timing (TimeScale)")]
         [SerializeField, Range(0.1f, 3f)] private float idleTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float runTimeScale = 1f;
+        [Tooltip("Extra run clip speed while the front/back rig is shown (running toward or away from the camera). Side runs ignore it.")]
+        [SerializeField, Range(0.1f, 3f)] private float depthRunTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float runStopTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float jumpStartTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float jumpAirTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float landingTimeScale = 1f;
+        [Tooltip("Landing while moving: the share of the Land clip shown before Run takes over.")]
+        [SerializeField, Range(0f, 1f)] private float landIntoRunPortion = 0.35f;
+        [Tooltip("Blend seconds from Land into Run (landing while moving, or starting to move mid-land).")]
+        [SerializeField, Min(0f)] private float landToRunBlend = 0.12f;
         [SerializeField, Range(0.1f, 3f)] private float doubleJumpTimeScale = 1f;
         [SerializeField, InspectorName("Wall Attach Time Scale"), Range(0.1f, 3f)] private float wallSlideTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float dashTimeScale = 1f;
@@ -358,8 +364,9 @@ namespace junklite
         private SkeletonAnimation PickSkeleton()
         {
             SkeletonAnimation side = controller.IsFacingRight ? rightSkeleton : leftSkeleton;
+            // Land counts as locomotion here so a landing in depth already shows the front/back rig.
             if ((frontSkeleton == null && backSkeleton == null) || !controller.IsGrounded ||
-                attackActive || IsPlayingTransientAnim() || IsDead)
+                attackActive || (IsPlayingTransientAnim() && GetCurrentLocomotionName() != landing) || IsDead)
                 return side;
 
             // Any sideways movement uses the side view: the front/back run cycle read as bent legs on diagonals.
@@ -858,8 +865,9 @@ namespace junklite
                 float speed = GetSpeed();
                 if (speed > speedThreshold)
                 {
-                    // Moving - skip landing, go straight to run
-                    PlayLocomotion(run, true);
+                    // Moving - show the start of the landing, blended into the run
+                    if (wasAirborne) PlayLanding(HasMoveInput);
+                    else PlayLocomotion(run, true);
                 }
                 else if (wasAirborne)
                 {
@@ -1191,12 +1199,12 @@ namespace junklite
             entry.TrackTime = entry.AnimationEnd - 0.001f;
         }
 
-        private void PlayLanding()
+        private void PlayLanding(bool intoRun = false)
         {
             if (IsDead) return;
             if (!HasAnimation(landing))
             {
-                PlayLocomotion(idle, true);
+                PlayLocomotion(intoRun ? run : idle, true);
                 return;
             }
 
@@ -1205,9 +1213,51 @@ namespace junklite
             entry.TimeScale = GetTimeScaleFor(landing, 1f);
             currentLocomotionAnim = landing;
 
-            // Queue idle after landing
-            var idleEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, idle, GetLoopFor(idle, true), 0f);
-            idleEntry.TimeScale = GetTimeScaleFor(idle, 1f);
+            if (intoRun && HasAnimation(run))
+            {
+                // Delay is in the Land clip's own time: Run takes over part-way through it.
+                QueueRunAfterLanding(entry);
+            }
+            else
+            {
+                var idleEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, idle, GetLoopFor(idle, true), 0f);
+                idleEntry.TimeScale = GetTimeScaleFor(idle, 1f);
+            }
+
+            // Land on the rig for the direction being run in (side, or front/back in depth).
+            SyncSkeletonToFacing();
+        }
+
+        private void QueueRunAfterLanding(TrackEntry landEntry)
+        {
+            var runEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, run, GetLoopFor(run, true),
+                Mathf.Max(0.01f, landEntry.Animation.Duration * landIntoRunPortion));
+            runEntry.MixDuration = landToRunBlend;
+            runEntry.TimeScale = GetTimeScaleFor(run, 1f);
+        }
+
+        // While Land plays: moving blends into Run now; stopping before a queued Run swaps it back to Idle.
+        private void UpdateLandingExit(float speed)
+        {
+            var state = skeletonAnimation.AnimationState;
+            TrackEntry current = state.GetCurrent(locomotionTrack);
+            if (current == null) return;
+
+            bool runQueued = current.Next != null && current.Next.Animation != null && current.Next.Animation.Name == run;
+            bool running = speed > speedThreshold && HasMoveInput;
+            if (running && !runQueued && HasAnimation(run))
+            {
+                var runEntry = state.SetAnimation(locomotionTrack, run, GetLoopFor(run, true));
+                runEntry.MixDuration = landToRunBlend;
+                runEntry.TimeScale = GetTimeScaleFor(run, 1f);
+                currentLocomotionAnim = run;
+            }
+            else if (!running && runQueued)
+            {
+                state.ClearNext(current);
+                var idleEntry = state.AddAnimation(locomotionTrack, idle, GetLoopFor(idle, true), 0f);
+                idleEntry.TimeScale = GetTimeScaleFor(idle, 1f);
+            }
         }
 
         private void ApplyAnyStateFallbacks()
@@ -1256,8 +1306,14 @@ namespace junklite
             stoppedTime = speed > speedThreshold ? 0f : stoppedTime + Time.deltaTime;
 
             // IsAttacking also covers the lead before the clip starts, when the lunge is already moving her.
-            if (!playerState.IsGrounded || IsPlayingTransientAnim() || attackActive || forceOverrideActive ||
-                (weaponManager != null && weaponManager.IsAttacking))
+            bool attacking = attackActive || forceOverrideActive || (weaponManager != null && weaponManager.IsAttacking);
+            if (playerState.IsGrounded && !attacking && GetCurrentLocomotionName() == landing)
+            {
+                UpdateLandingExit(speed);
+                return;
+            }
+
+            if (!playerState.IsGrounded || IsPlayingTransientAnim() || attacking)
                 return;
 
             if (settlingFromAttack)
@@ -1311,7 +1367,8 @@ namespace junklite
 
             float speed = GetSpeed();
             float scale = controller.MoveSpeed > 0f ? speed / controller.MoveSpeed : 1f;
-            entry.TimeScale = Mathf.Clamp(scale, minRunTimeScale, maxRunTimeScale) * runTimeScale;
+            bool depthRig = skeletonAnimation == frontSkeleton || skeletonAnimation == backSkeleton;
+            entry.TimeScale = Mathf.Clamp(scale, minRunTimeScale, maxRunTimeScale) * runTimeScale * (depthRig ? depthRunTimeScale : 1f);
         }
 
         #endregion
@@ -1352,6 +1409,8 @@ namespace junklite
         }
 
         private bool IsSteering => controller != null && Mathf.Abs(controller.HorizontalInput) > 0.1f;
+        // Running on purpose (lane or depth input), not just sliding from knockback.
+        private bool HasMoveInput => controller != null && (IsSteering || Mathf.Abs(controller.MoveInput.z) > 0.1f);
 
         private float GetSpeed()
         {

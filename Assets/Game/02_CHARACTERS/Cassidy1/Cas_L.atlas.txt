@@ -1,5 +1,5 @@
 Cas_L.png
-size:62,445
+size:62,444
 filter:Linear,Linear
 pma:true
 Back/CasOctober52026-Back-Forearm_L
@@ -13,7 +13,7 @@ rotate:90
 Back/CasOctober52026-Back-Head
 bounds:2,272,22,22
 Back/CasOctober52026-Back-Torso
-bounds:2,329,24,25
+bounds:2,328,24,25
 rotate:90
 Back/CasOctober52026-Back-UpperArm_L
 bounds:2,143,11,22
@@ -33,10 +33,10 @@ rotate:90
 Front/CasOctober52026-Front-Head
 bounds:2,248,22,22
 Front/CasOctober52026-Front-Torso
-bounds:34,365,24,26
+bounds:34,365,23,26
 rotate:90
 Front/CasOctober52026-Front-UpperArm_L
-bounds:2,296,10,23
+bounds:2,296,9,23
 rotate:90
 Front/CasOctober52026-Front-UpperArm_R
 bounds:25,105,9,21
@@ -45,7 +45,7 @@ Left/CasFullLimbBreakdown-Left-Hand_L_Open
 bounds:47,64,8,13
 rotate:90
 Left/CasOctober52026-Left-Calf_L
-bounds:2,381,13,30
+bounds:2,380,13,30
 rotate:90
 Left/CasOctober52026-Left-Forearm_L
 bounds:23,45,8,19
@@ -59,13 +59,13 @@ rotate:90
 Left/CasOctober52026-Left-Head
 bounds:26,242,22,22
 Left/CasOctober52026-Left-Thigh_L
-bounds:2,428,15,38
+bounds:2,427,15,38
 rotate:90
 Left/CasOctober52026-Left-Thigh_R
-bounds:2,428,15,38
+bounds:2,427,15,38
 rotate:90
 Left/CasOctober52026-Left-Torso
-bounds:39,391,21,23
+bounds:39,390,21,23
 Left/CasOctober52026-Left-UpperArm_L
 bounds:49,118,11,21
 Left/CasOctober52026-Left-UpperArm_R
@@ -74,7 +74,7 @@ Left/CasOctober52026-Left-Waist
 bounds:2,46,12,19
 rotate:90
 QuarterLeftBack/CasOctober52026-QuarterLeftBack-Forearm_L
-bounds:42,430,13,18
+bounds:42,429,13,18
 rotate:90
 QuarterLeftBack/CasOctober52026-QuarterLeftBack-Forearm_R
 bounds:22,22,8,17
@@ -105,10 +105,10 @@ QuarterLeftFront/CasOctober52026-QuarterLeftFront-Head
 bounds:2,178,20,22
 rotate:90
 QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L
-bounds:2,412,14,35
+bounds:2,411,14,35
 rotate:90
 QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_R
-bounds:2,396,14,31
+bounds:2,395,14,31
 rotate:90
 QuarterLeftFront/CasOctober52026-QuarterLeftFront-Torso
 bounds:29,325,25,23
@@ -125,7 +125,7 @@ QuarterRightBack/CasOctober52026-QuarterRightBack-Forearm_L
 bounds:2,15,8,17
 rotate:90
 QuarterRightBack/CasOctober52026-QuarterRightBack-Forearm_R
-bounds:42,416,12,18
+bounds:42,415,12,18
 rotate:90
 QuarterRightBack/CasOctober52026-QuarterRightBack-Hand_L
 bounds:2,5,8,10
@@ -171,7 +171,7 @@ QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_R
 bounds:53,278,11,7
 rotate:90
 QuarterRightFront/CasOctober52026-QuarterRightFront-Torso
-bounds:2,355,29,24
+bounds:2,354,29,24
 offsets:0,79,32,103
 QuarterRightFront/CasOctober52026-QuarterRightFront-UpperArm_L
 bounds:2,103,11,21
@@ -179,7 +179,7 @@ rotate:90
 QuarterRightFront/CasOctober52026-QuarterRightFront-UpperArm_R
 bounds:48,74,12,20
 QuarterRightFront/CasOctober52026-QuarterRightFront-Waist
-bounds:2,308,19,24
+bounds:2,307,19,24
 rotate:90
 Right/CasOctober52026-Right-Blink
 bounds:2,200,22,22

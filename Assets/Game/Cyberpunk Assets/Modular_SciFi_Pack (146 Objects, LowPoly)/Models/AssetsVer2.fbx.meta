@@ -1,7 +1,14 @@
 fileFormatVersion: 2
 guid: 9b368efa585468f40a29b39fce7500ec
+AssetOrigin:
+  serializedVersion: 1
+  productId: 354154
+  packageName: Modular_SciFi_Pack (146 Objects, LowPoly)
+  packageVersion: 1.1
+  assetPath: Assets/Modular_SciFi_Pack (146 Objects, LowPoly)/Models/AssetsVer2.fbx
+  uploadId: 894500
 ModelImporter:
-  serializedVersion: 24200
+  serializedVersion: 24300
   internalIDToNameTable: []
   externalObjects: {}
   materials:
@@ -9,6 +16,7 @@ ModelImporter:
     materialName: 0
     materialSearch: 1
     materialLocation: 1
+    searchTexturesGlobally: 1
   animations:
     legacyGenerateAnimations: 4
     bakeSimulation: 0
@@ -46,7 +54,7 @@ ModelImporter:
     nodeNameCollisionStrategy: 1
     fileIdsGeneration: 2
     swapUVChannels: 0
-    generateSecondaryUV: 0
+    generateSecondaryUV: 1
     useFileUnits: 1
     keepQuads: 0
     weldVertices: 1
@@ -65,7 +73,7 @@ ModelImporter:
     secondaryUVAreaDistortion: 15.000001
     secondaryUVHardAngle: 88
     secondaryUVMarginMethod: 1
-    secondaryUVMinLightmapResolution: 40
+    secondaryUVMinLightmapResolution: 5
     secondaryUVMinObjectScale: 1
     secondaryUVPackMargin: 4
     useFileScale: 1
@@ -108,10 +116,3 @@ ModelImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-AssetOrigin:
-  serializedVersion: 1
-  productId: 354154
-  packageName: Modular_SciFi_Pack (146 Objects, LowPoly)
-  packageVersion: 1.1
-  assetPath: Assets/Modular_SciFi_Pack (146 Objects, LowPoly)/Models/AssetsVer2.fbx
-  uploadId: 894500

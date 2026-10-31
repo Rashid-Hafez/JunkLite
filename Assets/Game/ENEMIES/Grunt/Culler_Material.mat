@@ -54,7 +54,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AlphaClipThreshold: 1
+    - _AlphaClipThreshold: 0.739
     - _AmountToFlash: 1
     - _BUILTIN_AlphaClip: 0
     - _BUILTIN_Blend: 1
@@ -69,13 +69,14 @@ Material:
     - _BUILTIN_ZWriteControl: 1
     - _BaseAlpha: 1
     - _Cutoff: 0.1
+    - _EmissionBoost: 0.62
     - _Fill: 0
     - _FlashAmount: 1
-    - _FlashPower: 1.49
-    - _FlashStrength: 2.47
+    - _FlashPower: 1.36
+    - _FlashStrength: 4.93
     - _GlowIntensity: 2.35
     - _MaxAlpha: 1
-    - _MinAlpha: 0.332
+    - _MinAlpha: 0.597
     - _OutlineMipLevel: 0
     - _OutlineOpaqueAlpha: 1
     - _OutlineReferenceTexWidth: 1024
@@ -83,7 +84,7 @@ Material:
     - _OutlineWidth: 3
     - _PulseAmount: 0
     - _PulseSpeed: 6
-    - _Saturation: 1
+    - _Saturation: 0.845
     - _StencilComp: 8
     - _StencilRef: 1
     - _StraightAlphaInput: 1
@@ -93,7 +94,7 @@ Material:
     m_Colors:
     - White: {r: 1, g: 1, b: 1, a: 1}
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
-    - _FlashColor: {r: 1, g: 0.15690267, b: 0, a: 1}
+    - _FlashColor: {r: 0.45768067, g: 0.7410621, b: 0.8018868, a: 1}
     - _GlowColor: {r: 0.5154415, g: 0.8812762, b: 0.9339623, a: 1}
     - _OutlineColor: {r: 1, g: 1, b: 0, a: 1}
     - _TintColor: {r: 1, g: 1, b: 1, a: 1}

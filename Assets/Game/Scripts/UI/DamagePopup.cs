@@ -71,6 +71,7 @@ namespace junklite
             top.a = bottom.a = 1f;
             textMesh.colorGradient = new VertexGradient(top, top, bottom, bottom);
             textMesh.color = Color.white;
+            ApplyGlow(owner != null ? owner.DamageGlowMaterial : null);
             textMesh.ForceMeshUpdate();
             glyphHeight = Mathf.Max(0.01f, textMesh.textBounds.size.y);
 
@@ -80,6 +81,8 @@ namespace junklite
         public void SetupExperience(long amount, PlayerProgressionConfig config)
         {
             if (textMesh == null) Awake();
+            if (owner == null) owner = DamagePopupManager.Instance;
+            ApplyGlow(owner != null ? owner.ExperienceGlowMaterial : null);
             textMesh.text = $"+{amount} XP";
             textColor = config.xpColor;
             moveSpeed = config.xpPopupRiseSpeed;
@@ -90,6 +93,13 @@ namespace junklite
             textMesh.fontStyle = originalFontStyle;
             textMesh.characterSpacing = originalCharacterSpacing;
             Begin(true, config.xpPopupScale);
+        }
+
+        // Glow materials share the Play font atlas; without one the plain world material stays.
+        private void ApplyGlow(Material glow)
+        {
+            if (glow != null) textMesh.fontSharedMaterial = glow;
+            else UIFonts.ApplyWorld(textMesh);
         }
 
         private void Begin(bool isExperience, float scale)
@@ -115,22 +125,29 @@ namespace junklite
             if (viewCamera == null) viewCamera = Camera.main;
             if (viewCamera != null) transform.rotation = viewCamera.transform.rotation;
 
-            float t = Mathf.Clamp01(elapsed / Mathf.Max(0.01f, lifetime));
-            float rise = experiencePopup ? t : 1.35f * t - 0.35f * t * t;
-            transform.position = spawnPosition + transform.up * (moveSpeed * lifetime * rise)
+            float life = Mathf.Max(0.01f, lifetime);
+            float t = Mathf.Clamp01(elapsed / life);
+
+            // Hop up fast with a small overshoot, then drift slowly while it holds.
+            float hop = BackOut(Mathf.Clamp01(elapsed / 0.4f));
+            float rise = 0.75f * hop + 0.25f * t;
+            transform.position = spawnPosition + transform.up * (moveSpeed * life * rise)
                 + transform.right * (horizontalTravel * (1f - (1f - t) * (1f - t)));
 
-            float fade = Mathf.InverseLerp(experiencePopup ? 0.35f : 0.55f, 1f, t);
+            // Fully visible until the last Fade Duration seconds, then a quick fade.
+            float fadeDuration = owner != null ? owner.FadeDuration : 0.25f;
+            float fade = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(life - fadeDuration, life, elapsed));
             Color fadedColor = experiencePopup ? textColor : Color.white;
-            fadedColor.a = textColor.a * (1f - Mathf.SmoothStep(0f, 1f, fade));
+            fadedColor.a = textColor.a * (1f - fade);
             textMesh.color = fadedColor;
 
-            float pop = experiencePopup ? Mathf.Clamp01(t / 0.2f) : Mathf.Clamp01(elapsed / 0.16f);
-            float startScale = tickPopup ? 0.85f : 0.65f;
-            float peakScale = tickPopup ? 1.05f : 1.18f;
-            float animatedScale = pop < 0.4f
-                ? Mathf.Lerp(startScale, peakScale, Mathf.SmoothStep(0f, 1f, pop / 0.4f))
-                : Mathf.Lerp(peakScale, 1f, Mathf.SmoothStep(0f, 1f, (pop - 0.4f) / 0.6f));
+            // Spring pop-in: starts small, overshoots past full size, wobbles and settles; shrinks a little as it fades.
+            float start = owner != null ? owner.PopStartScale : 0.2f;
+            if (tickPopup) start = Mathf.Lerp(start, 1f, 0.5f);
+            float damping = owner != null ? owner.BounceDamping : 9f;
+            float frequency = owner != null ? owner.BounceFrequency : 24f;
+            float animatedScale = 1f + (start - 1f) * Mathf.Exp(-damping * elapsed) * Mathf.Cos(frequency * elapsed);
+            animatedScale *= Mathf.Lerp(1f, 0.85f, fade);
 
             Vector3 scale = restingScale;
             textMesh.renderer.enabled = true;
@@ -149,6 +166,13 @@ namespace junklite
                 scale = originalScale * (worldHeight / Mathf.Max(0.001f, glyphHeight * Mathf.Abs(originalScale.y) * parentScale));
             }
             transform.localScale = scale * animatedScale;
+        }
+
+        private static float BackOut(float x)
+        {
+            const float c1 = 1.70158f, c3 = c1 + 1f;
+            float p = x - 1f;
+            return 1f + c3 * p * p * p + c1 * p * p;
         }
     }
 }

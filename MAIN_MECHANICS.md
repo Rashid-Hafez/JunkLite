@@ -144,8 +144,30 @@ Done:
   - Window light in Rooms 1, 2 and 6 uses the Rooftop v2 volumetric setup (`Room N/Lighting/Window_VolumetricLight`):
     - A shadowed spot with `VolumetricAdditionalLight`, picked up by the volumetric fog in the camera's "Sky and Fog Volume Profile".
     - A `VolumetricLOD` trigger box that swaps it for a fake `GodRay_LightCone` cone while the player is outside the room.
-  - `Window_Outside/OutsideBackdrop_Placeholder` stands in until the low-poly skyline is built.
+  - **Skyline** (`[Environment]/Shared/Skyline`): the one exception to the no-Leartes rule. The `Prefabs/Environment/Skyline/SF_SkylineTower_*` variants copy Rooftop v2's `Fixed_Masked_Building*` (Leartes `SM_Test_LP`, `M_High_Rise`).
+    - Towers are mega-city size, scale about 0.5–0.8, 33–63 m wide. Their bases always sit below the window view, so the level reads as high up.
+    - `Skyline_West` (Room 1 window) and `Skyline_East` (Room 6) are sampled inside each window's view cone, a few towers each with gaps between them. Do not fill the cone: the warm window glow in Rooms 1 and 6 comes through those gaps. `Skyline_Gap` holds 3 narrow towers in the strip seen from Room 2 (x 13–28), between the West cluster and the Wing.
+    - Towers stay out of the Wing (x 28–86, z 55+), the hazard hall and Rooms 10–12. The scene fog (exp², 0.014) hides anything past about 120 m from the camera.
+    - The towers are Batching Static only: they cast no shadows, use no probes and are not in the bake. `OutsideBackdrop_Placeholder` stays as the sky behind them.
+  - **Monitor desks** (`Monitors_*`, 17 of them):
+    - Each `Desk` uses `SF_Durasteel`. Its `Desk_Dressing` child adds a top, a cyan neon edge, an amber kick strip, panel seams and keyboards.
+    - The lower monitor row sits on the desk top. The upper row stands on a `Monitor_Shelf` with brackets.
+    - All dressing is primitive cubes with no colliders, probe-lit.
+  - **Room 8 back wall:** the 6 columns behind the monitors had only their top tier, and 5 grey `Clad` squares were patching the gap. The columns now have the full tier set (probe-lit), and the grey squares are gone.
+  - **Front rail after the stairs:** the upper-floor rail (`Rail_*_East`, posts in Rooms 5–9, the `Room8 Collapse/Intact` rail) and its neon strips were buried at lower-floor height. They now sit 1.5 m higher on the upper floor. `NeonLine_094` fills x 94–100.
+  - **Neon:** wall-line emission is ×4 on `SF_Metal_ServiceOrange` (Rooms 1+) and on the pack `Metal` (Room 0). The neon strips are ×2.5. The emission map's white lines now pass the bloom threshold (3) and glow; the green bands stay under it. The post profiles are unchanged.
+  - **Room 0 exterior** (`Room 0/Structure/Exterior_Below`): the game camera sits in front of the room (z ≈ −26) and used to see open air past the west wall and under the floor.
+    - A 60 m block under the floor adds storey bands every 4.5 m, glass strips and a few lit windows, so the tower continues downward.
+    - `WestWall_Extension` carries the west wall to z −40.
+    - Everything is probe-lit with no colliders.
+  - **Piers (side walls):** all 44 `Pier_*` cubes are 10% thicker (0.9 → 0.99 m), and their clad panels moved out 4.5 cm to stay flush.
+  - **Pit z-fighting fix (Room 8 collapse):** `Crater/Rim_West` and `Room 8 Basement/Chimney_RimWall` moved 4 cm off the upper-slab end faces at x 156 and x 168. `Crater/Rim_North` (on after the collapse) moved 4 cm forward off the z 6 faces of `Floor_Main_North` and `Floor_Upper_Back`; that was the dashed flicker on the pit's back wall. `Floor_Upper_West/East/Back` and `Intact/Floor_Upper_Hole` dropped 4 cm, so their tops no longer sit 2 cm under the floor tiles.
   - Rooms 1–8 are lit in sodium orange. The pack materials there are swapped to `SF_Metal_ServiceOrange`; Room 0 keeps the blue `Metal` look.
+- **Lighting bake** (`Scenes/Level 2/Service Floor Lighting.lighting`, the scene's own settings file; it used to share Level 1's): ProgressiveGPU only, resolution 5, max lightmap 1024, samples 32/256/128, 2 bounces, directional lightmaps.
+  - Static fixture lights (downlights, bay lights, teal fills, hall fills, reactor and sign glows) are **Baked**, with soft baked shadows. The exception is the `Down_*` ceiling lights: they sit above the lattice ceiling (y 10.8–12.3), so they cast no shadow, or the grid would block them.
+  - These stay **Realtime**: `AlarmFlash`, `MonitorFlicker`, door glows, the hologram, and the volumetric window spots.
+  - Sliding-door renderers are not Contribute GI. Props under 1.5 m, and meshes with no lightmap UVs, take their light from `[Lighting]/Adaptive Probe Volume` (global), which also lights the characters.
+  - The modular kit FBXs (Modular SciFi `AssetsVer2`, Cyber_Box, Cosmic computers, Chair) now have **Generate Lightmap UVs** on.
 
 Objectives and route (2026-10-13). Primary objective: GET TO THE ELEVATOR (`[Gameplay]/ObjectiveTracker`, assets in `Scripts/Objectives/ObjectiveSOs`).
 1. **Room 0.** `The CyberBox` reveals `Contents` (the gun and `Item_Health`, a green cube with `HealPickUp` in interact mode + `ObjectiveLink` GET_HEALTH). `Door_Entry` has a `DoorAccessRule` needing GET_HEALTH; trying it early plays `ServiceFloor_DoorNeedsHealth`.

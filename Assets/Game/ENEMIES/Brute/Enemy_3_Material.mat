@@ -34,6 +34,7 @@ Material:
     - _AmountToFlash: 1
     - _BaseAlpha: 1
     - _Cutoff: 0.1
+    - _EmissionBoost: 0
     - _Fill: 0
     - _FlashPower: 2
     - _FlashStrength: 1

@@ -1,5 +1,5 @@
 {
-"skeleton": { "hash": "ybWUJz+uCs4", "spine": "4.2.36", "x": -24.51, "y": -2.94, "width": 45.9, "height": 123.99 },
+"skeleton": { "hash": "NXgvgn+j+qI", "spine": "4.2.36", "x": -118.83, "y": 3.21, "width": 137.15, "height": 131.89 },
 "bones": [
 	{ "name": "root", "scaleX": -1 },
 	{ "name": "Cas", "parent": "root", "y": 52.58 },
@@ -57,8 +57,8 @@
 	{ "name": "LeftCalf", "bone": "LeftCalf", "attachment": "Left/CasOctober52026-Left-Calf_L" },
 	{ "name": "RightToes", "bone": "RightToes", "attachment": "QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_L" },
 	{ "name": "LeftToes", "bone": "LeftToes", "attachment": "QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_L" },
-	{ "name": "TasselRoot", "bone": "TasselRoot", "attachment": "Right/CasOctober52026-Right-Thigh_R" },
-	{ "name": "TasselRoot2", "bone": "TasselRoot2", "attachment": "Right/CasOctober52026-Right-Thigh_R" }
+	{ "name": "TasselRoot", "bone": "TasselRoot" },
+	{ "name": "TasselRoot2", "bone": "TasselRoot2" }
 ],
 "ik": [
 	{
@@ -106,7 +106,7 @@
 			},
 			"F_UpperBody": {
 				"Back/CasOctober52026-Back-Torso": { "rotation": -93.04, "width": 24, "height": 25 },
-				"Front/CasOctober52026-Front-Torso": { "rotation": -93.04, "width": 24, "height": 26 },
+				"Front/CasOctober52026-Front-Torso": { "rotation": -93.04, "width": 23, "height": 26 },
 				"Left/CasOctober52026-Left-Torso": { "rotation": -93.04, "width": 21, "height": 23 },
 				"QuarterLeftBack/CasOctober52026-QuarterLeftBack-Torso": { "rotation": -93.04, "width": 20, "height": 20 },
 				"QuarterLeftFront/CasOctober52026-QuarterLeftFront-Torso": { "rotation": -93.04, "width": 33, "height": 103 },
@@ -171,7 +171,7 @@
 			},
 			"LeftUpperArm": {
 				"Back/CasOctober52026-Back-UpperArm_L": { "x": 6.87, "y": -0.21, "rotation": 96.62, "width": 11, "height": 22 },
-				"Front/CasOctober52026-Front-UpperArm_L": { "x": -46.5, "y": 147.86, "rotation": 107.46, "width": 10, "height": 23 },
+				"Front/CasOctober52026-Front-UpperArm_L": { "x": -46.5, "y": 147.86, "rotation": 107.46, "width": 9, "height": 23 },
 				"Left/CasOctober52026-Left-UpperArm_L": { "x": 7.67, "y": -0.18, "rotation": 96.59, "width": 11, "height": 21 },
 				"QuarterLeftBack/CasOctober52026-QuarterLeftBack-UpperArm_L": { "x": -46.5, "y": 147.86, "rotation": 107.46, "width": 36, "height": 102 },
 				"QuarterLeftFront/CasOctober52026-QuarterLeftFront-UpperArm_L": { "x": 47.26, "y": -4.89, "rotation": 83.39, "width": 16, "height": 102 },
@@ -249,7 +249,13 @@
 					"vertices": [ -7.1, -3.85, 4.9, -3.85, 4.9, 15.15, -7.1, 15.15 ],
 					"hull": 4
 				},
-				"QuarterRightFront/CasOctober52026-QuarterRightFront-Waist": { "x": -3.59, "y": 1.81, "width": 19, "height": 24 }
+				"QuarterRightFront/CasOctober52026-QuarterRightFront-Waist": {
+					"type": "mesh",
+					"uvs": [ 1, 1, 0, 1, 0, 0, 1, 0 ],
+					"triangles": [ 1, 2, 3, 1, 3, 0 ],
+					"vertices": [ 5.91, -10.19, -13.09, -10.19, -13.09, 13.81, 5.91, 13.81 ],
+					"hull": 4
+				}
 			}
 		}
 	}
@@ -3093,12 +3099,7 @@
 					{
 						"time": 0.1,
 						"value": -4,
-						"curve": [ 0.118, -4, 0.113, -6 ]
-					},
-					{
-						"time": 0.15,
-						"value": -6,
-						"curve": [ 0.15, -6, 0.16, -14 ]
+						"curve": [ 0.118, -4, 0.16, -14 ]
 					},
 					{
 						"time": 0.2167,
@@ -3246,12 +3247,8 @@
 						"value": 94.78,
 						"curve": [ 0.363, 94.78, 0.421, 138.37 ]
 					},
-					{
-						"time": 0.45,
-						"value": 138.37,
-						"curve": [ 0.483, 138.37, 0.55, 25.72 ]
-					},
-					{ "time": 0.5833, "value": 25.72 }
+					{ "time": 0.45, "value": 138.37 },
+					{ "time": 0.5833, "value": 196.82 }
 				],
 				"translate": [
 					{
@@ -3296,6 +3293,42 @@
 				"translate": [
 					{ "x": -3.03, "y": -0.9 }
 				]
+			}
+		},
+		"attachments": {
+			"default": {
+				"Waist": {
+					"QuarterRightFront/CasOctober52026-QuarterRightFront-Waist": {
+						"deform": [
+							{},
+							{
+								"time": 0.1,
+								"vertices": [ 4.94599, 6.94379, 7.89338, -3.22065, -4.94587, -6.94375, -7.89333, 3.2207 ],
+								"curve": "stepped"
+							},
+							{
+								"time": 0.15,
+								"vertices": [ 4.94599, 6.94379, 7.89338, -3.22065, -4.94587, -6.94375, -7.89333, 3.2207 ]
+							},
+							{
+								"time": 0.1667,
+								"vertices": [ -4.36959, 0.0228, -0.98032, 4.25847, 4.37002, -0.02281, 0.98068, -4.25844 ]
+							},
+							{
+								"time": 0.2167,
+								"vertices": [ -10.53132, -3.2704, -5.5994, 9.50018, 10.53178, 3.27039, 5.59983, -9.50018 ]
+							},
+							{
+								"time": 0.3333,
+								"vertices": [ -10.00387, -2.1903, -3.71587, 10.53592, 12.32659, 2.7368, 6.12679, -10.07737 ]
+							},
+							{
+								"time": 0.45,
+								"vertices": [ -1.26956, -0.90421, -1.1711, 1.02869, 1.27053, 0.90414, 1.17194, -1.02877 ]
+							}
+						]
+					}
+				}
 			}
 		},
 		"drawOrder": [
@@ -8088,11 +8121,6 @@
 				"rgba": [
 					{ "color": "aeaeaeff" }
 				]
-			},
-			"TasselRoot": {
-				"attachment": [
-					{}
-				]
 			}
 		},
 		"bones": {
@@ -8309,6 +8337,9 @@
 			"TasselRoot": {
 				"rgba": [
 					{ "color": "d5d5d5ff" }
+				],
+				"attachment": [
+					{ "time": 0.1833, "name": "Right/CasOctober52026-Right-Thigh_R" }
 				]
 			},
 			"Waist": {
@@ -8522,12 +8553,6 @@
 	},
 	"Attack_Punch_Combo_3": {
 		"slots": {
-			"F_UpperBody": {
-				"attachment": [
-					{ "name": "Right/CasOctober52026-Right-Torso" },
-					{ "time": 0.1333, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Torso" }
-				]
-			},
 			"LeftCalf": {
 				"attachment": [
 					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
@@ -8553,18 +8578,6 @@
 					{ "color": "aeaeaeff" }
 				]
 			},
-			"RightForearm": {
-				"rgba": [
-					{ "color": "747474ff" },
-					{ "time": 0.15, "color": "ffffffff" }
-				]
-			},
-			"RightHand": {
-				"rgba": [
-					{ "color": "747474ff" },
-					{ "time": 0.15, "color": "ffffffff" }
-				]
-			},
 			"RightThigh": {
 				"rgba": [
 					{ "color": "aeaeaeff" }
@@ -8575,24 +8588,9 @@
 					{ "color": "aeaeaeff" }
 				]
 			},
-			"RightUpperArm": {
-				"rgba": [
-					{ "color": "747474ff" },
-					{ "time": 0.15, "color": "ffffffff" }
-				]
-			},
 			"TasselRoot": {
 				"rgba": [
 					{ "color": "d5d5d5ff" }
-				],
-				"attachment": [
-					{ "time": 0.1 }
-				]
-			},
-			"Waist": {
-				"attachment": [
-					{ "name": "Left/CasOctober52026-Left-Waist" },
-					{ "time": 0.1167, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Waist" }
 				]
 			}
 		},
@@ -8602,26 +8600,24 @@
 					{ "value": -4.95 }
 				],
 				"translate": [
-					{ "x": 0.18 },
-					{ "time": 0.3667, "x": -0.55, "y": -0.12 }
+					{ "x": -0.55, "y": -0.12 }
 				]
 			},
 			"LeftThigh": {
 				"translate": [
-					{ "x": 4.63, "curve": "stepped" },
+					{ "x": 0.02, "curve": "stepped" },
 					{ "time": 0.0833, "x": 4.63 },
 					{ "time": 0.1333, "x": 0.02 }
 				]
 			},
 			"LeftUpperArm": {
 				"translate": [
-					{ "x": -4.3, "y": -5.77 },
-					{ "time": 0.1333, "x": 0.6, "y": -0.16 }
+					{ "x": 0.6, "y": -0.16 }
 				]
 			},
 			"RightFoot": {
 				"translate": [
-					{ "x": 12.7 },
+					{ "x": 33.17 },
 					{ "time": 0.1333, "x": 35.93, "curve": "stepped" },
 					{ "time": 0.25, "x": 35.93 },
 					{ "time": 0.3667, "x": 33.17 }
@@ -8629,11 +8625,11 @@
 			},
 			"RightHand": {
 				"rotate": [
-					{ "value": -338.84 },
+					{ "value": -250.96 },
 					{ "time": 0.1333, "value": -250.96 }
 				],
 				"translate": [
-					{ "x": 13.85, "y": 21.44 },
+					{ "x": 32.44, "y": -14.79 },
 					{ "time": 0.0833, "x": 26.38, "y": 6.43 },
 					{ "time": 0.1333, "x": 37.69, "y": -15.62, "curve": "stepped" },
 					{ "time": 0.25, "x": 37.69, "y": -15.62 },
@@ -8642,24 +8638,24 @@
 			},
 			"RightThigh": {
 				"translate": [
-					{ "x": -6.37, "curve": "stepped" },
+					{ "x": -2.13, "curve": "stepped" },
 					{ "time": 0.0833, "x": -6.37 },
 					{ "time": 0.1333, "x": -2.13 }
 				]
 			},
 			"RightUpperArm": {
 				"translate": [
-					{ "x": 1.56, "y": 10.37 },
-					{ "time": 0.1333, "x": 1.71, "y": 5.97 }
+					{ "x": 1.71, "y": 5.97 }
 				]
 			},
 			"Pelvis": {
 				"rotate": [
+					{ "value": -9.45 },
 					{ "time": 0.0833 },
 					{ "time": 0.1333, "value": -9.45 }
 				],
 				"translate": [
-					{ "x": 2.33, "y": -8.54 },
+					{ "x": 15.28, "y": -9.46 },
 					{ "time": 0.0833, "x": 2.33, "y": -14.07 },
 					{ "time": 0.1333, "x": 15.28, "y": -14.07, "curve": "stepped" },
 					{ "time": 0.25, "x": 15.28, "y": -14.07 },
@@ -8671,7 +8667,7 @@
 					{ "value": 112.01 }
 				],
 				"translate": [
-					{ "x": 23.5, "y": -45.97 },
+					{ "x": 13.76, "y": -14.83 },
 					{ "time": 0.0833, "x": 24.43, "y": -28.31 },
 					{ "time": 0.1333, "x": 16.11, "y": -12.48, "curve": "stepped" },
 					{ "time": 0.25, "x": 16.11, "y": -12.48 },
@@ -8680,11 +8676,10 @@
 			},
 			"LeftFoot": {
 				"rotate": [
-					{ "value": -25.65 },
-					{ "time": 0.1333, "value": -41.63 }
+					{ "value": -41.63 }
 				],
 				"translate": [
-					{ "x": -21, "y": 1.81, "curve": "stepped" },
+					{ "x": -11.38, "y": 1.81, "curve": "stepped" },
 					{ "time": 0.0833, "x": -21, "y": 1.81 },
 					{ "time": 0.1333, "x": -14.33, "y": 1.81, "curve": "stepped" },
 					{ "time": 0.25, "x": -14.33, "y": 1.81 },
@@ -8693,14 +8688,12 @@
 			},
 			"LeftToes": {
 				"rotate": [
-					{ "value": 25.2 },
-					{ "time": 0.1333, "value": 40.72 }
+					{ "value": 40.72 }
 				]
 			},
 			"Cas": {
 				"translatex": [
-					{},
-					{ "time": 0.25, "value": 8.66 }
+					{ "value": 8.66 }
 				],
 				"translatey": [
 					{ "value": -2, "curve": "stepped" },
@@ -8711,8 +8704,7 @@
 			},
 			"Head": {
 				"rotate": [
-					{ "value": -7.87 },
-					{ "time": 0.1833, "value": 0.68 }
+					{ "value": 0.68 }
 				],
 				"translate": [
 					{ "x": -1.09, "y": 0.15 }
@@ -8727,14 +8719,6 @@
 		"attachments": {
 			"default": {
 				"F_UpperBody": {
-					"QuarterRightFront/CasOctober52026-QuarterRightFront-Torso": {
-						"deform": [
-							{
-								"vertices": [ -0.14583, -6.1682, 0, 0, -0.77095, 2.58399, 0.03053, 3.99459, -0.58348, -4.14686, 0.7326, -3.30853 ]
-							},
-							{ "time": 0.1333 }
-						]
-					},
 					"Right/CasOctober52026-Right-Torso": {
 						"deform": [
 							{
@@ -8823,9 +8807,6 @@
 				"rgba": [
 					{ "time": 0.3667, "color": "787878ff" },
 					{ "time": 0.6, "color": "d5d5d5ff" }
-				],
-				"attachment": [
-					{}
 				]
 			},
 			"Waist": {
@@ -10160,11 +10141,6 @@
 			"RightUpperArm": {
 				"rgba": [
 					{ "color": "747474ff" }
-				]
-			},
-			"TasselRoot": {
-				"attachment": [
-					{}
 				]
 			}
 		},
@@ -12025,9 +12001,6 @@
 			"TasselRoot": {
 				"rgba": [
 					{ "color": "d5d5d5ff" }
-				],
-				"attachment": [
-					{}
 				]
 			}
 		},
@@ -12430,16 +12403,6 @@
 			"RightUpperArm": {
 				"rgba": [
 					{ "color": "747474ff" }
-				]
-			},
-			"TasselRoot": {
-				"attachment": [
-					{}
-				]
-			},
-			"TasselRoot2": {
-				"attachment": [
-					{}
 				]
 			}
 		},
@@ -13078,12 +13041,14 @@
 			},
 			"LeftHand": {
 				"rotate": [
-					{ "value": 25.72 }
+					{ "value": 25.72 },
+					{ "time": 0.1333, "value": 104.58 },
+					{ "time": 0.25, "value": 176.59 }
 				],
 				"translate": [
 					{ "x": 8.29, "y": 7.27 },
-					{ "time": 0.0833, "x": 16.45, "y": 10.21 },
-					{ "time": 0.25, "x": 56.54, "y": 4.4 }
+					{ "time": 0.1333, "x": 9.18, "y": -28.04 },
+					{ "time": 0.25, "x": 47.21, "y": -30.7 }
 				]
 			},
 			"Pelvis": {
@@ -13637,16 +13602,6 @@
 				"rgba": [
 					{ "color": "747474ff" }
 				]
-			},
-			"TasselRoot": {
-				"attachment": [
-					{ "time": 0.4333 }
-				]
-			},
-			"TasselRoot2": {
-				"attachment": [
-					{ "time": 0.4333 }
-				]
 			}
 		},
 		"bones": {
@@ -13720,8 +13675,7 @@
 			"RightHand": {
 				"rotate": [
 					{ "value": 281.65 },
-					{ "time": 0.1333, "value": 168.48 },
-					{ "time": 0.4333, "value": 5.21 }
+					{ "time": 0.1333, "value": 168.48 }
 				],
 				"translate": [
 					{ "x": 52.95, "y": -4.38 },
@@ -14229,11 +14183,6 @@
 				"rgba": [
 					{ "color": "747474ff" }
 				]
-			},
-			"TasselRoot": {
-				"attachment": [
-					{}
-				]
 			}
 		},
 		"bones": {
@@ -14399,15 +14348,26 @@
 		"slots": {
 			"F_UpperBody": {
 				"attachment": [
+					{ "name": "QuarterRightBack/CasOctober52026-QuarterRightBack-Torso" },
 					{ "time": 0.1833, "name": "Right/CasOctober52026-Right-Torso" },
 					{ "time": 0.2667, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Torso" },
 					{ "time": 0.45, "name": "Right/CasOctober52026-Right-Torso" },
 					{ "time": 0.4833, "name": "QuarterRightBack/CasOctober52026-QuarterRightBack-Torso" }
 				]
 			},
+			"LeftCalf": {
+				"attachment": [
+					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
+				]
+			},
 			"LeftHand": {
 				"attachment": [
 					{ "name": "Left/CasFullLimbBreakdown-Left-Hand_L_Open" }
+				]
+			},
+			"LeftThigh": {
+				"attachment": [
+					{ "name": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L" }
 				]
 			},
 			"RightCalf": {
@@ -14428,6 +14388,9 @@
 			"RightHand": {
 				"rgba": [
 					{ "color": "7b7b7bff" }
+				],
+				"attachment": [
+					{ "name": "Left/CasFullLimbBreakdown-Left-Hand_L_Open" }
 				]
 			},
 			"RightThigh": {
@@ -14450,6 +14413,9 @@
 					{ "color": "d9d0c1ff" },
 					{ "time": 0.4, "color": "928e85ff" },
 					{ "time": 0.4833, "color": "d9d0c1ff" }
+				],
+				"attachment": [
+					{ "name": "Right/CasOctober52026-Right-Thigh_R" }
 				]
 			},
 			"TasselRoot2": {
@@ -14459,8 +14425,14 @@
 					{ "time": 0.4833, "color": "928e85ff" }
 				],
 				"attachment": [
+					{ "name": "Right/CasOctober52026-Right-Thigh_R" },
 					{ "time": 0.2 },
 					{ "time": 0.45, "name": "Right/CasOctober52026-Right-Thigh_R" }
+				]
+			},
+			"Waist": {
+				"attachment": [
+					{ "name": "Left/CasOctober52026-Left-Waist" }
 				]
 			}
 		},
@@ -14783,7 +14755,7 @@
 					{ "x": -3.09, "y": -14.86 },
 					{ "time": 0.2, "x": 0.5, "y": -12.16 },
 					{ "time": 0.25, "x": -2.67, "y": -10.37 },
-					{ "time": 0.2833, "x": -0.98, "y": -6.65, "curve": "stepped" },
+					{ "time": 0.2833, "x": 0.11, "y": -5.56, "curve": "stepped" },
 					{ "time": 0.3333, "x": -0.9, "y": -6.61, "curve": "stepped" },
 					{ "time": 0.45, "x": 1.23, "y": -13.79, "curve": "stepped" },
 					{ "time": 0.4833, "x": -3.09, "y": -14.86 }
@@ -14838,7 +14810,7 @@
 								"vertices": [ 0.25632, -10.4561, 0, 0, 0, 0, 3.8548, 0.27282, -0.8679, -9.41203, -0.03274, -9.68514 ]
 							},
 							{ "time": 0.2833, "curve": "stepped" },
-							{ "time": 0.4 },
+							{ "time": 0.3333 },
 							{
 								"time": 0.45,
 								"vertices": [ 0.19224, -7.84208, 0, 0, 0, 0, 1.52052, 5.44543, -1.17939, -4.13882, -0.02455, -7.26386 ]

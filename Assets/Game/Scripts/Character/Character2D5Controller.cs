@@ -35,11 +35,16 @@ namespace junklite
         private bool hasJumpBeenCut = false;  // ensures velocity cut happens only once per jump
         private bool isExternalBounce = false; // true when bounce comes from pogo/trampoline/etc (ignores jump hold)
         private bool isPogoBounce = false;    // true during pogo arc: ignores jump hold but uses gentle gravity
+        private bool isAirJumpArc = false;    // true after the double-jump launch: fixed arc with its own rise gravity
 
         [Header("Double Jump Settings")]
         [SerializeField] private int maxAirJumps = 1;
         [SerializeField] private float doubleJumpForce = 9f; // smaller than normal jump
         [SerializeField] private float doubleJumpStallTime = 0.05f;  // small delay before the upward launch
+        [Tooltip("Gravity multiplier while the double jump rises. Higher = snappier, less hang time (raise Double Jump Force to keep the height).")]
+        [SerializeField, Min(0.1f)] private float doubleJumpRiseGravity = 1f;
+        [Tooltip("Extra fall gravity after a double jump (multiplies Fall Gravity Multiplier). Higher = lands sooner.")]
+        [SerializeField, Min(0.1f)] private float doubleJumpFallGravity = 1f;
         [SerializeField] private float minAirtimeForDoubleJump = 0.2f;  // tune this (0.15-0.3 feels good)
 
         private int airJumpCount = 0;
@@ -198,6 +203,8 @@ namespace junklite
         public Vector3 MovementAxis => transform.right.normalized;
         // Keep intent even while a grapple owns movement and clears moveInput.
         public float HorizontalInput { get; private set; }
+        /// <summary>Accepted move input this frame (x = lane, z = depth in free roam).</summary>
+        public Vector3 MoveInput => moveInput;
         private PlayerSwordGrapple wallTraversal;
         private CapsuleCollider wallCapsule;
         private float wallJumpTimeRemaining;
@@ -236,7 +243,7 @@ namespace junklite
             isGrounded = false;
             coyoteTimer = jumpBufferTimer = 0f;
             // A kick-off never refills the air jump: walls are climbed with the grapple only.
-            isExternalBounce = isPogoBounce = hasJumpBeenCut = false;
+            isExternalBounce = isPogoBounce = isAirJumpArc = hasJumpBeenCut = false;
             JumpHeldExternally = true;
             StartMinJumpHoldWindow();
             playerState?.SetGrounded(false);
@@ -477,6 +484,7 @@ namespace junklite
                 hasJumpBeenCut = false;  // reset for next jump
                 isExternalBounce = false; // reset external bounce flag
                 isPogoBounce = false;     // reset pogo flag
+                isAirJumpArc = false;
             }
             else
             {
@@ -552,6 +560,7 @@ namespace junklite
                 InterruptSpecialMovement();
                 ApplyGravityFixed();
                 ClampFallSpeedFixed();
+                StopPushingIntoWallsFixed();
                 return;
             }
 
@@ -561,6 +570,7 @@ namespace junklite
                 SetVelocity(wallJumpHorizontalVelocity + Vector3.up * rb.linearVelocity.y);
                 ApplyGravityFixed();
                 ClampFallSpeedFixed();
+                StopPushingIntoWallsFixed();
                 return;
             }
 
@@ -572,6 +582,7 @@ namespace junklite
                 SetVelocity(Vector3.up * rb.linearVelocity.y);
                 ApplyGravityFixed();
                 ClampFallSpeedFixed();
+                StopPushingIntoWallsFixed();
                 return;
             }
 
@@ -582,9 +593,14 @@ namespace junklite
 
                 if (Time.time >= doubleJumpStallEndTime)
                 {
-                    // Stall over → apply upward launch
+                    // Stall over → apply upward launch. The double jump is a fixed impulse:
+                    // it rides the pogo arc (gentle gravity, hold ignored, no cut), so holding never adds height.
                     isDoubleJumpStalling = false;
                     rb.linearVelocity = new Vector3(rb.linearVelocity.x, doubleJumpForce, rb.linearVelocity.z);
+                    isExternalBounce = false;
+                    isPogoBounce = true;
+                    isAirJumpArc = true;
+                    hasJumpBeenCut = true;
                     StartMinJumpHoldWindow();
                 }
 
@@ -603,6 +619,7 @@ namespace junklite
             }
 
             ClampFallSpeedFixed();
+            StopPushingIntoWallsFixed();
         }
 
         #region Public Methods
@@ -697,6 +714,7 @@ namespace junklite
 
             // Mark as external bounce - gravity system will ignore jump hold
             isExternalBounce = true;
+            isAirJumpArc = false;
             hasJumpBeenCut = true; // Prevent the one-time velocity cut from triggering
 
             // Reset air jump count so player can still double jump after pogo
@@ -718,6 +736,7 @@ namespace junklite
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, force, rb.linearVelocity.z);
 
             isExternalBounce = false;
+            isAirJumpArc = false;
             isPogoBounce = true;   // gentle gravity, but jump hold is ignored
             hasJumpBeenCut = true; // height is fixed, no velocity cut
             StartMinJumpHoldWindow();
@@ -1165,8 +1184,14 @@ namespace junklite
             // --- GRAVITY ---
             if (yVel < apexThreshold)
             {
-                // Falling or near apex — always heavy gravity
-                rb.AddForce(Physics.gravity * currentGravityMultiplier * fallGravityMultiplier, ForceMode.Acceleration);
+                // Falling or near apex — always heavy gravity (heavier still after a double jump)
+                float fall = fallGravityMultiplier * (isAirJumpArc ? doubleJumpFallGravity : 1f);
+                rb.AddForce(Physics.gravity * currentGravityMultiplier * fall, ForceMode.Acceleration);
+            }
+            else if (isAirJumpArc)
+            {
+                // Double jump rising: fixed, snappy arc so it never floats
+                rb.AddForce(Physics.gravity * currentGravityMultiplier * doubleJumpRiseGravity, ForceMode.Acceleration);
             }
             else if (!canCutJump || isPogoBounce)
             {
@@ -1243,6 +1268,54 @@ namespace junklite
 
             if (rb.linearVelocity.y < maxFallSpeed)
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, maxFallSpeed, rb.linearVelocity.z);
+        }
+
+        // ===== Wall contact =====
+        // Walls never hold the player: in the air, velocity into a wall is removed, so there is no
+        // contact force for friction to grip and she falls along it whatever the wall's material.
+        // Only the grapple holds a wall, and it overrides physics, so it never reaches this.
+        private const float WallNormalMaxY = 0.7f;
+        private const float WallProbeSkin = 0.05f;
+        private readonly ContactPoint[] wallContactBuffer = new ContactPoint[8];
+        private Vector3 wallContactNormal;
+        private bool hasWallContact;
+
+        private void OnCollisionEnter(Collision collision) => RecordWallContact(collision);
+        private void OnCollisionStay(Collision collision) => RecordWallContact(collision);
+
+        private void RecordWallContact(Collision collision)
+        {
+            int count = collision.GetContacts(wallContactBuffer);
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 normal = wallContactBuffer[i].normal;
+                if (Mathf.Abs(normal.y) >= WallNormalMaxY) continue;
+                wallContactNormal = new Vector3(normal.x, 0f, normal.z).normalized;
+                hasWallContact = true;
+                return;
+            }
+        }
+
+        private void StopPushingIntoWallsFixed()
+        {
+            bool touched = hasWallContact;
+            hasWallContact = false;
+            if (IsGrounded || IsPhysicsOverridden || rb.isKinematic) return;
+
+            Vector3 velocity = rb.linearVelocity;
+            Vector3 horizontal = new Vector3(velocity.x, 0f, velocity.z);
+            float speed = horizontal.magnitude;
+            if (speed < 0.01f) return;
+
+            // Last step's contact, or a wall this step's motion is about to reach.
+            Vector3 normal = touched ? wallContactNormal : Vector3.zero;
+            if (rb.SweepTest(horizontal / speed, out RaycastHit hit, speed * Time.fixedDeltaTime + WallProbeSkin,
+                    QueryTriggerInteraction.Ignore) && Mathf.Abs(hit.normal.y) < WallNormalMaxY)
+                normal = new Vector3(hit.normal.x, 0f, hit.normal.z).normalized;
+
+            float into = Vector3.Dot(horizontal, normal);
+            if (into < 0f)
+                rb.linearVelocity = velocity - normal * into;
         }
 
         // ===== Grounding & Z helpers =====

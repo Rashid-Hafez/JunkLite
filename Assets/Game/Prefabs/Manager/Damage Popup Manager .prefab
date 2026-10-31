@@ -48,10 +48,21 @@ MonoBehaviour:
   poolSize: 10
   spawnOffset: {x: 1, y: 1, z: -1.5}
   randomOffsetRange: 0
-  moveSpeed: 1
-  lifetime: 1
-  lowDamageColor: {r: 1, g: 1, b: 1, a: 1}
-  mediumDamageColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  highDamageColor: {r: 1, g: 0, b: 0, a: 1}
+  moveSpeed: 1.1
+  lifetime: 1.25
+  fadeDuration: 0.25
+  popStartScale: 0.2
+  bounceDamping: 9
+  bounceFrequency: 24
+  damageGlowMaterial: {fileID: 2100000, guid: 0ab22d295c1f9408795761b4c8c75f71, type: 2}
+  experienceGlowMaterial: {fileID: 2100000, guid: 15fbbe51f943c4c559335afe42630eed, type: 2}
+  physicalDamageColor: {r: 1, g: 0.8392157, b: 0.15686275, a: 1}
+  fireDamageColor: {r: 1, g: 0.32941177, b: 0.078431375, a: 1}
+  electricDamageColor: {r: 0, g: 0.8627451, b: 1, a: 1}
+  magicDamageColor: {r: 0.92156863, g: 0.23529412, b: 1, a: 1}
+  damageTextHeight: 52
+  tickScale: 0.78
   mediumDamageThreshold: 20
   highDamageThreshold: 50
+  horizontalTravel: 0.3
+  hitSeparation: 0.22
