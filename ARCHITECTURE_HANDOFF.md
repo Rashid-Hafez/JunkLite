@@ -1,5 +1,11 @@
 # JunkLite Architecture Refactor Handoff
 
+### Demo flow: story-video preload, per-level music, scripted upgrade beat (2026-10-31)
+
+- **Preload under a video:** `GameManager.PreloadLevel(name, index)` starts `LoadSceneAsync` with activation held and no loading screen (background priority Low); `ActivatePreloadedLevel()` runs the shared `PrepareForLevelChange()` steps and activates it. While a preload is pending, `LoadLevel` is ignored (the async queue belongs to it). `Level0SequenceManager.preloadNextSceneDuringOutro` (on) stops the music and preloads the next scene when the outro video starts, keeps the last video frame up, then activates. Every other transition still uses the loading screen.
+- **Per-level music:** `LevelMusicSettings` (`music` SoundEntry, optional one-shot `intro`, `playThroughCombat`) on `LevelContext` and legacy `SceneSettings`. `GameManager.PlayLevelMusic` uses it before the AudioLibrary level track; with `playThroughCombat` the combat track is skipped. `AudioManager.PlayMusic/CrossfadeToMusic(entry, …, intro)` plays the intro on a third `Music Intro` source and `PlayScheduled`s the looping clip at the intro's last sample; the intro follows its owner's volume and stops with it. A resumed track never replays its intro.
+- **LevelEvent:** new source **Enemy Died** (`sourceEnemy`, `EnemyCharacter.Died`) and action **Progression/Open Upgrades** (`PlayerUI.OpenUpgrades`: inventory on the UPGRADES tab, optionally waits until closed).
+
 ### Per-level player choice (2026-10-31)
 
 - `LevelContext` and the legacy `SceneSettings` have a **Player Choice** (`LevelPlayerChoice`: Game Default / Old Player / New Player). `PlayerLifecycle.LevelPlayerPrefab` applies it at spawn, taking the prefabs from `playerSettingsSource` like `PlayerPrefab`. Game Default keeps the Game Manager prefab's **Use New Player** rule.

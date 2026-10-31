@@ -15,7 +15,7 @@ public class LevelEventEditor : Editor
 {
     private const float Pad = 4f;
 
-    private SerializedProperty source, sourceObjective, sourceDoor, playOnce, waitUntilOutOfCombat, actions;
+    private SerializedProperty source, sourceObjective, sourceDoor, sourceEnemy, playOnce, waitUntilOutOfCombat, actions;
     private ReorderableList list;
 
     private void OnEnable()
@@ -23,6 +23,7 @@ public class LevelEventEditor : Editor
         source = serializedObject.FindProperty("source");
         sourceObjective = serializedObject.FindProperty("sourceObjective");
         sourceDoor = serializedObject.FindProperty("sourceDoor");
+        sourceEnemy = serializedObject.FindProperty("sourceEnemy");
         playOnce = serializedObject.FindProperty("playOnce");
         waitUntilOutOfCombat = serializedObject.FindProperty("waitUntilOutOfCombat");
         actions = serializedObject.FindProperty("actions");
@@ -54,6 +55,12 @@ public class LevelEventEditor : Editor
             EditorGUILayout.PropertyField(sourceDoor);
             if (sourceDoor.objectReferenceValue == null)
                 EditorGUILayout.HelpBox("Pick the door that fires this event.", MessageType.Warning);
+        }
+        if (src == LevelEventSource.EnemyDied)
+        {
+            EditorGUILayout.PropertyField(sourceEnemy);
+            if (sourceEnemy.objectReferenceValue == null)
+                EditorGUILayout.HelpBox("Pick the enemy whose death fires this event.", MessageType.Warning);
         }
         if (src == LevelEventSource.TriggerEnter && !evt.TryGetComponent(out Collider _))
         {
@@ -200,6 +207,7 @@ public static class LevelEventTools
             if (evt.Source == LevelEventSource.TriggerEnter && !evt.TryGetComponent(out Collider _)) Report("Trigger Enter source has no collider.");
             if ((evt.Source == LevelEventSource.ObjectiveStarted || evt.Source == LevelEventSource.ObjectiveCompleted) && evt.SourceObjective == null) Report("No source objective.");
             if (evt.Source == LevelEventSource.DoorOpened && evt.SourceDoor == null) Report("No source door.");
+            if (evt.Source == LevelEventSource.EnemyDied && evt.SourceEnemy == null) Report("No source enemy.");
             if (evt.Actions.Count == 0) Report("No actions.");
 
             for (int i = 0; i < evt.Actions.Count; i++)

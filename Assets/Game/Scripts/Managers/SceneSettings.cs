@@ -11,7 +11,11 @@ namespace junklite
         [Tooltip("Override the player this scene spawns. Game Default uses the Game Manager prefab's Use New Player.")]
         [SerializeField] private LevelPlayerChoice playerChoice = LevelPlayerChoice.GameDefault;
 
+        [Header("Music")]
+        [SerializeField] private LevelMusicSettings levelMusic = new();
+
         public bool SpawnPlayer => spawnPlayer;
         public LevelPlayerChoice PlayerChoice => playerChoice;
+        public LevelMusicSettings LevelMusic => levelMusic;
     }
 }

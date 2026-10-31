@@ -17,6 +17,8 @@ namespace junklite
         LevelStart,
         [Tooltip("Only runs when something calls Play() (another event, a UnityEvent, a Timeline signal).")]
         Manual,
+        [Tooltip("The source enemy dies.")]
+        EnemyDied,
     }
 
     /// <summary>
@@ -31,6 +33,7 @@ namespace junklite
         [SerializeField] private LevelEventSource source = LevelEventSource.TriggerEnter;
         [SerializeField] private ObjectiveDefinition sourceObjective;
         [SerializeField] private SlidingDoor sourceDoor;
+        [SerializeField] private EnemyCharacter sourceEnemy;
         [Tooltip("Run only the first time the source fires.")]
         [SerializeField] private bool playOnce = true;
         [Tooltip("If the player is fighting when the source fires, wait until combat ends.")]
@@ -41,6 +44,7 @@ namespace junklite
         private ObjectiveTracker subscribedTracker;
         private PlayerLifecycle subscribedLifecycle;
         private SlidingDoor subscribedDoor;
+        private EnemyCharacter subscribedEnemy;
         private Coroutine running;
         // Separate from the handle: a run with only instant steps finishes inside StartCoroutine.
         private bool isRunning;
@@ -49,6 +53,7 @@ namespace junklite
         public LevelEventSource Source => source;
         public ObjectiveDefinition SourceObjective => sourceObjective;
         public SlidingDoor SourceDoor => sourceDoor;
+        public EnemyCharacter SourceEnemy => sourceEnemy;
         public IReadOnlyList<LevelEventAction> Actions => actions;
         public bool IsRunning => isRunning;
         public bool HasPlayed => played;
@@ -150,6 +155,8 @@ namespace junklite
 
         private void HandleDoorOpened(SlidingDoor door) => Play();
 
+        private void HandleEnemyDied(EnemyCharacter enemy) => Play();
+
         private void HandlePlayerSpawned(PlayerCharacter player)
         {
             if (source == LevelEventSource.LevelStart) Play();
@@ -190,6 +197,14 @@ namespace junklite
                 subscribedDoor = door;
                 if (subscribedDoor != null) subscribedDoor.PlayerOpened += HandleDoorOpened;
             }
+
+            EnemyCharacter enemy = source == LevelEventSource.EnemyDied ? sourceEnemy : null;
+            if (enemy != subscribedEnemy)
+            {
+                if (subscribedEnemy != null) subscribedEnemy.Died -= HandleEnemyDied;
+                subscribedEnemy = enemy;
+                if (subscribedEnemy != null) subscribedEnemy.Died += HandleEnemyDied;
+            }
         }
 
         private void Unbind()
@@ -201,9 +216,11 @@ namespace junklite
                 subscribedLifecycle.PlayerDied -= HandlePlayerDied;
             }
             if (subscribedDoor != null) subscribedDoor.PlayerOpened -= HandleDoorOpened;
+            if (subscribedEnemy != null) subscribedEnemy.Died -= HandleEnemyDied;
             subscribedTracker = null;
             subscribedLifecycle = null;
             subscribedDoor = null;
+            subscribedEnemy = null;
         }
 
         #endregion

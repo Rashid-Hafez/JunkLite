@@ -35,6 +35,7 @@ namespace junklite
         private Coroutine sceneInitializationRoutine;
         private bool gameInitialized = false;
         private bool isLoadingScene = false;
+        private AsyncOperation preloadOperation;
         private PlayerLifecycle playerLifecycle;
         private GameUIManager gameUIManager;
 
@@ -366,11 +367,55 @@ namespace junklite
             StartCoroutine(LoadLevelWithScreen(null, sceneIndex));
         }
 
-        private IEnumerator LoadLevelWithScreen(string sceneName, int sceneIndex)
+        /// <summary>
+        /// Starts loading a level in the background with no loading screen (e.g. under a story video).
+        /// The current level keeps running; <see cref="ActivatePreloadedLevel"/> switches to it.
+        /// </summary>
+        public void PreloadLevel(string sceneName, int sceneIndex = -1)
         {
-            if (isLoadingScene) yield break;
-            isLoadingScene = true;
+            if (isLoadingScene || preloadOperation != null) return;
+            // Low priority keeps the current scene (and its video) smooth while the level streams in.
+            Application.backgroundLoadingPriority = ThreadPriority.Low;
+            preloadOperation = string.IsNullOrEmpty(sceneName)
+                ? SceneManager.LoadSceneAsync(sceneIndex)
+                : SceneManager.LoadSceneAsync(sceneName);
+            if (preloadOperation == null)
+            {
+                Debug.LogError("[GameManager] Failed to preload scene — is it added to Build Settings?");
+                Application.backgroundLoadingPriority = ThreadPriority.Normal;
+                return;
+            }
+            preloadOperation.allowSceneActivation = false;
+        }
 
+        public bool HasPreloadedLevel => preloadOperation != null;
+
+        /// <summary>Switches to the level started by <see cref="PreloadLevel"/>, without the loading screen.</summary>
+        public void ActivatePreloadedLevel()
+        {
+            if (preloadOperation == null || isLoadingScene) return;
+            StartCoroutine(ActivatePreloadedLevelRoutine());
+        }
+
+        private IEnumerator ActivatePreloadedLevelRoutine()
+        {
+            isLoadingScene = true;
+            PrepareForLevelChange();
+            playerLifecycle?.PrepareForSceneChange();
+
+            AsyncOperation operation = preloadOperation;
+            Application.backgroundLoadingPriority = ThreadPriority.High;
+            while (operation.progress < 0.9f)
+                yield return null;
+
+            preloadOperation = null;
+            Application.backgroundLoadingPriority = ThreadPriority.Normal;
+            operation.allowSceneActivation = true;
+        }
+
+        // Shared by every level change: the old level's input, HUD and combat state must not carry over.
+        private void PrepareForLevelChange()
+        {
             // Detach before the scene unloads so we are not left subscribed to a destroyed GameInputManager.
             UnsubscribePauseInput();
 
@@ -383,6 +428,15 @@ namespace junklite
             if (gameUIManager != null && gameUIManager.PlayerHUD != null && gameUIManager.PlayerHUD.IsInventoryOpen)
                 gameUIManager.PlayerHUD.CloseInventory();
             PlayerCombatTracker.Instance?.ClearCombatState();
+        }
+
+        private IEnumerator LoadLevelWithScreen(string sceneName, int sceneIndex)
+        {
+            // A pending preload holds Unity's async queue, so it must be the level that loads.
+            if (isLoadingScene || preloadOperation != null) yield break;
+            isLoadingScene = true;
+
+            PrepareForLevelChange();
             gameUIManager?.BeginSceneTransition();
 
             // Start loading immediately so disk/scene work overlaps the transition video.
@@ -451,6 +505,9 @@ namespace junklite
 
         private void OnCombatStarted()
         {
+            LevelMusicSettings levelMusic = GetLevelMusicOverride();
+            if (levelMusic != null && levelMusic.playThroughCombat) return;
+
             var entry = GetCombatMusicEntry();
             if (entry != null && entry.IsValid)
                 AudioManager.Instance?.CrossfadeToMusic(entry);
@@ -460,6 +517,17 @@ namespace junklite
 
         private void PlayLevelMusic()
         {
+            LevelMusicSettings levelMusic = GetLevelMusicOverride();
+            if (levelMusic != null)
+            {
+                AudioManager audio = AudioManager.Instance;
+                if (audio == null) return;
+                // From silence (e.g. after a story video) the track starts at full volume so its opening is heard.
+                if (audio.IsMusicPlaying) audio.CrossfadeToMusic(levelMusic.music, -1f, levelMusic.intro);
+                else audio.PlayMusic(levelMusic.music, levelMusic.intro);
+                return;
+            }
+
             // First enemy detection switches music from a physics trigger. Prepare
             // the combat track alongside level music, before that gameplay callback
             // can synchronously decompress an entire song on the movement frame.
@@ -470,6 +538,14 @@ namespace junklite
             var entry = GetLevelMusicEntry();
             if (entry != null && entry.IsValid)
                 AudioManager.Instance?.CrossfadeToMusic(entry);
+        }
+
+        /// <summary>The active level's own music (LevelContext, else legacy SceneSettings), or null.</summary>
+        private LevelMusicSettings GetLevelMusicOverride()
+        {
+            LevelMusicSettings music = currentLevelContext != null ? currentLevelContext.LevelMusic
+                : currentSceneSettings != null ? currentSceneSettings.LevelMusic : null;
+            return music != null && music.IsSet ? music : null;
         }
 
         private SoundEntry GetLevelMusicEntry()

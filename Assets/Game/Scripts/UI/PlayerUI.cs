@@ -267,6 +267,13 @@ namespace junklite
             }
         }
 
+        /// <summary>Opens the inventory menu on the UPGRADES tab (scripted level beats).</summary>
+        public void OpenUpgrades()
+        {
+            OpenInventory();
+            if (inventoryUI != null) inventoryUI.OpenUpgradesTab();
+        }
+
         public void CloseInventory()
         {
             if (!isInventoryOpen && inventoryPanel != null && !inventoryPanel.activeSelf)

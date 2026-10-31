@@ -135448,6 +135448,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: aeedb217e70a445ac8a47f1a6bb94714, type: 3}
+--- !u!114 &311628913 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2641887078146212746, guid: aeedb217e70a445ac8a47f1a6bb94714, type: 3}
+  m_PrefabInstance: {fileID: 311628912}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dba5f0aaf34252546922a8a22291144a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GruntEnemy
 --- !u!1001 &311667808
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -202871,7 +202882,7 @@ Light:
   serializedVersion: 12
   m_Type: 2
   m_Color: {r: 0.08, g: 0.65, b: 1, a: 1}
-  m_Intensity: 1.2021158
+  m_Intensity: 1.2
   m_Range: 4.5
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -237581,6 +237592,7 @@ MonoBehaviour:
   source: 2
   sourceObjective: {fileID: 11400000, guid: 90226fb6e1b674546bada31d9108ab6a, type: 2}
   sourceDoor: {fileID: 0}
+  sourceEnemy: {fileID: 0}
   playOnce: 1
   waitUntilOutOfCombat: 0
   actions:
@@ -267741,6 +267753,7 @@ MonoBehaviour:
   source: 0
   sourceObjective: {fileID: 0}
   sourceDoor: {fileID: 0}
+  sourceEnemy: {fileID: 0}
   playOnce: 1
   waitUntilOutOfCombat: 0
   actions:
@@ -389353,6 +389366,76 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: a403794b48a6fde4eb9e5d7e585df407, type: 3}
+--- !u!1 &925132845
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 925132846}
+  - component: {fileID: 925132847}
+  m_Layer: 0
+  m_Name: Room1_DemoUpgrades
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &925132846
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 925132845}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2084055913}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &925132847
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 925132845}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b0b7811ffad7473796e1b2aae32eb71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.LevelEvent
+  source: 6
+  sourceObjective: {fileID: 0}
+  sourceDoor: {fileID: 0}
+  sourceEnemy: {fileID: 311628913}
+  playOnce: 1
+  waitUntilOutOfCombat: 0
+  actions:
+  - rid: 2138260559049523353
+  - rid: 2138260559049523354
+  - rid: 2138260559049523355
+  references:
+    version: 2
+    RefIds:
+    - rid: 2138260559049523353
+      type: {class: PlayDialogueAction, ns: junklite, asm: Assembly-CSharp}
+      data:
+        sequence: {fileID: 11400000, guid: adce4a344f430462585188de2dd0ed12, type: 2}
+    - rid: 2138260559049523354
+      type: {class: GrantUpgradePointsAction, ns: junklite, asm: Assembly-CSharp}
+      data:
+        points: 5
+        onceId: service-floor/demo-upgrades
+    - rid: 2138260559049523355
+      type: {class: OpenUpgradesAction, ns: junklite, asm: Assembly-CSharp}
+      data:
+        waitUntilClosed: 1
 --- !u!1001 &925189698
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -497193,6 +497276,7 @@ MonoBehaviour:
   source: 0
   sourceObjective: {fileID: 0}
   sourceDoor: {fileID: 0}
+  sourceEnemy: {fileID: 0}
   playOnce: 1
   waitUntilOutOfCombat: 1
   actions:
@@ -571335,6 +571419,7 @@ MonoBehaviour:
   source: 3
   sourceObjective: {fileID: 0}
   sourceDoor: {fileID: 1936461796}
+  sourceEnemy: {fileID: 0}
   playOnce: 1
   waitUntilOutOfCombat: 0
   actions:
@@ -626502,6 +626587,7 @@ MonoBehaviour:
   source: 0
   sourceObjective: {fileID: 0}
   sourceDoor: {fileID: 0}
+  sourceEnemy: {fileID: 0}
   playOnce: 1
   waitUntilOutOfCombat: 0
   actions:
@@ -752452,6 +752538,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.SceneSettings
   spawnPlayer: 1
   playerChoice: 2
+  levelMusic:
+    music:
+      clip: {fileID: 8300000, guid: ff9d9fabb19274aff8519985c703041d, type: 3}
+      volume: 0.3
+      pitchMin: 1
+      pitchMax: 1
+      effects: []
+    intro: {fileID: 8300000, guid: d0812d5487d644337940df5f1203d3db, type: 3}
+    playThroughCombat: 1
 --- !u!4 &1758478124
 Transform:
   m_ObjectHideFlags: 0
@@ -776085,7 +776180,7 @@ Light:
   serializedVersion: 12
   m_Type: 2
   m_Color: {r: 0.12, g: 0.82, b: 1, a: 1}
-  m_Intensity: 0.6023831
+  m_Intensity: 1.2
   m_Range: 6.5
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -895613,6 +895708,7 @@ Transform:
   - {fileID: 1343346164}
   - {fileID: 1386470714}
   - {fileID: 580558130}
+  - {fileID: 925132846}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &2084076175

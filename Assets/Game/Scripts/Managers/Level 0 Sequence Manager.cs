@@ -89,6 +89,9 @@ namespace junklite
         [Header("Scene Transition")]
         [SerializeField] private string nextSceneName;
         [SerializeField] private int nextSceneBuildIndex = -1;
+        [Tooltip("Stop the music and load the next scene in the background while the outro video plays, " +
+                 "then switch straight to it (no loading screen).")]
+        [SerializeField] private bool preloadNextSceneDuringOutro = true;
 
         [Header("End beat — glitch (Cinemachine Volume Settings)")]
         [Tooltip("Cinematic vcam extension that holds the Volume Profile with Analog/Digital Glitch.")]
@@ -1278,6 +1281,13 @@ namespace junklite
 
             endOutroVideoScreenRoot?.SetActive(true);
 
+            if (preloadNextSceneDuringOutro)
+            {
+                AudioManager.Instance?.StopMusic();
+                if (TryResolveNextScene(out string preloadName, out int preloadIndex))
+                    GameManager.Instance?.PreloadLevel(preloadName, preloadIndex);
+            }
+
             endOutroVideoPlayer.playOnAwake = false;
             endOutroVideoPlayer.isLooping = false;
             endOutroVideoPlayer.clip = endOutroVideoClip;
@@ -1335,6 +1345,10 @@ namespace junklite
             endOutroVideoPlayer.loopPointReached -= OnLoopPointReached;
             endOutroVideoPlayer.errorReceived -= OnError;
 
+            // The preloaded level replaces this scene next; keep the last video frame up until it does.
+            if (!failed && GameManager.Instance != null && GameManager.Instance.HasPreloadedLevel)
+                yield break;
+
             endOutroVideoPlayer.Stop();
             endOutroVideoScreenRoot?.SetActive(false);
             if (playerUI != null)
@@ -1356,27 +1370,48 @@ namespace junklite
                 return;
             }
 
+            if (GameManager.Instance.HasPreloadedLevel)
+            {
+                GameManager.Instance.ActivatePreloadedLevel();
+                return;
+            }
+
+            if (!TryResolveNextScene(out string sceneName, out int sceneIndex))
+            {
+                Debug.LogWarning("[Level0Sequence] No next scene configured and no valid fallback index.");
+                return;
+            }
+
+            if (sceneIndex >= 0) GameManager.Instance.LoadLevel(sceneIndex);
+            else GameManager.Instance.LoadLevel(sceneName);
+        }
+
+        private bool TryResolveNextScene(out string sceneName, out int sceneIndex)
+        {
+            sceneName = null;
+            sceneIndex = -1;
+
             if (nextSceneBuildIndex >= 0)
             {
-                GameManager.Instance.LoadLevel(nextSceneBuildIndex);
-                return;
+                sceneIndex = nextSceneBuildIndex;
+                return true;
             }
 
             if (!string.IsNullOrEmpty(nextSceneName))
             {
-                GameManager.Instance.LoadLevel(nextSceneName);
-                return;
+                sceneName = nextSceneName;
+                return true;
             }
 
             int fallbackIndex = SceneManager.GetActiveScene().buildIndex + 1;
             if (fallbackIndex >= 0 && fallbackIndex < SceneManager.sceneCountInBuildSettings)
             {
                 Debug.LogWarning($"[Level0Sequence] Next scene not configured. Falling back to next build index: {fallbackIndex}");
-                GameManager.Instance.LoadLevel(fallbackIndex);
-                return;
+                sceneIndex = fallbackIndex;
+                return true;
             }
 
-            Debug.LogWarning("[Level0Sequence] No next scene configured and no valid fallback index.");
+            return false;
         }
 
         #endregion

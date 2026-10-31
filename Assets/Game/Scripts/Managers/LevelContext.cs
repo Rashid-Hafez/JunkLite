@@ -11,6 +11,20 @@ namespace junklite
         NewPlayer,
     }
 
+    /// <summary>Optional per-level music. Empty Music keeps the AudioLibrary's level track.</summary>
+    [System.Serializable]
+    public sealed class LevelMusicSettings
+    {
+        [Tooltip("Looping track. Empty = the AudioLibrary level music.")]
+        public SoundEntry music = new();
+        [Tooltip("Optional: plays once, then Music loops gaplessly from its first sample.")]
+        public AudioClip intro;
+        [Tooltip("Keep this track during fights instead of switching to the combat music.")]
+        public bool playThroughCombat = true;
+
+        public bool IsSet => music != null && music.IsValid;
+    }
+
     /// <summary>
     /// Scene-local configuration consumed by the persistent GameRoot.
     /// Keep this object in the level; it must never be marked DontDestroyOnLoad.
@@ -31,11 +45,15 @@ namespace junklite
         [SerializeField] private SpawnPoint primaryPlayerSpawn;
         [SerializeField] private List<SpawnPoint> additionalPlayerSpawns = new();
 
+        [Header("Music")]
+        [SerializeField] private LevelMusicSettings levelMusic = new();
+
         public string LevelId => levelId;
         public string DisplayName => displayName;
         public bool IsTrainingLevel => trainingLevel;
         public bool SpawnPlayer => spawnPlayer;
         public LevelPlayerChoice PlayerChoice => playerChoice;
+        public LevelMusicSettings LevelMusic => levelMusic;
 
         public IReadOnlyList<Transform> GetPlayerSpawns()
         {

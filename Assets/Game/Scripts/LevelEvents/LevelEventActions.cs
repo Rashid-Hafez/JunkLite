@@ -215,6 +215,24 @@ namespace junklite
         public override string Validate() => points < 1 ? "Points must be at least 1." : null;
     }
 
+    [Serializable, LevelEventActionMenu("Progression/Open Upgrades")]
+    public sealed class OpenUpgradesAction : LevelEventAction
+    {
+        [Tooltip("Hold the next steps until the player closes the menu.")]
+        public bool waitUntilClosed = true;
+
+        public override IEnumerator Run(LevelEvent context)
+        {
+            PlayerUI hud = GameUIManager.Instance != null ? GameUIManager.Instance.PlayerHUD : null;
+            if (hud == null) yield break;
+            hud.OpenUpgrades();
+            if (waitUntilClosed)
+                while (hud != null && hud.IsInventoryOpen) yield return null;
+        }
+
+        public override string Summary => waitUntilClosed ? "Open the Upgrades tab, wait until closed" : "Open the Upgrades tab";
+    }
+
     [Serializable, LevelEventActionMenu("UI/Show Hint")]
     public sealed class ShowHintAction : LevelEventAction
     {
