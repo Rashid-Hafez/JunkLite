@@ -70,7 +70,10 @@ namespace junklite
                 }
                 else
                 {
-                    dasher.OnDashComplete();
+                    // Already in reach (the target closed in during the charge):
+                    // strike in place. Skipping the attack would resolve as a whiff.
+                    if (vfx != null) vfx.SetActive(true);
+                    StrikeInPlace();
                 }
             }
             else
@@ -89,6 +92,17 @@ namespace junklite
 
             movement?.FaceTarget(dashTarget);
             movement?.DashTo(dashTarget, dasher.DashSpeed);
+        }
+
+        private void StrikeInPlace()
+        {
+            hasStarted = true;
+            dashStartPosition = Transform.position;
+            dashTarget = dashStartPosition;
+            totalDashDistance = 0f;
+
+            movement?.Stop();
+            movement?.FaceTarget(Target.position);
         }
 
         public override void Update()

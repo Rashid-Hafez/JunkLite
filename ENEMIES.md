@@ -89,7 +89,9 @@ Prefab tuning (launch, stats, toggles) goes through `PrefabUtility.LoadPrefabCon
 
 ## Hitboxes
 
-Melee hitboxes (`Hitbox` child, trigger box along local +X, flipped with the root's X scale) must start **behind the body centre**, so a player standing inside the enemy is hit when the box turns on. Grunt `Hitbox`: x −0.5 to 1.15 (local, before root scale). Hyena `Dashhitbox`: x −0.35 to 1.95. The other Hyena colour prefabs are separate and were not changed.
+Melee hitboxes (`Hitbox` child, trigger box along local +X, flipped with the root's X scale) must start **behind the body centre**, so a player standing inside the enemy is hit when the box turns on.
+
+`Hitbox` does not rely on `OnTriggerEnter`. While active it overlap-queries its own collider shape (Box, Sphere or Capsule) on `Activate()` and every physics step, and raises `OnHit` once per damage receiver per activation. Trigger callbacks miss a player who is already inside the box when it turns on and both bodies are asleep, which is what made point-blank swings whiff. Grunt `Hitbox`: x −0.5 to 1.15 (local, before root scale). Hyena `Dashhitbox`: x −0.35 to 1.95. The other Hyena colour prefabs are separate and were not changed.
 
 ## Common mistakes
 

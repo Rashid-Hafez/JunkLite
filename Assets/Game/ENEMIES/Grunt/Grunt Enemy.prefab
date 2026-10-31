@@ -5375,7 +5375,7 @@ MonoBehaviour:
   vaultMaxStartDistance: 4.5
   vaultMaxFarSideCount: 0
   vaultOvershoot: 0.3
-  vaultSpeed: 9
+  vaultSpeed: 13
   vaultHeight: 1.6
   vaultTelegraph: 0.2
   leapLandDuration: 0.12
@@ -5385,7 +5385,7 @@ MonoBehaviour:
   groupLeapCooldown: 1
   vaultAbortDistance: 1.5
   vaultAbortCooldown: 1
-  vaultMaxCorrectionSpeed: 8
+  vaultMaxCorrectionSpeed: 11
   obstacleLayers:
     serializedVersion: 2
     m_Bits: 0
