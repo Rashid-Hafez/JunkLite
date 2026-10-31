@@ -377,6 +377,7 @@ MonoBehaviour:
   fitTiltedBodyToFloor: 1
   lyingFloorInset: 0.05
   minLocomotionTimeScale: 0.35
+  locomotionPlaybackSpeed: 1
   walkForward: 
   walkBackward: 
   directionSwitchSpeed: 0.25
@@ -758,8 +759,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.0820189, y: 2.0810027, z: 0.96183014}
-  m_Center: {x: 0.21881533, y: 0.45660686, z: 0}
+  m_Size: {x: 2.3, y: 2.0810027, z: 0.96183014}
+  m_Center: {x: -0.096000016, y: 0.45660686, z: 0}
 --- !u!114 &8054053361408564859
 MonoBehaviour:
   m_ObjectHideFlags: 0

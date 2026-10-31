@@ -2487,6 +2487,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.SceneSettings
   spawnPlayer: 0
+  playerChoice: 2
 --- !u!4 &1162179705
 Transform:
   m_ObjectHideFlags: 0

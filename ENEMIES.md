@@ -87,6 +87,10 @@ With the Editor open (`unity status` shows `ready`), the safe order is:
 
 Prefab tuning (launch, stats, toggles) goes through `PrefabUtility.LoadPrefabContents` + `SerializedObject` + `SaveAsPrefabAsset`, so Unity writes the YAML and keeps references.
 
+## Hitboxes
+
+Melee hitboxes (`Hitbox` child, trigger box along local +X, flipped with the root's X scale) must start **behind the body centre**, so a player standing inside the enemy is hit when the box turns on. Grunt `Hitbox`: x −0.5 to 1.15 (local, before root scale). Hyena `Dashhitbox`: x −0.35 to 1.95. The other Hyena colour prefabs are separate and were not changed.
+
 ## Common mistakes
 
 | Symptom | Cause |
