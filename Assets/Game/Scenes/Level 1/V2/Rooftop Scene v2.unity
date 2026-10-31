@@ -500208,6 +500208,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.SceneSettings
   spawnPlayer: 1
+  playerChoice: 0
 --- !u!4 &1758478124
 Transform:
   m_ObjectHideFlags: 0
@@ -654349,16 +654350,8 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
-      propertyPath: enemyHitVFXPrefab
-      value: 
-      objectReference: {fileID: 5545173171955001552, guid: 7ac879c2caac1ca41b6c438e77d8b25d, type: 3}
-    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
       propertyPath: bloodSplatterPrefab
       value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
-      propertyPath: enemyHitVFXPoolSize
-      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
       propertyPath: bloodSplatterLifetime
@@ -654367,22 +654360,6 @@ PrefabInstance:
     - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
       propertyPath: bloodSplatterPoolSize
       value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
-      propertyPath: enemyHitVFXRightOffset
-      value: 0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
-      propertyPath: enemyHitVFXLocalOffset.x
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
-      propertyPath: enemyHitVFXLocalOffset.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4852353934377601724, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
-      propertyPath: enemyHitVFXLocalOffset.z
-      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5290022273384436843, guid: 2c2b397f45ae951479f91fcf30f477eb, type: 3}
       propertyPath: m_Name
@@ -749036,6 +749013,7 @@ MonoBehaviour:
   fitTiltedBodyToFloor: 1
   lyingFloorInset: 0.05
   minLocomotionTimeScale: 0.35
+  locomotionPlaybackSpeed: 1
   walkForward: 
   walkBackward: 
   directionSwitchSpeed: 0.25
@@ -749097,6 +749075,7 @@ MonoBehaviour:
   fitTiltedBodyToFloor: 1
   lyingFloorInset: 0.05
   minLocomotionTimeScale: 0.35
+  locomotionPlaybackSpeed: 1
   walkForward: 
   walkBackward: 
   directionSwitchSpeed: 0.25
@@ -749158,6 +749137,7 @@ MonoBehaviour:
   fitTiltedBodyToFloor: 1
   lyingFloorInset: 0.05
   minLocomotionTimeScale: 0.35
+  locomotionPlaybackSpeed: 1
   walkForward: 
   walkBackward: 
   directionSwitchSpeed: 0.25
