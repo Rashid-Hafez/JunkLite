@@ -478,5 +478,14 @@ namespace junklite
             if (controls != null)
                 controls.Disable();
         }
+
+        void OnDestroy()
+        {
+            // Destroys the runtime InputActionAsset copy. With domain reload disabled
+            // it would otherwise leak (with its binding state) every play session.
+            if (Instance != this || controls == null) return;
+            controls.Dispose();
+            controls = null;
+        }
     }
 }
