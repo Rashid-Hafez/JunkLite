@@ -40,7 +40,7 @@ If you change an architectural boundary, update `ARCHITECTURE_HANDOFF.md` in the
 - **Free-move room → lane.**
   - A `LaneEntryTrigger` box sits in front of the room's exit door.
   - While the player is inside it, an on-screen "E to proceed" prompt shows (the Interact binding).
-  - On Interact, `LanePath.TryGetClosestPoint` finds the nearest lane point and lane Y rotation, and `Character2D5Controller.SnapToLane(point, yRotation)` places the player there with zero velocity and the axis locked.
+  - On Interact, `LanePath.TryGetClosestPoint` finds the nearest lane point and lane Y rotation, and `Character2D5Controller.StepToLane(point, yRotation, stepSpeed)` walks the player there (eased), then `SnapToLane` sets zero velocity and locks the axis.
   - The trigger's `gateDoor` (a `SlidingDoor`) stays `Locked` until that snap happens, and relocks on every `PlayerSpawned`, so the player can't skip it.
 - **Corners.** At a 90° turn, a `CameraSwitchTrigger` does the rotation (camera swap, teleport to its `A`/`B` point, new yaw, axis relock). The lane continues by adding the next waypoint to the same `LanePath`, and the trigger's `A`/`B` points must sit on the two segments.
 - **Doors.** Use `Prefabs/Environment/Doors/Door4_Sliding.prefab` (`SlidingDoor`):

@@ -390,21 +390,13 @@ namespace junklite
             {
                 if (cameraA != null && cameraB != null)
                 {
-                    CinemachineCamera nextCam;
-                    if (usingFirstState)
-                    {
-                        cameraA.Prioritize();
-                        nextCam = cameraA;
-                    }
-                    else
-                    {
-                        cameraB.Prioritize();
-                        nextCam = cameraB;
-                    }
-                    if (cinemachineBrain != null)
-                        cinemachineBrain.DefaultBlend.Time = cameraBlendDuration;
+                    CinemachineCamera nextCam = usingFirstState ? cameraA : cameraB;
 
-                    CameraManager.Instance?.SetActiveCamera(nextCam);
+                    // The manager owns priority and the blend; a zone/cinematic above the lane stays live.
+                    if (CameraManager.Instance != null)
+                        CameraManager.Instance.SetLaneCamera(nextCam, cameraBlendDuration);
+                    else
+                        nextCam.Prioritize();
                 }
             }
         }

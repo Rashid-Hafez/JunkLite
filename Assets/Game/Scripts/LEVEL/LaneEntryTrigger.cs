@@ -6,7 +6,7 @@ namespace junklite
     /// <summary>
     /// Entry point from a free-move room (safe room / explore room) onto a LanePath.
     /// While the player stands in this trigger box the shared interact prompt ("[E] Proceed") shows;
-    /// pressing Interact snaps the player onto the closest point of the lane with the lane's rotation.
+    /// pressing Interact walks the player (eased) onto the closest point of the lane with the lane's rotation.
     /// The optional gate door stays locked until the player has snapped, and locks again on every (re)spawn.
     /// Until the snap the player free-roams the room in depth (Character2D5Controller.SetFreeRoam).
     /// </summary>
@@ -19,6 +19,8 @@ namespace junklite
         [SerializeField] private string promptLabel = "Proceed";
         [Tooltip("Optional. Made the active camera on snap, for lanes that run on a different axis than the room view.")]
         [SerializeField] private CinemachineCamera laneCamera;
+        [Tooltip("Speed (m/s) of the eased step from the room onto the lane. 0 snaps at once.")]
+        [SerializeField, Min(0f)] private float stepSpeed = 4f;
 
         private DoorAccessRule gateRule;
         private Character2D5Controller playerInside;
@@ -80,11 +82,11 @@ namespace junklite
             if (playerInside == null || lanePath == null || !GateOpenable) return;
             if (!lanePath.TryGetClosestPoint(playerInside.transform.position, out Vector3 point, out float yRotation)) return;
 
-            playerInside.SnapToLane(point, yRotation);
+            playerInside.StepToLane(point, yRotation, stepSpeed);
             if (laneCamera != null)
             {
-                laneCamera.Prioritize();
-                if (CameraManager.Instance != null) CameraManager.Instance.SetActiveCamera(laneCamera);
+                if (CameraManager.Instance != null) CameraManager.Instance.SetLaneCamera(laneCamera);
+                else laneCamera.Prioritize();
             }
             playerInside = null;
             playerSnapped = true;

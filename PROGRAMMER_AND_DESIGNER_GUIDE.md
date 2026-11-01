@@ -12,7 +12,7 @@ Read this before working on JunkLite, with or without AI agents. It's the short 
 - **2.5D side-scroller.** 2D Spine characters in a full 3D world (URP), single-player, Unity 6.
 - You move **left and right on a lane**. A lane is a straight line along world X or Z.
 - **The world rotates.** At the end of a lane, a **Camera Switch Trigger** swings the camera 90°, puts you on a new lane, and the level continues. The reference is `Scenes/Level 1/V2/Rooftop Scene v2`.
-- **Free-move rooms** (safe and explore rooms, e.g. Service Floor Room 0) lead into lane rooms through a door. You press **E to proceed**, which snaps you onto the lane.
+- **Free-move rooms** (safe and explore rooms, e.g. Service Floor Room 0) lead into lane rooms through a door. You press **E to proceed**, and the player walks onto the lane (Step Speed on the `LaneEntryTrigger`).
 - **Always armed.** There is no combat mode. Cassidy fights with her fists from the start and mods are always live. The **blades** are a permanent arm upgrade: press **E** on the pickup and the fists are replaced for good.
 
 ---
@@ -45,6 +45,10 @@ Read this before working on JunkLite, with or without AI agents. It's the short 
 
 ### Free-move zones, locked doors, keys and objectives
 - **Z movement zone:** add a Box Collider + **Z Movement Zone** under `[Gameplay]`. Inside it the player walks in depth. Add more Box Colliders on the same object for L-shaped rooms. Leave the room through a **Lane Entry Trigger** (E) to get back on the path. If the lane runs on another axis, set the trigger's **Lane Camera**.
+- **Cameras: walls, room framing, cinematic hand-offs** (prefabs in `Prefabs/Camera/`, full rules in `MAIN_MECHANICS.md` > Cameras):
+  - **Camera Occluder:** the box goes around a wall that blocks the view. Set **Art Root**. Needs one `CameraOcclusionFader` on the Main Camera.
+  - **Camera Zone:** a room camera while the player is inside it. Tune the feel on its inactive **Room Camera**. Tick **Free Roam Only** so pressing E hands back to the lane camera. List walls in **Room Occluders** to hide them only inside the room. Add a `CinemachineConfiner3D` to the Room Camera to stop it at a wall.
+  - **Camera Transition:** a slow glide to a **Shot** of the next room. It holds until the player reaches **Arrival**, and the player keeps control.
 - **Objectives:** create *JunkLite > Objectives > Objective Definition* assets and list them on `[Gameplay]/ObjectiveTracker` (set **Primary**). Each objective is Inactive → Active → Complete. Put the ones active from the start in **Start Active** (the last one listed is shown first on the HUD). The HUD tracker (top-left, `Objective Tracker HUD.prefab`) shows the newest active objective and ticks it off when complete. The Missions tab (`Missions Page.prefab`) lists every started objective; unstarted ones stay hidden.
 - **Step-by-step guide:** `OBJECTIVES_AND_CINEMATICS_GUIDE.md` (plain-language, Inspector cheat sheet, class diagram).
 - **Level Events (story beats):** *GameObject > JunkLite > Level Event* (or add **Level Event** to any object). Pick a **Source** (Trigger Enter, Objective Started/Completed, Door Opened, Level Start, Manual) and add steps with **+**: start/complete objective, play dialogue, play Timeline, lock/unlock player, teleport, wait for landing, grant item (e.g. Grapple Hook), show/hide hint, set active, camera shake, wait, play another event, UnityEvent. Steps run top to bottom; locks are always released at the end, on death or if the object is disabled. Tick *Wait Until Out Of Combat* for cutscenes. Check setup with *Tools > JunkLite > Level > Validate Level Events*. Example: `[Gameplay]/Room8 Collapse/Room8_Collapse`.
@@ -116,7 +120,7 @@ Full checklist for making and placing enemies: `ENEMIES.md`. Place them roughly 
 | **Dev Console** (in-game) | Starts hidden each Play session, even with saved access enabled. **F10** enables/opens or hides it (Editor only). Explicitly enabling **JunkLite > Dev Tools > Enable In-Game Panel** or the pause-menu switch during play opens it. Status window: **JunkLite > Dev Tools Console**. | Player tab: infinite mod durability, heal, invincible, unlock mod slots, +1 upgrade point, reset upgrades, clear inventory, defeat, respawn. Spawn tab: enemies, mods; Grant Blades / Revert To Fists. Mods tab and Run tab (run control). Disabling tools hides their UI and clears overrides; F10 remains available. |
 | **Performance overlay** | Starts hidden; **F9** in Play mode shows/hides it. | FPS, frame time, and a spike graph. Spikes are logged to CSV (**Tools > JunkLite > Performance > Open Frame Spike Logs**). |
 | **Level tools** | **Tools > JunkLite > Level** | Snap Selected / Snap All Enemies To Lane Path; Replace Mesh Colliders With Boxes; Remove Mesh Colliders. Each is one Undo step. |
-| **Validators** | **Tools > JunkLite > Systems > Validate**, **Validate Enemies**, **Validate Encounters** | Check scene setup: Game Root, cameras, enemies, encounters. |
+| **Validators** | **Tools > JunkLite > Systems > Validate**, **Validate Enemies**, **Validate Encounters**, **Validate Cameras** | Check scene setup: Game Root, cameras, enemies, encounters, camera occluders/zones/transitions. |
 | **Performance helpers** | **Tools > JunkLite > Performance** | Optimize audio imports; enable world texture streaming. |
 | **Font rebuild** | **JunkLite > UI > Rebuild New UI Font Assets** | Run it when TMP glyphs are missing. |
 | **Tests** | `Assets/Game/Tests/Editor` (Test Runner, EditMode) | Run after touching damage, locks, or lifecycle code. |

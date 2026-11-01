@@ -518,6 +518,46 @@ This uses explicit serialized references and small cached collections rather tha
 
 The V2.5 validation command now requires exactly one scene-local `CameraManager`, exactly one `CinemachineBrain`, and a main camera reference belonging to the scene camera rig.
 
+#### Camera layers, occlusion and transitions (2026-11-01)
+
+- **Ownership.**
+  - `CameraManager` is the only code that makes a vcam live. `CameraLayerStack<T>` (plain C#, `Scripts/Camera/`) resolves Cinematic > Zone > Lane.
+  - API:
+    - `SetLaneCamera(cam, blend?)`, with `SetActiveCamera` kept as an alias for existing callers.
+    - `SetZoneCamera` / `ClearZoneCamera(cam, blend)`. Clearing only works for the owning camera.
+    - `IDisposable PushCinematic(shot, blendIn, blendOut)`.
+  - Zone cameras register and follow the player. Cinematic shots are never rebound by the manager.
+  - Follow-freeze applies to the follow camera (zone, else lane), never to a shot.
+- **Blends.**
+  - `CinemachineCore.GetBlendOverride` returns the pending blend for the transition into the camera just made live.
+  - `brain.DefaultBlend` is no longer mutated. `CameraSwitchTrigger` used to overwrite it permanently with its own blend duration. Now its duration applies only to its own turn, and other transitions use the brain's authored default.
+  - Respawn is a cut plus `PreviousStateIsValid = false`.
+- **Priority.** Cinemachine 3.1.4 `Prioritize()` only moves a camera to the top of its equal-priority peers, so all lane, zone and shot vcams must share one priority. Zone and shot cameras start inactive.
+- **Death and respawn.**
+  - Zone and Cinematic layers are cleared on `PlayerDied`, not on spawn, because subscriber order isn't guaranteed. Outstanding leases then become no-ops.
+  - `CameraZone` re-applies itself (with a cut) on `PlayerSpawned` when the player spawns inside it. `CameraTransition` re-arms on `PlayerDied`.
+- **Occlusion.**
+  - `CameraOcclusionFader` (on the brain camera) does a `SphereCastNonAlloc` from the camera to the player collider center, about every 0.05 s unscaled, against the `CameraOcclusion` layer (index 19, collides with nothing).
+  - It includes hits the camera starts inside, keeps a linger window, and makes no allocations after warm-up.
+  - `CameraOccluder` either cuts away (ShadowsOnly) or swaps to one shared transparent Lit material with per-submesh property blocks. It restores the original materials and shadow mode exactly, including on disable.
+  - The legacy per-wall `LEVEL/Fade.cs` is untouched.
+  - While any occluder is hidden or fading, the fader turns `Camera.useOcclusionCulling` off (restored to its authored value afterwards). Baked Umbra data otherwise keeps culling the player and room behind a hidden static wall.
+- **Zone extras.** `CameraZone.freeRoamOnly` keeps the zone live only while `Character2D5Controller.IsFreeRoaming`, polled in Update while the player is inside, so a lane snap hands back to the lane camera. `CameraZone.roomOccluders` are enabled only while the zone is live.
+- **Lane step.** `LaneEntryTrigger` calls `Character2D5Controller.StepToLane` (eased walk under a physics-override lease, then `SnapToLane`). `SnapToLane`, `ResetToSpawnOrientation` and `OnDisable` cancel it.
+- **Validation:** *Tools > JunkLite > Systems > Validate Cameras* (`Editor/CameraArchitectureValidation.cs`).
+- **Tests:** `CameraLayerStackTests` (5) pass, and so do `MovementAndCameraRegressionTests` (21), `DamagePipelineTests` (7) and `PlayerLifecycleConfigurationTests` (4).
+- **Still to check in Play Mode:**
+  - Corner turns under a zone or shot.
+  - Fade on lightmapped walls.
+  - Death mid-shot.
+  - Parry zoom during a shot.
+- **Verified in Play Mode (Service Floor, Room 10 sample):** the transition holds through a gap between Start and Arrival, releases on arrival into the zone camera and on retreat back to the lane camera, and the occluder cuts away the near pier at the room entrance.
+- **Verified in Play Mode (Rooms 0 and 3):** the Room 0 camera stops at x −16 (confiner), and the lane step hands back to `PosZCam` with a 1.5 s blend. In Room 3 free roam, `BackWall_B1_R` plus the Room 4 back-wall panels, monitors and props fade out and the player stays visible. They stay solid from the lane.
+- **Scene state:** Service Floor has `CameraOcclusionFader` on `Cameras/CinemachineBrain`, plus under `[Gameplay]`:
+  - `CameraOccluder_Room10_NearPier`, `CameraZone_Room10`, `CameraTransition_Room10`.
+  - `CameraZone_Room3` (Free Roam Only, gates `CameraOccluder_Room3_BackWall_B1_R`: Fade, alpha 0).
+  - `CameraZone_Room0` (Free Roam Only, Room Camera = `PosZCam` framing plus `CinemachineConfiner3D` on its `Camera Bounds` child, Blend Out 1.5 s).
+
 ### 10. Restart and loading-transition timing
 
 The original scene-restart coroutine played the entire loading video before it even called `LoadSceneAsync`, then held the loaded scene behind a serialized `debugLoadDelay` of six seconds. Restart duration was therefore video duration plus scene-loading duration plus an artificial delay, producing a visibly frozen loading frame before the player returned.

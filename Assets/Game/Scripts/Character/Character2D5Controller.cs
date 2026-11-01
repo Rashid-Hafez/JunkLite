@@ -137,6 +137,8 @@ namespace junklite
         private bool allowMovementInput = true;
         private float statusMoveSpeedMultiplier = 1f;
         private Coroutine smoothStopRoutine;
+        private Coroutine laneStepRoutine;
+        private IDisposable laneStepOverride;
         private Vector3 smoothStopVelocity;
         private Vector3 smoothStopAngularVelocity;
         private Vector3 smoothStopInputVelocity;
@@ -385,6 +387,7 @@ namespace junklite
         /// </summary>
         public void ResetToSpawnOrientation(float spawnYRotation)
         {
+            CancelLaneStep();
             ExternalRepositioned?.Invoke();
             // Clear any residual horizontal momentum from the previous run
             StopAllVelocity();
@@ -403,6 +406,7 @@ namespace junklite
         /// </summary>
         public void SnapToLane(Vector3 position, float laneYRotation)
         {
+            CancelLaneStep();
             StopAllVelocity();
 
             Quaternion rotation = Quaternion.Euler(0f, laneYRotation, 0f);
@@ -414,6 +418,56 @@ namespace junklite
             snapToZPosition = true;
 
             FreezePerpendicularAxis();
+        }
+
+        /// <summary>
+        /// Walks the character onto the lane at <paramref name="speed"/> (m/s, eased), then ends with
+        /// SnapToLane. The controller's physics is overridden during the step, so input can't fight it.
+        /// A new snap, respawn orientation or disable cancels it. Speed 0 snaps at once.
+        /// </summary>
+        public void StepToLane(Vector3 position, float laneYRotation, float speed)
+        {
+            CancelLaneStep();
+            Vector3 offset = position - rb.position;
+            offset.y = 0f;
+            float distance = offset.magnitude;
+            if (speed <= 0f || distance < 0.05f || !isActiveAndEnabled)
+            {
+                SnapToLane(position, laneYRotation);
+                return;
+            }
+
+            StopAllVelocity();
+            laneStepOverride = AcquirePhysicsOverride();
+            laneStepRoutine = StartCoroutine(CoStepToLane(position, laneYRotation, distance / speed));
+        }
+
+        public bool IsSteppingToLane => laneStepRoutine != null;
+
+        private IEnumerator CoStepToLane(Vector3 target, float laneYRotation, float duration)
+        {
+            var wait = new WaitForFixedUpdate();
+            Vector3 start = rb.position;
+            target.y = start.y;
+
+            for (float t = 0f; t < duration;)
+            {
+                yield return wait;
+                t += Time.fixedDeltaTime;
+                Vector3 next = Vector3.Lerp(start, target, Mathf.SmoothStep(0f, 1f, t / duration));
+                rb.linearVelocity = (next - rb.position) / Time.fixedDeltaTime;
+            }
+
+            laneStepRoutine = null;
+            SnapToLane(target, laneYRotation);
+        }
+
+        private void CancelLaneStep()
+        {
+            if (laneStepRoutine != null) StopCoroutine(laneStepRoutine);
+            laneStepRoutine = null;
+            laneStepOverride?.Dispose();
+            laneStepOverride = null;
         }
 
         /// <summary>
@@ -536,6 +590,7 @@ namespace junklite
 
         private void OnDisable()
         {
+            CancelLaneStep();
             InterruptSpecialMovement();
         }
 

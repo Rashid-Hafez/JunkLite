@@ -51,6 +51,28 @@ The trigger flips state every time it's crossed, so the same corner works in bot
 - Each scene has one `CinemachineBrain` and one vcam per lane direction, named by the direction the camera **looks**: `PosZCam` (yaw 0), `PosXCam` (90), `NegZCam` (180) and `NegXCam` (270). The scene-local `CameraManager` binds them to the player on `PlayerSpawned`.
 - **The active vcam's yaw equals the player's lane yaw**, because the camera faces the same way as the player's forward. For example, player yaw −90 (moving toward +Z) uses `NegXCam` (270). When wiring a corner, `cameraA` must match `rotationA` and `cameraB` must match `rotationB`.
 - Each vcam has `CinemachineVolumeSettings`. Cinemachine turns these into a hidden global volume at about priority 998, which overrides other volumes, so any runtime post effect must outrank it. `CombatModeScreenGlitch` uses 10000.
+- **Camera layers.** `CameraManager` decides the live camera from three layers. The highest non-empty layer wins: **Cinematic** (`CameraTransition`) > **Zone** (`CameraZone`) > **Lane** (`CameraSwitchTrigger`, `LaneEntryTrigger`, spawn). All vcams stay at the same priority, and the manager calls `Prioritize()`. Never call `Prioritize()` or change `brain.DefaultBlend` from level code. Call `CameraManager.SetLaneCamera` / `SetZoneCamera` / `PushCinematic`, which pass their blend through `CinemachineCore.GetBlendOverride`.
+- **Zone and shot cameras start inactive.** An enabled vcam jumps to the top of its priority peers and would take over at load. The components switch them off in Awake, and *Validate Cameras* flags any that are left on.
+- **Walls in the way (`Prefabs/Camera/Camera Occluder.prefab`).**
+  - Art has no colliders, so the camera can't detect walls by physics. Instead, put a `Camera Occluder` around each wall or ceiling group that can block the view. Its trigger box sits on the `CameraOcclusion` layer, which collides with nothing.
+  - Set **Art Root** to the meshes.
+  - `CameraOcclusionFader` on the Main Camera (the brain object) sweeps from the camera to the player about 20 times a second. Every occluder it hits gets out of the way, including one the camera has clipped into.
+  - **Cutaway** (default) stops drawing the meshes but keeps their shadows. It works with any shader.
+  - **Fade** swaps the meshes to the shared `Materials/Camera/OccluderFade.mat` and restores the originals afterwards, so no material needs per-wall setup. Non-URP-Lit materials cut away instead.
+  - **Faded Alpha 0** fades fully out and then cuts away. Use it when several layers (wall, panels, props) stack in front of the player, because partial alpha stacks back up to near-opaque.
+  - Neither mode touches lights or bakes.
+  - Baked occlusion culling still treats a hidden wall as solid and would cull the player behind it. The fader therefore switches the camera's occlusion culling off while anything is hidden or fading, and back on afterwards.
+- **Room framing (`Prefabs/Camera/Camera Zone.prefab`).** While the player is inside its boxes, its **Room Camera** replaces the lane camera. Tune the feel on that camera: follow offset and damping, Rotation Composer, and an optional `CinemachineConfiner3D` box that keeps it inside the room. It can share an object with a `ZMovementZone`.
+  - **Free Roam Only:** the zone is live only while the player free-roams. Pressing E at a `LaneEntryTrigger` ends free roam, so the zone blends out (Blend Out) to the lane camera without the player leaving the box.
+  - **Room Occluders:** occluders that only work while the zone is live. Use it for a wall that must stay solid from the lane but hide in the room.
+  - A wall the camera must not pass (Room 0 right wall) is a `CinemachineConfiner3D` on the Room Camera, bounded by a trigger box on the `CameraOcclusion` layer. Slowing Distance makes the stop soft.
+- **Cinematic room hand-off (`Prefabs/Camera/Camera Transition.prefab`).**
+  - **Start** is the root box, in the corridor. **Shot** is an inactive vcam that frames the next room. **Arrival** is a box inside the room, and only its shape is used.
+  - Entering Start blends slowly to Shot (Blend In, default 2.5 s EaseInOut). The player keeps control.
+  - The shot holds until the player reaches Arrival, then blends back (Blend Out).
+  - Leaving Start on the side away from Arrival, Max Hold running out, or death also releases it. Leaving Start toward Arrival keeps the hold, so Start and Arrival can have a gap between them. One Shot re-arms on death.
+  - *Look At Player* makes a static shot pan with them. *Track Player* drives a Spline Dolly or follow body for a slide.
+- Check camera setup with **Tools > JunkLite > Systems > Validate Cameras**.
 
 ## Free-move rooms and lane entry
 
@@ -59,7 +81,7 @@ The trigger flips state every time it's crossed, so the same corner works in bot
 - **Lane-only rooms** use a `LanePath` (`Scripts/LEVEL/LanePath.cs`). Its child transforms are waypoints, in hierarchy order. Every segment must run along world X or Z; a segment that doesn't is drawn red and logs a warning. `TryGetClosestPoint` returns the nearest lane point and the lane's Y rotation.
 - **Leaving a free-move room** goes through a `LaneEntryTrigger` (`Scripts/LEVEL/LaneEntryTrigger.cs`). It's a trigger box placed in front of the exit door:
   - While the player stands in it, a small on-screen prompt reads "E to proceed" (the Interact binding, so it's `LB` on a gamepad). The prompt is its own screen-space canvas using TMP and the Satoshi HUD font.
-  - Pressing Interact calls `Character2D5Controller.SnapToLane(point, yRotation)`. This puts the player on the closest lane point with the lane's rotation, zero velocity, and the perpendicular axis locked.
+  - Pressing Interact calls `Character2D5Controller.StepToLane(point, yRotation, stepSpeed)`. The player walks (eased, physics overridden, so input can't fight it) to the closest lane point at `stepSpeed` (default 4 m/s), then `SnapToLane` sets the lane rotation, zero velocity and the locked perpendicular axis. `stepSpeed` 0 snaps at once. A new snap, respawn or disable cancels the step.
   - Its `gateDoor` stays **locked** until the player snaps, and locks again on every `PlayerSpawned` (respawn). So the player can't skip the snap.
 - **Enemies** take their lane from their Y rotation. Use **Tools > JunkLite > Level > Snap All Enemies To Lane Path**, or **Snap Selected To Lane Path**, after placing them.
 

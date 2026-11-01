@@ -61,8 +61,21 @@ namespace junklite
         private Transform cachedTrackingTarget;
         private bool followEnabled = true;
 
-        // The camera that zoom/follow operations target (updated when CameraSwitchTrigger fires)
+        // The live camera (top of the layer stack). Zoom and parry target it.
         private CinemachineCamera activeCamera;
+
+        // Lane (CameraSwitchTrigger, LaneEntryTrigger, spawn) < Zone (CameraZone) < Cinematic (CameraTransition).
+        private readonly CameraLayerStack<CinemachineCamera> layers = new CameraLayerStack<CinemachineCamera>();
+
+        // Blend for the next brain transition into pendingBlendTarget, applied through
+        // CinemachineCore.GetBlendOverride so the brain's authored DefaultBlend is never mutated.
+        private CinemachineCamera pendingBlendTarget;
+        private CinemachineBlendDefinition pendingBlend;
+        private static readonly CinemachineBlendDefinition CutBlend =
+            new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.Cut, 0f);
+
+        // The camera that follows the player; cinematic shots are authored and never rebound.
+        private CinemachineCamera FollowCamera => layers.Zone != null ? layers.Zone : layers.Lane;
 
         // Captured on first RequestZoomOut - we restore to these when zooming back in
         private float defaultZoomValue;
@@ -85,6 +98,7 @@ namespace junklite
             RebuildManagedCameraCache();
             InitializeCameras();
             activeCamera = mainCamera != null ? mainCamera : GetFirstManagedCamera();
+            layers.Lane = activeCamera;
 
             if (cameraBrain == null)
                 cameraBrain = FindAnyObjectByType<CinemachineBrain>();
@@ -92,6 +106,8 @@ namespace junklite
 
         private void OnEnable()
         {
+            CinemachineCore.GetBlendOverride -= OverrideBlend;
+            CinemachineCore.GetBlendOverride += OverrideBlend;
             SubscribeToPlayerLifecycle();
 
             PlayerCharacter player = PlayerLifecycle.Instance?.Player;
@@ -119,12 +135,14 @@ namespace junklite
 
         private void OnDisable()
         {
+            CinemachineCore.GetBlendOverride -= OverrideBlend;
             UnsubscribeFromPlayerLifecycle();
             UnsubscribeFromPlayer();
         }
 
         private void OnDestroy()
         {
+            CinemachineCore.GetBlendOverride -= OverrideBlend; // Static event: never outlive this manager.
             if (Instance == this)
                 Instance = null;
         }
@@ -139,7 +157,10 @@ namespace junklite
             subscribedPlayerLifecycle = lifecycle;
 
             if (subscribedPlayerLifecycle != null)
+            {
                 subscribedPlayerLifecycle.PlayerSpawned += ConnectToPlayer;
+                subscribedPlayerLifecycle.PlayerDied += HandlePlayerDied;
+            }
         }
 
         private void UnsubscribeFromPlayerLifecycle()
@@ -148,7 +169,19 @@ namespace junklite
                 return;
 
             subscribedPlayerLifecycle.PlayerSpawned -= ConnectToPlayer;
+            subscribedPlayerLifecycle.PlayerDied -= HandlePlayerDied;
             subscribedPlayerLifecycle = null;
+        }
+
+        // Zones re-apply themselves on PlayerSpawned when the player respawns inside one,
+        // so overlays are dropped on death rather than on spawn (event order is not guaranteed).
+        private void HandlePlayerDied(PlayerCharacter player)
+        {
+            if (layers.Zone == null && layers.CinematicCount == 0)
+                return;
+
+            layers.ClearOverlays();
+            RefreshLiveCamera(null);
         }
 
         public void ConnectToPlayer(PlayerCharacter character)
@@ -196,8 +229,8 @@ namespace junklite
         }
 
         /// <summary>
-        /// Snaps instantly to the designated spawn camera with no blend.
-        /// Blend time is restored on the next frame so future transitions still animate.
+        /// Snaps instantly to the designated spawn camera with a cut (no blend, no damping catch-up).
+        /// A zone the player respawned inside stays on top of it.
         /// </summary>
         public void ResetToSpawnCamera()
         {
@@ -211,36 +244,11 @@ namespace junklite
 
             RegisterCamera(target);
             BindCameraTarget(target, followEnabled ? playerTransform : null);
-            target.gameObject.SetActive(true);
+            layers.Lane = target;
+            RefreshLiveCamera(CutBlend, forcePrioritize: true);
 
-            CinemachineBrain brain = cameraBrain;
-            if (brain == null)
-            {
-                brain = FindAnyObjectByType<CinemachineBrain>();
-                cameraBrain = brain;
-            }
-
-            if (brain == null)
-            {
-                target.Prioritize();
-                SetActiveCamera(target);
-                return;
-            }
-
-            float previousBlend = brain.DefaultBlend.Time;
-            brain.DefaultBlend.Time = 0f;
-
-            target.Prioritize();
-            SetActiveCamera(target);
-
-            StartCoroutine(RestoreBlendNextFrame(brain, previousBlend));
-        }
-
-        private IEnumerator RestoreBlendNextFrame(CinemachineBrain brain, float blendTime)
-        {
-            yield return null;
-            if (brain != null)
-                brain.DefaultBlend.Time = blendTime;
+            if (activeCamera != null)
+                activeCamera.PreviousStateIsValid = false;
         }
 
         /// <summary>
@@ -251,19 +259,20 @@ namespace junklite
         {
             followEnabled = follow;
 
-            if (activeCamera == null)
+            CinemachineCamera followCamera = FollowCamera;
+            if (followCamera == null)
                 return;
 
             if (follow)
             {
-                BindCameraTarget(activeCamera, cachedTrackingTarget);
+                BindCameraTarget(followCamera, cachedTrackingTarget);
             }
             else
             {
-                if (activeCamera.Target.TrackingTarget != null)
-                    cachedTrackingTarget = activeCamera.Target.TrackingTarget;
+                if (followCamera.Target.TrackingTarget != null)
+                    cachedTrackingTarget = followCamera.Target.TrackingTarget;
 
-                BindCameraTarget(activeCamera, null);
+                BindCameraTarget(followCamera, null);
             }
         }
 
@@ -413,26 +422,98 @@ namespace junklite
         public void SwitchToCamera(string cameraName)
         {
             if (cameras.ContainsKey(cameraName) && cameras[cameraName] != null)
-            {
-                CinemachineCamera target = cameras[cameraName];
-                target.gameObject.SetActive(true);
-                target.Prioritize();
-                SetActiveCamera(target);
-            }
+                SetLaneCamera(cameras[cameraName]);
         }
 
-        /// <summary>
-        /// Called by CameraSwitchTrigger (or anything else that changes the live Cinemachine camera)
-        /// so zoom, follow-freeze, and parry effects target the correct camera.
-        /// </summary>
-        public void SetActiveCamera(CinemachineCamera cam)
+        /// <summary>Sets the lane camera with the brain's default blend. Kept for existing callers.</summary>
+        public void SetActiveCamera(CinemachineCamera cam) => SetLaneCamera(cam);
+
+        /// <summary>Sets the base (lane) camera. A zone or cinematic above it stays live until released.</summary>
+        public void SetLaneCamera(CinemachineCamera cam, CinemachineBlendDefinition? blend = null)
         {
             if (cam == null) return;
 
             RegisterCamera(cam);
             BindCameraTarget(cam, followEnabled ? playerTransform : null);
-            activeCamera = cam;
-            defaultZoomValue = 0f;
+            layers.Lane = cam;
+            RefreshLiveCamera(blend, forcePrioritize: true);
+        }
+
+        /// <summary>Lane switch with the brain's default blend style over <paramref name="blendTime"/> seconds.</summary>
+        public void SetLaneCamera(CinemachineCamera cam, float blendTime)
+        {
+            CinemachineBlendDefinition.Styles style = cameraBrain != null
+                ? cameraBrain.DefaultBlend.Style
+                : CinemachineBlendDefinition.Styles.EaseInOut;
+            SetLaneCamera(cam, new CinemachineBlendDefinition(style, blendTime));
+        }
+
+        /// <summary>Room framing camera (CameraZone). It follows the player like a lane camera.</summary>
+        public void SetZoneCamera(CinemachineCamera cam, CinemachineBlendDefinition blend)
+        {
+            if (cam == null) return;
+
+            RegisterCamera(cam);
+            BindCameraTarget(cam, followEnabled ? playerTransform : null);
+            layers.SetZone(cam);
+            RefreshLiveCamera(blend);
+        }
+
+        /// <summary>Releases the zone only if <paramref name="cam"/> still owns it.</summary>
+        public void ClearZoneCamera(CinemachineCamera cam, CinemachineBlendDefinition blend)
+        {
+            if (layers.ClearZone(cam))
+                RefreshLiveCamera(blend);
+        }
+
+        /// <summary>
+        /// Puts an authored shot on top of every other layer until the returned lease is disposed.
+        /// The shot's targets are not rebound. Death clears it; a later Dispose is then a no-op.
+        /// </summary>
+        public IDisposable PushCinematic(CinemachineCamera shot, CinemachineBlendDefinition blendIn,
+            CinemachineBlendDefinition blendOut)
+        {
+            if (shot == null)
+                return new CameraLayerStack<CinemachineCamera>.Lease(0, null);
+
+            int id = layers.PushCinematic(shot);
+            RefreshLiveCamera(blendIn);
+            return new CameraLayerStack<CinemachineCamera>.Lease(id, released =>
+            {
+                if (this != null && layers.ReleaseCinematic(released))
+                    RefreshLiveCamera(blendOut);
+            });
+        }
+
+        // Makes the top layer live. The blend (null = brain default) applies only to the transition it starts.
+        private void RefreshLiveCamera(CinemachineBlendDefinition? blend, bool forcePrioritize = false)
+        {
+            CinemachineCamera top = layers.Top;
+            if (top == null) return;
+
+            bool changed = top != activeCamera;
+            if (!changed && !forcePrioritize) return;
+
+            if (changed)
+            {
+                pendingBlendTarget = blend.HasValue ? top : null;
+                if (blend.HasValue) pendingBlend = blend.Value;
+            }
+
+            top.gameObject.SetActive(true);
+            top.Prioritize();
+            activeCamera = top;
+            if (changed) defaultZoomValue = 0f;
+        }
+
+        private CinemachineBlendDefinition OverrideBlend(ICinemachineCamera from, ICinemachineCamera to,
+            CinemachineBlendDefinition defaultBlend, UnityEngine.Object owner)
+        {
+            if (pendingBlendTarget == null || !ReferenceEquals(to, pendingBlendTarget) || owner != cameraBrain)
+                return defaultBlend;
+
+            pendingBlendTarget = null;
+            return pendingBlend;
         }
 
         public void SetPlayerTarget(CinemachineCamera camera, Transform player)
