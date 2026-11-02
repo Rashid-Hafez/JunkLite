@@ -68,6 +68,20 @@ namespace junklite.Editor
                     Report(transition, "has no Arrival box.");
             }
 
+            // Door cinematics: the trigger plays the shot, and the door must be able to slide during the walk.
+            foreach (LaneEntryTrigger entry in Find<LaneEntryTrigger>())
+            {
+                if (entry.Transition != null && entry.Transition.StartOn != CameraTransition.StartMode.Script)
+                    Report(entry, "plays a Transition whose Start On is not Script (its Start box would also fire it).");
+                if (entry.WalkThrough == null)
+                    Report(entry, "has no Walk Through: E only snaps the player onto the lane inside the room instead of through the door.");
+            }
+
+            foreach (SlidingDoor door in Find<SlidingDoor>())
+                foreach (Transform leaf in new[] { door.LeftLeaf, door.RightLeaf })
+                    if (leaf != null && GameObjectUtility.AreStaticEditorFlagsSet(leaf.gameObject, StaticEditorFlags.BatchingStatic))
+                        Report(door, $"leaf '{leaf.name}' is Batching Static, so it can't slide. Clear Batching Static on the leaves.");
+
             string summary = $"{faders.Length} fader(s), {occluders.Length} occluder(s), " +
                              $"{zones.Length} zone(s), {transitions.Length} transition(s)";
             if (issues == 0)

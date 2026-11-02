@@ -126,17 +126,32 @@ namespace junklite
             cutNext = false;
             if (player == null || boxes == null) return;
 
-            Vector3 position = player.transform.position;
+            // Test the body, not the pivot: the pivot sits at the feet, below a box that starts above the floor.
+            Bounds playerBounds = GetBodyBounds(player);
             foreach (BoxCollider box in boxes)
             {
-                if (box == null || !box.bounds.Contains(position)) continue;
-                playerContacts = 1;
+                if (box == null || !box.bounds.Intersects(playerBounds)) continue;
+                // Physics still sends OnTriggerEnter for this overlap and counts it; starting at 1 would double it.
+                playerContacts = 0;
                 playerInside = player.gameObject;
                 playerController = player.Controller;
                 cutNext = true;
                 Refresh();
                 return;
             }
+        }
+
+        // Built from the transform, since collider bounds lag a teleport until the next physics step.
+        private static Bounds GetBodyBounds(PlayerCharacter player)
+        {
+            Transform t = player.transform;
+            if (player.TryGetComponent(out CapsuleCollider capsule))
+            {
+                float width = capsule.radius * 2f;
+                return new Bounds(t.TransformPoint(capsule.center), new Vector3(width, capsule.height, width));
+            }
+
+            return new Bounds(t.position, Vector3.zero);
         }
 
         #region Lifecycle binding

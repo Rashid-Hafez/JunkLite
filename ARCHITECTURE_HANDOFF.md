@@ -523,7 +523,7 @@ The V2.5 validation command now requires exactly one scene-local `CameraManager`
 - **Ownership.**
   - `CameraManager` is the only code that makes a vcam live. `CameraLayerStack<T>` (plain C#, `Scripts/Camera/`) resolves Cinematic > Zone > Lane.
   - API:
-    - `SetLaneCamera(cam, blend?)`, with `SetActiveCamera` kept as an alias for existing callers.
+    - `SetLaneCamera(cam, blend?)` (the old `SetActiveCamera` alias, the Main/Death switch helpers and `SetPlayerTarget` were removed as unused).
     - `SetZoneCamera` / `ClearZoneCamera(cam, blend)`. Clearing only works for the owning camera.
     - `IDisposable PushCinematic(shot, blendIn, blendOut)`.
   - Zone cameras register and follow the player. Cinematic shots are never rebound by the manager.
@@ -543,6 +543,8 @@ The V2.5 validation command now requires exactly one scene-local `CameraManager`
   - The legacy per-wall `LEVEL/Fade.cs` is untouched.
   - While any occluder is hidden or fading, the fader turns `Camera.useOcclusionCulling` off (restored to its authored value afterwards). Baked Umbra data otherwise keeps culling the player and room behind a hidden static wall.
 - **Zone extras.** `CameraZone.freeRoamOnly` keeps the zone live only while `Character2D5Controller.IsFreeRoaming`, polled in Update while the player is inside, so a lane snap hands back to the lane camera. `CameraZone.roomOccluders` are enabled only while the zone is live.
+- **Sliding door leaves are never Batching Static.** All 38 Service Floor leaves had it (frozen mesh); it was cleared, other flags untouched. `CameraArchitectureValidation` reports it. Inspector guides: `DOOR_CINEMATICS.md` (door with a camera shot) and `DOOR_PLAIN.md` (lane door, or E-exit without a shot).
+- **E exit sequence (`LaneEntryTrigger.CoEnter`, every trigger).** On Interact (gate rule met) it takes a `PlayerState.AcquireInputLock` lease, optionally calls `CameraTransition.Play` (Start On = Script) and waits for `IsSettled` (`CameraManager.IsSettledOn`: live and not blending; bounded by `maxWait`), unlocks the gate, steps to the lane, then walks to `walkThrough` unless another owner still locks the door, then disposes the lease. It does not wait for `IsOpen`: the door opens only while the player is in its trigger, and an E-press at the far edge of the entry box stood outside it, so the old wait timed out and left her on this side (seen after respawn). The step ends in `SnapToLane` at its target, so it always finishes. `PlayerDied`, `PlayerSpawned` and `OnDisable` cancel it and release input. The transition still owns the shot (Arrival, death, max hold); a free-roaming player re-entering the trigger calls `CameraTransition.Release`, since a Script-mode shot never sees a retreat. Validate Cameras reports a trigger without `walkThrough`.
 - **Lane step.** `LaneEntryTrigger` calls `Character2D5Controller.StepToLane` (eased walk under a physics-override lease, then `SnapToLane`). `SnapToLane`, `ResetToSpawnOrientation` and `OnDisable` cancel it.
 - **Validation:** *Tools > JunkLite > Systems > Validate Cameras* (`Editor/CameraArchitectureValidation.cs`).
 - **Tests:** `CameraLayerStackTests` (5) pass, and so do `MovementAndCameraRegressionTests` (21), `DamagePipelineTests` (7) and `PlayerLifecycleConfigurationTests` (4).
@@ -553,10 +555,12 @@ The V2.5 validation command now requires exactly one scene-local `CameraManager`
   - Parry zoom during a shot.
 - **Verified in Play Mode (Service Floor, Room 10 sample):** the transition holds through a gap between Start and Arrival, releases on arrival into the zone camera and on retreat back to the lane camera, and the occluder cuts away the near pier at the room entrance.
 - **Verified in Play Mode (Rooms 0 and 3):** the Room 0 camera stops at x −16 (confiner), and the lane step hands back to `PosZCam` with a 1.5 s blend. In Room 3 free roam, `BackWall_B1_R` plus the Room 4 back-wall panels, monitors and props fade out and the player stays visible. They stay solid from the lane.
-- **Scene state:** Service Floor has `CameraOcclusionFader` on `Cameras/CinemachineBrain`, plus under `[Gameplay]`:
+- **Verified in Play Mode (Room 0 → Room 1):** E does nothing until `Door_Entry`'s rule is met. Then input locks, the shot blends in and settles, the door opens, the player steps onto the lane and walks through to x −3.5, and input returns. The shot hands back to `PosZCam` when the player enters Arrival.
+- **Scene state:** Service Floor has `CameraOcclusionFader` on `Cameras/CinemachineBrain`, plus under `[Gameplay]/Camera`:
   - `CameraOccluder_Room10_NearPier`, `CameraZone_Room10`, `CameraTransition_Room10`.
+  - `CameraTransition_Room1` (a copy of the Room 10 transition; Start On = Script, played by `LaneEntryTrigger_Room0` on E, which walks the player to its `WalkThrough` child at x −3.5, just short of Arrival).
   - `CameraZone_Room3` (Free Roam Only, gates `CameraOccluder_Room3_BackWall_B1_R`: Fade, alpha 0).
-  - `CameraZone_Room0` (Free Roam Only, Room Camera = `PosZCam` framing plus `CinemachineConfiner3D` on its `Camera Bounds` child, Blend Out 1.5 s).
+  - `CameraZone_Room0` (user-tuned: Free Roam Only off, Rotation Composer plus `CinemachineConfiner3D` on its `Camera Bounds` child, Blend Out 1.5 s).
 
 ### 10. Restart and loading-transition timing
 
@@ -1171,7 +1175,7 @@ Rope texture generated with the built-in image generation tool. Final prompt:
 ### Grapple-only walls + crater view (2026-10-14)
 
 - `Character2D5Controller`: plain wall contact no longer slides or sticks (input into a Wall-layer wall is cancelled and the player falls at normal speed), `Jump()` no longer wall-kicks from contact, and `JumpFromWall` (grapple hold kick-off) no longer refills the air jump. Walls are climbed only by aiming and firing the grapple, holding, and kicking off. Supersedes the 2026-10-09 notes about contact sliding/jumping. Tests: `SwordGrappleTests` (`OrdinaryWallContactNeverSlidesOrGrabs`, `DirectionalHoldReleaseThenRepressNeverSlides`, `JumpTouchingAWallWithTheHookIsNotAWallKick`).
-- New LevelEvent step `World/Switch Camera` (`SwitchCameraAction`): activates a Cinemachine camera, binds it via `CameraManager.SetActiveCamera`, prioritizes it.
+- New LevelEvent step `World/Switch Camera` (`SwitchCameraAction`): activates a Cinemachine camera, makes it the lane camera via `CameraManager.SetLaneCamera` (or `Prioritize()` when there is no manager).
 - Room 8 crater is a front cutaway: in x156–168 the front floor tiles, `Floor_Main_South`, `Floor_Upper`/`Floor_Upper_Fascia` hole pieces, front fascia/foreground panels, pillar and rail middles sit under `Room8 Collapse/Intact` and vanish at impact (`Floor_Upper`, fascia and rails are split into West/East/Back pieces). `BasementCam` (offset 0, 9.5, −44) is switched on after landing so the shaft, exit lip and Room 8 ceiling are in view; the exit event switches back to `PosZCam`. Rubble and falling chunks sit behind the walk line (z > 1.8) so nothing clips the player.
 
 ### Grapple controls: RT fires, automatic wall stick (2026-10-14)

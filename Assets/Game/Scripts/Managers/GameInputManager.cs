@@ -48,6 +48,9 @@ namespace junklite
         public event Action<Vector2> OnUINavigate = delegate { };
         public event Action OnUISubmit = delegate { };
         public event Action OnUICancel = delegate { };
+        /// <summary>LB / RB (Q / R) in menus: step to the previous or next tab.</summary>
+        public event Action OnUIPreviousTab = delegate { };
+        public event Action OnUINextTab = delegate { };
         public event Action OnPauseToggle = delegate { };
         public event Action<bool> OnInputDeviceChanged = delegate { };
 
@@ -434,6 +437,11 @@ namespace junklite
             {
                 OnUICancel();
             };
+
+            InputAction previousTab = controls.asset.FindAction("UI/PreviousTab", throwIfNotFound: false);
+            if (previousTab != null) previousTab.performed += _ => OnUIPreviousTab();
+            InputAction nextTab = controls.asset.FindAction("UI/NextTab", throwIfNotFound: false);
+            if (nextTab != null) nextTab.performed += _ => OnUINextTab();
 
 
         }

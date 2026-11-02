@@ -202,6 +202,8 @@ namespace junklite
             subscribedInput.OnUINavigate += HandleNavigate;
             subscribedInput.OnUISubmit += HandleSubmit;
             subscribedInput.OnUICancel += HandleCancel;
+            subscribedInput.OnUIPreviousTab += HandleSwitchTab;
+            subscribedInput.OnUINextTab += HandleSwitchTab;
             subscribedInput.OnInputDeviceChanged += HandleInputDeviceChanged;
             RefreshInputHints();
         }
@@ -213,6 +215,8 @@ namespace junklite
             subscribedInput.OnUINavigate -= HandleNavigate;
             subscribedInput.OnUISubmit -= HandleSubmit;
             subscribedInput.OnUICancel -= HandleCancel;
+            subscribedInput.OnUIPreviousTab -= HandleSwitchTab;
+            subscribedInput.OnUINextTab -= HandleSwitchTab;
             subscribedInput.OnInputDeviceChanged -= HandleInputDeviceChanged;
             subscribedInput = null;
         }
@@ -229,8 +233,24 @@ namespace junklite
                 : "ARROWS / WASD";
             string cancel = subscribedInput.GetBindingHint("UI/Cancel").ToUpperInvariant();
             string submit = subscribedInput.GetBindingHint("UI/Submit").ToUpperInvariant();
+            string tabs = string.Empty;
+#if UNITY_EDITOR
+            tabs = $"{subscribedInput.GetBindingHint("UI/PreviousTab")} / {subscribedInput.GetBindingHint("UI/NextTab")}"
+                .ToUpperInvariant() + "  TABS     ";
+#endif
             inputHintsText.text =
-                $"{cancel}  RESUME     {navigation}  NAVIGATE     {submit}  SELECT";
+                $"{tabs}{cancel}  RESUME     {navigation}  NAVIGATE     {submit}  SELECT";
+        }
+
+        // Two tabs only, so LB and RB both flip to the other page.
+        private void HandleSwitchTab()
+        {
+#if UNITY_EDITOR
+            if (showingEditorPage)
+                ShowSystemPage();
+            else
+                ShowEditorPage();
+#endif
         }
 
         private void HandleNavigate(Vector2 direction)

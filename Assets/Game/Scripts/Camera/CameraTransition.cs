@@ -5,21 +5,29 @@ using UnityEngine;
 namespace junklite
 {
     /// <summary>
-    /// Cinematic hand-off between rooms. When the player enters this object's trigger box (Start), the
-    /// camera blends slowly to the authored Shot that frames the next room and holds there. The player keeps
-    /// full control. The shot releases when the player reaches Arrival, retreats out of Start, dies, or
-    /// Max Hold runs out, then the camera blends back to the zone or lane camera underneath.
+    /// Cinematic hand-off between rooms. It starts when the player enters this object's trigger box (Start),
+    /// or, in Script mode, when a caller such as a LaneEntryTrigger calls Play. The camera blends slowly to
+    /// the authored Shot that frames the next room and holds there. The shot releases when the player reaches
+    /// Arrival, retreats out of Start (box mode only), dies, or Max Hold runs out, then the camera blends back
+    /// to the zone or lane camera underneath.
     /// </summary>
     [RequireComponent(typeof(BoxCollider))]
     public class CameraTransition : MonoBehaviour
     {
+        public enum StartMode
+        {
+            EnterStartBox,
+            Script
+        }
+
+        [Tooltip("Enter Start Box: plays when the player walks into this box. Script: a caller (e.g. a LaneEntryTrigger on Interact) plays it, and the box is unused.")]
+        [SerializeField] private StartMode startOn = StartMode.EnterStartBox;
+
         [Header("Shot")]
         [Tooltip("Authored shot of the next room. Keep it inactive and at the same priority as the lane cameras.")]
         [SerializeField] private CinemachineCamera shot;
         [Tooltip("Sets the shot's Look At to the player, so a Rotation Composer pans with them.")]
         [SerializeField] private bool lookAtPlayer = true;
-        [Tooltip("Sets the shot's Tracking Target to the player (Spline Dolly auto-dolly, or a follow body).")]
-        [SerializeField] private bool trackPlayer;
 
         [Header("Arrival")]
         [Tooltip("Box inside the next room. Only its shape is used; the collider is disabled at runtime.")]
@@ -43,13 +51,18 @@ namespace junklite
         private float startedAt;
         private PlayerLifecycle subscribedLifecycle;
 
+        public StartMode StartOn => startOn;
         public CinemachineCamera Shot => shot;
         public BoxCollider Arrival => arrival;
         public bool IsActive => lease != null;
+        /// <summary>The shot is live and its blend-in has finished.</summary>
+        public bool IsSettled => lease != null && CameraManager.Instance != null && CameraManager.Instance.IsSettledOn(shot);
 
         private void Awake()
         {
-            GetComponent<BoxCollider>().isTrigger = true;
+            BoxCollider start = GetComponent<BoxCollider>();
+            start.isTrigger = true;
+            start.enabled = startOn == StartMode.EnterStartBox;
             if (arrival != null) arrival.enabled = false;
             // An enabled camera jumps to the top of its priority peers and would steal the view at load.
             if (shot != null) shot.gameObject.SetActive(false);
@@ -66,22 +79,28 @@ namespace junklite
 
         private void OnTriggerEnter(Collider other)
         {
-            if (lease != null || shot == null || CameraManager.Instance == null) return;
-            if (oneShot && played) return;
+            if (startOn != StartMode.EnterStartBox) return;
             if (!other.CompareTag("Player") || other.GetComponent<Character2D5Controller>() == null) return;
+            Play(other.transform);
+        }
 
-            player = other.transform;
+        /// <summary>Starts the shot on <paramref name="playerTransform"/>. False if it is already playing or spent.</summary>
+        public bool Play(Transform playerTransform)
+        {
+            if (lease != null || shot == null || playerTransform == null || CameraManager.Instance == null) return false;
+            if (oneShot && played) return false;
+
+            player = playerTransform;
             if (lookAtPlayer)
             {
                 shot.Target.CustomLookAtTarget = true;
                 shot.Target.LookAtTarget = player;
             }
-            if (trackPlayer)
-                shot.Target.TrackingTarget = player;
 
             played = true;
             startedAt = Time.time;
             lease = CameraManager.Instance.PushCinematic(shot, blendIn, blendOut);
+            return true;
         }
 
         private void OnTriggerExit(Collider other)
@@ -118,7 +137,8 @@ namespace junklite
             return Vector3.Dot(worldPosition - startCenter, toArrival) < 0f;
         }
 
-        private void Release()
+        /// <summary>Drops the shot (blends out to the zone/lane camera). Safe when not active.</summary>
+        public void Release()
         {
             IDisposable current = lease;
             lease = null;
@@ -156,7 +176,7 @@ namespace junklite
         private void OnDrawGizmos()
         {
             BoxCollider start = GetComponent<BoxCollider>();
-            if (start != null)
+            if (start != null && startOn == StartMode.EnterStartBox)
             {
                 Gizmos.color = new Color(0f, 0.9f, 1f, 0.15f);
                 Gizmos.matrix = transform.localToWorldMatrix;

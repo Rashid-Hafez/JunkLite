@@ -64,7 +64,12 @@ namespace junklite
                 EventSystem.current.SetSelectedGameObject(playButton.gameObject);
         }
 
-        private void OnPlay() => Load(playScene);
+        private void OnPlay()
+        {
+            // Play is a new run: no upgrades, weapons or XP carried over from the last one.
+            if (!loading) PlayerProgression.Instance?.ResetProfile();
+            Load(playScene);
+        }
         private void OnRooftop() => Load(rooftopScene);
         private void OnServiceFloor() => Load(serviceFloorScene);
         private void OnSandbox() => Load(sandboxScene);

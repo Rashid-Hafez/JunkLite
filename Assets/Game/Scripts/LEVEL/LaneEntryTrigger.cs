@@ -1,3 +1,5 @@
+using System;
+using System.Collections;
 using Unity.Cinemachine;
 using UnityEngine;
 
@@ -9,6 +11,8 @@ namespace junklite
     /// pressing Interact walks the player (eased) onto the closest point of the lane with the lane's rotation.
     /// The optional gate door stays locked until the player has snapped, and locks again on every (re)spawn.
     /// Until the snap the player free-roams the room in depth (Character2D5Controller.SetFreeRoam).
+    /// With Walk Through set, Interact always carries the player out of the room: input locks, the player steps onto
+    /// the lane and walks through the door to Walk Through, then input returns. A Transition plays its shot first.
     /// </summary>
     [RequireComponent(typeof(BoxCollider))]
     public class LaneEntryTrigger : MonoBehaviour
@@ -21,12 +25,26 @@ namespace junklite
         [SerializeField] private CinemachineCamera laneCamera;
         [Tooltip("Speed (m/s) of the eased step from the room onto the lane. 0 snaps at once.")]
         [SerializeField, Min(0f)] private float stepSpeed = 4f;
+        [Tooltip("Point past the door, outside the room's zones. After Interact the player walks here (snapped onto the lane), so she always leaves the room.")]
+        [SerializeField] private Transform walkThrough;
+        [SerializeField, Min(0.1f)] private float walkSpeed = 3f;
+
+        [Header("Cinematic (optional)")]
+        [Tooltip("Shot to play on Interact. Set its Start On to Script. The player walks only after the shot settles.")]
+        [SerializeField] private CameraTransition transition;
+        [Tooltip("Longest wait (s) for the shot to settle before the player moves anyway.")]
+        [SerializeField, Min(0f)] private float maxWait = 4f;
+
+        public CameraTransition Transition => transition;
+        public Transform WalkThrough => walkThrough;
 
         private DoorAccessRule gateRule;
         private Character2D5Controller playerInside;
         private GameInputManager subscribedInput;
         private PlayerLifecycle subscribedLifecycle;
         private bool playerSnapped;
+        private Coroutine entryRoutine;
+        private IDisposable entryInputLock;
 
         private void Awake()
         {
@@ -53,6 +71,7 @@ namespace junklite
         {
             Unbind();
             if (gateRule != null) gateRule.SatisfiedChanged -= HandleGateRuleChanged;
+            CancelEntry();
             playerInside = null;
             HidePrompt(instant: true);
         }
@@ -66,6 +85,8 @@ namespace junklite
 
             playerInside = controller;
             Rebind();
+            // Came back into the room before reaching Arrival; a Script-mode shot never sees that retreat.
+            if (transition != null && transition.IsActive) transition.Release();
             if (GateOpenable) TutorialPromptHUD.ShowInteract(this, promptLabel);
         }
 
@@ -79,19 +100,65 @@ namespace junklite
         private void HandleInteract()
         {
             // A locked gate (DoorAccessRule) owns the prompt and Interact until it is satisfied.
-            if (playerInside == null || lanePath == null || !GateOpenable) return;
+            if (playerInside == null || lanePath == null || !GateOpenable || entryRoutine != null) return;
             if (!lanePath.TryGetClosestPoint(playerInside.transform.position, out Vector3 point, out float yRotation)) return;
 
-            playerInside.StepToLane(point, yRotation, stepSpeed);
+            Character2D5Controller controller = playerInside;
+            playerInside = null;
+            playerSnapped = true;
+            HidePrompt(instant: false);
+            entryRoutine = StartCoroutine(CoEnter(controller, point, yRotation));
+        }
+
+        private IEnumerator CoEnter(Character2D5Controller controller, Vector3 point, float yRotation)
+        {
+            PlayerState state = controller.GetComponent<PlayerState>();
+            entryInputLock = state != null ? state.AcquireInputLock() : null;
+            controller.StopAllVelocity();
+
+            if (transition != null && transition.Play(controller.transform))
+                yield return WaitUntilOrTimeout(() => transition.IsSettled || !transition.IsActive);
+
+            SetGateLocked(false);
+            controller.StepToLane(point, yRotation, stepSpeed);
             if (laneCamera != null)
             {
                 if (CameraManager.Instance != null) CameraManager.Instance.SetLaneCamera(laneCamera);
                 else laneCamera.Prioritize();
             }
-            playerInside = null;
-            playerSnapped = true;
-            SetGateLocked(false);
-            HidePrompt(instant: false);
+            while (controller.IsSteppingToLane) yield return null;
+
+            // The unlocked door slides open (0.45 s) as the player walks into its trigger, so walk at once.
+            // Only another lock (e.g. an encounter) keeps her on this side instead of snapping through it.
+            if (walkThrough != null && (gateDoor == null || !gateDoor.Locked) &&
+                lanePath.TryGetClosestPoint(walkThrough.position, out Vector3 exit, out float exitYRotation))
+            {
+                controller.StepToLane(exit, exitYRotation, walkSpeed);
+                while (controller.IsSteppingToLane) yield return null;
+            }
+
+            entryRoutine = null;
+            ReleaseEntryInput();
+        }
+
+        private IEnumerator WaitUntilOrTimeout(Func<bool> done)
+        {
+            float until = Time.time + maxWait;
+            while (!done() && Time.time < until) yield return null;
+        }
+
+        // The shot itself is released by the transition (arrival, death, max hold); this only stops the walk.
+        private void CancelEntry()
+        {
+            if (entryRoutine != null) StopCoroutine(entryRoutine);
+            entryRoutine = null;
+            ReleaseEntryInput();
+        }
+
+        private void ReleaseEntryInput()
+        {
+            entryInputLock?.Dispose();
+            entryInputLock = null;
         }
 
         private bool GateOpenable => gateRule == null || !gateRule.isActiveAndEnabled || gateRule.IsSatisfied();
@@ -105,12 +172,14 @@ namespace junklite
 
         private void HandlePlayerDied(PlayerCharacter _)
         {
+            CancelEntry();
             playerInside = null;
             HidePrompt(instant: true);
         }
 
         private void HandlePlayerSpawned(PlayerCharacter player)
         {
+            CancelEntry();
             playerSnapped = false;
             SetGateLocked(true);
             // The player (re)spawns inside the free-move room; SnapToLane ends free roam.

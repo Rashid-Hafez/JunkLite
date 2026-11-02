@@ -154,6 +154,9 @@ namespace junklite
             loadingScreenUIInstance?.Hide();
         }
 
+        /// <summary>Hides the HUD until the next player spawn shows it again (e.g. under a story video).</summary>
+        public void HidePlayerHUD() => SetPlayerHUDActive(false);
+
         public void CancelSceneTransition()
         {
             sceneTransitionActive = false;

@@ -34,7 +34,7 @@ A lane is a straight line along **world X or world Z**. Characters move left and
 At a corner, a **Camera Switch Trigger** rotates the world. Code: `Scripts/LEVEL/CameraSwitchTrigger.cs`. Prefab: `Prefabs/CameraSwitchTrigger.prefab`.
 
 When the player (tag `Player`) enters its box trigger, it:
-1. **Switches camera** between `cameraA` and `cameraB` (`Prioritize()` plus `CameraManager.SetActiveCamera`), blending over `cameraBlendDuration`.
+1. **Switches camera** between `cameraA` and `cameraB` (`CameraManager.SetLaneCamera`), blending over `cameraBlendDuration`.
 2. **Teleports** the player onto the new lane, using the X/Z of the trigger's child point `A` or `B` and keeping the player's height.
 3. **Rotates** the player to `rotationA` or `rotationB` and calls `FreezePerpendicularAxis()` so the new lane's axis is locked.
 4. **Billboards** the Spine body (`BODY SPINE`) across the blend, so the 2D sprite doesn't visibly snap. `ccwAB` sets the turn direction.
@@ -71,7 +71,8 @@ The trigger flips state every time it's crossed, so the same corner works in bot
   - Entering Start blends slowly to Shot (Blend In, default 2.5 s EaseInOut). The player keeps control.
   - The shot holds until the player reaches Arrival, then blends back (Blend Out).
   - Leaving Start on the side away from Arrival, Max Hold running out, or death also releases it. Leaving Start toward Arrival keeps the hold, so Start and Arrival can have a gap between them. One Shot re-arms on death.
-  - *Look At Player* makes a static shot pan with them. *Track Player* drives a Spline Dolly or follow body for a slide.
+  - *Look At Player* makes a static shot pan with them.
+  - **Start On:** *Enter Start Box* (above), or *Script*: the Start box is switched off and a caller plays the shot (`CameraTransition.Play`, then `IsSettled` once the blend-in ends). Retreat release only applies to the box mode.
 - Check camera setup with **Tools > JunkLite > Systems > Validate Cameras**.
 
 ## Free-move rooms and lane entry
@@ -83,6 +84,8 @@ The trigger flips state every time it's crossed, so the same corner works in bot
   - While the player stands in it, a small on-screen prompt reads "E to proceed" (the Interact binding, so it's `LB` on a gamepad). The prompt is its own screen-space canvas using TMP and the Satoshi HUD font.
   - Pressing Interact calls `Character2D5Controller.StepToLane(point, yRotation, stepSpeed)`. The player walks (eased, physics overridden, so input can't fight it) to the closest lane point at `stepSpeed` (default 4 m/s), then `SnapToLane` sets the lane rotation, zero velocity and the locked perpendicular axis. `stepSpeed` 0 snaps at once. A new snap, respawn or disable cancels the step.
   - Its `gateDoor` stays **locked** until the player snaps, and locks again on every `PlayerSpawned` (respawn). So the player can't skip the snap.
+  - **E always goes through the door.** Every trigger has a **Walk Through** point just past its door, outside the room's zones. Interact (only once the door's `DoorAccessRule` is met) locks input, steps onto the lane, and walks the player to Walk Through at **Walk Speed**; the unlocked door slides open on the way. Input comes back there. She never ends on the lane inside the room, and walking back into the room re-enters its `ZMovementZone` (free roam) and re-arms the trigger. Only another lock on the door (not this trigger's) stops the walk. Death, respawn or disable cancels the walk and releases input. Validate Cameras reports a trigger with no Walk Through.
+  - **Door cinematic (optional, reusable at any exit):** also set **Transition** (a Camera Transition with Start On = *Script*). The shot plays first and the walk starts once it settles (bounded by **Max Wait**); it releases at its Arrival as usual, or when the player comes back into the trigger. Keep Walk Through outside Arrival so the shot holds while the player comes through the door. Example: `LaneEntryTrigger_Room0` → `CameraTransition_Room1`.
 - **Enemies** take their lane from their Y rotation. Use **Tools > JunkLite > Level > Snap All Enemies To Lane Path**, or **Snap Selected To Lane Path**, after placing them.
 
 ## Doors
@@ -90,6 +93,7 @@ The trigger flips state every time it's crossed, so the same corner works in bot
 - Doors between rooms use `Prefabs/Environment/Doors/Door4_Sliding.prefab`. It's a variant of the Modular SciFi Pack `Metal/Door/Door4`.
   - **Door4.1** is the frame. Its mesh is replaced by `Door4.1_Cut.asset`, which has a walk-through hole cut where the leaves are (the original FBX has a solid back plate there). The frame has box colliders on the jambs and header only.
   - **Door4.2** is the left leaf and slides local −X. **Door4.3** is the right leaf and slides local +X.
+  - The leaves must **not** be **Batching Static**: static batching freezes their mesh, so the door looks shut while its script opens it. Other static flags (lighting) can stay. **Validate Cameras** flags it.
 - `SlidingDoor` (`Scripts/LEVEL/SlidingDoor.cs`) on the prefab root opens while the player is inside the root's trigger box.
   - The `Blocker` child is a solid box across the opening. It turns off once the door is fully open and back on as soon as the door starts closing.
   - It also opens for a living enemy's solid body (not its detection trigger), so chasing enemies follow the player through. Dead or disabled enemies are pruned each frame.
@@ -142,6 +146,7 @@ The trigger flips state every time it's crossed, so the same corner works in bot
 
 Done:
 - **Spawn.** The spawn is in the middle of Room 0 at (−17.5, 0.2, 3), yaw 0.
+- **Checkpoint.** `[Gameplay]/Spawn & Recovery/Checkpoint_ServiceDoor` (a plain `SpawnPoint`, priority 1) sits at (−8, 0.2, 0) in front of the service room door. `PlayerLifecycle` respawns at the spawn point nearest the death, so any death past the door returns there; the door relocks and E plays the walk again. Room 0 has its own `ZMovementZone_Room0` (up to x −6.02, just short of the door), so both spawns free-roam.
 - **Lane entry.** `[Gameplay]/LanePath_Room1-8` runs at z = 0 from x = −10 to x = 170. `[Gameplay]/LaneEntryTrigger_Room0` sits in front of `Room 0/Doors/Door_Entry` and gates that door.
 - **Colliders.** There are 11 level colliders under `Colliders`:
   - Floors: Room 0's square, the lower lane strip (to x 88.2), the stairs ramp (x 88–94), the upper lane strip (x 94–172), and the Room 8 `L_Turn` floor.
@@ -220,6 +225,6 @@ Objectives and route (2026-10-13). Primary objective: GET TO THE ELEVATOR (`[Gam
     - Flow: the collapse no longer grants the hook. Crow sends the player down the hall, and the `GET_GRAPPLE_HOOK` objective starts. `[Gameplay]/Grapple Hook CyberBox` at x 205 holds `Item_GrappleHook` (`KeyPickup`, tag `Grapple Hook`, `ObjectiveLink` GET_GRAPPLE_HOOK). Taking it fires `Room8 Collapse/Basement_GrappleTaken` (Objective Completed), which starts `ESCAPE_BASEMENT` and shows the Aim Grapple hint. The player walks back to the pit and climbs out as before.
 
 Next:
-1. **Checkpoints.** There is one spawn (Room 0). Death anywhere returns there; wing checkpoints need a per-spawn camera and free-roam state first.
+1. **Checkpoints.** Respawn is "nearest spawn point to the death" (Room 0 start, service door). Lane checkpoints need care: every `LaneEntryTrigger` turns free roam on at any respawn, so put new spawns inside a free-move room.
 2. **Encounter lock.** Optionally lock the 5A entry door while the Brute encounter runs.
 3. **Room 0 props** have no collision. Add simple boxes under `Colliders` if they should block.

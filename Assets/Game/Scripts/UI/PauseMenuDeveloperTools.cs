@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Cinemachine;
 using UnityEditor;
 using UnityEngine;
 
@@ -31,6 +32,7 @@ namespace junklite
         private readonly List<ToolAction> modActions = new();
         private readonly List<ToolAction> playerActions = new();
         private readonly List<ToolAction> runActions = new();
+        private readonly List<ToolAction> roomActions = new();
 
         private static readonly float[] SpawnSearchOffsets = { 0f, -1.5f, 1.5f, -3f, 3f };
 
@@ -43,6 +45,7 @@ namespace junklite
         public IReadOnlyList<ToolAction> ModActions => modActions;
         public IReadOnlyList<ToolAction> PlayerActions => playerActions;
         public IReadOnlyList<ToolAction> RunActions => runActions;
+        public IReadOnlyList<ToolAction> RoomActions => roomActions;
 
         public PauseMenuDeveloperTools()
         {
@@ -51,6 +54,7 @@ namespace junklite
             BuildModActions();
             BuildPlayerActions();
             BuildRunActions();
+            BuildRoomActions();
         }
 
         private void BuildEnemyActions()
@@ -163,6 +167,53 @@ namespace junklite
             runActions.Add(new ToolAction("RESUME / 1.00X", () => ResumeAtSpeed(1f)));
             runActions.Add(new ToolAction("RESTART SECTOR", RestartSector));
             runActions.Add(new ToolAction("RESET GAME", ResetGame));
+        }
+
+        // Each entry names a scene object; the button fails with a message in scenes without it.
+        private void BuildRoomActions()
+        {
+            roomActions.Add(new ToolAction("SPAWN NEAR ROOM 10", () => TeleportToAnchor("room10 spawn")));
+        }
+
+        /// <summary>
+        /// Moves the player to the named object, snapped onto the nearest lane with that lane's yaw.
+        /// Corners and the lane camera are synced as if the player had walked there.
+        /// </summary>
+        private static string TeleportToAnchor(string anchorName)
+        {
+            PlayerCharacter player = GetPlayer();
+            if (player == null || !player.IsAlive)
+                return "No living player";
+            GameObject anchor = GameObject.Find(anchorName);
+            if (anchor == null)
+                return $"No '{anchorName}' in this scene";
+
+            Vector3 target = anchor.transform.position;
+            float bestSqr = float.MaxValue;
+            float yaw = 0f;
+            foreach (LanePath lane in UnityEngine.Object.FindObjectsByType<LanePath>(FindObjectsSortMode.None))
+            {
+                if (!lane.TryGetClosestPoint(anchor.transform.position, out Vector3 point, out float laneYaw))
+                    continue;
+                float sqr = (point - anchor.transform.position).sqrMagnitude;
+                if (sqr >= bestSqr) continue;
+                bestSqr = sqr;
+                target = point;
+                yaw = laneYaw;
+            }
+            if (bestSqr == float.MaxValue)
+                return "No lane path in this scene";
+
+            player.Controller.SnapToLane(target, yaw);
+
+            CinemachineCamera laneCamera = null;
+            foreach (CameraSwitchTrigger corner in UnityEngine.Object.FindObjectsByType<CameraSwitchTrigger>(
+                         FindObjectsSortMode.None))
+                laneCamera = corner.SyncToLaneSide(yaw) ?? laneCamera;
+            if (laneCamera != null && CameraManager.Instance != null)
+                CameraManager.Instance.CutToLaneCamera(laneCamera);
+
+            return $"Moved to {anchorName}";
         }
 
         private string SpawnEnemy(string label, GameObject prefab)

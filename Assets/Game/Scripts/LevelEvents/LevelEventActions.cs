@@ -321,8 +321,8 @@ namespace junklite
             if (camera == null) yield break;
             camera.gameObject.SetActive(true);
             // CameraManager binds the player as the follow target and tracks it as the active camera.
-            if (CameraManager.Instance != null) CameraManager.Instance.SetActiveCamera(camera);
-            camera.Prioritize();
+            if (CameraManager.Instance != null) CameraManager.Instance.SetLaneCamera(camera);
+            else camera.Prioritize();
         }
 
         public override string Summary => $"Switch camera: {(camera != null ? camera.name : "(none)")}";

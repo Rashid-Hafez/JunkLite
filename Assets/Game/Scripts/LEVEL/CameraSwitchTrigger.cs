@@ -11,33 +11,41 @@ namespace junklite
         None = 3
     }
 
+    /// <summary>
+    /// 90° corner. Each crossing toggles between side A and side B: the player teleports to child "A" or "B",
+    /// turns to rotationA/rotationB, and the lane camera switches to cameraA/cameraB.
+    /// </summary>
     public class CameraSwitchTrigger : MonoBehaviour
     {
-        [Header("Rotation Settings")]
+        [Header("Rotation (player teleports to child A / B)")]
         public bool rotateOnTrigger;
-        public float rotationA; // first rotation (Y-axis)
-        public float rotationB; // second rotation (Y-axis)
+        [Tooltip("Player Y rotation on side A.")]
+        public float rotationA;
+        [Tooltip("Player Y rotation on side B.")]
+        public float rotationB;
 
-        [Header("Camera Settings")]
+        [Header("Cameras")]
         public bool switchCameras;
+        [Tooltip("Lane camera for side A.")]
         public CinemachineCamera cameraA;
+        [Tooltip("Lane camera for side B.")]
         public CinemachineCamera cameraB;
+        [Tooltip("Optional. Found automatically if empty.")]
         public CinemachineBrain cinemachineBrain;
         public float cameraBlendDuration = 0.25f;
 
-        [Header("Teleport Points")]
-        private Transform pointA;
-        private Transform pointB;
-
+        [Header("Locks")]
+        [Tooltip("After the first crossing the trigger locks, so the player can't go back.")]
         [SerializeField] private bool oneWaySwitch = false;
-        private bool hasSwitched = false;
-        private bool usingFirstState = false;
-
-        [Header("Lock Settings")]
         [SerializeField] private CameraTriggerLockPolicy lockPolicy = CameraTriggerLockPolicy.GlobalCombat;
         [SerializeField] private EncounterController encounterLock;
-        [SerializeField] private bool locked = false;
-        [SerializeField] private BoxCollider triggerCollider;
+
+        private Transform pointA;
+        private Transform pointB;
+        private bool hasSwitched = false;
+        private bool usingFirstState = false;
+        private bool locked;
+        private BoxCollider triggerCollider;
         private bool policyLocked;
         private bool oneWayLocked;
         private PlayerCombatTracker subscribedCombatTracker;
@@ -47,16 +55,17 @@ namespace junklite
         private Transform billboardTarget;
         private Quaternion billboardRestRotation;
 
-        [Header("Culling Objects")]
-        private bool hidden = false;
+        [Header("Hide On Cross")]
+        [Tooltip("Turned off on the first crossing, back on the next. Restored on death.")]
         [SerializeField] private GameObject[] objectsToHide;
+        private bool hidden = false;
 
-        [Header("Arrows")]
-        [SerializeField] private Renderer[] arrowRenderers;
+        [Header("Arrows (child renderers, tinted by lock state)")]
+        [SerializeField] private Color lockColor, unlockColor;
+        private Renderer[] arrowRenderers;
         private MaterialPropertyBlock arrowPropertyBlock;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ZWriteId = Shader.PropertyToID("_ZWrite");
-        [SerializeField] private Color lockColor, unlockColor;
 
         public bool IsLocked => locked;
         public CameraTriggerLockPolicy EffectiveLockPolicy => lockPolicy;
@@ -286,6 +295,33 @@ namespace junklite
 
                 hidden = false;
             }
+        }
+
+        /// <summary>
+        /// For a teleport (dev tools): sets this corner's state as if the player crossed it to the side
+        /// whose yaw is <paramref name="laneYRotation"/>, so walking back turns the right way. Returns that
+        /// side's camera, or null if the yaw matches neither side.
+        /// </summary>
+        public CinemachineCamera SyncToLaneSide(float laneYRotation)
+        {
+            bool onB = Mathf.Abs(Mathf.DeltaAngle(laneYRotation, rotationB)) < 1f;
+            if (!onB && Mathf.Abs(Mathf.DeltaAngle(laneYRotation, rotationA)) >= 1f)
+                return null;
+
+            CancelBillboardRotation();
+            // Crossing to B leaves usingFirstState true (the next crossing returns to A).
+            if (usingFirstState != onB)
+            {
+                usingFirstState = onB;
+                HideObjects();
+                if (oneWaySwitch && onB && !hasSwitched)
+                {
+                    SetOneWayLocked(true);
+                    hasSwitched = true;
+                }
+            }
+
+            return switchCameras ? (onB ? cameraB : cameraA) : null;
         }
 
         private void Lock()

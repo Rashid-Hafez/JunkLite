@@ -97,7 +97,8 @@ namespace junklite
             foreach (BoxCollider box in boxes)
             {
                 if (box == null || !box.bounds.Contains(position)) continue;
-                playerContacts = 1;
+                // Physics still sends OnTriggerEnter for this overlap and counts it; starting at 1 would double it.
+                playerContacts = 0;
                 Enter(player.Controller);
                 return;
             }

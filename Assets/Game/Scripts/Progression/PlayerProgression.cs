@@ -27,6 +27,15 @@ namespace junklite
         public static PlayerProgression Instance { get; private set; }
         [SerializeField] private PlayerProgressionConfig config;
         public PlayerProgressionConfig Config => config;
+
+        [Tooltip("Demo builds: start every launch with a fresh profile (level 1, no upgrades or weapons). " +
+                 "Turn off once the real save system lands.")]
+        [SerializeField] private bool resetProfileOnLaunch = true;
+
+        // Once per app launch, so the Game Roots that load with later scenes don't wipe mid-run.
+        private static bool launchResetDone;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics() => launchResetDone = false;
         public long TotalExperience { get; private set; }
         public int Level => config.LevelForExperience(TotalExperience);
         public bool AtMaximum => Level >= config.MaxLevel;
@@ -77,6 +86,13 @@ namespace junklite
             }
             else if (warning != null) saveAllowed = false;
             if (warning != null) Debug.LogWarning("[Progression] " + warning, this);
+            if (resetProfileOnLaunch && !launchResetDone)
+            {
+                launchResetDone = true;
+                loadedData = null;
+                TotalExperience = 0;
+                dirty = true; // Overwrite the old file on the first save.
+            }
             if (upgrades != null) upgrades.LoadFrom(loadedData);
             SceneManager.activeSceneChanged += OnSceneChanged;
         }

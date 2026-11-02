@@ -44,6 +44,8 @@ namespace junklite
         private readonly Dictionary<Collider, EnemyCharacter> enemyContacts = new();
         private readonly List<Collider> staleEnemies = new();
 
+        public Transform LeftLeaf => leftLeaf;
+        public Transform RightLeaf => rightLeaf;
         public bool IsOpen => openAmount >= 1f;
         public bool Locked => lockOwners.Count > 0;
 

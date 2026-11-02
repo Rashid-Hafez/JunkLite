@@ -11,21 +11,23 @@ namespace junklite
     {
         public static CameraManager Instance { get; private set; }
 
-        [Header("Camera References")]
+        [Header("Cameras")]
+        [Tooltip("The first lane camera. Zoom and parry start from it until another camera goes live.")]
         [SerializeField] private CinemachineCamera mainCamera;
-        [SerializeField] private CinemachineCamera deathCamera;
         [SerializeField, Tooltip("The camera to snap back to on respawn. If unassigned, falls back to mainCamera.")]
         private CinemachineCamera spawnCamera;
-        [SerializeField, Tooltip("Optional explicit brain. If unassigned, it is resolved once when this scene-local rig initializes.")]
+        [SerializeField, Tooltip("Optional. Found automatically if empty.")]
         private CinemachineBrain cameraBrain;
-
-        [Header("Settings")]
-        [SerializeField] private Transform playerTransform;
+        [SerializeField, Tooltip("Other lane cameras (e.g. the ones Camera Switch Triggers use). They get the player as their target on spawn.")]
+        private List<CinemachineCamera> cameraList = new List<CinemachineCamera>();
+        [SerializeField, Tooltip("Only for scenes without a PlayerLifecycle. Normally set on spawn.")]
+        private Transform playerTransform;
 
         [Header("Zoom (e.g. Phantom Strike)")]
         [Tooltip("When using Physical/Perspective: zoom-out Field of View in degrees (wider = more zoomed out). When Orthographic: zoom-out ortho size.")]
         [SerializeField] private float zoomOutValue = 55f;
-        [SerializeField] private float parryZoomOut = 40f;
+        [SerializeField] private float zoomOutDuration = 0.25f;
+        [SerializeField] private float zoomInDuration = 0.35f;
 
         [Header("Parry Zoom / SlowMo")]
         [Tooltip("Target zoom value to use when parry zooms IN (smaller = closer for FOV).")]
@@ -40,18 +42,11 @@ namespace junklite
         [SerializeField] private float parrySlowMoScale = 0.12f;
         [Tooltip("How long (real seconds) to stay in slow-motion during parry (unscaled).")]
         [SerializeField] private float parrySlowMoRealtimeDuration = 0.14f;
-        [SerializeField] private float zoomOutDuration = 0.25f;
-        [SerializeField] private float zoomInDuration = 0.35f;
-
-        [Header("Additional Level Cameras")]
-        [SerializeField, Tooltip("Optional cameras used by level triggers. Core cameras are registered automatically.")]
-        private List<CinemachineCamera> cameraList = new List<CinemachineCamera>();
 
         // Configured once and reused when a player spawns or respawns. This keeps
         // player binding explicit without performing scene-wide camera searches.
         private readonly List<CinemachineCamera> managedCameras = new List<CinemachineCamera>();
         private readonly HashSet<CinemachineCamera> managedCameraSet = new HashSet<CinemachineCamera>();
-        private Dictionary<string, CinemachineCamera> cameras;
 
         // Current player reference for event subscription
         private PlayerCharacter currentPlayer;
@@ -83,6 +78,10 @@ namespace junklite
         private Coroutine zoomCoroutine;
 
         public CinemachineCamera MainCamera => mainCamera;
+        /// <summary>The camera the manager made live (top layer). Shown in the dev console.</summary>
+        public CinemachineCamera LiveCamera => activeCamera;
+        public string LiveLayer => layers.CinematicCount > 0 ? "Cinematic" : layers.Zone != null ? "Zone" : "Lane";
+        public bool IsBlending => cameraBrain != null && cameraBrain.IsBlending;
 
 
         private void Awake()
@@ -95,8 +94,7 @@ namespace junklite
             }
 
             Instance = this;
-            RebuildManagedCameraCache();
-            InitializeCameras();
+            EnsureConfiguredCamerasRegistered();
             activeCamera = mainCamera != null ? mainCamera : GetFirstManagedCamera();
             layers.Lane = activeCamera;
 
@@ -205,7 +203,7 @@ namespace junklite
             EnsureConfiguredCamerasRegistered();
 
             // Reset priorities and bind every configured/dynamically registered camera.
-            // CameraSwitchTrigger cameras join this same registry through SetActiveCamera.
+            // CameraSwitchTrigger cameras join this same registry through SetLaneCamera.
             foreach (CinemachineCamera camera in managedCameras)
             {
                 if (camera != null)
@@ -232,7 +230,7 @@ namespace junklite
         /// Snaps instantly to the designated spawn camera with a cut (no blend, no damping catch-up).
         /// A zone the player respawned inside stays on top of it.
         /// </summary>
-        public void ResetToSpawnCamera()
+        private void ResetToSpawnCamera()
         {
             CinemachineCamera target = spawnCamera != null
                 ? spawnCamera
@@ -358,12 +356,6 @@ namespace junklite
             zoomCoroutine = StartCoroutine(CoZoom(defaultZoomValue, parryZoomReturnDuration));
         }
 
-        private IEnumerator CoZoomBackAfterDelay(float delay)
-        {
-            yield return new WaitForSeconds(delay);
-            RequestZoomBackIn();
-        }
-
         private IEnumerator CoZoom(float targetValue, float duration)
         {
             if (activeCamera == null || duration <= 0f)
@@ -399,35 +391,6 @@ namespace junklite
             zoomCoroutine = null;
         }
 
-        private void InitializeCameras()
-        {
-            cameras = new Dictionary<string, CinemachineCamera>
-            {
-                { "Main", mainCamera },
-                { "Death", deathCamera }
-            };
-        }
-
-        public void SwitchToMainCamera()
-        {
-            SwitchToCamera("Main");
-        }
-
-        /// <summary>Switch to death camera</summary>
-        public void SwitchToDeathCamera()
-        {
-            SwitchToCamera("Death");
-        }
-
-        public void SwitchToCamera(string cameraName)
-        {
-            if (cameras.ContainsKey(cameraName) && cameras[cameraName] != null)
-                SetLaneCamera(cameras[cameraName]);
-        }
-
-        /// <summary>Sets the lane camera with the brain's default blend. Kept for existing callers.</summary>
-        public void SetActiveCamera(CinemachineCamera cam) => SetLaneCamera(cam);
-
         /// <summary>Sets the base (lane) camera. A zone or cinematic above it stays live until released.</summary>
         public void SetLaneCamera(CinemachineCamera cam, CinemachineBlendDefinition? blend = null)
         {
@@ -437,6 +400,21 @@ namespace junklite
             BindCameraTarget(cam, followEnabled ? playerTransform : null);
             layers.Lane = cam;
             RefreshLiveCamera(blend, forcePrioritize: true);
+        }
+
+        /// <summary>True once <paramref name="cam"/> is the live camera and no blend is running.</summary>
+        public bool IsSettledOn(CinemachineCamera cam)
+        {
+            return cam != null && cameraBrain != null &&
+                   ReferenceEquals(cameraBrain.ActiveVirtualCamera, cam) && !cameraBrain.IsBlending;
+        }
+
+        /// <summary>Lane switch with a cut and no damping catch-up, for a teleport.</summary>
+        public void CutToLaneCamera(CinemachineCamera cam)
+        {
+            SetLaneCamera(cam, CutBlend);
+            if (activeCamera != null)
+                activeCamera.PreviousStateIsValid = false;
         }
 
         /// <summary>Lane switch with the brain's default blend style over <paramref name="blendTime"/> seconds.</summary>
@@ -516,30 +494,10 @@ namespace junklite
             return pendingBlend;
         }
 
-        public void SetPlayerTarget(CinemachineCamera camera, Transform player)
-        {
-            playerTransform = player;
-            cachedTrackingTarget = player;
-
-            if (camera != null)
-            {
-                RegisterCamera(camera);
-                BindCameraTarget(camera, playerTransform);
-            }
-        }
-
-        private void RebuildManagedCameraCache()
-        {
-            managedCameras.Clear();
-            managedCameraSet.Clear();
-            EnsureConfiguredCamerasRegistered();
-        }
-
         private void EnsureConfiguredCamerasRegistered()
         {
             RegisterCamera(mainCamera);
             RegisterCamera(spawnCamera);
-            RegisterCamera(deathCamera);
 
             foreach (CinemachineCamera camera in cameraList)
                 RegisterCamera(camera);

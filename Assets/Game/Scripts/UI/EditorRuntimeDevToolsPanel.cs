@@ -41,6 +41,10 @@ namespace junklite
         private GameObject panelRoot;
         private GameObject collapsedChip;
         private TMP_Text feedbackText;
+        private TMP_Text cameraText;
+        private UnityEngine.Object lastLiveCamera;
+        private string lastLiveLayer;
+        private bool lastBlending;
         private bool infiniteDurability;
         private int lastScreenWidth;
         private int lastScreenHeight;
@@ -189,6 +193,7 @@ namespace junklite
 
             ApplySafeArea(false);
             UpdatePresentation();
+            RefreshCameraReadout();
 
             if (infiniteDurability)
                 ApplyDurabilityOverrides();
@@ -315,7 +320,7 @@ namespace junklite
             toolScrollRect.movementType = ScrollRect.MovementType.Clamped;
             toolScrollRect.scrollSensitivity = 36f;
 
-            string[] names = { "Player", "Spawn", "Mods", "Run" };
+            string[] names = { "Player", "Spawn", "Mods", "Run", "Rooms" };
             for (int category = 0; category < names.Length; category++)
             {
             toolContent = CreateRect(names[category] + " Content", viewportImage.transform);
@@ -348,6 +353,9 @@ namespace junklite
                 case 3:
                     BuildActionSection(toolContent, "RUN CONTROL", toolSource.RunActions);
                     break;
+                case 4:
+                    BuildActionSection(toolContent, "ROOM SPAWNS", toolSource.RoomActions);
+                    break;
             }
             categoryPages.Add(toolContent);
             toolContent.gameObject.SetActive(false);
@@ -368,13 +376,15 @@ namespace junklite
 
         private void BuildCategoryTabs(Transform parent)
         {
-            string[] labels = { "PLAYER", "SPAWN", "MODS", "RUN" };
+            string[] labels = { "PLAYER", "SPAWN", "MODS", "RUN", "ROOMS" };
+            // Tabs share the 0.055-0.961 strip with a small gap between them.
+            float step = 0.906f / labels.Length;
             for (int i = 0; i < labels.Length; i++)
             {
                 int index = i;
-                float x = 0.055f + i * 0.23f;
+                float x = 0.055f + i * step;
                 Button button = CreateButton(parent, labels[i], () => SelectCategory(index), true,
-                    new Vector2(x, 0.827f), new Vector2(x + 0.216f, 0.875f));
+                    new Vector2(x, 0.827f), new Vector2(x + step - 0.014f, 0.875f));
                 categoryButtons.Add(button);
             }
             SelectCategory(0);
@@ -495,6 +505,9 @@ namespace junklite
 
         private void BuildFooter(Transform parent)
         {
+            cameraText = CreateText("Live Camera", parent, "CAM  -", 13f, Acid, FontStyles.Bold);
+            Anchor(cameraText.rectTransform, 0.055f, 0.075f, 0.965f, 0.10f);
+
             RectTransform footer = CreateRect("Footer", parent);
             Anchor(footer, 0.055f, 0.015f, 0.965f, 0.075f);
 
@@ -592,6 +605,24 @@ namespace junklite
 
             if (visible)
                 RefreshToolScrollLayout();
+        }
+
+        // Live camera for debugging; the text is rebuilt only when it changes.
+        private void RefreshCameraReadout()
+        {
+            if (cameraText == null || !panelExpanded) return;
+            CameraManager manager = CameraManager.Instance;
+            UnityEngine.Object live = manager != null ? manager.LiveCamera : null;
+            string layer = manager != null ? manager.LiveLayer : null;
+            bool blending = manager != null && manager.IsBlending;
+            if (live == lastLiveCamera && layer == lastLiveLayer && blending == lastBlending) return;
+
+            lastLiveCamera = live;
+            lastLiveLayer = layer;
+            lastBlending = blending;
+            cameraText.text = live == null
+                ? "CAM  none"
+                : $"CAM  {live.name}  /  {layer}{(blending ? "  /  blending" : "")}";
         }
 
         private void SetFeedback(string message)

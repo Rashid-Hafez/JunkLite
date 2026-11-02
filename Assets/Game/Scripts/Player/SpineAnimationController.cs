@@ -84,6 +84,8 @@ namespace junklite
 
         [Header("Locomotion Settings")]
         [SerializeField] private float speedThreshold = 0.1f;
+        [SerializeField, Range(0f, 1f), Tooltip("Front/back rig stays while sideways speed is under this fraction of depth speed. Analog sticks are never perfectly straight.")]
+        private float depthRigMaxLateralRatio = 0.5f;
         [SerializeField, Tooltip("Seconds speed must stay under the threshold before Run switches to Idle. Hides brief stops (door blockers, bumps).")]
         private float idleDelay = 0.1f;
         [SerializeField, Tooltip("Mix seconds between movement clips (idle, run, jump, wall, land). 0 = instant switch, no blending.")] private float locomotionBlend = 0f;
@@ -369,11 +371,13 @@ namespace junklite
                 attackActive || (IsPlayingTransientAnim() && GetCurrentLocomotionName() != landing) || IsDead)
                 return side;
 
-            // Any sideways movement uses the side view: the front/back run cycle read as bent legs on diagonals.
+            // Clear diagonals use the side view: the front/back run cycle read as bent legs there.
+            // Small sideways drift (analog stick) still counts as straight depth.
             Vector3 v = controller.Velocity;
             float depth = Vector3.Dot(v, controller.transform.forward);
             float lateral = Mathf.Abs(Vector3.Dot(v, controller.transform.right));
-            if (lateral > speedThreshold || Mathf.Abs(depth) <= speedThreshold) return side;
+            if (Mathf.Abs(depth) <= speedThreshold ||
+                (lateral > speedThreshold && lateral > Mathf.Abs(depth) * depthRigMaxLateralRatio)) return side;
 
             SkeletonAnimation depthRig = depth > 0f ? backSkeleton : frontSkeleton;
             return depthRig != null ? depthRig : side;

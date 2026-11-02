@@ -1045,6 +1045,26 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""interactions"": """",
                     ""initialStateCheck"": false,
                     ""priority"": 0
+                },
+                {
+                    ""name"": ""PreviousTab"",
+                    ""type"": ""Button"",
+                    ""id"": ""9d3e9a91-9979-4cc5-9037-b8c353ff3873"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false,
+                    ""priority"": 0
+                },
+                {
+                    ""name"": ""NextTab"",
+                    ""type"": ""Button"",
+                    ""id"": ""ce00b4ea-e2c5-46dd-9a15-8effa963e526"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false,
+                    ""priority"": 0
                 }
             ],
             ""bindings"": [
@@ -1520,6 +1540,50 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""action"": ""DialogueContinue"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""4f8ba265-69ac-4883-8547-96bf0fea3c58"",
+                    ""path"": ""<Gamepad>/leftShoulder"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": "";Gamepad"",
+                    ""action"": ""PreviousTab"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""a0ad6bcb-3a86-4bc0-994c-e171a5313204"",
+                    ""path"": ""<Keyboard>/q"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": "";Keyboard&Mouse"",
+                    ""action"": ""PreviousTab"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""ec3ae773-8bac-4a05-9050-b117e742a9de"",
+                    ""path"": ""<Gamepad>/rightShoulder"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": "";Gamepad"",
+                    ""action"": ""NextTab"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""87455188-61ce-4559-bb1f-a2ab756e997e"",
+                    ""path"": ""<Keyboard>/r"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": "";Keyboard&Mouse"",
+                    ""action"": ""NextTab"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -1624,6 +1688,8 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_UI_TrackedDevicePosition = m_UI.FindAction("TrackedDevicePosition", throwIfNotFound: true);
         m_UI_TrackedDeviceOrientation = m_UI.FindAction("TrackedDeviceOrientation", throwIfNotFound: true);
         m_UI_DialogueContinue = m_UI.FindAction("DialogueContinue", throwIfNotFound: true);
+        m_UI_PreviousTab = m_UI.FindAction("PreviousTab", throwIfNotFound: true);
+        m_UI_NextTab = m_UI.FindAction("NextTab", throwIfNotFound: true);
     }
 
     ~@InputSystem_Actions()
@@ -2043,6 +2109,8 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     private readonly InputAction m_UI_TrackedDevicePosition;
     private readonly InputAction m_UI_TrackedDeviceOrientation;
     private readonly InputAction m_UI_DialogueContinue;
+    private readonly InputAction m_UI_PreviousTab;
+    private readonly InputAction m_UI_NextTab;
     /// <summary>
     /// Provides access to input actions defined in input action map "UI".
     /// </summary>
@@ -2098,6 +2166,14 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "UI/DialogueContinue".
         /// </summary>
         public InputAction @DialogueContinue => m_Wrapper.m_UI_DialogueContinue;
+        /// <summary>
+        /// Provides access to the underlying input action "UI/PreviousTab".
+        /// </summary>
+        public InputAction @PreviousTab => m_Wrapper.m_UI_PreviousTab;
+        /// <summary>
+        /// Provides access to the underlying input action "UI/NextTab".
+        /// </summary>
+        public InputAction @NextTab => m_Wrapper.m_UI_NextTab;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -2157,6 +2233,12 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @DialogueContinue.started += instance.OnDialogueContinue;
             @DialogueContinue.performed += instance.OnDialogueContinue;
             @DialogueContinue.canceled += instance.OnDialogueContinue;
+            @PreviousTab.started += instance.OnPreviousTab;
+            @PreviousTab.performed += instance.OnPreviousTab;
+            @PreviousTab.canceled += instance.OnPreviousTab;
+            @NextTab.started += instance.OnNextTab;
+            @NextTab.performed += instance.OnNextTab;
+            @NextTab.canceled += instance.OnNextTab;
         }
 
         /// <summary>
@@ -2201,6 +2283,12 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @DialogueContinue.started -= instance.OnDialogueContinue;
             @DialogueContinue.performed -= instance.OnDialogueContinue;
             @DialogueContinue.canceled -= instance.OnDialogueContinue;
+            @PreviousTab.started -= instance.OnPreviousTab;
+            @PreviousTab.performed -= instance.OnPreviousTab;
+            @PreviousTab.canceled -= instance.OnPreviousTab;
+            @NextTab.started -= instance.OnNextTab;
+            @NextTab.performed -= instance.OnNextTab;
+            @NextTab.canceled -= instance.OnNextTab;
         }
 
         /// <summary>
@@ -2545,5 +2633,19 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnDialogueContinue(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "PreviousTab" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnPreviousTab(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "NextTab" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnNextTab(InputAction.CallbackContext context);
     }
 }

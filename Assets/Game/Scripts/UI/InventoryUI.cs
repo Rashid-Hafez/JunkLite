@@ -90,6 +90,7 @@ namespace junklite
         private bool authoredUpgradesPage;
         private RectTransform frameTransform;
         private TMP_Text frameTitle;
+        private TMP_Text inputHintsText;
         private PlayerUpgrades upgrades;
         private TMP_FontAsset generatedHeadingFont;
 
@@ -157,7 +158,13 @@ namespace junklite
             ModSlotUI.OnLockedSlotSelected += HandleLockedSlotSelected;
 
             if (GameInputManager.Instance != null)
+            {
                 GameInputManager.Instance.OnUINavigate += HandleUINavigate;
+                GameInputManager.Instance.OnUIPreviousTab += HandlePreviousTab;
+                GameInputManager.Instance.OnUINextTab += HandleNextTab;
+                GameInputManager.Instance.OnInputDeviceChanged += HandleInputDeviceChanged;
+            }
+            RefreshInputHints();
 
             if (inventoryTabButton != null)
                 inventoryTabButton.OnClick += ShowInventoryTab;
@@ -201,7 +208,12 @@ namespace junklite
             ModSlotUI.OnLockedSlotSelected -= HandleLockedSlotSelected;
 
             if (GameInputManager.Instance != null)
+            {
                 GameInputManager.Instance.OnUINavigate -= HandleUINavigate;
+                GameInputManager.Instance.OnUIPreviousTab -= HandlePreviousTab;
+                GameInputManager.Instance.OnUINextTab -= HandleNextTab;
+                GameInputManager.Instance.OnInputDeviceChanged -= HandleInputDeviceChanged;
+            }
 
             if (inventoryTabButton != null)
                 inventoryTabButton.OnClick -= ShowInventoryTab;
@@ -320,6 +332,23 @@ namespace junklite
             if (upgradesScreen != null) upgradesScreen.SetActive(true);
 
             descriptionUI?.Clear();
+        }
+
+        // LB / RB step through the tabs and wrap. Bound while closed too, so only act when shown.
+        private void HandlePreviousTab() => CycleTab(-1);
+        private void HandleNextTab() => CycleTab(1);
+
+        private void CycleTab(int step)
+        {
+            if (panel == null || !panel.activeInHierarchy) return;
+            const int tabCount = (int)Tab.Upgrades + 1;
+            switch ((Tab)(((int)activeTab + step + tabCount) % tabCount))
+            {
+                case Tab.Inventory: ShowInventoryTab(); break;
+                case Tab.Info: ShowInfoTab(); break;
+                case Tab.Missions: ShowMissionsTab(); break;
+                case Tab.Upgrades: ShowUpgradesTab(); break;
+            }
         }
 
         /// <summary>Opens the inventory menu on the UPGRADES tab (level-up toast, dev tools).</summary>
@@ -886,9 +915,32 @@ namespace junklite
         private void BuildFooter()
         {
             RectImage("Footer Rule", frameTransform, Line, 40f, 760f, 1360f, 1f);
-            TextAt("Input Hints", frameTransform,
-                "DRAG / CLICK  MOVE MOD     HOVER  DETAILS     CLICK CASSIDY  STATS     UPGRADES  SPEND POINTS     I / ESC  CLOSE",
-                13f, Muted, 40f, 775f, 1100f, 24f);
+            inputHintsText = TextAt("Input Hints", frameTransform, "", 13f, Muted, 40f, 775f, 1100f, 24f);
+            RefreshInputHints();
+        }
+
+        private void HandleInputDeviceChanged(bool _) => RefreshInputHints();
+
+        private void RefreshInputHints()
+        {
+            if (inputHintsText == null) return;
+            GameInputManager input = GameInputManager.Instance;
+            if (input == null || !input.IsUsingGamepad)
+            {
+                string tabs = input != null
+                    ? $"{input.GetBindingHint("UI/PreviousTab")} / {input.GetBindingHint("UI/NextTab")}".ToUpperInvariant()
+                    : "Q / R";
+                inputHintsText.text =
+                    $"{tabs}  TABS     DRAG / CLICK  MOVE MOD     HOVER  DETAILS     CLICK CASSIDY  STATS     UPGRADES  SPEND POINTS     I / ESC  CLOSE";
+                return;
+            }
+
+            string previous = input.GetBindingHint("UI/PreviousTab").ToUpperInvariant();
+            string next = input.GetBindingHint("UI/NextTab").ToUpperInvariant();
+            string submit = input.GetBindingHint("UI/Submit").ToUpperInvariant();
+            string close = input.GetBindingHint("Player/Inventory").ToUpperInvariant();
+            inputHintsText.text =
+                $"{previous} / {next}  TABS     D-PAD / STICK  NAVIGATE     {submit}  SELECT     {close}  CLOSE";
         }
 
         private void FitFrame()

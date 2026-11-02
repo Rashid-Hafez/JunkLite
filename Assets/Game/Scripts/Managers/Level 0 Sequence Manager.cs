@@ -139,6 +139,12 @@ namespace junklite
         private Coroutine revealFadeRoutine;
         private bool platformCompleteBeatRunning;
 
+        // Held from spawn until the platform timeline ends, and again for the outro video.
+        // Re-taken on every spawn, so a restart or respawn can't free the player early.
+        private readonly List<IDisposable> playerHoldLocks = new();
+        private bool playerHeld;
+        private bool freezePhysicsWhileHeld;
+
         private readonly HashSet<EnemyCharacter> tutorialEncounterEnemies = new();
         private WeaponUpgradePickup activeTutorialPickup;
         private bool tutorialModHyenaSpawnHandled;
@@ -209,6 +215,7 @@ namespace junklite
                 currentModManager.OnModSlotsChanged -= OnModSlotsChanged;
             }
             if (activeTutorialPickup != null) Destroy(activeTutorialPickup.gameObject);
+            ReleasePlayer();
             EndParryGate(cleared: false);
             if (revealFadeRoutine != null) StopCoroutine(revealFadeRoutine);
 
@@ -222,6 +229,8 @@ namespace junklite
         {
             SetStage(Stage.WaitingForPlayer);
             yield return WaitForPlayer();
+            // No moving (or falling off the platform) until the platform timeline is done.
+            HoldPlayer(freezePhysics: false);
             // The simulation never kills Cassidy.
             if (currentPlayer != null) currentPlayer.CannotDie = true;
 
@@ -251,6 +260,7 @@ namespace junklite
             SetStage(Stage.PlayTimeline);
             if (director != null)
                 yield return RunDirector(director, rewindToStart: true);
+            ReleasePlayer();
 
             // The spotlight fades once the platform has arrived.
             if (revealFadeRoutine != null) StopCoroutine(revealFadeRoutine);
@@ -463,6 +473,50 @@ namespace junklite
                     yield return new WaitForFixedUpdate();
             }
 
+        }
+
+        private void HoldPlayer(bool freezePhysics)
+        {
+            freezePhysicsWhileHeld = freezePhysics;
+            if (!playerHeld && PlayerLifecycle.Instance != null)
+                PlayerLifecycle.Instance.PlayerSpawned += OnHeldPlayerSpawned;
+            playerHeld = true;
+            AcquirePlayerHoldLocks(currentPlayer);
+        }
+
+        private void ReleasePlayer()
+        {
+            if (playerHeld && PlayerLifecycle.Instance != null)
+                PlayerLifecycle.Instance.PlayerSpawned -= OnHeldPlayerSpawned;
+            playerHeld = false;
+            DisposePlayerHoldLocks();
+        }
+
+        private void OnHeldPlayerSpawned(PlayerCharacter player)
+        {
+            currentPlayer = player;
+            AcquirePlayerHoldLocks(player);
+        }
+
+        private void AcquirePlayerHoldLocks(PlayerCharacter player)
+        {
+            DisposePlayerHoldLocks();
+            if (player == null) return;
+
+            if (player.State != null) playerHoldLocks.Add(player.State.AcquireInputLock());
+            if (player.Controller != null)
+            {
+                playerHoldLocks.Add(player.Controller.AcquireMovementLock());
+                if (freezePhysicsWhileHeld)
+                    playerHoldLocks.Add(player.Controller.AcquireKinematicLock());
+            }
+        }
+
+        private void DisposePlayerHoldLocks()
+        {
+            foreach (IDisposable hold in playerHoldLocks)
+                hold?.Dispose();
+            playerHoldLocks.Clear();
         }
 
         private void RefreshPlayerRef()
@@ -1280,6 +1334,15 @@ namespace junklite
             }
 
             endOutroVideoScreenRoot?.SetActive(true);
+
+            // The level is over once the story video starts: freeze the player and clear the HUD.
+            // The next scene's spawn turns input and the HUD back on.
+            RefreshPlayerRef();
+            HoldPlayer(freezePhysics: true);
+            GameInputManager.Instance?.SetGameplayInputEnabled(false);
+            GameUIManager.Instance?.HidePlayerHUD();
+            if (playerUI != null) playerUI.SetActive(false);
+            promptHud?.Hide(instant: true);
 
             if (preloadNextSceneDuringOutro)
             {
