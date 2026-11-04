@@ -116,6 +116,7 @@ The player roams the room, walks up to the door and presses **E**. She steps ont
 | No "E Proceed" prompt | The player isn't inside the trigger box, or the Door Access Rule isn't met yet. |
 | E does nothing | The Door Access Rule isn't met. It shows "Locked" and plays its dialogue. |
 | Door doesn't slide | Clear **Batching Static** on `Door4.2` and `Door4.3`. |
+| E does nothing after a respawn, enemy behind the door | The door's `Blocker` must be on the **Wall** layer, so enemies can't see through a closed door (E is blocked in combat). |
 | Player can walk past the door without E | Make sure **Gate Door** is set on the trigger. |
 | E puts her on the lane but she stays in the room | Set **Walk Through**, past the door. |
 | Back in the room she's stuck on the lane | The room needs a **Z Movement Zone**, and Walk Through must be outside it. |

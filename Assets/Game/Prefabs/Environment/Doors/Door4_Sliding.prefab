@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 9181340477229086255}
   - component: {fileID: 1718520110676174263}
-  m_Layer: 0
+  m_Layer: 12
   m_Name: Blocker
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -202,6 +202,7 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   blocker: {fileID: 1718520110676174263}
+  locked: 0
   audioSource: {fileID: 0}
   openClip: {fileID: 0}
   closeClip: {fileID: 0}
