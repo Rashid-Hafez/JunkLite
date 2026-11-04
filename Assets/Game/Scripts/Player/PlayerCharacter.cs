@@ -470,8 +470,8 @@ namespace junklite
         {
             if (playerState == null || Controller == null) return;
 
-            // Wall attachment owns its airborne pose.
-            if (playerState.IsGrounded || playerState.IsWallAttached || playerState.IsWallSliding) return;
+            // Wall sliding owns its airborne pose.
+            if (playerState.IsGrounded || playerState.IsWallSliding) return;
 
             float yVel = Controller.Velocity.y;
 
@@ -536,6 +536,7 @@ namespace junklite
 
                 // === NEW MOVEMENT STATES ===
                 Controller.OnLedgeDetectedChanged += HandleLedgeDetectedChanged;
+                Controller.OnWallJumped += HandleWallJumped;
                 Controller.OnDoubleJumpPerformed += HandleDoubleJump;
                 Controller.OnJumpStarted += HandleJumpStarted;
                 Controller.OnFallStarted += HandleFallStarted;
@@ -574,6 +575,7 @@ namespace junklite
 
                 // New movement unsubscriptions
                 Controller.OnLedgeDetectedChanged -= HandleLedgeDetectedChanged;
+                Controller.OnWallJumped -= HandleWallJumped;
                 Controller.OnDoubleJumpPerformed -= HandleDoubleJump;
                 Controller.OnJumpStarted -= HandleJumpStarted;
                 Controller.OnFallStarted -= HandleFallStarted;
@@ -605,6 +607,13 @@ namespace junklite
         void HandleLedgeDetectedChanged(bool detected)
         {
             playerState?.SetLedgeDetected(detected);
+        }
+
+        void HandleWallJumped()
+        {
+            // The controller already cleared the slide; the push-off is an ordinary rising jump.
+            playerState?.SetFalling(false);
+            playerState?.SetJumping(true);
         }
 
         void HandleDoubleJump()
@@ -739,7 +748,6 @@ namespace junklite
             }
             if (!TryClearAttackFor(ref bufferedJumpUntil)) return;
             if (!playerState.CanJump) return;
-            if (TryGetComponent<PlayerSwordGrapple>(out var grapple) && grapple.ReleaseFromJump()) return;
             if (playerState != null && playerState.CanJump && Controller != null)
             {
                 Controller.SetJumpHeld(true);

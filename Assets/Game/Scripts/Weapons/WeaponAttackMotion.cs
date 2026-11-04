@@ -46,7 +46,9 @@ namespace junklite
             float forwardImpulse,
             float verticalImpulse,
             float duration,
-            AnimationCurve lungeCurve)
+            AnimationCurve lungeCurve,
+            System.Func<bool> stopLunge = null,
+            bool ownHorizontalAtZero = false)
         {
             if (!IsCurrent(executionId) || controller == null)
                 yield break;
@@ -70,7 +72,10 @@ namespace junklite
                 peakVelocity += up * signedVertical;
             }
 
-            bool ownsHorizontal = !Mathf.Approximately(Vector3.Dot(peakVelocity, right), 0f);
+            // A focus-warped side lunge owns the lane axis even at zero speed, so a running
+            // start doesn't carry the player through a swing that should stand still.
+            bool ownsHorizontal = !Mathf.Approximately(Vector3.Dot(peakVelocity, right), 0f) ||
+                                  (ownHorizontalAtZero && direction == AttackDirection.Side);
             bool ownsVertical = !Mathf.Approximately(Vector3.Dot(peakVelocity, up), 0f);
             if (!ownsHorizontal && !ownsVertical)
                 yield break;
@@ -87,6 +92,16 @@ namespace junklite
                 float multiplier = lungeCurve != null && lungeCurve.length > 0
                     ? lungeCurve.Evaluate(t)
                     : 1f - (t * t);
+
+                if (ownsHorizontal && stopLunge != null && stopLunge())
+                {
+                    // Reached the focus (or it is gone): end the forward motion here.
+                    // Releasing clears the lane speed; the vertical push (if any) carries on.
+                    lungeStopped = true;
+                    ReleaseMotionAxes(true, false, right, up);
+                    ownsHorizontal = false;
+                    if (!ownsVertical) yield break;
+                }
 
                 Vector3 velocity = controller.Velocity;
                 float targetRight = Vector3.Dot(velocity, right);

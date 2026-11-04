@@ -85,6 +85,10 @@ namespace junklite
         [Header("Attack Input Lock")]
         [SerializeField] private bool lockMovementDuringAttack = true;
 
+        [Header("Combat Focus")]
+        [Tooltip("Soft lock-on for side attacks. Found on the player when empty; none = authored lunges, no focus.")]
+        [SerializeField] private PlayerCombatFocus combatFocus;
+
         // Internal refs
         private Transform playerTransform;
         private PlayerState playerState;
@@ -191,6 +195,8 @@ namespace junklite
             hitResolver = new WeaponHitResolver(enemyLayer, environmentLayer);
             damageResolver = new WeaponDamageResolver(
                 playerTransform != null ? playerTransform.gameObject : gameObject);
+            if (combatFocus == null)
+                combatFocus = GetComponentInParent<PlayerCombatFocus>();
             spineController = GetComponentInParent<SpineAnimationController>()
                            ?? GetComponentInChildren<SpineAnimationController>();
             armament = GetComponent<PlayerArmament>() ?? gameObject.AddComponent<PlayerArmament>();
@@ -266,7 +272,11 @@ namespace junklite
             if (!isAttacking && combat != null && combat.CanAttack)
             {
                 hasBufferedInput = false;
-                StartAttack(ResolveAttackDirection(bufferedInput, bufferedGrounded));
+                // Side comes from the stick now, not when the press was buffered: spamming attack
+                // and flipping mid-combo turns the next swing around.
+                float liveX = GameInputManager.Instance != null ? GameInputManager.Instance.MoveDirection.x : 0f;
+                StartAttack(ResolveAttackDirection(bufferedInput, bufferedGrounded),
+                    Mathf.Abs(liveX) > inputThreshold ? liveX : bufferedInput.x);
             }
         }
 
@@ -330,7 +340,6 @@ namespace junklite
         /// <summary>Attack with the current weapon. Buffers the press while a swing or cooldown is running.</summary>
         public void Attack(Vector2 moveInput, bool isGrounded)
         {
-            if (playerState != null && playerState.IsGrappleActive) return;
             if (!EnsureCombatState()) return;
 
             if (isAttacking || !combat.CanAttack)
@@ -339,7 +348,7 @@ namespace junklite
                 return;
             }
 
-            StartAttack(ResolveAttackDirection(moveInput, isGrounded));
+            StartAttack(ResolveAttackDirection(moveInput, isGrounded), moveInput.x);
         }
 
         public Transform GetAttackTransform(AttackDirection dir)
@@ -356,8 +365,6 @@ namespace junklite
         {
             armament?.SetVisible(visible);
         }
-
-        public void CancelBufferedAttack() => hasBufferedInput = false;
 
         /// <summary>
         /// Lets another player-owned damage source (the dash strike) report an applied hit so mods
@@ -396,9 +403,8 @@ namespace junklite
             bufferTimer = bufferDuration;
         }
 
-        private void StartAttack(AttackDirection dir)
+        private void StartAttack(AttackDirection dir, float horizontalInput)
         {
-            if (playerState != null && playerState.IsGrappleActive) return;
             if (!EnsureCombatState()) return;
             WeaponData data = combatWeapon;
 
@@ -421,6 +427,15 @@ namespace junklite
             currentComboIndex = comboIndex;
             currentAttackGrounded = isGrounded;
 
+            // Side swings go where the stick points (else where she faces): turn first, so
+            // flipping mid-combo hits the enemy on the new side.
+            if (dir == AttackDirection.Side && controller != null && Mathf.Abs(horizontalInput) > inputThreshold &&
+                Mathf.Sign(horizontalInput) != Facing)
+                controller.FaceForTraversal(horizontalInput > 0f);
+
+            ResolveFocusLunge(dir, comboIndex, isGrounded, data,
+                out float lungeDistance, out Collider focusCollider, out Func<bool> stopLunge);
+
             int executionId = ++nextAttackExecutionId;
             var executionRequest = new WeaponAttackExecutionRequest(
                 executionId,
@@ -441,7 +456,11 @@ namespace junklite
                     airAttackFloatNormalized,
                     enemyHitHitstopDuration,
                     launchHitstopDuration,
-                    finisherForceMultiplier));
+                    finisherForceMultiplier),
+                lungeDistance,
+                combatFocus != null ? combatFocus.GapCloseMaxSpeed : 0f,
+                focusCollider,
+                stopLunge);
 
             activeAttackExecution = attackExecutor?.Prepare(executionRequest);
             if (activeAttackExecution == null)
@@ -613,6 +632,45 @@ namespace junklite
             activeAttackExecution = null;
             activeAttackExecutionId = 0;
             execution?.Cancel();
+        }
+
+        /// <summary>
+        /// Combat focus for a side swing: with a focused enemy the lunge closes exactly to hitting
+        /// distance (further than authored if needed) and stops on arrival; without one it moves at most
+        /// the weapon's noTargetLungeDistance. Other directions keep their authored motion (-1).
+        /// </summary>
+        private void ResolveFocusLunge(AttackDirection dir, int comboIndex, bool isGrounded, WeaponData data,
+            out float lungeDistance, out Collider focusCollider, out Func<bool> stopLunge)
+        {
+            lungeDistance = -1f;
+            focusCollider = null;
+            stopLunge = null;
+            if (dir != AttackDirection.Side || combatFocus == null || !combatFocus.isActiveAndEnabled ||
+                data is not MeleeWeaponData melee ||
+                !melee.TryGetMeleeStep(dir, comboIndex, isGrounded, out MeleeWeaponData.MeleeComboStep step))
+                return;
+
+            float side = Facing;
+            EnemyCharacter target = combatFocus.Acquire(side, out float gap);
+            if (target == null)
+            {
+                float authored = LungeWarp.AuthoredDistance(step.forwardImpulse, step.forwardImpulseDuration, step.lungeCurve);
+                lungeDistance = Mathf.Min(melee.noTargetLungeDistance, authored);
+                return;
+            }
+
+            // Stop where the focused enemy's near side sits focusSpacing deep inside the hit sphere.
+            Transform anchor = GetAttackTransform(AttackDirection.Side);
+            Vector3 anchorPosition = anchor != null ? anchor.position : playerTransform.position;
+            float sphereCentre = Mathf.Abs(Vector3.Dot(anchorPosition - playerTransform.position, FacingAxis)) +
+                                 melee.attackRange;
+            float sphereRadius = step.hitRadius + GetFallbackRadius(dir);
+            float stopGap = sphereCentre + sphereRadius * (1f - melee.focusSpacing);
+
+            lungeDistance = Mathf.Max(0f, gap - stopGap);
+            focusCollider = combatFocus.CurrentCollider;
+            PlayerCombatFocus focus = combatFocus;
+            stopLunge = () => !focus.TryGetCurrentGap(side, out float liveGap) || liveGap <= stopGap;
         }
 
         private float GetFallbackRadius(AttackDirection dir)

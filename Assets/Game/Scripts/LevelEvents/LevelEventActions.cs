@@ -238,9 +238,9 @@ namespace junklite
     {
         [Tooltip("Scene prompt that shows the hint.")]
         public TutorialPromptHUD prompt;
-        [Tooltip("Input action path for the key chip, e.g. Player/GrappleAim.")]
-        public string inputAction = "Player/GrappleAim";
-        public string label = "Aim grapple";
+        [Tooltip("Input action path for the key chip, e.g. Player/Jump.")]
+        public string inputAction = "Player/Jump";
+        public string label = "Wall jump";
         public string keyboardOverride;
         public string gamepadOverride;
 

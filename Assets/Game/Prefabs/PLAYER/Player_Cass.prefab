@@ -1375,8 +1375,8 @@ GameObject:
   - component: {fileID: 2356093748291057341}
   - component: {fileID: 2356093748291057342}
   - component: {fileID: 2597051752003655520}
-  - component: {fileID: 2597051752003655521}
   - component: {fileID: 7657212087601501397}
+  - component: {fileID: 84758414691987946}
   m_Layer: 16
   m_Name: Player_Cass
   m_TagString: Player
@@ -1477,6 +1477,16 @@ MonoBehaviour:
     m_RotationOrder: 4
   dashReadyVFXPrefab: {fileID: 3022102558446658867, guid: cd3d579a2d65b3241a1812f639db37ec, type: 3}
   dashReadyVFXSpawnPoint: {fileID: 3708428653336801813}
+  wallLayer:
+    serializedVersion: 2
+    m_Bits: 4096
+  wallCheckDistance: 0.1
+  wallSlideSpeed: 2
+  wallJumpForce: 12
+  wallJumpHorizontalForce: 8
+  wallJumpDuration: 0.2
+  wallJumpCoyoteTime: 0.1
+  doubleJumpLockoutAfterWallJump: 0.2
   ledgeCheckTransform: {fileID: 711466271944293612}
   ledgeCheckSize: {x: 0.5, y: 0.2}
   groundSnapMaxDistance: 0.4
@@ -1598,6 +1608,7 @@ MonoBehaviour:
   airHitHangDuration: 0.5
   airHitHangGravityScale: 0.22
   lockMovementDuringAttack: 1
+  combatFocus: {fileID: 0}
 --- !u!114 &8123627017812205419
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1946,6 +1957,7 @@ MonoBehaviour:
   stunTimeScale: 1
   deathTimeScale: 1
   speedThreshold: 0.1
+  depthRigMaxLateralRatio: 0.5
   idleDelay: 0.1
   locomotionBlend: 0
   minRunTimeScale: 0.8
@@ -2087,20 +2099,6 @@ MonoBehaviour:
   colorDrift: 0.3
   digitalIntensity: 0.2
   volumeLayer: 0
---- !u!114 &2597051752003655521
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7038683931279381878}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1420c9206fa040daa3e04924c0b75379, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  settings: {fileID: 11400000, guid: d345c6cd6ac749a69326b9d6746a24aa, type: 2}
-  visualsPrefab: {fileID: 7870487630159371362, guid: 7ca5f518a8dc5d940a138b351866342f, type: 3}
 --- !u!114 &7657212087601501397
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2113,6 +2111,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a03fc696ac0514316a63eab1e6287223, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerKeyring
+--- !u!114 &84758414691987946
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7038683931279381878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc9a5ae11738ea94ca063684ecc51a8b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerCombatFocus
+  range: 4.5
+  laneTolerance: 1.25
+  maxAbove: 2.5
+  maxBelow: 1.5
+  switchMargin: 0.75
+  behindTolerance: 0.25
+  lineOfSightBlockers:
+    serializedVersion: 2
+    m_Bits: 6144
+  holdTime: 1.5
+  gapCloseMaxSpeed: 24
+  markerPrefab: {fileID: 913381325525332217, guid: 8add5512f9aaac141843bc1a10e1c701, type: 3}
 --- !u!1 &7404579367925327084
 GameObject:
   m_ObjectHideFlags: 0

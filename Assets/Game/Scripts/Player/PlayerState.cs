@@ -13,14 +13,12 @@ namespace junklite
         // Capability checks
         public override bool CanMove => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Move) && !IsInputLocked && !IsAttacking && !IsParrying;
         public override bool CanJump => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Jump) && !IsInputLocked && !IsParrying;
-        public bool CanDash => !IsGrappleActive && IsAlive && !IsDashing && !IsStunned && !IsActionBlocked(StatusActionBlock.Dash) && !IsInputLocked;
-        public override bool CanAttack => !IsGrappleActive && IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Attack) && (!IsInputLocked || IsAttacking) && !IsParrying; // Allows buffering during attack execution
-        public bool CanRoll => !IsGrappleActive && IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Roll) && !IsRolling && !IsInputLocked;
+        public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsActionBlocked(StatusActionBlock.Dash) && !IsInputLocked;
+        public override bool CanAttack => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Attack) && (!IsInputLocked || IsAttacking) && !IsWallSliding && !IsParrying; // Allows buffering during attack execution
+        public bool CanRoll => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Roll) && !IsRolling && !IsInputLocked;
         public override bool CanTakeDamage => base.CanTakeDamage && damageImmunityLocks.Count == 0;
 
-        public bool IsGrappleActive { get; private set; }
-        public bool IsWallAttached { get; private set; }
-        public event Action<bool> OnWallAttachedChanged;
+        /// <summary>Written by Character2D5Controller while the player slides down a Wall-layer wall.</summary>
         public bool IsWallSliding { get; private set; }
         public event Action<bool> OnWallSlidingChanged;
 
@@ -35,20 +33,6 @@ namespace junklite
                 SetDoubleJumping(false);
             }
             OnWallSlidingChanged?.Invoke(sliding);
-        }
-
-        public void SetGrappleState(bool active, bool attached)
-        {
-            IsGrappleActive = active;
-            if (IsWallAttached == attached) return;
-            IsWallAttached = attached;
-            if (attached)
-            {
-                SetJumping(false);
-                SetFalling(false);
-                SetDoubleJumping(false);
-            }
-            OnWallAttachedChanged?.Invoke(attached);
         }
 
         // State flags
@@ -80,7 +64,7 @@ namespace junklite
         public event Action<bool> OnParryChanged;
 
         /// <summary>True when player is allowed to initiate a parry (grounded, alive, not stunned/attacking/etc).</summary>
-        public bool CanParry => !IsGrappleActive && IsAlive && IsGrounded && !IsFalling && !IsStunned && !IsActionBlocked(StatusActionBlock.Parry) && !IsInputLocked && !IsAttacking;
+        public bool CanParry => IsAlive && IsGrounded && !IsFalling && !IsStunned && !IsActionBlocked(StatusActionBlock.Parry) && !IsInputLocked && !IsAttacking;
 
         /// <summary>How many air attacks have been used this air time.</summary>
         public int AirAttacksUsed { get; private set; }
@@ -118,7 +102,6 @@ namespace junklite
 
         public override void ResetForRespawn()
         {
-            SetGrappleState(false, false);
             SetWallSliding(false);
             statusEffects?.ClearAllEffects();
             base.ResetForRespawn();
@@ -330,7 +313,7 @@ namespace junklite
 
         public override void SetJumping(bool jumping)
         {
-            if (jumping && IsWallAttached) return;
+            if (jumping && IsWallSliding) return;
             if (IsJumping == jumping) return;
 
             if (jumping && IsFalling)
@@ -376,8 +359,6 @@ namespace junklite
             if (IsMoving) list.Add("Moving");
             if (IsJumping) list.Add("Jumping");
             if (IsFalling) list.Add("Falling");
-            if (IsGrappleActive) list.Add("SwordGrapple");
-            if (IsWallAttached) list.Add("WallAttached");
             if (IsWallSliding) list.Add("WallSliding");
             if (IsDoubleJumping) list.Add("DoubleJumping");
             if (IsLedgeDetected) list.Add("LedgeDetected");

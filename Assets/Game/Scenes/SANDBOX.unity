@@ -57245,8 +57245,18 @@ MonoBehaviour:
   displayName: Training Level
   trainingLevel: 1
   spawnPlayer: 1
+  playerChoice: 2
   primaryPlayerSpawn: {fileID: 7191323}
   additionalPlayerSpawns: []
+  levelMusic:
+    music:
+      clip: {fileID: 0}
+      volume: 1
+      pitchMin: 1
+      pitchMax: 1
+      effects: []
+    intro: {fileID: 0}
+    playThroughCombat: 1
 --- !u!4 &1447629889
 Transform:
   m_ObjectHideFlags: 0

@@ -291,26 +291,6 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""interactions"": """",
                     ""initialStateCheck"": false,
                     ""priority"": 0
-                },
-                {
-                    ""name"": ""GrappleAim"",
-                    ""type"": ""Button"",
-                    ""id"": ""42d0c9e7-fae4-440b-93e7-c01f087d3ae6"",
-                    ""expectedControlType"": ""Button"",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false,
-                    ""priority"": 0
-                },
-                {
-                    ""name"": ""GrapplePoint"",
-                    ""type"": ""PassThrough"",
-                    ""id"": ""5c31de1d-b023-41e1-9999-d01c6c540018"",
-                    ""expectedControlType"": ""Vector2"",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false,
-                    ""priority"": 0
                 }
             ],
             ""bindings"": [
@@ -883,50 +863,6 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""groups"": "";Keyboard&Mouse"",
                     ""action"": ""Pause"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""e587cfb7-6951-49f7-9fde-29533d04e1fb"",
-                    ""path"": ""<Keyboard>/leftCtrl"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": ""Keyboard&Mouse"",
-                    ""action"": ""GrappleAim"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""d96a88e8-1d44-4d0d-b9c0-afdbdbf2fa3d"",
-                    ""path"": ""<Gamepad>/leftTrigger"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": "";Gamepad"",
-                    ""action"": ""GrappleAim"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""2bf44ba1-f628-4eb1-9353-8e90464bfdf2"",
-                    ""path"": ""<Keyboard>/rightCtrl"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": ""Keyboard&Mouse"",
-                    ""action"": ""GrappleAim"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""5330a28a-561f-4b2f-9ceb-06ad00a7cbc1"",
-                    ""path"": ""<Pointer>/position"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": ""Keyboard&Mouse"",
-                    ""action"": ""GrapplePoint"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -1673,8 +1609,6 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_Player_Parry = m_Player.FindAction("Parry", throwIfNotFound: true);
         m_Player_DialogueContinue = m_Player.FindAction("DialogueContinue", throwIfNotFound: true);
         m_Player_Pause = m_Player.FindAction("Pause", throwIfNotFound: true);
-        m_Player_GrappleAim = m_Player.FindAction("GrappleAim", throwIfNotFound: true);
-        m_Player_GrapplePoint = m_Player.FindAction("GrapplePoint", throwIfNotFound: true);
         // UI
         m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
         m_UI_Navigate = m_UI.FindAction("Navigate", throwIfNotFound: true);
@@ -1791,8 +1725,6 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_Parry;
     private readonly InputAction m_Player_DialogueContinue;
     private readonly InputAction m_Player_Pause;
-    private readonly InputAction m_Player_GrappleAim;
-    private readonly InputAction m_Player_GrapplePoint;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player".
     /// </summary>
@@ -1885,14 +1817,6 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// </summary>
         public InputAction @Pause => m_Wrapper.m_Player_Pause;
         /// <summary>
-        /// Provides access to the underlying input action "Player/GrappleAim".
-        /// </summary>
-        public InputAction @GrappleAim => m_Wrapper.m_Player_GrappleAim;
-        /// <summary>
-        /// Provides access to the underlying input action "Player/GrapplePoint".
-        /// </summary>
-        public InputAction @GrapplePoint => m_Wrapper.m_Player_GrapplePoint;
-        /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
         public InputActionMap Get() { return m_Wrapper.m_Player; }
@@ -1978,12 +1902,6 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @Pause.started += instance.OnPause;
             @Pause.performed += instance.OnPause;
             @Pause.canceled += instance.OnPause;
-            @GrappleAim.started += instance.OnGrappleAim;
-            @GrappleAim.performed += instance.OnGrappleAim;
-            @GrappleAim.canceled += instance.OnGrappleAim;
-            @GrapplePoint.started += instance.OnGrapplePoint;
-            @GrapplePoint.performed += instance.OnGrapplePoint;
-            @GrapplePoint.canceled += instance.OnGrapplePoint;
         }
 
         /// <summary>
@@ -2055,12 +1973,6 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @Pause.started -= instance.OnPause;
             @Pause.performed -= instance.OnPause;
             @Pause.canceled -= instance.OnPause;
-            @GrappleAim.started -= instance.OnGrappleAim;
-            @GrappleAim.performed -= instance.OnGrappleAim;
-            @GrappleAim.canceled -= instance.OnGrappleAim;
-            @GrapplePoint.started -= instance.OnGrapplePoint;
-            @GrapplePoint.performed -= instance.OnGrapplePoint;
-            @GrapplePoint.canceled -= instance.OnGrapplePoint;
         }
 
         /// <summary>
@@ -2534,20 +2446,6 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnPause(InputAction.CallbackContext context);
-        /// <summary>
-        /// Method invoked when associated input action "GrappleAim" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-        /// </summary>
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnGrappleAim(InputAction.CallbackContext context);
-        /// <summary>
-        /// Method invoked when associated input action "GrapplePoint" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-        /// </summary>
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnGrapplePoint(InputAction.CallbackContext context);
     }
     /// <summary>
     /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "UI" which allows adding and removing callbacks.

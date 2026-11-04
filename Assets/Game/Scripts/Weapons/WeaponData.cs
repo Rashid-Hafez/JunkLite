@@ -14,8 +14,6 @@ namespace junklite
         [Tooltip("Stable id written to the player profile when this weapon is acquired. Never change it on a shipped asset.")]
         public string weaponId;
         public string displayName;
-        [Tooltip("Allows this weapon to be used for sword grappling.")]
-        public bool enablesSwordGrapple;
         public Sprite icon;
 
         [Header("Description")]
