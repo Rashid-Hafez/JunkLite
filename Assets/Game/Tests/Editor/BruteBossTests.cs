@@ -44,6 +44,26 @@ namespace junklite.Tests
         }
 
         [Test]
+        public void HitsCutTheWaitButNeverBelowTheFloor()
+        {
+            Assert.That(BruteBreatherSettings.Shorten(2f, 0.3f, 0.3f), Is.EqualTo(1.7f).Within(1e-4f));
+            Assert.That(BruteBreatherSettings.Shorten(0.5f, 0.3f, 0.3f), Is.EqualTo(0.3f).Within(1e-4f));
+            Assert.That(BruteBreatherSettings.Shorten(0.2f, 0.3f, 0.3f), Is.EqualTo(0.2f).Within(1e-4f),
+                "A wait already under the floor is not extended.");
+        }
+
+        [Test]
+        public void BiggerMovesLeaveLongerOpenings()
+        {
+            var wait = BruteBreatherSettings.Default;
+            Assert.That(wait.afterDashIntoWall, Is.GreaterThan(wait.afterDash));
+            Assert.That(wait.afterDash, Is.GreaterThan(wait.afterBlast));
+            Assert.That(wait.afterBlast, Is.GreaterThan(wait.afterPunch));
+            Assert.That(BrutePhaseSettings.Default.minTauntDuration, Is.GreaterThanOrEqualTo(0.45f),
+                "The phase-two punch warning must stay readable.");
+        }
+
+        [Test]
         public void BrutePrefabIsComposedAndWired()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BrutePrefab);

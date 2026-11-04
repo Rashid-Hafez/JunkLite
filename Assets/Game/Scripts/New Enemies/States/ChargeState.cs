@@ -5,8 +5,10 @@ namespace junklite
     public class ChargeState : EnemyStateBase
     {
         private ICharger charger;
+        private ILockedDashAim aimLock;
         private EnemyMovement movement;
         private float timer;
+        private float duration;
         private GameObject vfx;
 
         public ChargeState(EnemyCharacter enemy) : base(enemy) { }
@@ -20,8 +22,10 @@ namespace junklite
                 return;
             }
 
+            aimLock = GetCapability<ILockedDashAim>();
             movement = enemy.Movement;
             timer = charger.ChargeTime;
+            duration = timer;
             vfx = charger.ChargeVFXPrefab;
 
             movement?.Stop();
@@ -37,7 +41,7 @@ namespace junklite
         {
             if (charger == null) return;
 
-            if (HasTarget)
+            if (HasTarget && !IsAimLocked())
                 movement?.FaceTarget(Target.position);
 
             timer -= Time.deltaTime;
@@ -45,6 +49,10 @@ namespace junklite
             if (timer <= 0f)
                 charger.OnChargeComplete();
         }
+
+        // Past the lock point the facing stays put; the dash follows it.
+        private bool IsAimLocked() =>
+            aimLock != null && (duration <= 0f || 1f - timer / duration >= aimLock.AimLockNormalized);
 
         public override void Exit()
         {

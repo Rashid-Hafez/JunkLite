@@ -16,6 +16,7 @@ namespace junklite
 
     /// <summary>
     /// Brute close-range grab: warning, reach (unparryable hitbox), hold, throw.
+    /// A grab on touch (caught by the brain) starts at the hold.
     /// The boss owns the timing: the player stays held until ReleaseGrab, and Exit
     /// always cancels a grab that is still held (stun, death, disable).
     /// </summary>
@@ -56,6 +57,16 @@ namespace junklite
                 movement?.FaceTarget(Target.position);
 
             grab.Caught += HandleCaught;
+
+            // Grab on touch: the brain already caught her, so go straight to the hold.
+            IGrabbable touched = grab.TakeTouchCatch();
+            if (touched != null)
+            {
+                SetPhase(Phase.Reach);
+                HandleCaught(touched);
+                return;
+            }
+
             enemy.ShowAttackWarningImmediate();
             presenter?.PlayGrabWarning(grab.WarningTime);
             SetPhase(Phase.Warning);
@@ -180,6 +191,7 @@ namespace junklite
 
             grab.Caught -= HandleCaught;
             grab.GrabHitbox?.Deactivate();
+            grab.StartTouchCooldown();
             enemy.HideAttackWarning();
 
             // Interrupted mid-hold (stun, death, disable): free the player.

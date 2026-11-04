@@ -112,6 +112,11 @@ namespace junklite
         public DamageScaling Scaling;
         /// <summary>Parry cannot catch this hit; i-frames and shields still apply.</summary>
         public bool Unparryable;
+        /// <summary>
+        /// An applied hit does not grant the receiver's post-hit i-frames, so the next one can
+        /// land at once (body-contact bumps). Existing i-frames still reject this hit.
+        /// </summary>
+        public bool SkipsHitInvulnerability;
 
         public Vector2 KnockbackForce
         {
@@ -143,6 +148,7 @@ namespace junklite
             BypassesMitigation = bypassesMitigation;
             Scaling = scaling;
             Unparryable = false;
+            SkipsHitInvulnerability = false;
             HitReaction = hitReaction ?? (isTickDamage
                 ? HitReactionRequest.None
                 : HitReactionRequest.DefaultHit(knockback));
@@ -173,6 +179,13 @@ namespace junklite
         {
             var copy = this;
             copy.Unparryable = true;
+            return copy;
+        }
+
+        public DamageRequest WithoutHitInvulnerability()
+        {
+            var copy = this;
+            copy.SkipsHitInvulnerability = true;
             return copy;
         }
 

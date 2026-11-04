@@ -4867,6 +4867,7 @@ GameObject:
   - component: {fileID: 7064889283224114841}
   - component: {fileID: 7175537524496898637}
   - component: {fileID: 7469832150642187350}
+  - component: {fileID: 8436150918273645190}
   m_Layer: 14
   m_Name: Grunt Enemy
   m_TagString: Untagged
@@ -5403,6 +5404,28 @@ MonoBehaviour:
   boldAfterQuietSeconds: 3
   normalHandoffDelay: 0.25
   boldHandoffDelay: 0.1
+--- !u!114 &8436150918273645190
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1538827558492864467}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f6d7fe951e02a045ac7ed1f84b574b5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyContactDamage
+  knockback: {x: 9, y: 2}
+  hitstun: 0.2
+  damage: 5
+  minBumpInterval: 0.25
+  repeatInterval: 0.6
+  parryable: 0
+  minOverlap: 0.02
+  bodyCollider: {fileID: 0}
+  dashPassesThrough: 0
+  groundedOnly: 1
 --- !u!1 &2049112635380343708
 GameObject:
   m_ObjectHideFlags: 0

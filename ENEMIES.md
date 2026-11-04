@@ -27,6 +27,7 @@ Each Hyena colour (EASY, Blue, Green) is its own prefab, not a variant. Changing
 - `StateMachine`, `EnemyMovement` and an `EnemyBrain` subclass.
 - `Rigidbody`: dynamic (not kinematic), Use Gravity on, constraints left to code. `EnemyMovement` locks the axis across the lane from the enemy's Y rotation, the same way the player controller does.
 - One solid body collider (capsule). The root sits at the **middle of the body**, not at the feet (the grunt root is ~1.3 u above its feet).
+- Optional `EnemyContactDamage`: touching its body hurts the player and shoves her back to the side she came from. Tune damage/knockback per prefab (light for grunts, heavy for big enemies); leave it off for dummies and bosses with their own contact rules.
 - `DamageFlashUniversal`, plus the Spine material `Game_URP_Unlit_DamageFlash.mat` (see `EnemySpineSetup.md`).
   - Leave **Emission Boost** (`_EmissionBoost`) at 0. Enemies should only light up through the hit flash. At 1.5 (tried 2026-10-31) the enemies looked too bright at rest.
 

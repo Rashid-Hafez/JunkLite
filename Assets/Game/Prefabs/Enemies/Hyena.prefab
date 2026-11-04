@@ -22,6 +22,7 @@ GameObject:
   - component: {fileID: 6885050171418826779}
   - component: {fileID: 5511428486720858210}
   - component: {fileID: -8649487350880432651}
+  - component: {fileID: 8436150918273645190}
   m_Layer: 14
   m_Name: Hyena
   m_TagString: Enemy
@@ -1131,3 +1132,25 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 6643973781719843076, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
   m_PrefabInstance: {fileID: 3791832523710722367}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &8436150918273645190
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 84268223678430046}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f6d7fe951e02a045ac7ed1f84b574b5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyContactDamage
+  knockback: {x: 7, y: 1.5}
+  hitstun: 0.15
+  damage: 3
+  minBumpInterval: 0.25
+  repeatInterval: 0.6
+  parryable: 0
+  minOverlap: 0.02
+  bodyCollider: {fileID: 0}
+  dashPassesThrough: 0
+  groundedOnly: 1

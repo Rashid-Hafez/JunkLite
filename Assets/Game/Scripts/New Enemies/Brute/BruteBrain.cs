@@ -3,9 +3,13 @@ using UnityEngine;
 namespace junklite
 {
     /// <summary>
-    /// Brute boss decisions. Close range: telegraphed unparryable grab. Otherwise a
-    /// weighted roll between Taunt+Attack (melee wind-up is the taunt) and
-    /// Charge+Dash (armored charge, parryable dash). Phase two speeds everything up.
+    /// Brute boss decisions. Touching his body while he is idle or walking grabs at
+    /// once. Close range: telegraphed unparryable grab. Otherwise a weighted roll
+    /// between Taunt+Attack (melee wind-up is the taunt) and Charge+Dash (armored
+    /// charge whose aim locks part-way, then a parryable dash along that direction).
+    /// After every move he waits, idle and facing the player, before the next one;
+    /// each hit he takes cuts the wait short. A knockdown (BruteEnemy) ends with a
+    /// stand-up and a roar that pushes the player away. Phase two speeds everything up.
     /// </summary>
     public sealed class BruteBrain : EnemyBrain, IEnemyCapabilityProvider
     {
@@ -21,6 +25,10 @@ namespace junklite
         [Tooltip("Pause between moves when nothing is ready.")]
         [SerializeField] private float idleBetweenMoves = 0.4f;
 
+        [Header("Brute - Wait Between Moves")]
+        [Tooltip("Idle, facing the player, after each move: the player's opening. Hits cut it short.")]
+        [SerializeField] private BruteBreatherSettings breather = BruteBreatherSettings.Default;
+
         [Header("Brute - Chase")]
         [SerializeField] private ChaseBehavior chase = new();
         [Tooltip("Detection radius once the fight starts, so the boss doesn't lose the player mid-fight.")]
@@ -35,6 +43,10 @@ namespace junklite
         [Header("Brute - Charge + Dash")]
         [SerializeField] private ChargeBehavior charge = new();
         [SerializeField] private DashBehavior dash = new();
+        [Tooltip("Point in the charge (0-1) where he stops turning toward the player. The dash then goes that way wherever she moves. 0 = locks when the charge starts.")]
+        [SerializeField, Range(0f, 1f)] private float aimLockNormalized = 0.5f;
+        [Tooltip("How far the dash runs along the locked direction (it stops early at a wall).")]
+        [SerializeField, Min(0f)] private float lockedDashDistance = 12f;
 
         [Header("Brute - Close Blast")]
         [Tooltip("Player this close (axis distance) when the charge ends: energy blast instead of the dash.")]
@@ -56,6 +68,17 @@ namespace junklite
         [Tooltip("Stagger 0 = ordinary hits never interrupt him. Parry stun uses ForcedStunDuration.")]
         [SerializeField] private StunBehavior stun = new();
 
+        [Header("Brute - Get-Up Roar (after a knockdown)")]
+        [Tooltip("Pushes the player away (no damage) when she is this close (axis distance), so a knockdown always ends cleanly.")]
+        [SerializeField, Min(0f)] private float roarRadius = 4f;
+        [Tooltip("x = lane speed away from him, y = minimum upward speed.")]
+        [SerializeField] private Vector2 roarPush = new(12f, 4f);
+        [Tooltip("Seconds the player loses control so the push can't be cancelled.")]
+        [SerializeField, Min(0f)] private float roarLockSeconds = 0.3f;
+        [SerializeField] private float roarShakeForce = 1f;
+        [Tooltip("Optional burst played on the roar.")]
+        [SerializeField] private ParticleSystem roarBurst;
+
         [Header("Brute - Phase 2")]
         [SerializeField] private BrutePhaseSettings phaseTwo = BrutePhaseSettings.Default;
 
@@ -64,12 +87,23 @@ namespace junklite
         private float nextDecisionTime;
         private bool phaseTwoActive;
         private float nextPerceptionRefresh;
+        private Collider bodyCollider;
+        private Collider targetBody;
+        private BruteEnemy brute;
+        private bool breatherActive;
+        private float touchGrabResumeTime;
+        private bool roarPending;
 
         public bool IsPhaseTwo => phaseTwoActive;
+
+        /// <summary>Idle in the wait after a move (the player's opening).</summary>
+        private bool IsInBreather => breatherActive && StateMachine.CurrentState is IdleState;
 
         protected override void Awake()
         {
             base.Awake();
+            brute = GetComponent<BruteEnemy>();
+            bodyCollider = BodyContact.FindSolidCollider(this);
             EnsureBehaviors();
             InitializeCapabilities();
         }
@@ -105,6 +139,8 @@ namespace junklite
 
         protected override void OnTargetChanged(PlayerCharacter previous, PlayerCharacter current)
         {
+            targetBody = current != null ? current.GetComponent<Collider>() : null;
+
             if (current != null)
             {
                 Actor.EnterCombat();
@@ -120,7 +156,7 @@ namespace junklite
                 pendingMove = Move.None;
             }
 
-            // Respect the post-slam breather even if the target is re-acquired.
+            // Respect the wait between moves even if the target is re-acquired.
             if (!IsDecisionLocked() && Time.time >= nextDecisionTime)
                 EvaluateNextAction();
         }
@@ -146,6 +182,12 @@ namespace junklite
 
             chase.UpdateLastKnownPosition(Actor.Target.position);
 
+            if (IsInBreather)
+                Movement?.FaceTarget(Actor.Target.position);
+
+            if (TryGrabOnTouch())
+                return;
+
             if (StateMachine.CurrentState is ChaseState && pendingMove == Move.TauntAttack && IsInMeleeRange())
             {
                 StartTauntAttack();
@@ -162,6 +204,13 @@ namespace junklite
                 return;
             if (!actionCompleted && IsDecisionLocked())
                 return;
+
+            // The wait is over: whatever comes next has a warning, so hold the touch grab a moment.
+            if (breatherActive)
+            {
+                breatherActive = false;
+                touchGrabResumeTime = Time.time + breather.touchGrabDelay;
+            }
 
             if (!Actor.HasTarget)
             {
@@ -259,6 +308,26 @@ namespace junklite
             ChangeState<BruteGrabState>();
         }
 
+        /// <summary>
+        /// Idle or walking (the caller skips every locked state): touching his body grabs
+        /// her at once. A dash or roll passes through; TryCatchOnTouch rejects it.
+        /// </summary>
+        private bool TryGrabOnTouch()
+        {
+            // Not in the wait, and not right after it: the player is in his face hitting him.
+            if (IsInBreather || Time.time < touchGrabResumeTime)
+                return false;
+
+            if (!grab.CanGrabOnTouch || !BodyContact.IsOverlapping(bodyCollider, targetBody, grab.TouchMinOverlap))
+                return false;
+
+            if (!grab.TryCatchOnTouch(targetBody))
+                return false;
+
+            StartGrab();
+            return true;
+        }
+
         private bool CanGrabNow() =>
             Actor.HasTarget && grab.IsReady && AxisDistanceToTarget() <= grab.GrabRange;
 
@@ -287,6 +356,8 @@ namespace junklite
         // =============================================================
 
         private float CooldownMultiplier => phaseTwoActive ? phaseTwo.cooldownMultiplier : 1f;
+        private float BreatherMultiplier => phaseTwoActive ? phaseTwo.breatherMultiplier : 1f;
+        private float BreatherCutPerHit => phaseTwoActive ? phaseTwo.breatherCutPerHit : breather.cutPerHit;
 
         private void UpdatePhase()
         {
@@ -315,7 +386,8 @@ namespace junklite
             stun ??= new StunBehavior();
             tauntAttack ??= new BruteMoveWeight();
             chargeDash ??= new BruteMoveWeight();
-            scaled ??= new BruteScaledCapabilities(charge, dash, melee, () => lungeSpeed, () => lungeDuration);
+            scaled ??= new BruteScaledCapabilities(charge, dash, melee, () => lungeSpeed, () => lungeDuration,
+                () => aimLockNormalized, () => lockedDashDistance);
         }
 
         private void InitializeCapabilities()
@@ -328,27 +400,54 @@ namespace junklite
             grab.Initialize(gameObject);
 
             chase.ReachedTarget += HandleReachedTarget;
-            melee.Completed += HandleActionCompleted;
+            melee.Completed += HandlePunchCompleted;
             charge.Completed += HandleChargeCompleted;
             dash.Completed += HandleDashCompleted;
             grab.Completed += HandleGrabCompleted;
-            recovery.Completed += HandleActionCompleted;
+            recovery.Completed += HandleStandUpCompleted;
             stun.Completed += HandleStunCompleted;
+            if (brute != null) brute.HitLanded += HandleHitLanded;
         }
 
         private void UninitializeCapabilities()
         {
             if (chase != null) chase.ReachedTarget -= HandleReachedTarget;
-            if (melee != null) { melee.Completed -= HandleActionCompleted; melee.Dispose(); }
+            if (melee != null) { melee.Completed -= HandlePunchCompleted; melee.Dispose(); }
             if (charge != null) charge.Completed -= HandleChargeCompleted;
             if (dash != null) { dash.Completed -= HandleDashCompleted; dash.Dispose(); }
             if (grab != null) { grab.Completed -= HandleGrabCompleted; grab.Dispose(); }
-            if (recovery != null) recovery.Completed -= HandleActionCompleted;
+            if (recovery != null) recovery.Completed -= HandleStandUpCompleted;
             if (stun != null) stun.Completed -= HandleStunCompleted;
+            if (brute != null) brute.HitLanded -= HandleHitLanded;
         }
 
         private void HandleReachedTarget() => EvaluateNextAction(true);
-        private void HandleActionCompleted() => EvaluateNextAction(true);
+        private void HandlePunchCompleted() => StartBreather(breather.afterPunch);
+
+        // =============================================================
+        // WAIT BETWEEN MOVES
+        // =============================================================
+
+        /// <summary>Idle, facing the player, for the move's wait; TickBrain decides once it runs out.</summary>
+        private void StartBreather(float seconds)
+        {
+            if (!Actor.IsAlive)
+                return;
+
+            pendingMove = Move.None;
+            breatherActive = true;
+            nextDecisionTime = Time.time + seconds * BreatherMultiplier;
+            ChangeState<IdleState>();
+        }
+
+        private void HandleHitLanded()
+        {
+            if (!IsInBreather)
+                return;
+
+            float remaining = BruteBreatherSettings.Shorten(nextDecisionTime - Time.time, BreatherCutPerHit, breather.minRemaining);
+            nextDecisionTime = Time.time + remaining;
+        }
 
         private void HandleChargeCompleted()
         {
@@ -359,7 +458,7 @@ namespace junklite
             if (Actor.HasTarget && AxisDistanceToTarget() <= blastRange)
             {
                 Blast();
-                ChangeState<RecoverState>();
+                StartBreather(breather.afterBlast);
                 return;
             }
 
@@ -391,44 +490,72 @@ namespace junklite
 
         private void HandleDashCompleted()
         {
-            if (Actor.IsAlive)
-                ChangeState<RecoverState>();
+            // Still in DashState here: a run that ended against a wall leaves a longer opening.
+            bool hitWall = StateMachine.CurrentState is DashState dashState && dashState.EndedAtWall;
+            StartBreather(hitWall ? breather.afterDashIntoWall : breather.afterDash);
         }
 
-        private void HandleGrabCompleted(bool caught)
-        {
-            if (!caught)
-            {
-                EvaluateNextAction(true);
-                return;
-            }
+        private void HandleGrabCompleted(bool caught) =>
+            StartBreather(caught ? breather.afterGrab : breather.afterMissedGrab);
 
-            // Breather after the slam: idle, then decide again.
-            pendingMove = Move.None;
-            nextDecisionTime = Time.time + grab.PostSlamIdleTime;
-            ChangeState<IdleState>();
-        }
-
-        // Stun and parry both end in the StandUp recovery.
+        // Stun, parry and knockdown all end in the StandUp recovery.
         private void HandleStunCompleted()
         {
-            if (Actor.IsAlive)
-                ChangeState<RecoverState>();
+            if (!Actor.IsAlive)
+                return;
+
+            // Read while still in StunnedState; leaving it clears the knockdown.
+            roarPending = brute != null && brute.IsKnockedDown;
+            ChangeState<RecoverState>();
+        }
+
+        private void HandleStandUpCompleted()
+        {
+            if (roarPending)
+            {
+                roarPending = false;
+                Roar();
+            }
+
+            StartBreather(breather.afterGetUp);
+        }
+
+        /// <summary>Get-up roar: shoves a close player away (no damage) so a knockdown ends cleanly.</summary>
+        private void Roar()
+        {
+            FeedbackManager.Instance?.DoCameraShake(roarShakeForce);
+            if (roarBurst != null)
+                roarBurst.Play(true);
+
+            PlayerCharacter player = Actor.TargetCharacter;
+            if (player == null || Movement == null)
+                return;
+
+            Vector3 axis = Movement.MovementAxis;
+            float offset = Vector3.Dot(player.transform.position - transform.position, axis);
+            if (Mathf.Abs(offset) > roarRadius)
+                return;
+
+            float side = Mathf.Abs(offset) > 0.05f ? Mathf.Sign(offset) : Movement.FacingDirection;
+            player.ApplyBodyShove(axis * side, roarPush, roarLockSeconds, gameObject);
         }
 
         /// <summary>
         /// Exposes charge, dash, melee, and lunge through phase-aware wrappers so
         /// phase two can scale timings without mutating the serialized tuning.
         /// </summary>
-        private sealed class BruteScaledCapabilities : ICharger, IDasher, IMeleeAttacker, IMeleeLunge
+        private sealed class BruteScaledCapabilities : ICharger, IDasher, ILockedDashAim, IMeleeAttacker, IMeleeLunge
         {
             private readonly ChargeBehavior charge;
             private readonly DashBehavior dash;
             private readonly MeleeAttackBehavior melee;
             private readonly System.Func<float> lungeSpeed;
             private readonly System.Func<float> lungeDuration;
+            private readonly System.Func<float> aimLockNormalized;
+            private readonly System.Func<float> lockedDashDistance;
             private float chargeTimeMultiplier = 1f;
             private float tauntMultiplier = 1f;
+            private float minTauntDuration;
             private float dashSpeedMultiplier = 1f;
 
             public BruteScaledCapabilities(
@@ -436,19 +563,24 @@ namespace junklite
                 DashBehavior dash,
                 MeleeAttackBehavior melee,
                 System.Func<float> lungeSpeed,
-                System.Func<float> lungeDuration)
+                System.Func<float> lungeDuration,
+                System.Func<float> aimLockNormalized,
+                System.Func<float> lockedDashDistance)
             {
                 this.charge = charge;
                 this.dash = dash;
                 this.melee = melee;
                 this.lungeSpeed = lungeSpeed;
                 this.lungeDuration = lungeDuration;
+                this.aimLockNormalized = aimLockNormalized;
+                this.lockedDashDistance = lockedDashDistance;
             }
 
             public void SetPhaseTwo(BrutePhaseSettings settings)
             {
                 chargeTimeMultiplier = settings.chargeTimeMultiplier;
                 tauntMultiplier = settings.tauntMultiplier;
+                minTauntDuration = settings.minTauntDuration;
                 dashSpeedMultiplier = settings.dashSpeedMultiplier;
             }
 
@@ -470,8 +602,12 @@ namespace junklite
             public float DashWhiffResolveDelay => dash.DashWhiffResolveDelay;
             public void OnDashComplete() => dash.OnDashComplete();
 
+            // ILockedDashAim
+            public float AimLockNormalized => aimLockNormalized();
+            public float LockedDashDistance => lockedDashDistance();
+
             // IMeleeAttacker (wind-up is the taunt)
-            public float MeleeWindUpDuration => melee.MeleeWindUpDuration * tauntMultiplier;
+            public float MeleeWindUpDuration => Mathf.Max(minTauntDuration, melee.MeleeWindUpDuration * tauntMultiplier);
             public float MeleeAttackDuration => melee.MeleeAttackDuration;
             public float MeleeHitStartNormalized => melee.MeleeHitStartNormalized;
             public float MeleeHitEndNormalized => melee.MeleeHitEndNormalized;

@@ -921,6 +921,27 @@ namespace junklite
             ApplyExternalImpulse(impulse, ForceMode.VelocityChange, interruptSpecialMovement);
         }
 
+        /// <summary>
+        /// Sets the lane speed to force.x along direction (replaced, not added, so moving
+        /// into the source can't cancel it) and the upward speed to at least force.y.
+        /// </summary>
+        public void ApplyExternalShove(Vector3 direction, Vector2 force)
+        {
+            if (rb == null || rb.isKinematic)
+                return;
+
+            InterruptSpecialMovement();
+
+            Vector3 axis = MovementAxis;
+            float along = Vector3.Dot(direction, axis);
+            float sign = Mathf.Approximately(along, 0f)
+                ? (IsFacingRight ? -1f : 1f)
+                : Mathf.Sign(along);
+
+            float up = Mathf.Max(rb.linearVelocity.y, force.y);
+            SetVelocity(axis * (sign * Mathf.Abs(force.x)) + Vector3.up * up);
+        }
+
         // Compatibility entry point. New combat code should use ApplyExternalImpulse.
         public void AddForce(Vector3 force, ForceMode mode = ForceMode.Impulse)
         {

@@ -6,7 +6,9 @@ namespace junklite
     /// <summary>
     /// Brute boss identity. Decisions live in the required BruteBrain. This class
     /// owns the boss-only damage rules: armor while charging (hits are blocked
-    /// with clank feedback) and the long stun when the charged dash is parried.
+    /// with clank feedback), the long stun when the charged dash is parried, and
+    /// the knockdown: every knockdownDamage he takes outside a knockdown puts him on
+    /// the floor, where hits deal extra damage and don't count toward the next one.
     /// </summary>
     [RequireComponent(typeof(BruteBrain))]
     public sealed class BruteEnemy : EnemyCharacter
@@ -32,7 +34,27 @@ namespace junklite
         [Tooltip("Dust/scrape particles at his feet, played while he slides back.")]
         [SerializeField] private ParticleSystem[] parrySlideParticles;
 
+        [Header("Brute - Knockdown")]
+        [Tooltip("Damage he takes outside a knockdown that knocks him down. 0 = never. Blocked hits and damage-over-time ticks don't count.")]
+        [SerializeField, Min(0f)] private float knockdownDamage = 200f;
+        [Tooltip("Seconds on the floor before he stands up.")]
+        [SerializeField, Min(0f)] private float knockdownDuration = 3f;
+        [Tooltip("Damage multiplier on hits while he is down.")]
+        [SerializeField, Min(1f)] private float downedDamageMultiplier = 1.5f;
+        [SerializeField] private float knockdownShakeForce = 1f;
+
         private bool heavyParried;
+        private bool knockedDown;
+        private float knockdownMeter;
+
+        /// <summary>Raised for every applied hit (not damage-over-time ticks).</summary>
+        public event System.Action HitLanded;
+
+        /// <summary>True from the knockdown until he leaves the stun to stand up.</summary>
+        public bool IsKnockedDown => knockedDown;
+
+        /// <summary>0-1 toward the next knockdown (for a boss bar).</summary>
+        public float KnockdownProgress => knockdownDamage > 0f ? Mathf.Clamp01(knockdownMeter / knockdownDamage) : 0f;
 
         /// <summary>True from a parried dash until the parry stun ends.</summary>
         public bool IsHeavyParried => heavyParried;
@@ -51,6 +73,13 @@ namespace junklite
             audioHandler = GetComponentInChildren<EnemyAudioHandler>();
         }
 
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            if (StateMachine != null)
+                StateMachine.OnStateChanged += HandleStateChanged;
+        }
+
         public override DamageResult ReceiveDamage(DamageRequest request)
         {
             if (IsArmored && !request.BypassesDefenses)
@@ -59,7 +88,45 @@ namespace junklite
                 return DamageResult.Rejected(DamageOutcome.Blocked, request.Amount);
             }
 
-            return base.ReceiveDamage(request);
+            if (knockedDown && !request.IsTickDamage)
+                request = request.WithAmount(request.Amount * downedDamageMultiplier);
+
+            DamageResult result = base.ReceiveDamage(request);
+            if (!result.WasApplied || request.IsTickDamage)
+                return result;
+
+            HitLanded?.Invoke();
+
+            if (!knockedDown && IsAlive && knockdownDamage > 0f)
+            {
+                knockdownMeter += result.AppliedDamage;
+                if (knockdownMeter >= knockdownDamage)
+                    KnockDown();
+            }
+
+            return result;
+        }
+
+        /// <summary>Forced stun for knockdownDuration; interrupts any move (a held grab is freed).</summary>
+        private void KnockDown()
+        {
+            knockdownMeter = 0f;
+
+            IStunnable stunnable = GetCapability<IStunnable>();
+            if (StateMachine == null || stunnable == null || !StateMachine.HasState<StunnedState>())
+                return;
+
+            knockedDown = true;
+            stunnable.ForcedStunDuration = knockdownDuration;
+            StateMachine.RestartState<StunnedState>();
+            FeedbackManager.Instance?.DoCameraShake(knockdownShakeForce);
+        }
+
+        private void HandleStateChanged(IState from, IState to)
+        {
+            // Standing up (or dying) ends the downed bonus.
+            if (knockedDown && from is StunnedState && to is not StunnedState)
+                knockedDown = false;
         }
 
         public override void OnParryStunned(float duration)
@@ -160,6 +227,10 @@ namespace junklite
 
         protected override void OnDisable()
         {
+            if (StateMachine != null)
+                StateMachine.OnStateChanged -= HandleStateChanged;
+            knockedDown = false;
+
             if (armorShakeRoutine != null)
             {
                 StopCoroutine(armorShakeRoutine);

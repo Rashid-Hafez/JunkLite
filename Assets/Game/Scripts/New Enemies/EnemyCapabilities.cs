@@ -70,6 +70,19 @@ namespace junklite
     }
 
     /// <summary>
+    /// Optional for ICharger + IDasher: the charge stops turning toward the target at
+    /// AimLockNormalized, and the dash then runs LockedDashDistance along that facing
+    /// wherever the target goes (dodging through to the other side beats it).
+    /// Used by: ChargeState, DashState (enemies without it keep the homing dash)
+    /// </summary>
+    public interface ILockedDashAim
+    {
+        /// <summary>0-1 point in the charge where the facing locks. 0 = at the start.</summary>
+        float AimLockNormalized { get; }
+        float LockedDashDistance { get; }
+    }
+
+    /// <summary>
     /// Enemy can grab and throw targets.
     /// Used by: GrabState, and checked during dash hit
     /// </summary>

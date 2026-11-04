@@ -23,6 +23,8 @@ namespace junklite
         [SpineAnimation(dataField: nameof(skeletonAnimation))] [SerializeField] private string attack = "7_Attack_Melee";
         [SpineAnimation(dataField: nameof(skeletonAnimation))] [SerializeField] private string grab = "8_Grab";
         [SpineAnimation(dataField: nameof(skeletonAnimation))] [SerializeField] private string throwClip = "9_Throw";
+        [Tooltip("Pose held (first frame) while knocked down. Defaults to the stun pose until a dedicated clip exists.")]
+        [SpineAnimation(dataField: nameof(skeletonAnimation))] [SerializeField] private string knockedDown = "5_StandUp";
 
         [Header("Timing")]
         [Tooltip("Scale the attack and throw clips to their gameplay durations.")]
@@ -96,6 +98,10 @@ namespace junklite
                 case ParriedState when brute != null && brute.IsHeavyParried:
                     // Parried dash: kneel (charge pose) while he is shoved back.
                     HoldFrame(chargeHold, atEnd: true);
+                    break;
+
+                case StunnedState when brute != null && brute.IsKnockedDown:
+                    HoldFrame(knockedDown, atEnd: false);
                     break;
 
                 case ParriedState:

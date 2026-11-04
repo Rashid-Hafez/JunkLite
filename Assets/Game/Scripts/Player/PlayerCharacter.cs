@@ -931,7 +931,7 @@ namespace junklite
             // or replaying the full impact presentation.
             if (!request.IsTickDamage)
             {
-                if (playerState != null && damageInvulnerability > 0f)
+                if (playerState != null && damageInvulnerability > 0f && !request.SkipsHitInvulnerability)
                     playerState.ApplyInvulnerability(damageInvulnerability);
 
                 audioHandler?.PlayHurt();
@@ -989,6 +989,21 @@ namespace junklite
 
             CancelGrab(stopCoroutine: true);
             playerState?.ApplyStun(0f);
+        }
+
+        /// <summary>
+        /// Body-contact shove (<see cref="EnemyContactDamage"/>): sets her lane speed away from
+        /// the body instead of adding to it, so running into the enemy can't cancel it, and
+        /// stuns her for lockSeconds so input can't either. Runs with or without damage.
+        /// </summary>
+        public void ApplyBodyShove(Vector3 direction, Vector2 force, float lockSeconds, GameObject source)
+        {
+            if (!IsAlive || IsGrabbed || controller == null)
+                return;
+
+            if (lockSeconds > 0f)
+                statusEffects?.ApplyHitstun(lockSeconds, source);
+            controller.ApplyExternalShove(direction, force);
         }
 
         /// <summary>
