@@ -118,6 +118,7 @@ The trigger flips state every time it's crossed, so the same corner works in bot
   - Meshes in `[Environment]` have **no colliders**. The only exceptions are door prefabs, which need their trigger, blocker and frame colliders.
   - `Colliders/Floors` holds a few large `BoxCollider`s: one long strip per lane section, following the path (about 6 m deep around the lane), and one flat square per free-move room. Ramps go here too.
   - `Colliders/Walls` holds only what stops the player: free-move room perimeters and the ends of lanes.
+  - **Wall jumps:** only colliders on the `Wall` layer can be slid down and jumped off (holding toward them in the air). Put a wall on `Wall` only where wall jumping is intended; other layers just block. A climb between two facing Wall-layer walls (a chimney) is the reliable way up.
   - Never use mesh colliders. Avoid rotated or negative-scale boxes unless it's a ramp.
   - When a lane is added or extended, add or stretch a floor strip to cover it.
 - Lanes stay on world X or Z; use a corner trigger for every turn.

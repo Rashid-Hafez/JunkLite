@@ -55,7 +55,8 @@ namespace junklite
         /// <paramref name="attacker"/> (the front of a pack, never the one standing behind it); piercing
         /// hits return every enemy in the sphere.
         /// </summary>
-        public WeaponHitDetectionResult Detect(Vector3 origin, float radius, bool piercing, Vector3? attacker = null)
+        public WeaponHitDetectionResult Detect(Vector3 origin, float radius, bool piercing, Vector3? attacker = null,
+            Collider preferred = null)
         {
             Vector3 reference = attacker ?? origin;
             int hitCount = QueryOverlaps(origin, radius);
@@ -63,6 +64,7 @@ namespace junklite
             Collider closestEnemy = null;
             float closestDistance = float.MaxValue;
             bool hitEnvironment = false;
+            bool preferredHit = false;
             int enemyCount = 0;
 
             for (int i = 0; i < hitCount; i++)
@@ -77,6 +79,15 @@ namespace junklite
                     if (piercing)
                     {
                         enemyBuffer[enemyCount++] = hit;
+                        continue;
+                    }
+
+                    // The combat focus wins whenever the swing reaches it.
+                    if (preferredHit) continue;
+                    if (preferred != null && hit == preferred)
+                    {
+                        preferredHit = true;
+                        closestEnemy = hit;
                         continue;
                     }
 

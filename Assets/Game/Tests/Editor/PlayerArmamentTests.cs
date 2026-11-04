@@ -41,7 +41,6 @@ namespace junklite.Tests
             fists.weaponId = "fists";
             blades = Own(ScriptableObject.CreateInstance<MeleeWeaponData>());
             blades.weaponId = "blades";
-            blades.enablesSwordGrapple = true;
 
             var armament = player.AddComponent<PlayerArmament>();
             SetField(armament, "defaultWeapon", fists);
@@ -105,18 +104,14 @@ namespace junklite.Tests
         }
 
         [Test]
-        public void GrappleHidingAndVisibilityOnlyToggleRenderers()
+        public void VisibilityOnlyTogglesRenderers()
         {
             var armament = MakeArmament(out _, out var blades, out var visual);
             armament.TryAcquire(blades);
             var renderer = visual.GetComponent<SpriteRenderer>();
-            armament.SetGrappleWeaponHidden(true);
-            Assert.That(renderer.enabled, Is.False);
-            Assert.That(visual.activeSelf, Is.True);
-            armament.SetGrappleWeaponHidden(false);
-            Assert.That(renderer.enabled, Is.True);
             armament.SetVisible(false);
             Assert.That(renderer.enabled, Is.False);
+            Assert.That(visual.activeSelf, Is.True);
             armament.SetVisible(true);
             Assert.That(renderer.enabled, Is.True);
         }
@@ -204,7 +199,6 @@ namespace junklite.Tests
             var blades = AssetDatabase.LoadAssetAtPath<WeaponData>("Assets/Game/Scripts/Weapons/Sword.asset");
             Assert.That(fists, Is.Not.Null);
             Assert.That(blades, Is.Not.Null);
-            Assert.That(blades.enablesSwordGrapple, Is.True);
 
             foreach (string path in new[] { "Assets/Game/Prefabs/PLAYER/Player_Cass.prefab", "Assets/Game/Prefabs/PLAYER/Player_2.2.prefab" })
             {
@@ -221,7 +215,6 @@ namespace junklite.Tests
                 var ownBlades = upgradePath.GetArrayElementAtIndex(0).objectReferenceValue as WeaponData;
                 Assert.That(ownBlades, Is.Not.Null, path);
                 Assert.That(ownBlades.ProfileId, Is.EqualTo(blades.ProfileId), path);
-                Assert.That(ownBlades.enablesSwordGrapple, Is.True, path);
                 var holder = serialized.FindProperty("weaponHolder").objectReferenceValue as Transform;
                 Assert.That(holder, Is.Not.Null, path);
                 var visuals = serialized.FindProperty("heldVisuals");

@@ -54,6 +54,14 @@ namespace junklite
         [Tooltip("Distance from the player center where the hit sphere or projectile origin is placed.")]
         public float attackRange = 1f;
 
+        [Header("Combat Focus (side attacks)")]
+        [Tooltip("How far a side swing steps when no enemy is focused (m). The authored lunge is the cap. " +
+                 "With a focus, the lunge instead closes exactly to hitting distance (further than authored if needed).")]
+        [Min(0f)] public float noTargetLungeDistance = 0.2f;
+        [Tooltip("How deep into the hit sphere the focused enemy's near side should end up, 0..1 of the sphere radius. " +
+                 "Higher = stops closer to the enemy.")]
+        [Range(0f, 1f)] public float focusSpacing = 0.7f;
+
         // =====================================================================
         // COMBO ARRAYS
         // =====================================================================

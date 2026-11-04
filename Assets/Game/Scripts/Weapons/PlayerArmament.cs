@@ -46,7 +46,6 @@ namespace junklite
         private GameObject heldVisual;
         private SpriteRenderer[] heldRenderers = Array.Empty<SpriteRenderer>();
         private bool visible = true;
-        private bool grappleHidden;
         private readonly HashSet<string> sessionOwned = new();
 
         /// <summary>The weapon the player attacks with right now. Never null once a default is assigned.</summary>
@@ -123,14 +122,6 @@ namespace junklite
             SetCurrent(defaultWeapon, notify: true);
         }
 
-        /// <summary>Hides the held visual while the sword is thrown by the grapple.</summary>
-        public void SetGrappleWeaponHidden(bool hidden)
-        {
-            if (grappleHidden == hidden) return;
-            grappleHidden = hidden;
-            ApplyVisibility();
-        }
-
         /// <summary>Follows the player's own renderer visibility (death, cinematics).</summary>
         public void SetVisible(bool isVisible)
         {
@@ -199,7 +190,7 @@ namespace junklite
 
         private void ApplyVisibility()
         {
-            bool show = visible && !grappleHidden;
+            bool show = visible;
             foreach (SpriteRenderer renderer in heldRenderers)
                 if (renderer != null) renderer.enabled = show;
         }

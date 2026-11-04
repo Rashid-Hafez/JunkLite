@@ -52,6 +52,14 @@ namespace junklite
         public float Facing { get; }
         public Vector3 FacingAxis { get; }
         public WeaponAttackExecutionSettings Settings { get; }
+        /// <summary>Metres the side lunge should travel (combat focus). Negative = use the authored lunge.</summary>
+        public float LungeDistance { get; }
+        /// <summary>Top speed when the lunge must go further than authored (gap close).</summary>
+        public float GapCloseMaxSpeed { get; }
+        /// <summary>Focused enemy's collider: preferred by the swing when it overlaps several.</summary>
+        public Collider FocusCollider { get; }
+        /// <summary>Polled during the lunge; true ends it (reached the focus, or the focus is gone).</summary>
+        public Func<bool> StopLunge { get; }
 
         public WeaponAttackExecutionRequest(
             int executionId,
@@ -64,8 +72,16 @@ namespace junklite
             float fallbackRadius,
             float facing,
             Vector3 facingAxis,
-            WeaponAttackExecutionSettings settings)
+            WeaponAttackExecutionSettings settings,
+            float lungeDistance = -1f,
+            float gapCloseMaxSpeed = 0f,
+            Collider focusCollider = null,
+            Func<bool> stopLunge = null)
         {
+            LungeDistance = lungeDistance;
+            GapCloseMaxSpeed = gapCloseMaxSpeed;
+            FocusCollider = focusCollider;
+            StopLunge = stopLunge;
             ExecutionId = executionId;
             ComboIndex = comboIndex;
             Direction = direction;
@@ -153,14 +169,28 @@ namespace junklite
             WeaponAttackExecutionRequest request,
             MeleeWeaponData.MeleeComboStep step)
         {
+            float forwardPeak = step.forwardImpulse;
+            float forwardDuration = step.forwardImpulseDuration;
+            if (request.Direction == AttackDirection.Side && request.LungeDistance >= 0f)
+            {
+                // Combat focus: travel exactly the chosen distance (0 = stand still). A gap close may
+                // run longer than authored, but must arrive while the hit window is still open.
+                float arriveBy = request.Settings.AnimationLeadTime + ResolveHitDelay(request, step) +
+                                 request.Settings.AttackOpenWindow * 0.5f;
+                LungeWarp.Solve(step.forwardImpulse, step.forwardImpulseDuration, step.lungeCurve,
+                    request.LungeDistance, request.GapCloseMaxSpeed, arriveBy, out forwardPeak, out forwardDuration);
+            }
+
             execution.StartOwned(motion.ApplyPush(
                 request.ExecutionId,
                 request.Direction,
                 request.Facing,
-                step.forwardImpulse,
+                forwardPeak,
                 step.verticalImpulse,
-                step.forwardImpulseDuration,
-                step.lungeCurve));
+                forwardDuration,
+                step.lungeCurve,
+                request.StopLunge,
+                ownHorizontalAtZero: request.LungeDistance >= 0f));
 
             // Air attacks stall the fall for part of the swing, then gravity resumes.
             float floatNormalized = request.Direction == AttackDirection.Down
@@ -191,11 +221,7 @@ namespace junklite
             if (!execution.IsActive)
                 yield break;
 
-            float resolvedHitDelay = step.hitDelay > 0f
-                ? step.hitDelay
-                : Mathf.Max(
-                    0f,
-                    request.Settings.DelayBeforeAttack - request.Settings.AnimationLeadTime);
+            float resolvedHitDelay = ResolveHitDelay(request, step);
             if (resolvedHitDelay > 0f)
                 yield return new WaitForSeconds(resolvedHitDelay);
 
@@ -220,7 +246,8 @@ namespace junklite
                     hitOrigin,
                     radius,
                     isPiercing,
-                    playerTransform.position);
+                    playerTransform.position,
+                    request.FocusCollider);
 
                 if (hitResult.Type == AttackHitResult.Enemy)
                 {
@@ -273,6 +300,11 @@ namespace junklite
                 yield return null;
             }
         }
+
+        private static float ResolveHitDelay(WeaponAttackExecutionRequest request, MeleeWeaponData.MeleeComboStep step) =>
+            step.hitDelay > 0f
+                ? step.hitDelay
+                : Mathf.Max(0f, request.Settings.DelayBeforeAttack - request.Settings.AnimationLeadTime);
 
         private void RequestAnimation(WeaponAttackExecutionRequest request)
         {

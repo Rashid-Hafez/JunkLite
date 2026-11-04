@@ -29,7 +29,7 @@ namespace junklite
         [Tooltip("Slots cleared on every skeleton after animations apply (e.g. Demo_Sword, the art's baked-in sword). Rigs without the slot ignore it.")]
         [SerializeField] private string[] hiddenSlots;
 
-        [Tooltip("Local forward offset of the Spine artwork during a wall hold/slide. Aligns the hand pose without moving the physics capsule.")]
+        [Tooltip("Local forward offset of the Spine artwork during a wall slide. Aligns the hand pose without moving the physics capsule.")]
         [SerializeField] private float wallPoseForwardOffset;
         private Vector3 appliedWallPoseOffset;
 
@@ -46,7 +46,7 @@ namespace junklite
         [SerializeField] private string jumpAir = "Jump_2_Air";
         [SerializeField] private string landing = "Jump_3_Land";
         [SerializeField] private string doubleJump = "doubleJump";
-        [SerializeField, InspectorName("Wall Attach")] private string wallSlide = "wallSlide";
+        [SerializeField, InspectorName("Wall Slide")] private string wallSlide = "wallSlide";
         [SerializeField] private string dash = "dash";
         [SerializeField] private string stun = "stun";
         [SerializeField] private string death = "death";
@@ -58,7 +58,7 @@ namespace junklite
         [SerializeField] private bool jumpAirLoop = false;
         [SerializeField] private bool landingLoop = false;
         [SerializeField] private bool doubleJumpLoop = false;
-        [SerializeField, InspectorName("Wall Attach Loop")] private bool wallSlideLoop = false;
+        [SerializeField, InspectorName("Wall Slide Loop")] private bool wallSlideLoop = false;
         [SerializeField] private bool dashLoop = false;
         [SerializeField] private bool stunLoop = false;
         [SerializeField] private bool deathLoop = false;
@@ -77,7 +77,7 @@ namespace junklite
         [Tooltip("Blend seconds from Land into Run (landing while moving, or starting to move mid-land).")]
         [SerializeField, Min(0f)] private float landToRunBlend = 0.12f;
         [SerializeField, Range(0.1f, 3f)] private float doubleJumpTimeScale = 1f;
-        [SerializeField, InspectorName("Wall Attach Time Scale"), Range(0.1f, 3f)] private float wallSlideTimeScale = 1f;
+        [SerializeField, InspectorName("Wall Slide Time Scale"), Range(0.1f, 3f)] private float wallSlideTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float dashTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float stunTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float deathTimeScale = 1f;
@@ -234,8 +234,7 @@ namespace junklite
             playerState.OnGroundedChanged += OnGroundedChanged;
             playerState.OnJumpStateChanged += OnJumpStateChanged;
             playerState.OnDashingChanged += OnDashingChanged;
-            playerState.OnWallAttachedChanged += OnWallAttachedChanged;
-            playerState.OnWallSlidingChanged += OnWallAttachedChanged;
+            playerState.OnWallSlidingChanged += OnWallSlideChanged;
             playerState.OnLedgeDetectedChanged += OnLedgeDetectedChanged;
             playerState.OnParryChanged += OnParryChanged;
             playerState.OnDoubleJumpChanged += OnDoubleJumpChanged;
@@ -277,9 +276,9 @@ namespace junklite
 
             SyncSkeletonToFacing();
 
-            if ((playerState.IsWallAttached || playerState.IsWallSliding) && playerState.IsAlive && !playerState.IsStunned)
+            if (playerState.IsWallSliding && playerState.IsAlive && !playerState.IsStunned)
             {
-                PlayWallAttachment();
+                PlayWallSlide();
                 return;
             }
 
@@ -293,7 +292,7 @@ namespace junklite
         {
             if (skeletonAnimation == null || skeletonAnimation.transform == transform) return;
             bool wallPose = playerState != null && playerState.IsAlive && !playerState.IsStunned &&
-                           (playerState.IsWallAttached || playerState.IsWallSliding);
+                           playerState.IsWallSliding;
             // A sided skeleton is never mirrored, so the forward offset follows facing itself.
             float forward = HasSidedSkeletons && controller != null ? controller.FacingSign : 1f;
             Vector3 offset = wallPose ? Vector3.right * (wallPoseForwardOffset * forward) : Vector3.zero;
@@ -314,8 +313,7 @@ namespace junklite
                 playerState.OnGroundedChanged -= OnGroundedChanged;
                 playerState.OnJumpStateChanged -= OnJumpStateChanged;
                 playerState.OnDashingChanged -= OnDashingChanged;
-                playerState.OnWallAttachedChanged -= OnWallAttachedChanged;
-                playerState.OnWallSlidingChanged -= OnWallAttachedChanged;
+                playerState.OnWallSlidingChanged -= OnWallSlideChanged;
                 playerState.OnLedgeDetectedChanged -= OnLedgeDetectedChanged;
                 playerState.OnParryChanged -= OnParryChanged;
                 playerState.OnDoubleJumpChanged -= OnDoubleJumpChanged;
@@ -921,7 +919,7 @@ namespace junklite
             }
         }
 
-        private void PlayWallAttachment()
+        private void PlayWallSlide()
         {
             if (IsDead) return;
             if (!HasAnimation(wallSlide)) return;
@@ -932,18 +930,18 @@ namespace junklite
                 entry.MixDuration = locomotionBlend;
             }
             // Non-looping Spine entries keep their final pose. Reuse this entry
-            // throughout the hold (including re-aiming), without restarting it.
+            // throughout the slide without restarting it.
             entry.Loop = wallSlideLoop;
             entry.TimeScale = wallSlideTimeScale;
             currentLocomotionAnim = wallSlide;
         }
 
-        private void OnWallAttachedChanged(bool attached)
+        private void OnWallSlideChanged(bool sliding)
         {
             if (!playerState.IsAlive || playerState.IsStunned) return;
-            if (playerState.IsWallAttached || playerState.IsWallSliding)
+            if (sliding)
             {
-                PlayWallAttachment();
+                PlayWallSlide();
             }
             else
             {
@@ -1143,9 +1141,9 @@ namespace junklite
         private void PlayLocomotion(string animName, bool loop)
         {
             if (IsDead && animName != death) return;
-            if ((playerState.IsWallAttached || playerState.IsWallSliding) && playerState.IsAlive && !playerState.IsStunned)
+            if (playerState.IsWallSliding && playerState.IsAlive && !playerState.IsStunned)
             {
-                PlayWallAttachment();
+                PlayWallSlide();
                 return;
             }
             if (!HasAnimation(animName) || GetCurrentLocomotionName() == animName)
@@ -1179,9 +1177,9 @@ namespace junklite
         private void PlayJumpAir()
         {
             if (IsDead) return;
-            if ((playerState.IsWallAttached || playerState.IsWallSliding) && playerState.IsAlive && !playerState.IsStunned)
+            if (playerState.IsWallSliding && playerState.IsAlive && !playerState.IsStunned)
             {
-                PlayWallAttachment();
+                PlayWallSlide();
                 return;
             }
             if (!HasAnimation(jumpAir)) return;
@@ -1290,17 +1288,15 @@ namespace junklite
                 return;
             }
 
-            // If grounded but in air animation, fix it
-            if (playerState.IsGrounded)
+            // Grounded but still in an air pose (e.g. the landing event was missed): fix it.
+            // This used to sit behind IsPlayingTransientAnim(), which lists these same clips,
+            // so it never ran and a held Jump Air / Wall Slide frame stuck after landing.
+            // Jump Start is left alone: it plays on the ground for the take-off frame.
+            if (playerState.IsGrounded && !playerState.IsJumping &&
+                (current == jumpAir || current == doubleJump || current == wallSlide))
             {
-                if (IsPlayingTransientAnim())
-                    return;
-
-                if (current == jumpStart || current == jumpAir || current == doubleJump || current == wallSlide)
-                {
-                    float speed = GetSpeed();
-                    PlayLocomotion(speed > speedThreshold ? run : idle, true);
-                }
+                float speed = GetSpeed();
+                PlayLocomotion(speed > speedThreshold ? run : idle, true);
             }
         }
 
