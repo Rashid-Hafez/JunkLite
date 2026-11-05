@@ -10,6 +10,8 @@ namespace junklite
     /// cooldown never open a gap to slip through. Damage lands at most once per cooldown,
     /// through the one damage path (i-frames, shields and death rules apply as usual).
     /// Player and enemy bodies do not collide (layer matrix), so without this she passes freely.
+    /// Only a player facing the body is blocked: one that backs into it (e.g. shoved there by
+    /// another enemy) passes through, so two flanking enemies can't ping-pong her.
     ///
     /// Optional per enemy: add it to the enemy root and tune per prefab (weak enemies shove
     /// softly, heavies hard).
@@ -59,6 +61,9 @@ namespace junklite
         private float lastDamageTime = float.NegativeInfinity;
         // Lane side (+1/-1, relative to this enemy) the player was on when the overlap began; 0 = not overlapping.
         private float entrySide;
+        // She entered with her back to this body (e.g. shoved into it by another enemy): no shove,
+        // no damage, until she turns to face it or the overlap ends. Stops flanking enemies ping-ponging her.
+        private bool passThrough;
         // This overlap already dealt damage; further hits wait for repeatInterval instead of minBumpInterval.
         private bool damagedThisContact;
 
@@ -91,9 +96,23 @@ namespace junklite
 
             Vector3 axis = movement != null ? movement.MovementAxis : transform.right;
             if (entrySide == 0f)
+            {
                 entrySide = ResolveEntrySide(axis);
+                passThrough = !FacesBody(entrySide, axis);
+            }
+            else if (passThrough)
+            {
+                // Turning to face the body while inside it blocks again, pushing her out the
+                // side she is on now (never through the body). Not at dead centre: no clear side.
+                float side = OffsetSide(axis);
+                if (side != 0f && FacesBody(side, axis))
+                {
+                    entrySide = side;
+                    passThrough = false;
+                }
+            }
 
-            if (!CanShove())
+            if (passThrough || !CanShove())
                 return;
 
             if (TryDamage() == DamageOutcome.Parried)
@@ -105,6 +124,7 @@ namespace junklite
         private void EndContact()
         {
             entrySide = 0f;
+            passThrough = false;
             damagedThisContact = false;
         }
 
@@ -184,21 +204,48 @@ namespace junklite
         private bool IsOverlapping() => BodyContact.IsOverlapping(bodyCollider, playerBody, minOverlap);
 
         /// <summary>
-        /// The side the player is on, or, when she is dead centre, the side she is
-        /// coming from (opposite her lane velocity), else in front of this enemy.
+        /// The side the player is on, or, when she is dead centre, the side behind her
+        /// facing (so a centred contact always blocks), else in front of this enemy.
         /// </summary>
         private float ResolveEntrySide(Vector3 axis)
         {
-            float offset = Vector3.Dot(player.transform.position - transform.position, axis);
-            if (Mathf.Abs(offset) > 0.05f)
-                return Mathf.Sign(offset);
+            float side = OffsetSide(axis);
+            if (side != 0f)
+                return side;
 
-            Character2D5Controller controller = player.Controller;
-            float velocity = controller != null ? Vector3.Dot(controller.Velocity, axis) : 0f;
-            if (Mathf.Abs(velocity) > 0.1f)
-                return -Mathf.Sign(velocity);
+            float facing = PlayerFacingAlong(axis);
+            if (facing != 0f)
+                return -facing;
 
             return movement != null ? movement.FacingDirection : 1f;
+        }
+
+        /// <summary>Lane side (+1/-1) the player is on relative to this enemy; 0 at dead centre.</summary>
+        private float OffsetSide(Vector3 axis)
+        {
+            float offset = Vector3.Dot(player.transform.position - transform.position, axis);
+            return Mathf.Abs(offset) > 0.05f ? Mathf.Sign(offset) : 0f;
+        }
+
+        /// <summary>The player's facing along this enemy's axis (+1/-1); 0 when unknown.</summary>
+        private float PlayerFacingAlong(Vector3 axis)
+        {
+            Character2D5Controller controller = player.Controller;
+            if (controller == null)
+                return 0f;
+
+            float along = Vector3.Dot(controller.MovementAxis, axis) * controller.FacingSign;
+            return Mathf.Abs(along) < 0.1f ? 0f : Mathf.Sign(along);
+        }
+
+        /// <summary>
+        /// True when the player, on <paramref name="side"/>, faces this body (she is trying to
+        /// get past it). Unknown facing counts as facing, so the body never leaks.
+        /// </summary>
+        private bool FacesBody(float side, Vector3 axis)
+        {
+            float facing = PlayerFacingAlong(axis);
+            return facing == 0f || facing == -side;
         }
 
         private Collider FindBodyCollider()
