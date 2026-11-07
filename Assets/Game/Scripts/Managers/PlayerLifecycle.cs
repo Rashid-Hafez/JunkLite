@@ -30,6 +30,8 @@ namespace junklite
         [SerializeField, Min(0f)] private float deathPresentationFallbackDelay = 1.25f;
 
         private readonly List<Transform> spawnPoints = new();
+        private readonly HashSet<Checkpoint> checkpoints = new();
+        private Transform activeCheckpoint;
         private LevelContext levelContext;
         private SceneSettings legacySceneSettings;
         private PlayerCharacter currentPlayer;
@@ -74,12 +76,18 @@ namespace junklite
             }
         }
         public int CurrentSpawnIndex => currentSpawnIndex;
+        /// <summary>The reached checkpoint the next respawn uses; null = the scene spawn.</summary>
+        public Transform ActiveCheckpoint => activeCheckpoint;
+        /// <summary>True when the level has checkpoints: only a reached one is ever used, never the nearest marker.</summary>
+        public bool HasCheckpoints => checkpoints.Count > 0;
         public bool ShouldSpawnPlayer => levelContext != null
             ? levelContext.SpawnPlayer
             : legacySceneSettings == null || legacySceneSettings.SpawnPlayer;
 
         public event Action<PlayerCharacter> PlayerSpawned;
         public event Action<PlayerCharacter> PlayerDied;
+        /// <summary>A checkpoint became the respawn point (also when reached again).</summary>
+        public event Action<Checkpoint> CheckpointReached;
 
         /// <summary>
         /// Presentation consumers use this after the death animation has completed
@@ -142,9 +150,11 @@ namespace junklite
             UnsubscribeFromPlayer(currentPlayer);
             currentPlayer = null;
             currentSpawnIndex = 0;
+            activeCheckpoint = null;
             levelContext = context;
             legacySceneSettings = legacySettings;
             ResolveSpawnPoints();
+            ResolveCheckpoints();
         }
 
         public PlayerCharacter SpawnPlayer()
@@ -201,6 +211,7 @@ namespace junklite
         public void RestartAtPrimarySpawn()
         {
             currentSpawnIndex = 0;
+            activeCheckpoint = null;
             RespawnAtCurrentSpawn();
         }
 
@@ -222,6 +233,45 @@ namespace junklite
                 currentSpawnIndex = index;
         }
 
+        // ---------------- Checkpoints ----------------
+
+        public void RegisterCheckpoint(Checkpoint checkpoint)
+        {
+            if (checkpoint != null)
+                checkpoints.Add(checkpoint);
+        }
+
+        public void UnregisterCheckpoint(Checkpoint checkpoint)
+        {
+            if (checkpoint != null)
+                checkpoints.Remove(checkpoint);
+        }
+
+        /// <summary>The player reached a checkpoint: respawn there from now on.</summary>
+        public void SetCheckpoint(Checkpoint checkpoint)
+        {
+            if (checkpoint == null)
+                return;
+
+            checkpoints.Add(checkpoint);
+            activeCheckpoint = checkpoint.SpawnTransform;
+            CheckpointReached?.Invoke(checkpoint);
+        }
+
+        /// <summary>Checkpoints already enabled before this lifecycle looked at the scene (scene objects wake first).</summary>
+        private void ResolveCheckpoints()
+        {
+            checkpoints.RemoveWhere(checkpoint => checkpoint == null);
+
+            Scene activeScene = SceneManager.GetActiveScene();
+            Checkpoint[] found = FindObjectsByType<Checkpoint>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            foreach (Checkpoint checkpoint in found)
+            {
+                if (checkpoint.gameObject.scene == activeScene)
+                    checkpoints.Add(checkpoint);
+            }
+        }
+
         /// <summary>Detaches runtime state before the active scene is replaced.</summary>
         public void PrepareForSceneChange()
         {
@@ -229,6 +279,8 @@ namespace junklite
             UnsubscribeFromPlayer(currentPlayer);
             currentPlayer = null;
             spawnPoints.Clear();
+            checkpoints.Clear();
+            activeCheckpoint = null;
             levelContext = null;
             legacySceneSettings = null;
             currentSpawnIndex = 0;
@@ -253,7 +305,7 @@ namespace junklite
 
             PlayerCharacter deadPlayer = currentPlayer;
             if (deadPlayer != null)
-                SelectNearestSpawnPoint(deadPlayer.transform.position);
+                SelectRespawnPoint(deadPlayer.transform.position);
             PlayerDied?.Invoke(deadPlayer);
             deathRoutine = StartCoroutine(CompleteDeathPresentation(deadPlayer));
         }
@@ -384,11 +436,34 @@ namespace junklite
 
         private Transform GetActiveSpawnPoint()
         {
+            if (activeCheckpoint != null)
+                return activeCheckpoint;
+
             if (spawnPoints.Count == 0)
                 return null;
 
             currentSpawnIndex = Mathf.Clamp(currentSpawnIndex, 0, spawnPoints.Count - 1);
             return spawnPoints[currentSpawnIndex];
+        }
+
+        /// <summary>
+        /// A reached checkpoint wins. A level with checkpoints never respawns at the nearest
+        /// marker (that would reward dying next to one): before the first checkpoint it is
+        /// the primary spawn. Levels without checkpoints keep the nearest-marker rule.
+        /// </summary>
+        private void SelectRespawnPoint(Vector3 deathPosition)
+        {
+            checkpoints.RemoveWhere(checkpoint => checkpoint == null);
+            if (activeCheckpoint != null)
+                return;
+
+            if (HasCheckpoints)
+            {
+                currentSpawnIndex = 0;
+                return;
+            }
+
+            SelectNearestSpawnPoint(deathPosition);
         }
 
         private void SelectNearestSpawnPoint(Vector3 deathPosition)

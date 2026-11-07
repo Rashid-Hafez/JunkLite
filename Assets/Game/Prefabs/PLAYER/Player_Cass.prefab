@@ -1424,7 +1424,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 5
-  jumpForce: 12
+  jumpForce: 14
   groundCheckDistance: 0.1
   groundCheckRadius: 0.08
   TargetParent: {fileID: 0}
@@ -1439,9 +1439,9 @@ MonoBehaviour:
   heldJumpGravityRamp: 1
   JumpHeldExternally: 1
   maxAirJumps: 1
-  doubleJumpForce: 11.34
+  doubleJumpForce: 16
   doubleJumpStallTime: 0.05
-  doubleJumpRiseGravity: 3
+  doubleJumpRiseGravity: 1.8
   doubleJumpFallGravity: 1.5
   minAirtimeForDoubleJump: 0.25
   coyoteTime: 0.2
@@ -1595,7 +1595,7 @@ MonoBehaviour:
   launchHitstopDuration: 0.12
   enemyHitShakeForce: 1
   attackCooldown: 0.1
-  comboWindow: 0.2
+  comboWindow: 0.6
   bufferDuration: 0.2
   delayBeforeAttack: 0.08
   animationLeadTime: 0.05

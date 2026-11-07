@@ -5326,13 +5326,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.MeleeChaserBrain
   tauntAttack:
-    weight: 2
-    cooldown: 2.5
+    weight: 1.2
+    cooldown: 3.5
   chargeDash:
-    weight: 1
-    cooldown: 6
-  chargeDashMinDistance: 3.5
-  grabWeight: 1
+    weight: 1.2
+    cooldown: 5
+  chargeDashMinDistance: 1.5
+  grabWeight: 1.5
   idleBetweenMoves: 0.4
   chase:
     chaseSpeed: 7
@@ -5372,20 +5372,20 @@ MonoBehaviour:
   blastVfxLifetime: 2
   blastShakeForce: 1.5
   grab:
-    grabRange: 2.2
-    cooldown: 6
-    warningTime: 0.6
-    reachActiveTime: 0.2
-    holdTime: 0.8
+    grabRange: 2.8
+    cooldown: 4
+    warningTime: 0.4
+    reachActiveTime: 0.3
+    holdTime: 0.9
     throwDuration: 0.7
-    throwReleaseNormalized: 0.3
+    throwReleaseNormalized: 0.15
     postSlamIdleTime: 1
     missRecoveryTime: 0.6
     grabHitbox: {fileID: 1624337157859359872}
     grabAnchor: {fileID: 3278081193624053108}
     grabOffset: {x: 0, y: 0, z: 0}
     grabDamage: 5
-    throwForce: {x: 9, y: 7}
+    throwForce: {x: 22, y: 9}
     throwDamage: 20
   recovery:
     recoveryTime: 0.6
@@ -30055,8 +30055,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 2.4, y: 2.4, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 4.728, y: 2.4, z: 1}
+  m_Center: {x: -1.19, y: 0, z: 0}
 --- !u!114 &163830592765347263
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -49547,8 +49547,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 2.4, y: 2.6, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 4.544, y: 2.6, z: 1}
+  m_Center: {x: -1.069, y: 0, z: 0}
 --- !u!114 &1624337157859359872
 MonoBehaviour:
   m_ObjectHideFlags: 0

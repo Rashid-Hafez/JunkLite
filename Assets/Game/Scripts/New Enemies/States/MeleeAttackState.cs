@@ -21,6 +21,9 @@ namespace junklite
 
         public MeleeAttackState(EnemyCharacter enemy) : base(enemy) { }
 
+        /// <summary>Still telegraphing: the swing hasn't started, so a brain may still call it off.</summary>
+        public bool IsInWindUp => isInitialized && phase == Phase.WindUp;
+
         public override void Enter()
         {
             meleeAttacker = GetCapability<IMeleeAttacker>();
@@ -97,10 +100,18 @@ namespace junklite
                 || !HasTarget || movement == null)
                 return;
 
+            // Already on top of the target: gliding further only drives through it.
+            if (IsWithinLungeStop())
+                return;
+
             float sign = Mathf.Sign(movement.GetSignedAxisDistance(Transform.position, Target.position));
             movement.MoveInDirection(movement.MovementAxis * sign, lunge.LungeSpeed);
             lunging = true;
         }
+
+        private bool IsWithinLungeStop() =>
+            HasTarget && movement != null
+            && movement.GetAbsAxisDistance(Transform.position, Target.position) <= lunge.LungeStopDistance;
 
         private void EndLunge()
         {
@@ -117,7 +128,7 @@ namespace junklite
         {
             float progress = Mathf.Clamp01(timer / attackDuration);
 
-            if (lunging && timer >= lunge.LungeDuration)
+            if (lunging && (timer >= lunge.LungeDuration || IsWithinLungeStop()))
                 EndLunge();
 
             if (!hitboxActivated && progress >= meleeAttacker.MeleeHitStartNormalized)

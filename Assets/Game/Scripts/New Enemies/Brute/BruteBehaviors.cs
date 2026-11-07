@@ -12,16 +12,24 @@ namespace junklite
     public sealed class BruteGrabBehavior
     {
         [Tooltip("Only grab when the player is within this axis distance.")]
-        [SerializeField] private float grabRange = 2.2f;
-        [SerializeField] private float cooldown = 6f;
+        [SerializeField] private float grabRange = 2.8f;
+        [SerializeField] private float cooldown = 4f;
 
         [Header("Timing")]
         [Tooltip("Warning sign time before the grab reaches out (dodge window).")]
-        [SerializeField] private float warningTime = 0.6f;
+        [SerializeField] private float warningTime = 0.4f;
         [Tooltip("How long the grab hitbox is live once the reach starts.")]
-        [SerializeField] private float reachActiveTime = 0.2f;
-        [Tooltip("How long the player is held before the throw.")]
-        [SerializeField] private float holdTime = 0.8f;
+        [SerializeField] private float reachActiveTime = 0.3f;
+        [Tooltip("Step toward the player during the reach, so a backing-off player is still caught. 0 = reach in place.")]
+        [SerializeField, Min(0f)] private float reachLungeSpeed = 9f;
+        [Tooltip("The reach step stops once the player is within this axis distance.")]
+        [SerializeField, Min(0f)] private float reachLungeStopDistance = 1f;
+        [Tooltip("Clutch before the throw. This is also the window to break free by mashing jump.")]
+        [SerializeField] private float holdTime = 0.9f;
+        [Tooltip("Jump presses during the hold that break it. 0 = no escape. Attack presses never count.")]
+        [SerializeField, Min(0)] private int escapeJumpPresses = 3;
+        [Tooltip("He staggers this long after she breaks free (the punish window).")]
+        [SerializeField, Min(0f)] private float escapeStunDuration = 0.4f;
         [Tooltip("Gameplay length of the throw animation.")]
         [SerializeField] private float throwDuration = 0.7f;
         [Tooltip("Point in the slam (0-1) where the player is released. 1 = when the slam animation ends.")]
@@ -46,6 +54,10 @@ namespace junklite
         [SerializeField, Min(0f)] private float touchCooldown = 1.5f;
         [Tooltip("How deep (metres) the bodies must overlap before a touch counts.")]
         [SerializeField, Min(0f)] private float touchMinOverlap = 0.05f;
+        [Tooltip("Seconds the bodies must stay overlapped before the touch grabs. 0 = the first overlapping frame grabs.")]
+        [SerializeField, Min(0f)] private float touchHoldTime = 0f;
+        [Tooltip("Clutch before the throw after a touch grab. 0 = thrown at once. A touch grab can never be broken.")]
+        [SerializeField, Min(0f)] private float touchThrowDelay = 0f;
 
         // A touch that caught nothing (dash, shield) waits this long before testing again.
         private const float TouchRetryDelay = 0.3f;
@@ -64,7 +76,13 @@ namespace junklite
         public float GrabRange => grabRange;
         public float WarningTime => warningTime;
         public float ReachActiveTime => reachActiveTime;
+        public float ReachLungeSpeed => reachLungeSpeed;
+        public float ReachLungeStopDistance => reachLungeStopDistance;
         public float HoldTime => holdTime;
+        public int EscapeJumpPresses => escapeJumpPresses;
+        public float EscapeStunDuration => escapeStunDuration;
+        /// <summary>Set by the grab state when the player broke free; the brain consumes it.</summary>
+        public bool LastGrabEscaped { get; set; }
         public float ThrowDuration => throwDuration;
         public float ThrowReleaseNormalized => throwReleaseNormalized;
         public float MissRecoveryTime => missRecoveryTime;
@@ -76,6 +94,8 @@ namespace junklite
         public bool IsReady => Time.time >= readyTime;
         public bool CanGrabOnTouch => grabOnTouch && Time.time >= touchReadyTime;
         public float TouchMinOverlap => touchMinOverlap;
+        public float TouchHoldTime => touchHoldTime;
+        public float TouchThrowDelay => touchThrowDelay;
 
         /// <summary>Safety timeout for the player side if the boss never releases.</summary>
         public float HoldTimeout => warningTime + reachActiveTime + holdTime + throwDuration + 2f;
@@ -187,7 +207,7 @@ namespace junklite
         [Min(0f)] public float cutPerHit;
         [Tooltip("Hits never cut the wait below this many seconds.")]
         [Min(0f)] public float minRemaining;
-        [Tooltip("Seconds after a wait ends before touching him grabs again, so he never grabs without a warning.")]
+        [Tooltip("Seconds into each wait before touching him grabs: the start of every opening is safe.")]
         [Min(0f)] public float touchGrabDelay;
 
         public static BruteBreatherSettings Default => new BruteBreatherSettings
@@ -201,7 +221,7 @@ namespace junklite
             afterGetUp = 1f,
             cutPerHit = 0.3f,
             minRemaining = 0.3f,
-            touchGrabDelay = 0.6f,
+            touchGrabDelay = 0.25f,
         };
 
         /// <summary>Remaining wait after one hit: cut, but never below the floor (or raised to it).</summary>

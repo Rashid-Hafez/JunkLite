@@ -65,6 +65,7 @@ namespace junklite
             AddEnemy("HYENA / BLUE", "Assets/Game/Prefabs/Enemies/Hyena Blue.prefab");
             AddEnemy("HYENA / GREEN", "Assets/Game/Prefabs/Enemies/Hyena Green.prefab");
             AddEnemy("ROBOT", "Assets/Game/Prefabs/Enemies/Robot Enemy.prefab");
+            AddEnemy("BRUTE (BOSS)", "Assets/Game/ENEMIES/Brute/Brute Boss.prefab");
             AddEnemy("FLYING DUMMY", "Assets/Game/Prefabs/Enemies/Flying Dummy.prefab");
             AddEnemy("TRAINING DUMMY", "Assets/Game/Prefabs/Enemies/Dummy.prefab");
         }

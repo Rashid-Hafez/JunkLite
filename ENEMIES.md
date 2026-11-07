@@ -16,6 +16,8 @@ Duplicate a working prefab instead of building one from scratch. Then swap the a
 
 Each Hyena colour (EASY, Blue, Green) is its own prefab, not a variant. Changing `Hyena.prefab` does **not** change the others. If you make colour or difficulty versions of a new enemy, make them **prefab variants**, so one change reaches all of them.
 
+**Hyena behaviour (`HyenaBrain`):** it dodges a swing only when the swing can reach it (player weapon reach + lunge margin, player facing it), each dodge tires it (fatigue lowers the next dodge's chance and recovers over a few seconds), and it picks the open side (away, or through the player when a wall or lane-mate is behind it; `dodgeObstacleLayers`). The charged dash is a punish for a player still mid-swing after a dodge, or an opener from range while chasing; both share `dashCooldown`, both show the attack warning, and a whiff stuns it. When combo'd, a stagger ends with a retreat hop. All tuning is on the brain; the dodge `wallLayer` on the prefab should include walls, ground and enemies so the hop gets clamped.
+
 ## 2. What the prefab must have
 
 `Tools > JunkLite > Systems > Validate Enemies` checks most of this (see step 4).

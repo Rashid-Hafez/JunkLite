@@ -15,8 +15,9 @@ namespace junklite
     }
 
     /// <summary>
-    /// Brute close-range grab: warning, reach (unparryable hitbox), hold, throw.
-    /// A grab on touch (caught by the brain) starts at the hold.
+    /// Brute close-range grab: warning, reach (unparryable hitbox), hold, throw. The hold
+    /// can be broken by mashing jump (EscapeJumpPresses). A grab on touch (caught by the
+    /// brain) skips to the hold, throws after TouchThrowDelay and can't be broken.
     /// The boss owns the timing: the player stays held until ReleaseGrab, and Exit
     /// always cancels a grab that is still held (stun, death, disable).
     /// </summary>
@@ -32,6 +33,8 @@ namespace junklite
         private float timer;
         private bool released;
         private bool caught;
+        private bool lunging;
+        private bool touchGrab;
 
         public BruteGrabState(EnemyCharacter enemy) : base(enemy) { }
 
@@ -51,6 +54,9 @@ namespace junklite
             held = null;
             released = false;
             caught = false;
+            lunging = false;
+            touchGrab = false;
+            grab.LastGrabEscaped = false;
 
             movement?.Stop();
             if (HasTarget)
@@ -62,6 +68,7 @@ namespace junklite
             IGrabbable touched = grab.TakeTouchCatch();
             if (touched != null)
             {
+                touchGrab = true;
                 SetPhase(Phase.Reach);
                 HandleCaught(touched);
                 return;
@@ -89,15 +96,18 @@ namespace junklite
                     break;
 
                 case Phase.Reach:
+                    if (lunging && (!HasTarget || IsWithinReachStop()))
+                        EndReachLunge();
                     if (timer >= grab.ReachActiveTime)
                     {
+                        EndReachLunge();
                         grab.GrabHitbox?.Deactivate();
                         SetPhase(Phase.Missed);
                     }
                     break;
 
                 case Phase.Hold:
-                    if (timer >= grab.HoldTime)
+                    if (timer >= (touchGrab ? grab.TouchThrowDelay : grab.HoldTime))
                     {
                         presenter?.PlayThrow(grab.ThrowDuration);
                         SetPhase(Phase.Throw);
@@ -128,6 +138,32 @@ namespace junklite
             presenter?.PlayGrabReach();
             grab.GrabHitbox?.Activate();
             SetPhase(Phase.Reach);
+            BeginReachLunge();
+        }
+
+        // The reach steps toward a player who backed off during the warning; the
+        // hitbox rides along, so the grab lands instead of swiping air.
+        private void BeginReachLunge()
+        {
+            if (movement == null || !HasTarget || grab.ReachLungeSpeed <= 0f || IsWithinReachStop())
+                return;
+
+            float signed = movement.GetSignedAxisDistance(Transform.position, Target.position);
+            movement.MoveInDirection(movement.MovementAxis * Mathf.Sign(signed), grab.ReachLungeSpeed);
+            lunging = true;
+        }
+
+        private bool IsWithinReachStop() =>
+            HasTarget && movement != null
+            && movement.GetAbsAxisDistance(Transform.position, Target.position) <= grab.ReachLungeStopDistance;
+
+        private void EndReachLunge()
+        {
+            if (!lunging)
+                return;
+
+            lunging = false;
+            movement?.Stop();
         }
 
         private void HandleCaught(IGrabbable target)
@@ -135,6 +171,7 @@ namespace junklite
             if (phase != Phase.Reach)
                 return;
 
+            EndReachLunge();
             grab.GrabHitbox?.Deactivate();
 
             int facing = movement != null ? movement.FacingDirection : 1;
@@ -148,6 +185,8 @@ namespace junklite
             {
                 Anchor = grab.GrabAnchor,
                 HoldUntilReleased = true,
+                EscapePresses = touchGrab ? 0 : grab.EscapeJumpPresses,
+                OnEscaped = HandleEscaped,
             };
 
             target.GetGrabbed(info);
@@ -156,6 +195,18 @@ namespace junklite
             enemy.GetComponentInChildren<EnemyAudioHandler>()?.PlayGrab();
             presenter?.PlayGrabHold();
             SetPhase(Phase.Hold);
+        }
+
+        /// <summary>She mashed out of the hold: nothing to throw, and he staggers (brain reads LastGrabEscaped).</summary>
+        private void HandleEscaped()
+        {
+            if (phase != Phase.Hold && phase != Phase.Throw)
+                return;
+
+            held = null;
+            caught = false;
+            grab.LastGrabEscaped = true;
+            Finish();
         }
 
         private void Release()
@@ -190,6 +241,7 @@ namespace junklite
                 return;
 
             grab.Caught -= HandleCaught;
+            EndReachLunge();
             grab.GrabHitbox?.Deactivate();
             grab.StartTouchCooldown();
             enemy.HideAttackWarning();

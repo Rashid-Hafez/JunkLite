@@ -4,7 +4,8 @@ namespace junklite
 {
     /// <summary>
     /// Brute boss decisions. Touching his body while he is idle or walking grabs at
-    /// once. Close range: telegraphed unparryable grab. Otherwise a weighted roll
+    /// once (the first moments of each wait after a move are safe; a brush-past is
+    /// not a touch). Close range: telegraphed unparryable grab. Otherwise a weighted roll
     /// between Taunt+Attack (melee wind-up is the taunt) and Charge+Dash (armored
     /// charge whose aim locks part-way, then a parryable dash along that direction).
     /// After every move he waits, idle and facing the player, before the next one;
@@ -16,12 +17,14 @@ namespace junklite
         private enum Move { None, TauntAttack, ChargeDash, Grab }
 
         [Header("Brute - Move Choice")]
-        [SerializeField] private BruteMoveWeight tauntAttack = new() { weight = 2f, cooldown = 2.5f };
-        [SerializeField] private BruteMoveWeight chargeDash = new() { weight = 1f, cooldown = 6f };
-        [Tooltip("Charge+Dash is only picked when the player is at least this far away (axis distance).")]
-        [SerializeField] private float chargeDashMinDistance = 3.5f;
+        [SerializeField] private BruteMoveWeight tauntAttack = new() { weight = 1.2f, cooldown = 3.5f };
+        [SerializeField] private BruteMoveWeight chargeDash = new() { weight = 1.2f, cooldown = 5f };
+        [Tooltip("Charge+Dash is only picked when the player is at least this far away (axis distance). Up close the charge ends in the blast, not the dash.")]
+        [SerializeField] private float chargeDashMinDistance = 1.5f;
         [Tooltip("Grab joins the weighted roll only when the player is within grab range.")]
-        [SerializeField, Min(0f)] private float grabWeight = 1f;
+        [SerializeField, Min(0f)] private float grabWeight = 1.5f;
+        [Tooltip("Never the same move twice in a row while another is ready.")]
+        [SerializeField] private bool avoidRepeatingMove = true;
         [Tooltip("Pause between moves when nothing is ready.")]
         [SerializeField] private float idleBetweenMoves = 0.4f;
 
@@ -39,6 +42,8 @@ namespace junklite
         [SerializeField] private MeleeAttackBehavior melee = new();
         [SerializeField] private float lungeSpeed = 4f;
         [SerializeField] private float lungeDuration = 0.25f;
+        [Tooltip("No lunge when the player is already within this axis distance (on top of him).")]
+        [SerializeField, Min(0f)] private float lungeStopDistance = 1.5f;
 
         [Header("Brute - Charge + Dash")]
         [SerializeField] private ChargeBehavior charge = new();
@@ -62,6 +67,10 @@ namespace junklite
 
         [Header("Brute - Grab")]
         [SerializeField] private BruteGrabBehavior grab = new();
+        [Tooltip("Hits taken during one wait that trigger a grab at once (she is in his face). 0 = off.")]
+        [SerializeField, Min(0)] private int grabAfterHits = 3;
+        [Tooltip("Seconds between those punish grabs.")]
+        [SerializeField, Min(0f)] private float punishGrabCooldown = 6f;
 
         [Header("Brute - Recovery / Stun")]
         [SerializeField] private RecoveryBehavior recovery = new();
@@ -84,6 +93,7 @@ namespace junklite
 
         private BruteScaledCapabilities scaled;
         private Move pendingMove;
+        private Move lastMove;
         private float nextDecisionTime;
         private bool phaseTwoActive;
         private float nextPerceptionRefresh;
@@ -91,7 +101,10 @@ namespace junklite
         private Collider targetBody;
         private BruteEnemy brute;
         private bool breatherActive;
-        private float touchGrabResumeTime;
+        private float breatherStartTime;
+        private int breatherHits;
+        private float nextPunishGrabAllowed;
+        private float touchOverlapSince = -1f;
         private bool roarPending;
 
         public bool IsPhaseTwo => phaseTwoActive;
@@ -205,12 +218,7 @@ namespace junklite
             if (!actionCompleted && IsDecisionLocked())
                 return;
 
-            // The wait is over: whatever comes next has a warning, so hold the touch grab a moment.
-            if (breatherActive)
-            {
-                breatherActive = false;
-                touchGrabResumeTime = Time.time + breather.touchGrabDelay;
-            }
+            breatherActive = false;
 
             if (!Actor.HasTarget)
             {
@@ -226,6 +234,7 @@ namespace junklite
             {
                 case Move.ChargeDash:
                     pendingMove = Move.None;
+                    lastMove = Move.ChargeDash;
                     chargeDash.StartCooldown(CooldownMultiplier);
                     ChangeState<ChargeState>();
                     break;
@@ -285,6 +294,20 @@ namespace junklite
 
             float grabW = CanGrabNow() ? grabWeight : 0f;
 
+            // Variety: drop the move he just did when anything else is on the table.
+            if (avoidRepeatingMove)
+            {
+                float repeatWeight = lastMove == Move.TauntAttack ? tauntWeight
+                    : lastMove == Move.ChargeDash ? dashWeight
+                    : lastMove == Move.Grab ? grabW : 0f;
+                if (tauntWeight + dashWeight + grabW - repeatWeight > 0f)
+                {
+                    if (lastMove == Move.TauntAttack) tauntWeight = 0f;
+                    else if (lastMove == Move.ChargeDash) dashWeight = 0f;
+                    else if (lastMove == Move.Grab) grabW = 0f;
+                }
+            }
+
             float total = tauntWeight + dashWeight + grabW;
             if (total <= 0f)
                 return Move.None;
@@ -297,6 +320,7 @@ namespace junklite
         private void StartTauntAttack()
         {
             pendingMove = Move.None;
+            lastMove = Move.TauntAttack;
             tauntAttack.StartCooldown(CooldownMultiplier);
             ChangeState<MeleeAttackState>();
         }
@@ -304,26 +328,37 @@ namespace junklite
         private void StartGrab()
         {
             pendingMove = Move.None;
+            lastMove = Move.Grab;
             grab.StartCooldown(CooldownMultiplier);
             ChangeState<BruteGrabState>();
         }
 
         /// <summary>
-        /// Idle or walking (the caller skips every locked state): touching his body grabs
-        /// her at once. A dash or roll passes through; TryCatchOnTouch rejects it.
+        /// Idle or walking (the caller skips every locked state): a body kept against his
+        /// for TouchHoldTime grabs her at once. The start of every wait after a move is
+        /// safe (touchGrabDelay), so each opening is real. A dash or roll passes through;
+        /// TryCatchOnTouch rejects it.
         /// </summary>
         private bool TryGrabOnTouch()
         {
-            // Not in the wait, and not right after it: the player is in his face hitting him.
-            if (IsInBreather || Time.time < touchGrabResumeTime)
+            if (!grab.CanGrabOnTouch
+                || (breatherActive && Time.time < breatherStartTime + breather.touchGrabDelay)
+                || !BodyContact.IsOverlapping(bodyCollider, targetBody, grab.TouchMinOverlap))
+            {
+                touchOverlapSince = -1f;
                 return false;
+            }
 
-            if (!grab.CanGrabOnTouch || !BodyContact.IsOverlapping(bodyCollider, targetBody, grab.TouchMinOverlap))
+            if (touchOverlapSince < 0f)
+                touchOverlapSince = Time.time;
+            if (Time.time - touchOverlapSince < grab.TouchHoldTime)
                 return false;
 
             if (!grab.TryCatchOnTouch(targetBody))
                 return false;
 
+            touchOverlapSince = -1f;
+            breatherActive = false;
             StartGrab();
             return true;
         }
@@ -387,7 +422,7 @@ namespace junklite
             tauntAttack ??= new BruteMoveWeight();
             chargeDash ??= new BruteMoveWeight();
             scaled ??= new BruteScaledCapabilities(charge, dash, melee, () => lungeSpeed, () => lungeDuration,
-                () => aimLockNormalized, () => lockedDashDistance);
+                () => lungeStopDistance, () => aimLockNormalized, () => lockedDashDistance);
         }
 
         private void InitializeCapabilities()
@@ -436,6 +471,9 @@ namespace junklite
 
             pendingMove = Move.None;
             breatherActive = true;
+            breatherStartTime = Time.time;
+            breatherHits = 0;
+            touchOverlapSince = -1f;
             nextDecisionTime = Time.time + seconds * BreatherMultiplier;
             ChangeState<IdleState>();
         }
@@ -447,6 +485,22 @@ namespace junklite
 
             float remaining = BruteBreatherSettings.Shorten(nextDecisionTime - Time.time, BreatherCutPerHit, breather.minRemaining);
             nextDecisionTime = Time.time + remaining;
+
+            breatherHits++;
+            TryPunishGrab();
+        }
+
+        /// <summary>Enough hits in one wait with her inside grab range: the wait ends in a grab, cooldown or not.</summary>
+        private void TryPunishGrab()
+        {
+            if (grabAfterHits <= 0 || breatherHits < grabAfterHits || Time.time < nextPunishGrabAllowed)
+                return;
+            if (!Actor.HasTarget || AxisDistanceToTarget() > grab.GrabRange)
+                return;
+
+            nextPunishGrabAllowed = Time.time + punishGrabCooldown;
+            breatherActive = false;
+            StartGrab();
         }
 
         private void HandleChargeCompleted()
@@ -495,8 +549,22 @@ namespace junklite
             StartBreather(hitWall ? breather.afterDashIntoWall : breather.afterDash);
         }
 
-        private void HandleGrabCompleted(bool caught) =>
+        private void HandleGrabCompleted(bool caught)
+        {
+            if (grab.LastGrabEscaped)
+            {
+                // She broke free: he reels, then stands up into the usual wait.
+                grab.LastGrabEscaped = false;
+                if (Actor.IsAlive && grab.EscapeStunDuration > 0f)
+                {
+                    stun.ForcedStunDuration = grab.EscapeStunDuration;
+                    ChangeState<StunnedState>();
+                    return;
+                }
+            }
+
             StartBreather(caught ? breather.afterGrab : breather.afterMissedGrab);
+        }
 
         // Stun, parry and knockdown all end in the StandUp recovery.
         private void HandleStunCompleted()
@@ -551,6 +619,7 @@ namespace junklite
             private readonly MeleeAttackBehavior melee;
             private readonly System.Func<float> lungeSpeed;
             private readonly System.Func<float> lungeDuration;
+            private readonly System.Func<float> lungeStopDistance;
             private readonly System.Func<float> aimLockNormalized;
             private readonly System.Func<float> lockedDashDistance;
             private float chargeTimeMultiplier = 1f;
@@ -564,6 +633,7 @@ namespace junklite
                 MeleeAttackBehavior melee,
                 System.Func<float> lungeSpeed,
                 System.Func<float> lungeDuration,
+                System.Func<float> lungeStopDistance,
                 System.Func<float> aimLockNormalized,
                 System.Func<float> lockedDashDistance)
             {
@@ -572,6 +642,7 @@ namespace junklite
                 this.melee = melee;
                 this.lungeSpeed = lungeSpeed;
                 this.lungeDuration = lungeDuration;
+                this.lungeStopDistance = lungeStopDistance;
                 this.aimLockNormalized = aimLockNormalized;
                 this.lockedDashDistance = lockedDashDistance;
             }
@@ -621,6 +692,7 @@ namespace junklite
             // IMeleeLunge
             public float LungeSpeed => lungeSpeed();
             public float LungeDuration => lungeDuration();
+            public float LungeStopDistance => lungeStopDistance();
         }
     }
 }

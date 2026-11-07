@@ -20,13 +20,19 @@ namespace junklite
 
         private const float MaxFlightTime = 2f;
         private const float GetUpDelay = 0.5f;
+        // Hop away from the grabber on a successful escape (x along the lane, y up).
+        private static readonly Vector2 EscapeKick = new(6f, 5f);
         private GameObject activeSource;
         private bool releaseRequested;
         private int releaseDirection;
         private Vector2 releaseForce;
         private float releaseDamage;
+        private int escapePresses;
+        private int escapePressesNeeded;
 
         public bool IsGrabbed { get; private set; }
+        /// <summary>Jump presses so far toward breaking the current hold.</summary>
+        public int EscapePresses => escapePresses;
         public bool CanBeGrabbed => player != null && player.IsActive && player.IsAlive && !IsGrabbed;
 
         public PlayerGrabController(
@@ -45,7 +51,16 @@ namespace junklite
                 return false;
 
             IsGrabbed = true;
+            escapePresses = 0;
+            escapePressesNeeded = 0;
             return true;
+        }
+
+        /// <summary>A jump press while held. Attack input never counts: only mashing jump breaks a hold.</summary>
+        public void RegisterEscapePress()
+        {
+            if (IsGrabbed && escapePressesNeeded > 0)
+                escapePresses++;
         }
 
         public IEnumerator Execute(GrabInfo info)
@@ -58,6 +73,8 @@ namespace junklite
 
             activeSource = info.Source;
             releaseRequested = false;
+            escapePresses = 0;
+            escapePressesNeeded = Mathf.Max(0, info.EscapePresses);
             state?.ApplyStun(info.Duration + 0.5f);
 
             movementLock = controller?.AcquireMovementLock();
@@ -76,6 +93,12 @@ namespace junklite
                 if (!IsGrabbed || !player.IsAlive)
                 {
                     Cancel();
+                    yield break;
+                }
+
+                if (escapePressesNeeded > 0 && escapePresses >= escapePressesNeeded)
+                {
+                    Escape(info);
                     yield break;
                 }
 
@@ -184,6 +207,29 @@ namespace junklite
             Cancel();
         }
 
+        /// <summary>Broke free by mashing jump: released where she is, hops away, the grabber is told.</summary>
+        private void Escape(GrabInfo info)
+        {
+            GameObject source = info.Source;
+            Cancel();
+            state?.ApplyStun(0f);
+
+            if (controller != null)
+            {
+                float away = 1f;
+                if (source != null)
+                {
+                    float along = Vector3.Dot(player.transform.position - source.transform.position, controller.MovementAxis);
+                    away = Mathf.Abs(along) > 0.01f ? Mathf.Sign(along) : -info.ThrowDirection;
+                }
+
+                controller.StopAllVelocity();
+                controller.ApplyExternalImpulse(controller.MovementAxis * (away * EscapeKick.x) + Vector3.up * EscapeKick.y);
+            }
+
+            info.OnEscaped?.Invoke();
+        }
+
         /// <summary>Requests the throw for a grab held by source.</summary>
         public void RequestRelease(GameObject source, int throwDirection, Vector2 throwForce, float throwDamage)
         {
@@ -210,6 +256,8 @@ namespace junklite
             movementLock = null;
             activeSource = null;
             releaseRequested = false;
+            escapePresses = 0;
+            escapePressesNeeded = 0;
             IsGrabbed = false;
         }
     }

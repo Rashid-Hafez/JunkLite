@@ -4,10 +4,11 @@ using UnityEngine.Serialization;
 namespace junklite
 {
     /// <summary>
-    /// Body contact: the player can't walk through this enemy. Every physics step her body
-    /// overlaps its body she is shoved back to the side she came from, instantly (lane speed
-    /// replaced, not added). The shove does not depend on damage, so i-frames and the damage
-    /// cooldown never open a gap to slip through. Damage lands at most once per cooldown,
+    /// Body contact: a ready push. When her body overlaps its body and the shove is off
+    /// cooldown she is shoved back to the side she came from, instantly (lane speed
+    /// replaced, not added), and takes the contact damage. While the shove cools down the
+    /// body is passable: no push, no hitstun, no damage, so one bump is one push and she
+    /// can slip past a grunt that has just used his. Damage lands at most once per cooldown,
     /// through the one damage path (i-frames, shields and death rules apply as usual).
     /// Player and enemy bodies do not collide (layer matrix), so without this she passes freely.
     /// Only a player facing the body is blocked: one that backs into it (e.g. shoved there by
@@ -28,6 +29,8 @@ namespace junklite
         [SerializeField] private Vector2 knockback = new(9f, 2f);
         [Tooltip("Seconds the player loses control on each shove so her input can't cancel it.")]
         [SerializeField, Min(0f)] private float hitstun = 0.2f;
+        [Tooltip("After a shove, seconds before this body can shove again. Meanwhile she passes through it freely.")]
+        [SerializeField, Min(0f)] private float shoveCooldown = 1f;
 
         [Header("Damage")]
         [Tooltip("Damage per bump. 0 = shove only, no damage.")]
@@ -59,6 +62,7 @@ namespace junklite
         private Collider playerBody;
 
         private float lastDamageTime = float.NegativeInfinity;
+        private float lastShoveTime = float.NegativeInfinity;
         // Lane side (+1/-1, relative to this enemy) the player was on when the overlap began; 0 = not overlapping.
         private float entrySide;
         // She entered with her back to this body (e.g. shoved into it by another enemy): no shove,
@@ -112,12 +116,14 @@ namespace junklite
                 }
             }
 
-            if (passThrough || !CanShove())
+            // Push on cooldown: the body is passable until it is ready again.
+            if (passThrough || !CanShove() || Time.time < lastShoveTime + shoveCooldown)
                 return;
 
             if (TryDamage() == DamageOutcome.Parried)
                 return;
 
+            lastShoveTime = Time.time;
             player.ApplyBodyShove(axis * entrySide, knockback, hitstun, gameObject);
         }
 

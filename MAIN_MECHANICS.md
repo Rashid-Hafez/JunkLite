@@ -123,7 +123,8 @@ The trigger flips state every time it's crossed, so the same corner works in bot
   - When a lane is added or extended, add or stretch a floor strip to cover it.
 - Lanes stay on world X or Z; use a corner trigger for every turn.
 - **Hierarchy:**
-  - `[Gameplay]` holds the spawn point, lane paths, lane entry triggers, and camera switch triggers.
+  - `[Gameplay]` holds the spawn point, lane paths, lane entry triggers, camera switch triggers, and checkpoints.
+  - **Checkpoints** (`Scripts/LEVEL/Checkpoint.cs`): a trigger box across the lane. Walking into it makes it the respawn point until a later one is reached; its yaw must match the lane (0 for +X, 270 for +Z). In a level with checkpoints a death before the first one respawns at the primary spawn, never at the nearest marker. Restart Level forgets the checkpoint.
   - `[Environment]/Shared` holds the shell pieces that span several rooms.
   - Everything else lives in `[Environment]/Room N/<Category>`. The categories are Ceiling, Doors, Dressing, Floors, Foreground, Gameplay, Lighting, Props, Structure, and Walls. A piece belongs to the room containing the centre of its bounds, and a door belongs to the room it opens into.
 - **Collider tools** are under **Tools > JunkLite > Level**: *Replace Mesh Colliders With Boxes (Selection)* and *Remove Mesh Colliders (Selection)*. Each is one Undo step. Use them to strip imported art; level collision itself is authored by hand under `Colliders`.
@@ -147,6 +148,7 @@ The trigger flips state every time it's crossed, so the same corner works in bot
 
 Done:
 - **Spawn.** The spawn is in the middle of Room 0 at (−17.5, 0.2, 3), yaw 0.
+- **Checkpoints** under `[Gameplay]/Spawn & Recovery`: Service Door (−8, 0, 0), Hall 3 (50, 0, 0), Hall East (152, 0, 0), Room 11 (188, 0, 42), Wing 1 (50, 0, 68), Wing 2 (50, 0, 148), Brute Door (50, 0, 236). Hall ones face +X (yaw 0), the Room 11 and Wing ones +Z (yaw 270).
 - **Checkpoint.** `[Gameplay]/Spawn & Recovery/Checkpoint_ServiceDoor` (a plain `SpawnPoint`, priority 1) sits at (−8, 0.2, 0) in front of the service room door. `PlayerLifecycle` respawns at the spawn point nearest the death, so any death past the door returns there; the door relocks and E plays the walk again. Room 0 has its own `ZMovementZone_Room0` (up to x −6.02, just short of the door), so both spawns free-roam.
 - **Lane entry.** `[Gameplay]/LanePath_Room1-8` runs at z = 0 from x = −10 to x = 170. `[Gameplay]/LaneEntryTrigger_Room0` sits in front of `Room 0/Doors/Door_Entry` and gates that door.
 - **Colliders.** There are 11 level colliders under `Colliders`:

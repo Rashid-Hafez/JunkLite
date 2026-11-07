@@ -139,6 +139,8 @@ namespace junklite
     {
         float LungeSpeed { get; }
         float LungeDuration { get; }
+        /// <summary>No glide when the target is already within this axis distance; a glide ends on reaching it.</summary>
+        float LungeStopDistance { get; }
     }
 
     /// <summary>
@@ -158,6 +160,16 @@ namespace junklite
 
         // Callback when dodge completes
         void OnDodgeComplete();
+    }
+
+    /// <summary>
+    /// Optional for IDodger: the brain picks the dodge side. +1 = through the target
+    /// (landing on her other side), -1 = away from her, 0 = roll DodgeForwardChance.
+    /// Used by: DodgeState (enemies without it keep the random roll)
+    /// </summary>
+    public interface IDodgeAim
+    {
+        int DodgeDirectionSign { get; }
     }
 
     /// <summary>

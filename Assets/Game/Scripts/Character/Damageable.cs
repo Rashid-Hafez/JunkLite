@@ -39,6 +39,11 @@ namespace junklite
         /// </summary>
         public bool HoldUntilReleased;
 
+        /// <summary>Jump presses that break the hold before the throw. 0 = no escape.</summary>
+        public int EscapePresses;
+        /// <summary>Called on the grabber when the target breaks free (after it has been released).</summary>
+        public System.Action OnEscaped;
+
         public GrabInfo(GameObject source, float duration, Vector3 grabOffset, Vector2 throwForce, float throwDamage, int throwDirection)
         {
             Source = source;
@@ -49,6 +54,8 @@ namespace junklite
             ThrowDirection = throwDirection;
             Anchor = null;
             HoldUntilReleased = false;
+            EscapePresses = 0;
+            OnEscaped = null;
         }
     }
 

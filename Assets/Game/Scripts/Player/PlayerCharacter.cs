@@ -739,6 +739,12 @@ namespace junklite
         private void PerformJump(bool held)
         {
             if (playerState == null) return;
+            if (IsGrabbed)
+            {
+                // Each press struggles against the hold; enough of them break it.
+                grabController?.RegisterEscapePress();
+                return;
+            }
             if (Time.timeScale <= 0f)
             {
                 // Pressed during an attack's hit-stop: keep it for when time resumes.
@@ -806,6 +812,10 @@ namespace junklite
 
         void HandleAttackInput()
         {
+            // Held by a grabber: attacking does nothing. Mash jump to break free.
+            if (IsGrabbed)
+                return;
+
             if (playerState == null || !playerState.CanAttack || _weaponManager == null)
                 return;
 
