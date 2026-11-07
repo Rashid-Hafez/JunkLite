@@ -5,7 +5,7 @@ namespace junklite
     /// <summary>
     /// Marker component to identify spawn points in a scene.
     /// Attach this to any GameObject where the player can spawn.
-    /// The GameManager will automatically find all SpawnPoint components on scene load.
+    /// PlayerLifecycle discovers these markers when scene configuration is refreshed.
     /// </summary>
     public class SpawnPoint : MonoBehaviour
     {

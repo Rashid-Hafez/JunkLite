@@ -941,7 +941,6 @@ GameObject:
   m_Component:
   - component: {fileID: 7497227327407773366}
   - component: {fileID: 2946087182084789870}
-  - component: {fileID: 7621500735143911777}
   m_Layer: 5
   m_Name: Weapon 2
   m_TagString: Untagged
@@ -997,23 +996,6 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
---- !u!114 &7621500735143911777
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1908964830244163692}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 18f0ef1d89bd2c041935074a17603bfe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponSlotUI
-  iconImage: {fileID: 6144067397529807261}
-  durabilityFill: {fileID: 7891197875135980134}
-  activeIndicator: {fileID: 1303001061403223948}
-  mousePressedIcon: {fileID: 4044406687522001401}
-  mouseUnpressedIcon: {fileID: 9119908753703936401}
 --- !u!1 &2182398560145645940
 GameObject:
   m_ObjectHideFlags: 0
@@ -1993,7 +1975,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4185965880202570542}
   - component: {fileID: 8690896921221997068}
-  - component: {fileID: 2208629689258656161}
   m_Layer: 5
   m_Name: Weapon 1
   m_TagString: Untagged
@@ -2049,23 +2030,6 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
---- !u!114 &2208629689258656161
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3967556001143674055}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 18f0ef1d89bd2c041935074a17603bfe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponSlotUI
-  iconImage: {fileID: 230951426149280168}
-  durabilityFill: {fileID: 5824978135175884734}
-  activeIndicator: {fileID: 2347445450469881346}
-  mousePressedIcon: {fileID: 8237222424142401834}
-  mouseUnpressedIcon: {fileID: 4505737513641387259}
 --- !u!1 &4044406687522001401
 GameObject:
   m_ObjectHideFlags: 0
@@ -2330,8 +2294,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.ModCombatUI
   panel: {fileID: 2994359108066333700}
-  slot1: {fileID: 2208629689258656161}
-  slot2: {fileID: 7621500735143911777}
+  slot1: {fileID: 0}
+  slot2: {fileID: 0}
   activeModParent: {fileID: 267964880117111042}
   modSlotPrefab: {fileID: 1916310493219555474, guid: 5db272045a842b448918f5b7b818f09a, type: 3}
   activeSlotHints:
@@ -2702,7 +2666,7 @@ MonoBehaviour:
   inventoryPanel: {fileID: 8091256843582822158}
   inventoryUI: {fileID: 3106141886591342504}
   weaponPickupPanel: {fileID: 326401114585463350}
-  weaponPickupUI: {fileID: 8464244957846513286}
+  weaponPickupUI: {fileID: 0}
 --- !u!1 &5651576493230144119
 GameObject:
   m_ObjectHideFlags: 0
@@ -3362,7 +3326,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2256851467016469751}
-  - component: {fileID: 8464244957846513286}
   m_Layer: 5
   m_Name: Weapon Pickup UI
   m_TagString: Untagged
@@ -3390,39 +3353,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &8464244957846513286
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6472753256024386219}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d40a037350a1e9646b1ddc0363eb48a5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponPickupUI
-  newWeaponIcon: {fileID: 5531087108116515074}
-  newWeaponName: {fileID: 1856229815119347996}
-  newWeaponDurabilityFill: {fileID: 2348825203140819562}
-  slot1Button: {fileID: 7741490951986408456}
-  slot1Icon: {fileID: 4586735495038112565}
-  slot1Name: {fileID: 5113153138475014083}
-  slot1EmptyText: {fileID: 2002902903165789894}
-  slot1Highlight: {fileID: 2560896488334971104}
-  slot1StatusText: {fileID: 0}
-  slot1DurabilityFill: {fileID: 7519426470145065921}
-  slot2Button: {fileID: 8651702621697493355}
-  slot2Icon: {fileID: 0}
-  slot2Name: {fileID: 3049617158467341253}
-  slot2EmptyText: {fileID: 8672600558576384680}
-  slot2Highlight: {fileID: 5120044238601951399}
-  slot2StatusText: {fileID: 0}
-  slot2DurabilityFill: {fileID: 5636789752271687455}
-  inputHintsText: {fileID: 0}
-  occupiedNameColor: {r: 1, g: 1, b: 1, a: 1}
-  replaceColor: {r: 1, g: 0.3, b: 0.3, a: 1}
-  equipColor: {r: 0.3, g: 1, b: 0.5, a: 1}
 --- !u!1 &6553178361306612371
 GameObject:
   m_ObjectHideFlags: 0

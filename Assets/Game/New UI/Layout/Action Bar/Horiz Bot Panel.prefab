@@ -526,7 +526,6 @@ GameObject:
   - component: {fileID: 3680424581998002872}
   - component: {fileID: 8737561639962233749}
   - component: {fileID: 3587539466858109472}
-  - component: {fileID: 6526877997766403371}
   m_Layer: 5
   m_Name: Weapon Icon 1
   m_TagString: Untagged
@@ -611,21 +610,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 1
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &6526877997766403371
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6583795855619952955}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 18f0ef1d89bd2c041935074a17603bfe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponSlotUI
-  iconImage: {fileID: 0}
-  durabilityFill: {fileID: 0}
-  activeIndicator: {fileID: 0}
 --- !u!1 &7927508168754935861
 GameObject:
   m_ObjectHideFlags: 0
@@ -734,7 +718,6 @@ GameObject:
   - component: {fileID: 3159930770407053792}
   - component: {fileID: 7239678186975977697}
   - component: {fileID: 7483178822356499775}
-  - component: {fileID: 8082571111261330178}
   m_Layer: 5
   m_Name: Weapon Icon 2
   m_TagString: Untagged
@@ -819,21 +802,6 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
---- !u!114 &8082571111261330178
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7961282576944373093}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 18f0ef1d89bd2c041935074a17603bfe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponSlotUI
-  iconImage: {fileID: 0}
-  durabilityFill: {fileID: 0}
-  activeIndicator: {fileID: 0}
 --- !u!1 &8034752189934971892
 GameObject:
   m_ObjectHideFlags: 0

@@ -4,8 +4,8 @@ namespace junklite
 {
     /// <summary>
     /// Tracks combo progression and attack cooldowns for a WeaponData.
-    /// Plain C# class — no MonoBehaviour. Call Tick() each frame.
-    /// Used by WeaponInstance for world weapons and directly by WeaponManager for fists.
+    /// Plain C# class â€” no MonoBehaviour. Call Tick() each frame.
+    /// WeaponManager owns one for the current arm weapon and rebuilds it when the weapon changes.
     ///
     /// CombatState is deliberately type-agnostic. It only needs combo length and animation
     /// names from the weapon data, accessed through the abstract WeaponData interface.
@@ -18,31 +18,58 @@ namespace junklite
 
         private int sideComboIndex;
         private int airComboIndex;
+        // Air side attacks started since the last landing. Capped at the air combo's length:
+        // each step of the air chain can be used once per airtime (1 step = one air attack).
+        private int airSideAttacksThisAirtime;
         private float comboTimer;
         private bool comboActive;
 
         private float cooldownTimer;
         private bool onCooldown;
 
-        private bool logCombo;
+        private float attackCooldown = 0.15f;
+        private float comboWindow = 0.6f;
 
         #region Properties
 
         public WeaponData Data => data;
         public int CurrentComboIndex => sideComboIndex;
         public bool CanAttack => !onCooldown;
+        /// <summary>Air side attacks started since the last landing.</summary>
+        public int AirSideAttacksThisAirtime => airSideAttacksThisAirtime;
         public float CooldownRemaining => onCooldown ? Mathf.Max(0, AttackCooldown - cooldownTimer) : 0f;
         public float ComboTimeRemaining => comboActive ? Mathf.Max(0, ComboWindow - comboTimer) : 0f;
 
-        private float AttackCooldown => data != null ? data.attackCooldown : 0.2f;
-        private float ComboWindow => data != null ? data.comboWindow : 0.5f;
+        public float AttackCooldown
+        {
+            get => attackCooldown;
+            set => attackCooldown = Mathf.Max(0f, value);
+        }
+
+        public float ComboWindow
+        {
+            get => comboWindow;
+            set => comboWindow = Mathf.Max(0f, value);
+        }
 
         #endregion
 
-        public CombatState(WeaponData weaponData, bool enableLogging = false)
+        public CombatState(WeaponData weaponData)
         {
             data = weaponData;
-            logCombo = enableLogging;
+        }
+
+        public CombatState(WeaponData weaponData, float attackCooldown, float comboWindow)
+        {
+            data = weaponData;
+            this.attackCooldown = Mathf.Max(0f, attackCooldown);
+            this.comboWindow = Mathf.Max(0f, comboWindow);
+        }
+
+        public void SetTiming(float cooldown, float window)
+        {
+            AttackCooldown = cooldown;
+            ComboWindow = window;
         }
 
         #region Tick
@@ -57,7 +84,6 @@ namespace junklite
                 if (cooldownTimer >= AttackCooldown)
                 {
                     onCooldown = false;
-                    Log($"Cooldown ended ({AttackCooldown}s)");
                 }
             }
 
@@ -66,7 +92,6 @@ namespace junklite
                 comboTimer += dt;
                 if (comboTimer >= ComboWindow)
                 {
-                    Log($"Combo window expired ({ComboWindow}s) - resetting from {sideComboIndex}");
                     ResetCombo();
                 }
             }
@@ -78,7 +103,7 @@ namespace junklite
 
         /// <summary>
         /// Resolves the current combo index and animation name for the given attack direction.
-        /// Does NOT advance the index — call OnAttackComplete to advance.
+        /// Does NOT advance the index â€” call OnAttackComplete to advance.
         /// WeaponManager uses the returned comboIndex to separately fetch the typed step data
         /// from the weapon's concrete subclass (TryGetMeleeStep, TryGetRangedStep, etc).
         /// </summary>
@@ -89,6 +114,9 @@ namespace junklite
             animationName = null;
             if (weaponData == null) return false;
 
+            // Read the open combo window before closing it: the air continuation
+            // below needs it (it was cleared first, so a jump always restarted the chain).
+            bool windowOpen = comboActive;
             comboActive = false;
 
             if (dir == AttackDirection.Side)
@@ -96,11 +124,15 @@ namespace junklite
                 int comboLength = weaponData.GetComboLength(dir, isGrounded);
                 if (comboLength == 0) return false;
 
+                // In the air the chain is the budget: once every air step has been used,
+                // nothing more until the player lands (ResetAirChain).
+                if (!isGrounded && airSideAttacksThisAirtime >= comboLength) return false;
+
                 // Option B: allow the first air side attack after a grounded side hit
                 // to continue the ground combo index instead of restarting the air chain.
                 bool continuingFromGround =
                     !isGrounded &&
-                    comboActive &&          // combo window is still open
+                    windowOpen &&           // combo window is still open
                     sideComboIndex > 0;     // we have progressed at least one step on ground
 
                 if (continuingFromGround)
@@ -108,19 +140,16 @@ namespace junklite
                     if (sideComboIndex >= comboLength) sideComboIndex = 0;
                     comboIndex = sideComboIndex;
                     airComboIndex = sideComboIndex; // sync air track to continuation point
-                    Log($"Air side attack - continuing ground combo {comboIndex + 1}/{comboLength}");
                 }
                 else if (isGrounded)
                 {
                     if (sideComboIndex >= comboLength) sideComboIndex = 0;
                     comboIndex = sideComboIndex;
-                    Log($"Side attack - combo {sideComboIndex + 1}/{comboLength}");
                 }
                 else
                 {
                     if (airComboIndex >= comboLength) airComboIndex = 0;
                     comboIndex = airComboIndex;
-                    Log($"Air side attack - combo {airComboIndex + 1}/{comboLength}");
                 }
             }
             else
@@ -128,14 +157,25 @@ namespace junklite
                 // Directional attacks (Up/Down) break any active side combo
                 if (sideComboIndex > 0 || airComboIndex > 0)
                 {
-                    Log($"{dir} attack - breaking combo from {sideComboIndex}");
                     ResetCombo();
                 }
                 comboIndex = 0;
-                Log($"{dir} attack");
             }
 
-            return weaponData.TryGetAnimationName(dir, comboIndex, isGrounded, out animationName);
+            bool started = weaponData.TryGetAnimationName(dir, comboIndex, isGrounded, out animationName);
+            if (started && dir == AttackDirection.Side && !isGrounded)
+                airSideAttacksThisAirtime++;
+            return started;
+        }
+
+        /// <summary>
+        /// Landing: the air chain starts again from its first step and its full budget is back.
+        /// Called by WeaponManager when the player touches the ground.
+        /// </summary>
+        public void ResetAirChain()
+        {
+            airSideAttacksThisAirtime = 0;
+            airComboIndex = 0;
         }
 
         /// <summary>
@@ -151,14 +191,10 @@ namespace junklite
             onCooldown = true;
             comboTimer = 0f;
             comboActive = true;
-
-            int nextIndex = wasGrounded ? sideComboIndex : airComboIndex;
-            Log($"Attack complete - cooldown: {AttackCooldown}s, combo window: {ComboWindow}s, next index: {nextIndex}");
         }
 
         public void OnAttackInterrupted()
         {
-            Log("Attack interrupted - no cooldown");
             onCooldown = false;
             ResetCombo();
         }
@@ -191,10 +227,5 @@ namespace junklite
         }
 
         #endregion
-
-        private void Log(string msg)
-        {
-            if (logCombo) Debug.Log($"[CombatState] {msg}");
-        }
     }
 }

@@ -21,7 +21,9 @@ namespace junklite
         public virtual bool CanMove => IsAlive && !IsStunned;
         public virtual bool CanJump => IsAlive && !IsStunned;
         public virtual bool CanAttack => IsAlive && !IsAttacking && !IsStunned;
-        public virtual bool CanTakeDamage => IsAlive && IsVulnerable && !IsStunned;
+        // Crowd control never grants damage immunity. I-frames and explicit
+        // immunity locks are the only things that should affect this capability.
+        public virtual bool CanTakeDamage => IsAlive && IsVulnerable;
 
 
         // ==== Core State Flags ====
@@ -55,6 +57,9 @@ namespace junklite
 
         // Timed internals
         protected Coroutine _stunCo, _iFrameCo;
+        private float stunEndTime;
+        private bool timedStunned;
+        private bool statusStunned;
 
         protected virtual void Awake()
         {
@@ -74,6 +79,13 @@ namespace junklite
 
             if (_stunCo != null) StopCoroutine(_stunCo);
             if (_iFrameCo != null) StopCoroutine(_iFrameCo);
+
+            _stunCo = null;
+            _iFrameCo = null;
+            stunEndTime = 0f;
+            timedStunned = false;
+            statusStunned = false;
+            UpdateStunnedState();
         }
 
         protected void HandleDeathForward() => OnDeath?.Invoke();
@@ -96,6 +108,10 @@ namespace junklite
         {
             if (_stunCo != null) { StopCoroutine(_stunCo); _stunCo = null; }
             if (_iFrameCo != null) { StopCoroutine(_iFrameCo); _iFrameCo = null; }
+
+            stunEndTime = 0f;
+            timedStunned = false;
+            UpdateStunnedState();
 
             SetAttacking(false);
 
@@ -138,6 +154,21 @@ namespace junklite
 
         public void SetStunned(bool stunned)
         {
+            timedStunned = stunned;
+            if (!stunned)
+                stunEndTime = 0f;
+            UpdateStunnedState();
+        }
+
+        protected void SetStatusStunned(bool stunned)
+        {
+            statusStunned = stunned;
+            UpdateStunnedState();
+        }
+
+        private void UpdateStunnedState()
+        {
+            bool stunned = timedStunned || statusStunned;
             if (IsStunned == stunned) return;
             IsStunned = stunned;
             OnStunnedChanged?.Invoke(stunned);
@@ -186,19 +217,40 @@ namespace junklite
         //  TIMED UTILS
         // ===========================================================================
 
-        public void ApplyStun(float duration)
+        public virtual void ApplyStun(float duration)
         {
-            if (duration <= 0f) { SetStunned(false); return; }
-            if (_stunCo != null) StopCoroutine(_stunCo);
-            _stunCo = StartCoroutine(StunFor(duration));
+            if (duration <= 0f)
+            {
+                if (_stunCo != null)
+                {
+                    StopCoroutine(_stunCo);
+                    _stunCo = null;
+                }
+
+                stunEndTime = 0f;
+                timedStunned = false;
+                UpdateStunnedState();
+                return;
+            }
+
+            // A shorter reapplication can never shorten an existing stun.
+            stunEndTime = Mathf.Max(stunEndTime, Time.time + duration);
+            timedStunned = true;
+            UpdateStunnedState();
+
+            if (_stunCo == null)
+                _stunCo = StartCoroutine(StunUntilExpiry());
         }
 
-        IEnumerator StunFor(float t)
+        private IEnumerator StunUntilExpiry()
         {
-            SetStunned(true);
-            yield return new WaitForSeconds(t);
-            SetStunned(false);
+            while (Time.time < stunEndTime)
+                yield return null;
+
+            timedStunned = false;
+            stunEndTime = 0f;
             _stunCo = null;
+            UpdateStunnedState();
         }
 
         public void ApplyInvulnerability(float seconds)

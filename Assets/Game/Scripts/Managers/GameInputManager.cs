@@ -10,8 +10,15 @@ namespace junklite
         public static GameInputManager Instance { get; private set; }
         public InputSystem_Actions controls;
 
+        [Header("Gamepad Tuning (deadzone/actuation)")]
+        [SerializeField] private float gamepadDeadzone = 0.15f;
+        [SerializeField] private float gamepadActuation = 0.6f;
         // Gameplay events (gated by IsGameplayInputEnabled)
         public event Action<Vector2> OnMove = delegate { };
+        /// <summary>Set by the player: returns true while interact must be ignored (e.g. in combat).</summary>
+        public Func<bool> InteractBlocker { get; set; }
+        public bool IsInteractBlocked => InteractBlocker?.Invoke() == true;
+
         public event Action OnJump = delegate { };
         public event Action OnJumpReleased = delegate { };
         public event Action OnAttack = delegate { };
@@ -21,10 +28,7 @@ namespace junklite
         public event Action OnParry = delegate { };
         public event Action OnInteract = delegate { };
 
-        // Combat mode events (gated by IsGameplayInputEnabled)
-        public event Action OnCombatModeToggle = delegate { };
-        public event Action OnWeapon1Attack = delegate { };
-        public event Action OnWeapon2Attack = delegate { };
+        // Mod activation events (gated by IsGameplayInputEnabled)
         public event Action OnModActivate1 = delegate { };
         public event Action OnModActivate2 = delegate { };
         public event Action OnModActivate3 = delegate { };
@@ -35,6 +39,11 @@ namespace junklite
         public event Action<Vector2> OnUINavigate = delegate { };
         public event Action OnUISubmit = delegate { };
         public event Action OnUICancel = delegate { };
+        /// <summary>LB / RB (Q / R) in menus: step to the previous or next tab.</summary>
+        public event Action OnUIPreviousTab = delegate { };
+        public event Action OnUINextTab = delegate { };
+        public event Action OnPauseToggle = delegate { };
+        public event Action<bool> OnInputDeviceChanged = delegate { };
 
 
         public Vector2 MoveDirection { get; private set; }
@@ -46,18 +55,66 @@ namespace junklite
         /// UI inputs like inventory toggle remain active.
         /// </summary>
         public bool IsGameplayInputEnabled { get; private set; } = true;
+        public bool IsParryOnlyInputEnabled { get; private set; }
+        public bool IsUsingGamepad { get; private set; }
 
-  
+
         public string GetModActivateHint(int slotIndex)
         {
             return slotIndex switch
             {
-                0 => controls.Player.ModActivate1.GetBindingDisplayString(),
-                1 => controls.Player.ModActivate2.GetBindingDisplayString(),
-                2 => controls.Player.ModActivate3.GetBindingDisplayString(),
-                3 => controls.Player.ModActivate4.GetBindingDisplayString(),
+                0 => GetBindingHint(controls.Player.ModActivate1),
+                1 => GetBindingHint(controls.Player.ModActivate2),
+                2 => GetBindingHint(controls.Player.ModActivate3),
+                3 => GetBindingHint(controls.Player.ModActivate4),
                 _ => ""
             };
+        }
+
+        public string GetBindingHint(string actionNameOrPath)
+        {
+            if (string.IsNullOrWhiteSpace(actionNameOrPath) || controls == null)
+                return string.Empty;
+
+            InputAction action = controls.asset.FindAction(actionNameOrPath, throwIfNotFound: false);
+            return GetBindingHint(action);
+        }
+
+        public string ResolveBindingTokens(string text)
+        {
+            if (string.IsNullOrEmpty(text) || controls == null)
+                return text;
+
+            const string tokenPrefix = "{input:";
+            int searchIndex = 0;
+
+            while (searchIndex < text.Length)
+            {
+                int tokenStart = text.IndexOf(tokenPrefix, searchIndex, StringComparison.OrdinalIgnoreCase);
+                if (tokenStart < 0)
+                    break;
+
+                int tokenEnd = text.IndexOf('}', tokenStart + tokenPrefix.Length);
+                if (tokenEnd < 0)
+                    break;
+
+                int actionNameStart = tokenStart + tokenPrefix.Length;
+                string actionName = text.Substring(actionNameStart, tokenEnd - actionNameStart).Trim();
+                InputAction action = controls.asset.FindAction(actionName, throwIfNotFound: false);
+                string bindingHint = GetBindingHint(action);
+
+                if (string.IsNullOrEmpty(bindingHint))
+                {
+                    searchIndex = tokenEnd + 1;
+                    continue;
+                }
+
+                text = text.Remove(tokenStart, tokenEnd - tokenStart + 1)
+                    .Insert(tokenStart, bindingHint);
+                searchIndex = tokenStart + bindingHint.Length;
+            }
+
+            return text;
         }
         public void SetGameplayInputEnabled(bool enabled)
         {
@@ -75,10 +132,20 @@ namespace junklite
             }
         }
 
+        public void SetParryOnlyInputEnabled(bool enabled)
+        {
+            IsParryOnlyInputEnabled = enabled;
+            if (enabled)
+                SetGameplayInputEnabled(false);
+        }
+
 
         public void SwitchToUIActionMap()
         {
             controls.Player.Disable();
+            // Keep inventory toggle available while UI map is active
+            // so keyboard I / controller Select-Touchpad can close inventory.
+            controls.Player.Inventory.Enable();
             controls.UI.Enable();
 
             // Clear held states
@@ -96,17 +163,108 @@ namespace junklite
             controls.Player.Enable();
         }
 
+        private string GetBindingHint(InputAction action)
+        {
+            if (action == null)
+                return string.Empty;
+
+            for (int i = 0; i < action.bindings.Count; i++)
+            {
+                InputBinding binding = action.bindings[i];
+                if (binding.isComposite)
+                    continue;
+
+                string path = binding.effectivePath;
+                bool matchesDevice = IsUsingGamepad
+                    ? IsGamepadBinding(path)
+                    : IsKeyboardAndMouseBinding(path);
+                if (string.IsNullOrEmpty(path) || !matchesDevice)
+                    continue;
+
+                return action.GetBindingDisplayString(i);
+            }
+
+            return action.GetBindingDisplayString();
+        }
+
+        private static bool IsGamepadBinding(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            return path.IndexOf("Gamepad", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   path.IndexOf("Joystick", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsKeyboardAndMouseBinding(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            return path.IndexOf("Keyboard", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   path.IndexOf("Mouse", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private void HandleActionChange(object changedObject, InputActionChange change)
+        {
+            if (change != InputActionChange.ActionPerformed ||
+                changedObject is not InputAction action ||
+                action.actionMap?.asset != controls?.asset ||
+                !IsMeaningfulDeviceInput(action))
+            {
+                return;
+            }
+
+            SetInputDevice(action.activeControl?.device);
+        }
+
+        private bool IsMeaningfulDeviceInput(InputAction action)
+        {
+            InputDevice device = action.activeControl?.device;
+            if (device is not Gamepad && device is not Joystick)
+                return true;
+
+            if (action.type != InputActionType.Value)
+                return true;
+
+            if (string.Equals(action.expectedControlType, "Vector2", StringComparison.Ordinal))
+                return action.ReadValue<Vector2>().sqrMagnitude >= gamepadDeadzone * gamepadDeadzone;
+
+            if (string.Equals(action.expectedControlType, "Axis", StringComparison.Ordinal))
+                return Mathf.Abs(action.ReadValue<float>()) >= gamepadDeadzone;
+
+            return true;
+        }
+
+        private void SetInputDevice(InputDevice device)
+        {
+            bool? useGamepad = null;
+            if (device is Gamepad || device is Joystick)
+                useGamepad = true;
+            else if (device is Keyboard || device is Mouse)
+                useGamepad = false;
+
+            if (!useGamepad.HasValue || IsUsingGamepad == useGamepad.Value)
+                return;
+
+            IsUsingGamepad = useGamepad.Value;
+            OnInputDeviceChanged(IsUsingGamepad);
+        }
+
         // -----------------------------------------------------------------------
 
         void Awake()
         {
             if (Instance != null && Instance != this)
             {
-                Destroy(gameObject);
+                // This component may share the persistent GameRoot object with
+                // GameManager and other services. Only remove the duplicate service.
+                enabled = false;
+                Destroy(this);
                 return;
             }
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            // DontDestroyOnLoad(gameObject);
 
             controls = new InputSystem_Actions();
 
@@ -118,10 +276,21 @@ namespace junklite
             controls.Player.Move.performed += ctx =>
             {
                 if (!IsGameplayInputEnabled) return;
-                MoveDirection = ctx.ReadValue<Vector2>();
+
+                Vector2 raw = ctx.ReadValue<Vector2>();
+                if (raw.sqrMagnitude >= gamepadDeadzone * gamepadDeadzone)
+                    SetInputDevice(ctx.control?.device);
+
+                // Keyboard axes are independent: W/S aim attacks and must not
+                // reduce A/D running speed through radial normalization.
+                // Analogue sticks retain their existing deadzone/actuation.
+                bool isGamepadInput = ctx.control?.device is Gamepad || ctx.control?.device is Joystick;
+                MoveDirection = ctx.control?.device is Keyboard
+                    ? raw
+                    : InputHelpers.ApplyDeadzoneAndActuation(raw, gamepadDeadzone, gamepadActuation, isGamepadInput);
                 OnMove(MoveDirection);
             };
-            controls.Player.Move.canceled += _ =>
+            controls.Player.Move.canceled += ctx =>
             {
                 if (!IsGameplayInputEnabled) return;
                 MoveDirection = Vector2.zero;
@@ -144,9 +313,10 @@ namespace junklite
             };
 
             // === ATTACK (tap/hold) ===
-            controls.Player.Attack.performed += _ =>
+            controls.Player.Attack.performed += ctx =>
             {
                 if (!IsGameplayInputEnabled) return;
+                if (IsDevConsoleClick(ctx)) return;
                 IsAttackHeld = true;
                 OnAttack();
             };
@@ -171,7 +341,7 @@ namespace junklite
             };
 
             // === SPECIAL ATTACK (Press Only) ===
-            controls.Player.SpecialAttack.performed += _ =>
+            controls.Player.SpecialAttack.performed += ctx =>
             {
                 if (!IsGameplayInputEnabled) return;
                 OnSpecialAttack();
@@ -181,11 +351,9 @@ namespace junklite
             var parryAction = controls.FindAction("Parry", throwIfNotFound: false);
             if (parryAction != null)
             {
-                Debug.Log("[Input] Parry action found and bound");
                 parryAction.performed += ctx =>
                 {
-                    Debug.Log("[Input] Parry performed, gameplay enabled? " + IsGameplayInputEnabled);
-                    if (!IsGameplayInputEnabled) return;
+                    if (!IsGameplayInputEnabled && !IsParryOnlyInputEnabled) return;
                     OnParry();
                 };
             }
@@ -199,34 +367,13 @@ namespace junklite
             // Bind it to the F key (or your preferred key).
             controls.Player.Interact.performed += _ =>
             {
-                Debug.Log("[Input] on interact was performed");
-                if (!IsGameplayInputEnabled) return;
+                if (!IsGameplayInputEnabled || IsInteractBlocked) return;
                 OnInteract();
             };
 
             // === INVENTORY TOGGLE (Always active - UI input) ===
             controls.Player.Inventory.performed += _ => OnInventoryToggle();
-
-            // === COMBAT MODE TOGGLE ===
-            controls.Player.CombatMode.performed += _ =>
-            {
-                if (!IsGameplayInputEnabled) return;
-                OnCombatModeToggle();
-            };
-
-            // === WEAPON 1 ATTACK ===
-            controls.Player.Weapon1Attack.performed += _ =>
-            {
-                if (!IsGameplayInputEnabled) return;
-                OnWeapon1Attack();
-            };
-
-            // === WEAPON 2 ATTACK ===
-            controls.Player.Weapon2Attack.performed += _ =>
-            {
-                if (!IsGameplayInputEnabled) return;
-                OnWeapon2Attack();
-            };
+            controls.Player.Pause.performed += _ => OnPauseToggle();
 
             // === MOD ACTIVATIONS ===
             controls.Player.ModActivate1.performed += _ =>
@@ -262,23 +409,38 @@ namespace junklite
                 OnUINavigate(ctx.ReadValue<Vector2>());
             };
 
-            controls.UI.Submit.performed += _ =>
+            controls.UI.Submit.performed += ctx =>
             {
                 OnUISubmit();
             };
 
-            controls.UI.Cancel.performed += _ =>
+            controls.UI.Cancel.performed += ctx =>
             {
                 OnUICancel();
             };
 
+            InputAction previousTab = controls.asset.FindAction("UI/PreviousTab", throwIfNotFound: false);
+            if (previousTab != null) previousTab.performed += _ => OnUIPreviousTab();
+            InputAction nextTab = controls.asset.FindAction("UI/NextTab", throwIfNotFound: false);
+            if (nextTab != null) nextTab.performed += _ => OnUINextTab();
 
+
+        }
+
+        private static bool IsDevConsoleClick(InputAction.CallbackContext context)
+        {
+#if UNITY_EDITOR
+            return context.control?.device is Mouse && EditorRuntimeDevToolsPanel.ContainsPointer();
+#else
+            return false;
+#endif
         }
 
         void OnEnable()
         {
             if (controls != null)
             {
+                InputSystem.onActionChange += HandleActionChange;
                 // Start with Player map active, UI map disabled
                 controls.Player.Enable();
                 controls.UI.Disable();
@@ -287,8 +449,18 @@ namespace junklite
 
         void OnDisable()
         {
+            InputSystem.onActionChange -= HandleActionChange;
             if (controls != null)
                 controls.Disable();
+        }
+
+        void OnDestroy()
+        {
+            // Destroys the runtime InputActionAsset copy. With domain reload disabled
+            // it would otherwise leak (with its binding state) every play session.
+            if (Instance != this || controls == null) return;
+            controls.Dispose();
+            controls = null;
         }
     }
 }

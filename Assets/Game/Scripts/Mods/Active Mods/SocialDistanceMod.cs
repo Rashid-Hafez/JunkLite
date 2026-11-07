@@ -1,4 +1,8 @@
 ﻿using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+using System.Buffers;
+using UnityEngine.Pool;
 
 namespace junklite
 {
@@ -8,14 +12,12 @@ namespace junklite
         #region Config
 
         [Header("Push")]
-        [Tooltip("Radius of the push effect around Cas")]
         public float pushRadius = 5f;
-
-        [Tooltip("Horizontal knockback force (enemy's knockback system handles direction from Cas → enemy)")]
         public float pushForce = 15f;
-
-        [Tooltip("Upward lift applied alongside the push")]
         public float pushUpForce = 5f;
+
+        [Tooltip("How long the pulse takes to expand to full radius")]
+        public float pulseDuration = 0.35f;
 
         [Tooltip("Force multiplier at the edge of the radius (0.1 = 10% force at border)")]
         [Range(0.01f, 1f)]
@@ -24,18 +26,16 @@ namespace junklite
         public LayerMask enemyLayerMask = 1;
 
         [Header("Damage")]
-        [Tooltip("Damage dealt to pushed enemies (0 = no damage, just push)")]
         public float pushDamage = 10f;
 
         [Header("VFX")]
+        [Tooltip("Should be a flat radial effect — will be scaled up to match push radius over pulse duration")]
         public GameObject pushVFX;
 
         [Header("Feedback")]
         public float cameraShakeIntensity = 2f;
 
         #endregion
-
-        private static readonly Collider[] pushBuffer = new Collider[32];
 
         #region Overrides
 
@@ -44,57 +44,28 @@ namespace junklite
             // No charges - do nothing
         }
 
-        protected override bool ExecuteAbility(ModInstance instance, PlayerCharacter player)
+        protected override bool ExecuteAbility(
+            ModInstance instance,
+            PlayerCharacter player,
+            ModExecutionRunner executionRunner)
         {
+            return executionRunner.TryStart(
+                instance,
+                context => CoExecutePulse(context, player));
+        }
+
+        #endregion
+
+        #region Pulse
+
+        private IEnumerator CoExecutePulse(ModExecutionContext context, PlayerCharacter player)
+        {
+            context.ShowActiveDuration(pulseDuration);
             Vector3 origin = player.transform.position;
+            var hitEnemies = HashSetPool<EnemyCharacter>.Get();
+            Collider[] pushBuffer = ArrayPool<Collider>.Shared.Rent(64);
 
-            int count = Physics.OverlapSphereNonAlloc(origin, pushRadius, pushBuffer, enemyLayerMask);
-
-            if (count == 0)
-            {
-                Debug.Log("[SocialDistance] No enemies in range.");
-                return false;
-            }
-
-            bool hitAny = false;
-
-            for (int i = 0; i < count; i++)
-            {
-                var col = pushBuffer[i];
-                if (col.gameObject == player.gameObject) continue;
-
-                var enemy = col.GetComponentInParent<EnemyCharacter>();
-                if (enemy == null || !enemy.IsAlive) continue;
-
-                var damageable = enemy.GetComponentInParent<IDamageable>();
-                if (damageable == null) continue;
-
-                hitAny = true;
-
-                // Distance falloff: full force at center, edgeFalloff at border
-                float dist = Vector3.Distance(origin, enemy.transform.position);
-                float t = Mathf.Clamp01(dist / pushRadius);
-                float strength = Mathf.Lerp(1f, edgeFalloff, t);
-
-                Vector2 knockback = new Vector2(pushForce * strength, pushUpForce * strength);
-
-                damageable.TakeDamage(new DamageInfo(
-                    pushDamage,
-                    player.gameObject,
-                    DamageType.Physical,
-                    knockback
-                ));
-
-                SpawnHitEffects(origin, enemy);
-            }
-
-            if (!hitAny) return false;
-
-            // Push VFX at player position
-            if (pushVFX != null)
-                Instantiate(pushVFX, origin, Quaternion.identity);
-
-            // Camera shake
+            // Camera shake at start of pulse
             if (cameraShakeIntensity > 0f && FeedbackManager.Instance != null)
             {
                 var impulse = player.GetComponent<Unity.Cinemachine.CinemachineImpulseSource>();
@@ -102,7 +73,78 @@ namespace junklite
                     FeedbackManager.Instance.DoCameraShake(impulse, cameraShakeIntensity);
             }
 
-            return true;
+            // Spawn and scale VFX in sync with pulse expansion
+            GameObject vfxInstance = null;
+            if (pushVFX != null)
+                vfxInstance = Instantiate(pushVFX, origin, Quaternion.identity);
+
+            context.AddCleanup(() =>
+            {
+                if (vfxInstance != null)
+                    Destroy(vfxInstance);
+                ArrayPool<Collider>.Shared.Return(pushBuffer, clearArray: true);
+                HashSetPool<EnemyCharacter>.Release(hitEnemies);
+            });
+
+            float elapsed = 0f;
+
+            while (elapsed < pulseDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / pulseDuration);
+                float currentRadius = Mathf.Lerp(0f, pushRadius, t);
+
+                // Scale VFX to match current pulse radius
+                if (vfxInstance != null)
+                {
+                    float diameter = currentRadius * 2f;
+                    vfxInstance.transform.localScale = Vector3.one * diameter;
+                }
+
+                // Check for newly reached enemies
+                int count = Physics.OverlapSphereNonAlloc(origin, currentRadius, pushBuffer, enemyLayerMask);
+
+                for (int i = 0; i < count; i++)
+                {
+                    var col = pushBuffer[i];
+                    if (col.gameObject == player.gameObject) continue;
+
+                    var enemy = col.GetComponentInParent<EnemyCharacter>();
+                    if (enemy == null || !enemy.IsAlive || hitEnemies.Contains(enemy)) continue;
+
+                    hitEnemies.Add(enemy);
+
+                    float dist = Vector3.Distance(origin, enemy.transform.position);
+                    float falloff = Mathf.Lerp(1f, edgeFalloff, Mathf.Clamp01(dist / pushRadius));
+
+                    // KnockbackForce.x is a SCALAR MAGNITUDE, not a direction.
+                    //
+                    // EnemyCharacter.ApplyKnockback independently derives the outward world-space
+                    // direction from info.Source (player.gameObject):
+                    //   knockbackDir = (enemy.position - source.position).normalized  (Y=0)
+                    //   finalForce   = knockbackDir * KnockbackForce.x + Vector3.up * KnockbackForce.y
+                    //
+                    // Passing a signed X (as in dir.x * pushForce) would cause ApplyKnockback to
+                    // multiply two opposing signs and push enemies TOWARD the player on one side.
+                    // Keep X positive so enemies are always pushed away, regardless of which
+                    // plane (XY or ZY) the game is currently on — the direction math is entirely
+                    // world-space inside ApplyKnockback and naturally handles both planes.
+                    Vector2 knockback = new Vector2(pushForce * falloff, pushUpForce * falloff);
+
+                    DamageResult result = DamageReceiverUtility.Receive(
+                        enemy,
+                        new DamageRequest(
+                            pushDamage,
+                            player.gameObject,
+                            DamageType.Physical,
+                            knockback));
+
+                    if (result.WasApplied)
+                        SpawnHitEffects(origin, enemy);
+                }
+
+                yield return null;
+            }
         }
 
         #endregion
@@ -116,7 +158,7 @@ namespace junklite
             var enemyCollider = enemy.GetComponent<Collider>();
             if (enemyCollider == null) return;
 
-            Vector3 hitPoint = enemyCollider.bounds.center;
+            Vector3 hitPoint = CombatEffectsManager.BodyHitPoint(enemyCollider);
             Vector3 hitDir = (hitPoint - attackOrigin).normalized;
 
             CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDir);

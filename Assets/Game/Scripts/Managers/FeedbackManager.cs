@@ -45,8 +45,12 @@ namespace junklite
             if (duration < 0f)
                 duration = defaultHitstopDuration;
 
+            // A hit-stop already running has paused time; keep the scale it saved,
+            // or the new one would "restore" to zero and leave the game frozen.
             if (hitstopCoroutine != null)
                 StopCoroutine(hitstopCoroutine);
+            else
+                timeScaleBeforeHitstop = Time.timeScale;
 
             hitstopCoroutine = StartCoroutine(HitstopRoutine(duration));
         }
@@ -74,7 +78,7 @@ namespace junklite
         {
             CinemachineImpulseSource src = null;
             // try player character first
-            var player = GameObject.FindObjectOfType<PlayerCharacter>();
+            var player = PlayerLifecycle.Instance?.Player;
             if (player != null)
                 src = player.GetComponent<CinemachineImpulseSource>()
                       ?? player.GetComponentInChildren<CinemachineImpulseSource>();
@@ -99,15 +103,14 @@ namespace junklite
             DoCameraShake(impulseSource, shakeForce);
         }
 
+        private float timeScaleBeforeHitstop = 1f;
+
         private IEnumerator HitstopRoutine(float duration)
         {
-            float originalTimeScale = Time.timeScale;
             Time.timeScale = 0f;
 
-            //Debug.Log("Hit stop active");
             yield return new WaitForSecondsRealtime(duration);
-            //Debug.Log("Hit stop inactive");
-            Time.timeScale = originalTimeScale;
+            Time.timeScale = timeScaleBeforeHitstop;
             hitstopCoroutine = null;
         }
     }

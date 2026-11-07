@@ -5068,7 +5068,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 711784304498237338}
-  - component: {fileID: 3373570076327646582}
   m_Layer: 5
   m_Name: Weapon Pickup UI
   m_TagString: Untagged
@@ -5096,39 +5095,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &3373570076327646582
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1088866372553221798}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d40a037350a1e9646b1ddc0363eb48a5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponPickupUI
-  newWeaponIcon: {fileID: 0}
-  newWeaponName: {fileID: 0}
-  newWeaponDurabilityFill: {fileID: 0}
-  slot1Button: {fileID: 0}
-  slot1Icon: {fileID: 0}
-  slot1Name: {fileID: 0}
-  slot1EmptyText: {fileID: 0}
-  slot1Highlight: {fileID: 0}
-  slot1StatusText: {fileID: 0}
-  slot1DurabilityFill: {fileID: 0}
-  slot2Button: {fileID: 0}
-  slot2Icon: {fileID: 0}
-  slot2Name: {fileID: 0}
-  slot2EmptyText: {fileID: 0}
-  slot2Highlight: {fileID: 0}
-  slot2StatusText: {fileID: 0}
-  slot2DurabilityFill: {fileID: 0}
-  inputHintsText: {fileID: 0}
-  occupiedNameColor: {r: 1, g: 1, b: 1, a: 1}
-  replaceColor: {r: 1, g: 0.3, b: 0.3, a: 1}
-  equipColor: {r: 0.3, g: 1, b: 0.5, a: 1}
 --- !u!1 &1145091724412445382
 GameObject:
   m_ObjectHideFlags: 0
@@ -15115,7 +15081,7 @@ MonoBehaviour:
   inventoryPanel: {fileID: 0}
   inventoryUI: {fileID: 1157665963162011012}
   weaponPickupPanel: {fileID: 3680494381162101484}
-  weaponPickupUI: {fileID: 3304552311089970615}
+  weaponPickupUI: {fileID: 0}
 --- !u!1 &2765741371909225359
 GameObject:
   m_ObjectHideFlags: 0
@@ -45451,7 +45417,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 604051891517171789}
-  - component: {fileID: 7102514219247278901}
   m_Layer: 5
   m_Name: Weapon UI
   m_TagString: Untagged
@@ -45479,20 +45444,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &7102514219247278901
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6818983356750600418}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7be9fc2bd0042604bbe77c0f39cc055d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponUI
-  slot1: {fileID: 4746701283862969668}
-  slot2: {fileID: 7737330138583909229}
 --- !u!1 &7849516028471819512
 GameObject:
   m_ObjectHideFlags: 0
@@ -51581,28 +51532,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 6529797741032649559, guid: a16cd11ba60574c2b98b1963ec1fd9fe, type: 3}
   m_PrefabInstance: {fileID: 1966818899775658095}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &4746701283862969668 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 6526877997766403371, guid: a16cd11ba60574c2b98b1963ec1fd9fe, type: 3}
-  m_PrefabInstance: {fileID: 1966818899775658095}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 18f0ef1d89bd2c041935074a17603bfe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponSlotUI
---- !u!114 &7737330138583909229 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 8082571111261330178, guid: a16cd11ba60574c2b98b1963ec1fd9fe, type: 3}
-  m_PrefabInstance: {fileID: 1966818899775658095}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 18f0ef1d89bd2c041935074a17603bfe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponSlotUI
 --- !u!1001 &5428271920012836579
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -51859,7 +51788,7 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 9051783779901955596, guid: 35d2f9c4615dc406c839c8e439c86454, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 3304552311089970615}
+      addedObject: {fileID: 0}
   m_SourcePrefab: {fileID: 100100000, guid: 35d2f9c4615dc406c839c8e439c86454, type: 3}
 --- !u!224 &1388789140778713544 stripped
 RectTransform:
@@ -51871,36 +51800,3 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 9051783779901955596, guid: 35d2f9c4615dc406c839c8e439c86454, type: 3}
   m_PrefabInstance: {fileID: 5660421374771864800}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &3304552311089970615
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3680494381162101484}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d40a037350a1e9646b1ddc0363eb48a5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::junklite.WeaponPickupUI
-  newWeaponIcon: {fileID: 0}
-  newWeaponName: {fileID: 0}
-  newWeaponDurabilityFill: {fileID: 0}
-  slot1Button: {fileID: 0}
-  slot1Icon: {fileID: 0}
-  slot1Name: {fileID: 0}
-  slot1EmptyText: {fileID: 0}
-  slot1Highlight: {fileID: 0}
-  slot1StatusText: {fileID: 0}
-  slot1DurabilityFill: {fileID: 0}
-  slot2Button: {fileID: 0}
-  slot2Icon: {fileID: 0}
-  slot2Name: {fileID: 0}
-  slot2EmptyText: {fileID: 0}
-  slot2Highlight: {fileID: 0}
-  slot2StatusText: {fileID: 0}
-  slot2DurabilityFill: {fileID: 0}
-  inputHintsText: {fileID: 0}
-  occupiedNameColor: {r: 1, g: 1, b: 1, a: 1}
-  replaceColor: {r: 1, g: 0.3, b: 0.3, a: 1}
-  equipColor: {r: 0.3, g: 1, b: 0.5, a: 1}

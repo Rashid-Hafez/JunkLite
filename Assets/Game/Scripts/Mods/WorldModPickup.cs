@@ -10,6 +10,9 @@ namespace junklite
     {
         public ModData modData;
 
+        [Tooltip("When off, the pickup goes to the inventory instead of the first free mod slot (used by tutorials that teach slotting).")]
+        public bool autoEquip = true;
+
         [Header("Default Visual")]
         [Tooltip("The default visual to show if modData has no visualPrefab")]
         public GameObject defaultVisual;

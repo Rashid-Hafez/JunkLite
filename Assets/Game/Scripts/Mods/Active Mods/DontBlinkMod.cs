@@ -1,16 +1,13 @@
 using UnityEngine;
 using System.Collections;
+using System.Buffers;
 
 namespace junklite
 {
-    /// <summary>
-    /// Don't Blink Mod - Teleport behind the nearest enemy in facing direction and strike.
-    /// Deals bonus damage. Consumes mod durability only (not weapon durability).
-    /// No charges required - activate on demand.
-    /// </summary>
     [CreateAssetMenu(fileName = "DontBlinkMod", menuName = "Junklite/Mods/Dont Blink")]
     public class DontBlinkMod : ActiveModData
     {
+        private const int MaxSearchCapacity = 256;
         #region Config
 
         [Header("Teleport")]
@@ -21,6 +18,12 @@ namespace junklite
         public float behindOffset = 1.5f;
 
         public LayerMask enemyLayerMask = 1;
+
+        [Tooltip("Layer mask used to raycast for ground beneath the enemy (set to your Ground layer)")]
+        public LayerMask groundLayerMask = 1;
+
+        [Tooltip("How far down to raycast when snapping to ground beneath the enemy")]
+        public float groundSnapDistance = 10f;
 
         [Header("Strike")]
         public float strikeDamage = 30f;
@@ -55,79 +58,49 @@ namespace junklite
 
         #endregion
 
-        private bool isExecuting;
-
         #region Overrides
-
-        public override bool CanActivate(ModInstance instance, PlayerCharacter player)
-        {
-            return base.CanActivate(instance, player) && !isExecuting;
-        }
 
         public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt)
         {
-            // No charges - do nothing
         }
 
-        protected override bool ExecuteAbility(ModInstance instance, PlayerCharacter player)
+        protected override bool ExecuteAbility(
+            ModInstance instance,
+            PlayerCharacter player,
+            ModExecutionRunner executionRunner)
         {
-            if (isExecuting) return false;
-
             var enemy = FindNearestEnemyInFacingDirection(player);
             if (enemy == null)
             {
-                Debug.Log("[DontBlink] No enemy found in facing direction within range.");
                 return false;
             }
 
-            isExecuting = true;
-            player.StartCoroutine(CoExecuteBlink(player, enemy));
-            return true;
-        }
-
-        public override void OnEquip(PlayerCharacter player)
-        {
-            isExecuting = false;
+            return executionRunner.TryStart(
+                instance,
+                context => CoExecuteBlink(context, player, enemy));
         }
 
         #endregion
 
         #region Blink Sequence
 
-        private IEnumerator CoExecuteBlink(PlayerCharacter player, EnemyCharacter enemy)
+        private IEnumerator CoExecuteBlink(
+            ModExecutionContext context,
+            PlayerCharacter player,
+            EnemyCharacter enemy)
         {
+            context.ShowActiveDuration(Mathf.Max(0f, vanishDuration) + Mathf.Max(0f, strikeDelay) + Mathf.Max(0f, recoveryTime));
             var playerState = player.PlayerState;
-            var controller = player.Controller;
             var spineAnim = player.GetComponent<SpineAnimationController>();
-            var rb = player.GetComponent<Rigidbody>();
 
             Vector3 startPos = player.transform.position;
-            float playerY = startPos.y;
-            float facing = Mathf.Sign(player.transform.localScale.x);
-
-            // --- LOCK EVERYTHING ---
-            if (playerState != null)
+            context.LockPlayerControl(overridePhysics: true);
+            context.AddCleanup(() =>
             {
-                playerState.SetInputLocked(true);
-                playerState.SetVulnerable(false);
-            }
+                if (player != null)
+                    player.SetVisible(true);
+            });
 
-            if (controller != null)
-            {
-                controller.StopAllVelocity();
-                controller.CanMove = false;
-                controller.SetPhysicsOverride(true);
-            }
-
-            bool wasKinematic = false;
-            if (rb != null)
-            {
-                wasKinematic = rb.isKinematic;
-                rb.isKinematic = true;
-                rb.linearVelocity = Vector3.zero;
-            }
-
-            // --- VANISH ---
             if (teleportOutVFX != null)
                 Instantiate(teleportOutVFX, startPos, Quaternion.identity);
 
@@ -135,67 +108,60 @@ namespace junklite
 
             yield return new WaitForSeconds(vanishDuration);
 
-            // --- REAPPEAR BEHIND ENEMY ---
             if (enemy == null || !enemy.IsAlive)
             {
-                Debug.Log("[DontBlink] Enemy died during vanish, aborting.");
                 player.transform.position = startPos;
                 player.SetVisible(true);
-                RestorePhysics(player, playerState, controller, rb, wasKinematic);
                 yield break;
             }
 
             Vector3 enemyPos = enemy.transform.position;
+            float targetY = GetGroundYBeneathEnemy(enemyPos);
 
+            Vector3 facingDir = GetFacingWorldDirection(player);
             Vector3 behindPos = new Vector3(
-                enemyPos.x + (facing * behindOffset),
-                playerY,
-                enemyPos.z
+                enemyPos.x + facingDir.x * behindOffset,
+                targetY,
+                enemyPos.z + facingDir.z * behindOffset
             );
 
             player.transform.position = behindPos;
 
-            // Flip to face the enemy's back
-            Vector3 scale = player.transform.localScale;
-            scale.x = Mathf.Abs(scale.x) * -facing;
-            player.transform.localScale = scale;
+            // Turn around to face the enemy's back
+            if (player.Controller != null)
+                player.Controller.SetFacingDirection(!player.Controller.IsFacingRight);
 
             player.SetVisible(true);
 
             if (teleportInVFX != null)
                 Instantiate(teleportInVFX, behindPos, Quaternion.identity);
 
-            // --- STRIKE ANIMATION ---
             if (spineAnim != null && !string.IsNullOrEmpty(strikeAnimationName))
                 spineAnim.ForcePlayOverride(strikeAnimationName, false, () => { });
 
+            context.ShowActiveDuration(Mathf.Max(0f, strikeDelay) + Mathf.Max(0f, recoveryTime));
             yield return new WaitForSeconds(strikeDelay);
 
-            // --- DEAL DAMAGE + VFX ---
             if (enemy != null && enemy.IsAlive)
             {
                 float totalDamage = strikeDamage * bonusMultiplier;
-                var damageable = enemy.GetComponentInParent<IDamageable>();
-
-                if (damageable != null && damageable.IsAlive)
-                {
-                    bool dealt = damageable.TakeDamage(new DamageInfo(
+                DamageResult result = DamageReceiverUtility.Receive(
+                    enemy,
+                    new DamageRequest(
                         totalDamage,
                         player.gameObject,
                         DamageType.Physical,
-                        Vector2.zero
-                    ));
+                        Vector2.zero));
 
-                    if (dealt)
+                if (result.WasApplied)
+                {
+                    SpawnHitEffects(player.transform.position, enemy);
+
+                    if (hitShakeIntensity > 0f && FeedbackManager.Instance != null)
                     {
-                        SpawnHitEffects(player.transform.position, enemy);
-
-                        if (hitShakeIntensity > 0f && FeedbackManager.Instance != null)
-                        {
-                            var impulse = player.GetComponent<Unity.Cinemachine.CinemachineImpulseSource>();
-                            if (impulse != null)
-                                FeedbackManager.Instance.DoCameraShake(impulse, hitShakeIntensity);
-                        }
+                        var impulse = player.GetComponent<Unity.Cinemachine.CinemachineImpulseSource>();
+                        if (impulse != null)
+                            FeedbackManager.Instance.DoCameraShake(impulse, hitShakeIntensity);
                     }
                 }
 
@@ -203,11 +169,24 @@ namespace junklite
                     Instantiate(strikeVFX, enemy.transform.position, Quaternion.identity);
             }
 
-            // --- RECOVERY ---
+            context.ShowActiveDuration(recoveryTime);
             yield return new WaitForSeconds(recoveryTime);
 
-            // --- RESTORE EVERYTHING ---
-            RestorePhysics(player, playerState, controller, rb, wasKinematic);
+            if (playerState != null)
+                playerState.ApplyInvulnerability(recoveryInvulnerability);
+        }
+
+        private float GetGroundYBeneathEnemy(Vector3 enemyPos)
+        {
+            const float upOffset = 1.5f;
+            Vector3 rayOrigin = enemyPos + Vector3.up * upOffset;
+
+            if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit,
+                                groundSnapDistance + upOffset, groundLayerMask,
+                                QueryTriggerInteraction.Ignore))
+                return hit.point.y;
+
+            return enemyPos.y;
         }
 
         private void SpawnHitEffects(Vector3 attackOrigin, EnemyCharacter enemy)
@@ -217,67 +196,65 @@ namespace junklite
             var enemyCollider = enemy.GetComponent<Collider>();
             if (enemyCollider == null) return;
 
-            Vector3 hitPoint = enemyCollider.bounds.center;
+            Vector3 hitPoint = CombatEffectsManager.BodyHitPoint(enemyCollider);
             Vector3 hitDir = (hitPoint - attackOrigin).normalized;
 
             CombatEffectsManager.Instance.SpawnEnemyHitVFX(hitPoint, hitDir);
             CombatEffectsManager.Instance.SpawnEnemyHurtParticle(hitPoint, hitDir);
         }
 
-        private void RestorePhysics(
-            PlayerCharacter player,
-            PlayerState playerState,
-            Character2D5Controller controller,
-            Rigidbody rb,
-            bool wasKinematic)
-        {
-            if (rb != null)
-                rb.isKinematic = wasKinematic;
-
-            if (controller != null)
-            {
-                controller.SetPhysicsOverride(false);
-                controller.CanMove = true;
-            }
-
-            if (playerState != null)
-            {
-                playerState.SetInputLocked(false);
-                playerState.SetVulnerable(true);
-                playerState.ApplyInvulnerability(recoveryInvulnerability);
-            }
-
-            isExecuting = false;
-        }
-
         #endregion
 
         #region Helpers
 
-        private static readonly Collider[] searchBuffer = new Collider[16];
+        private Vector3 GetFacingWorldDirection(PlayerCharacter player)
+        {
+            float flip = player.Controller != null
+                ? player.Controller.FacingSign
+                : Mathf.Sign(player.transform.localScale.x);
+            return player.transform.right * flip;
+        }
 
         private EnemyCharacter FindNearestEnemyInFacingDirection(PlayerCharacter player)
         {
             Vector3 origin = player.transform.position;
-            float facing = Mathf.Sign(player.transform.localScale.x);
+            Vector3 facingDir = GetFacingWorldDirection(player);
 
-            int count = Physics.OverlapSphereNonAlloc(origin, searchRange, searchBuffer, enemyLayerMask);
+            Collider[] searchResults = ArrayPool<Collider>.Shared.Rent(64);
+            int searchCount;
+            while (true)
+            {
+                searchCount = Physics.OverlapSphereNonAlloc(
+                    origin,
+                    searchRange,
+                    searchResults,
+                    enemyLayerMask,
+                    QueryTriggerInteraction.Ignore);
+                if (searchCount < searchResults.Length || searchResults.Length >= MaxSearchCapacity)
+                    break;
+
+                Collider[] largerBuffer = ArrayPool<Collider>.Shared.Rent(
+                    Mathf.Min(searchResults.Length * 2, MaxSearchCapacity));
+                ArrayPool<Collider>.Shared.Return(searchResults, clearArray: true);
+                searchResults = largerBuffer;
+            }
 
             EnemyCharacter closest = null;
             float closestDist = float.MaxValue;
 
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < searchCount; i++)
             {
-                var col = searchBuffer[i];
+                var col = searchResults[i];
+                if (col == null) continue;
                 if (col.gameObject == player.gameObject) continue;
 
                 var enemy = col.GetComponentInParent<EnemyCharacter>();
                 if (enemy == null || !enemy.IsAlive) continue;
 
-                float xDiff = enemy.transform.position.x - origin.x;
-                if (Mathf.Sign(xDiff) != facing) continue;
+                Vector3 toEnemy = enemy.transform.position - origin;
+                if (Vector3.Dot(toEnemy, facingDir) <= 0f) continue;
 
-                float dist = xDiff * xDiff;
+                float dist = toEnemy.sqrMagnitude;
                 if (dist < closestDist)
                 {
                     closestDist = dist;
@@ -285,9 +262,7 @@ namespace junklite
                 }
             }
 
-            if (closest == null)
-                Debug.Log($"[DontBlink] Search found {count} colliders but none matched (facing={facing}).");
-
+            ArrayPool<Collider>.Shared.Return(searchResults, clearArray: true);
             return closest;
         }
 

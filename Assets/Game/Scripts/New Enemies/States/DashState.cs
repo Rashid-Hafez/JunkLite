@@ -5,6 +5,7 @@ namespace junklite
     public class DashState : EnemyStateBase
     {
         private IDasher dasher;
+        private ILockedDashAim aimLock;
         private EnemyMovement movement;
         private Hitbox hitbox;
 
@@ -21,15 +22,23 @@ namespace junklite
         private float attackWindowTimer;
         private float resolveTimer;
         private GameObject vfx;
+        private float lastProgress;
+        private float lastProgressTime;
 
         private const float MAX_DASH_DURATION = 2f;
+        // A locked dash that stops gaining ground for this long hit a wall.
+        private const float STALL_TIME = 0.15f;
 
         public DashState(EnemyCharacter enemy) : base(enemy) { }
+
+        /// <summary>A locked dash that stopped short against a wall (read in OnDashComplete).</summary>
+        public bool EndedAtWall { get; private set; }
 
         public override void Enter()
         {
             hasStarted = false;
             dashComplete = false;
+            EndedAtWall = false;
             attackTriggered = false;
             attackWindowActive = false;
             movementFinished = false;
@@ -48,8 +57,18 @@ namespace junklite
             hitbox = dasher.DashHitbox;
             stopDistance = dasher.DashStopDistance;
             vfx = dasher.DashVFXPrefab;
+            aimLock = movement != null ? GetCapability<ILockedDashAim>() : null;
 
-            if (HasTarget)
+            if (aimLock != null)
+            {
+                // Locked aim: run the full distance along the facing the charge locked,
+                // wherever the target is now. Dodging through to the other side beats it.
+                dashTarget = Transform.position
+                    + movement.MovementAxis * (movement.FacingDirection * aimLock.LockedDashDistance);
+                if (vfx != null) vfx.SetActive(true);
+                StartDash();
+            }
+            else if (HasTarget)
             {
                 float distanceToTarget = movement.GetAbsAxisDistance(Transform.position, Target.position);
 
@@ -70,7 +89,10 @@ namespace junklite
                 }
                 else
                 {
-                    dasher.OnDashComplete();
+                    // Already in reach (the target closed in during the charge):
+                    // strike in place. Skipping the attack would resolve as a whiff.
+                    if (vfx != null) vfx.SetActive(true);
+                    StrikeInPlace();
                 }
             }
             else
@@ -86,9 +108,22 @@ namespace junklite
             totalDashDistance = movement != null
                 ? movement.GetAbsAxisDistance(dashStartPosition, dashTarget)
                 : 0f;
+            lastProgress = 0f;
+            lastProgressTime = Time.time;
 
             movement?.FaceTarget(dashTarget);
             movement?.DashTo(dashTarget, dasher.DashSpeed);
+        }
+
+        private void StrikeInPlace()
+        {
+            hasStarted = true;
+            dashStartPosition = Transform.position;
+            dashTarget = dashStartPosition;
+            totalDashDistance = 0f;
+
+            movement?.Stop();
+            movement?.FaceTarget(Target.position);
         }
 
         public override void Update()
@@ -117,6 +152,13 @@ namespace junklite
 
                 if (!attackTriggered)
                     TriggerAttackWindow();
+
+                // A locked dash is only dangerous while it runs.
+                if (aimLock != null && attackWindowActive)
+                {
+                    attackWindowActive = false;
+                    hitbox?.Deactivate();
+                }
 
                 resolveTimer = Mathf.Max(0f, dasher.DashWhiffResolveDelay);
             }
@@ -157,6 +199,15 @@ namespace junklite
             if (movement != null && movement.HasReachedDestination)
                 return true;
 
+            if (aimLock != null)
+            {
+                if (movement.GetAbsAxisDistance(Transform.position, dashTarget) <= 0.3f)
+                    return true;
+
+                EndedAtWall = IsStalled();
+                return EndedAtWall;
+            }
+
             if (HasTarget && movement != null)
             {
                 float distanceToPlayer = movement.GetAbsAxisDistance(Transform.position, Target.position);
@@ -172,6 +223,19 @@ namespace junklite
             }
 
             return false;
+        }
+
+        private bool IsStalled()
+        {
+            float traveled = movement.GetAbsAxisDistance(dashStartPosition, Transform.position);
+            if (traveled > lastProgress + 0.05f)
+            {
+                lastProgress = traveled;
+                lastProgressTime = Time.time;
+                return false;
+            }
+
+            return Time.time - lastProgressTime > STALL_TIME;
         }
 
         private void CompleteDash()

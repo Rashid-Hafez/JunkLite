@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -39,8 +40,15 @@ namespace junklite
         private bool parryActive;
         private int parryStage; // 1 or 2
         private Coroutine parryRoutine;
+        private Collider[] parryOverlapBuffer = new Collider[64];
+        private readonly HashSet<EnemyCharacter> processedEnemies = new();
+        private const int MaxParryOverlapCapacity = 256;
 
         public bool IsParrying => parryActive;
+        /// <summary>Raised once per successful parry with the attacker that was parried (may be null).</summary>
+        public event Action<GameObject> ParrySucceeded;
+        // Other rewards can clone this authored distortion without triggering a parry or its gameplay effects.
+        public GameObject ScreenPulseTemplate => VisualEffectParry;
 
         private void Awake()
         {
@@ -70,14 +78,8 @@ namespace junklite
                 return;
 
             // kill any residual momentum so the player stops immediately
-            if (controller != null)
-            {
-                var rb = controller.GetComponent<Rigidbody>();
-                if (rb != null)
-                    rb.linearVelocity = Vector3.zero;
-            }
+            controller?.StopAllVelocity();
 
-           //  Debug.Log("[Parry] Begin stage1");
             PlayParryStartSound();
             parryRoutine = StartCoroutine(ParryCoroutine());
         }
@@ -93,7 +95,6 @@ namespace junklite
             yield return new WaitForSeconds(parryDuration);
 
             // whiff
-          //  Debug.Log("[Parry] Stage1 timed out (whiff)");
             EndParryWithWhiff();
         }
 
@@ -132,7 +133,6 @@ namespace junklite
                 parryStage = 2;
                 if (parryRoutine != null) StopCoroutine(parryRoutine);
 
-              //  Debug.Log("[Parry] Hit detected during stage1 -> entering stage2");
                 playerState?.ApplyInvulnerability(parryDuration);
                 // immediately switch to the hit animation before anything else
                 playerState?.RequestAttackAnimation("Perry_2");
@@ -149,8 +149,10 @@ namespace junklite
                 // delay slow‑motion/zoom slightly so animation plays first
                 StartCoroutine(DelayedCameraEffect());
 
-                VisualEffectParry.SetActive(true);
-                parryVFXPrefab.SetActive(true);
+                if (VisualEffectParry != null) VisualEffectParry.SetActive(true);
+                if (parryVFXPrefab != null) parryVFXPrefab.SetActive(true);
+
+                ParrySucceeded?.Invoke(attacker);
             }
 
             // always block damage while active
@@ -190,10 +192,9 @@ namespace junklite
             yield return new WaitForSeconds(parryDuration);
             parryActive = false;
             playerState?.SetParrying(false);
-            VisualEffectParry.SetActive(false);
-            parryVFXPrefab.SetActive(false);
+            if (VisualEffectParry != null) VisualEffectParry.SetActive(false);
+            if (parryVFXPrefab != null) parryVFXPrefab.SetActive(false);
 
-          //  Debug.Log("[Parry] Stage2 complete, holding input lock until animation ends");
             if (playerState != null)
             {
                 playerState.SetInputLocked(true);
@@ -205,11 +206,12 @@ namespace junklite
 
         private void PushEnemies()
         {
-            Collider[] hits = Physics.OverlapSphere(transform.position, parryRadius, enemyLayer);
-            var processedEnemies = new HashSet<EnemyCharacter>();
+            int hitCount = QueryParryOverlaps();
+            processedEnemies.Clear();
 
-            foreach (var c in hits)
+            for (int i = 0; i < hitCount; i++)
             {
+                Collider c = parryOverlapBuffer[i];
                 if (c == null) continue;
 
                 var enemyChar = c.GetComponent<EnemyCharacter>() ?? c.GetComponentInParent<EnemyCharacter>();
@@ -231,7 +233,10 @@ namespace junklite
                     // Retaliatory parry damage — use isTickDamage to skip hitstun
                     // so the FSM doesn't bounce through HurtState and double-trigger
                     // the Hurt animation while the enemy should be parry-stunned.
-                    enemyChar.TakeDamage(new DamageInfo(5f, gameObject, isTickDamage: true));
+                    DamageReceiverUtility.Receive(enemyChar, new DamageRequest(
+                        5f,
+                        gameObject,
+                        isTickDamage: true));
                     enemyChar.OnParryStunned(parryStunDuration);
                 }
                 // Bystanders in radius: half duration stun
@@ -250,6 +255,22 @@ namespace junklite
 
             // clear remembered attacker once we're done
             primaryAttacker = null;
+        }
+
+        private int QueryParryOverlaps()
+        {
+            while (true)
+            {
+                int count = Physics.OverlapSphereNonAlloc(
+                    transform.position,
+                    parryRadius,
+                    parryOverlapBuffer,
+                    enemyLayer);
+                if (count < parryOverlapBuffer.Length || parryOverlapBuffer.Length >= MaxParryOverlapCapacity)
+                    return count;
+
+                parryOverlapBuffer = new Collider[Mathf.Min(parryOverlapBuffer.Length * 2, MaxParryOverlapCapacity)];
+            }
         }
 
     private void OnDrawGizmosSelected()

@@ -10,8 +10,13 @@ GameObject:
   m_Component:
   - component: {fileID: 7724700367755847198}
   - component: {fileID: 6708160109121364283}
+  - component: {fileID: 7123456789012345678}
+  - component: {fileID: 6123456789012345678}
   - component: {fileID: 498257921127036517}
   - component: {fileID: 7433742776496313932}
+  - component: {fileID: 6193730749670565681}
+  - component: {fileID: 8123456789012345678}
+  - component: {fileID: 5970421176190243466}
   m_Layer: 0
   m_Name: Game Manager
   m_TagString: Untagged
@@ -27,7 +32,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8053377969660216567}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0.69944, y: -0, z: -3.12494}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -47,12 +52,46 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerPrefab: {fileID: 7038683931279381878, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
-  spawnPoints:
-  - {fileID: 0}
-  respawnDelay: 2
-  playerUIPrefab: {fileID: 8137984413679329371, guid: 905d7fae8f34a5f419bbe412383d05a5, type: 3}
-  gameplayCanvasTransform: {fileID: 0}
+  respawnDelay: 3
+  deathScreenFallbackDelay: 1.25
+  playerUIPrefab: {fileID: 1946179015980326645, guid: 6776eb6b105fcbc4ea90b3bf2157c168, type: 3}
+  pauseMenuUIPrefab: {fileID: 0}
+  loadingScreenUIPrefab: {fileID: 0}
   showDebugInfo: 0
+  gameInputManagerPrefab: {fileID: 0}
+--- !u!114 &7123456789012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8053377969660216567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc1e7c8a97594e84a0d2451f730ef260, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerLifecycle
+  playerSettingsSource: {fileID: 0}
+  playerPrefab: {fileID: 7038683931279381878, guid: e0de0e8ca37a545c384ccc5fced17434, type: 3}
+  newPlayerPrefab: {fileID: 7038683931279381878, guid: da6952dea573744dfa28b37d99bffcd7, type: 3}
+  useNewPlayer: 0
+  respawnDelay: 2
+  deathPresentationFallbackDelay: 1.25
+--- !u!114 &6123456789012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8053377969660216567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4e97c68d3124ff5a8f10339c5ec2be6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.GameUIManager
+  playerUIPrefab: {fileID: 1946179015980326645, guid: 6776eb6b105fcbc4ea90b3bf2157c168, type: 3}
+  pauseMenuUIPrefab: {fileID: 4187855846369575803, guid: 002fe864f03bd544688a821473d81a8a, type: 3}
+  loadingScreenUIPrefab: {fileID: 2795285001243938836, guid: 4832e793bc519b040b39d948d43a0b8b, type: 3}
 --- !u!82 &498257921127036517
 AudioSource:
   m_ObjectHideFlags: 0
@@ -162,3 +201,42 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 49190fde7ff62447899d10d48e8c8415, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerCombatTracker
+--- !u!114 &6193730749670565681
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8053377969660216567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a48c4eaa0c4681449a965554a12d8fd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ActivateTestManager
+  testManager: {fileID: 0}
+--- !u!114 &8123456789012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8053377969660216567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a40e1597e00dc54684201655814ef2b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerProgression
+  config: {fileID: 11400000, guid: 7916ad4de4ed46145875ef71da4ff75b, type: 2}
+--- !u!114 &5970421176190243466
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8053377969660216567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2174d7d7a4b60541b915c3b27903eb9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerUpgrades
+  config: {fileID: 11400000, guid: 69af870430ffcdc4ca71198f38d0c1e3, type: 2}

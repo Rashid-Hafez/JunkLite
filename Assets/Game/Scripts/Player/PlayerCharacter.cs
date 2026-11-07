@@ -9,22 +9,31 @@ namespace junklite
 {
     [RequireComponent(typeof(Character2D5Controller))]
     [RequireComponent(typeof(PlayerState))]
+    [RequireComponent(typeof(AttributeManager))]
+    [RequireComponent(typeof(Damageable))]
+    [RequireComponent(typeof(StatusEffectHandler))]
     [DefaultExecutionOrder(5)]
     [RequireComponent(typeof(CinemachineImpulseSource))]
-    public class PlayerCharacter : CharacterBase, IGrabbable
+    public class PlayerCharacter : MonoBehaviour, IDamageReceiver, IGrabbable, IStatusEffectTarget
     {
+        [Header("Config")]
+        [SerializeField] protected CharacterStats baseStats;
+
         [Header("Audio")]
         [SerializeField] private PlayerSoundProfile soundProfile;
 
         [Header("VFX")]
         [SerializeField] private ParticleSystem particleJumpUp;
         [SerializeField] private ParticleSystem particleJumpDown;
-        [SerializeField] private SkeletonGhost skeletonGhost;
+        [Tooltip("Found automatically. A left/right skeleton player has one ghost per skeleton; only the shown one spawns.")]
+        [SerializeField] private SkeletonGhost[] skeletonGhosts;
 
         [Header("Dash VFX")]
         [SerializeField] private ParticleSystem particleDashBurst;
         [SerializeField] private TrailRenderer dashTrail;
         [SerializeField] private Transform feet;
+        [SerializeField, Min(0.033f)] private float minimumDashGhostSpawnInterval = 0.06f;
+        [SerializeField, Range(1, 8)] private int maximumDashGhosts = 4;
 
         [Header("Respawn Settings")]
         [SerializeField] private float reviveInvulnerability = 1.25f;
@@ -33,6 +42,7 @@ namespace junklite
 
         [Header("Damage Feedback")]
         [SerializeField] private float damageInvulnerability = 0.5f;
+        [SerializeField, Min(0f)] private float defaultHitstunDuration = 0.25f;
         [SerializeField] private GameObject damageHitVFXPrefab;
         [SerializeField] private float damageHitVFXLifetime = 0.5f;
 
@@ -43,17 +53,25 @@ namespace junklite
         public bool JumpHeld => inputManager != null && inputManager.IsJumpHeld;
         public bool ReloadSceneOnDeathTemp => reloadSceneOnDeathTemp;
         public event Action<bool> OnCameraFollowRequested;
+        public event Action OnActivated;
+        public event Action OnDeactivated;
+        public event Action OnRevived;
 
         private Vector3 damageVFXOffset;
 
         // Movement input
         float horizontalAxis = 0f;
+        float verticalAxis = 0f;
 
         // Cached
         Collider[] _cachedColliders;
         private SpriteRenderer[] _spriteRenderers;
-        Rigidbody _rb;
         GameInputManager inputManager;
+        [HideInInspector] public AttributeManager attributes;
+        protected Damageable damageable;
+        private DamageShield damageShield;
+        private StatusEffectHandler statusEffects;
+        private PlayerHitReactionResolver hitReactionResolver;
 
         // Controller
         protected Character2D5Controller controller;
@@ -62,11 +80,32 @@ namespace junklite
         // Player State
         protected PlayerState playerState;
         public PlayerState PlayerState => playerState;
+        public PlayerState State => playerState;
+        public CharacterStats Stats => baseStats;
+        public PlayerRuntimeStats RuntimeStats { get; private set; }
+        /// <summary>Dash Strike upgrade component (added at runtime when the prefab lacks it).</summary>
+        public PlayerDashStrike DashStrike { get; private set; }
+
+        [Header("Upgrades")]
+        private float baseDoubleJumpForce;
+        private float baseDashCooldown;
+        private int baseMaxAirJumps;
+        private bool movementBaselineCaptured;
+        public StatusEffectHandler StatusEffects => statusEffects;
+        public Attribute Health => attributes ? attributes.Health : null;
+        public bool IsAlive => attributes ? attributes.IsAlive : true;
+        /// <summary>In combat while any enemy is engaging the player. Blocks interact and its prompt.</summary>
+        public bool IsInCombat => PlayerCombatTracker.Instance != null && PlayerCombatTracker.Instance.IsPlayerInCombat;
+        /// <summary>Set by simulation levels: damage is clamped so health never reaches 0.</summary>
+        public bool CannotDie { get; set; }
+        public bool IsActive { get; private set; }
 
         // Grab state
-        private bool isGrabbed = false;
-        public bool IsGrabbed => isGrabbed;
-        public bool CanBeGrabbed => IsAlive && !isGrabbed;
+        private PlayerGrabController grabController;
+        private Coroutine knockDownRoutine;
+        private Coroutine grabRoutine;
+        public bool IsGrabbed => grabController?.IsGrabbed ?? false;
+        public bool CanBeGrabbed => grabController?.CanBeGrabbed ?? false;
         public PlayerSoundProfile SoundProfile => soundProfile;
 
         // Attached Comps
@@ -78,23 +117,57 @@ namespace junklite
         private FeedbackManager feedbackManager;
         private PlayerAudioHandler audioHandler;
 
-        protected override void Awake()
-        {
-            base.Awake();
 
+        public Vector3 VFXCenter => transform.position + damageVFXOffset;
+        protected virtual void Awake()
+        {
             controller = GetComponent<Character2D5Controller>();
             playerState = GetComponent<PlayerState>();
             parryHandler = GetComponent<ParryHandler>();
+            attributes = GetComponent<AttributeManager>();
+            damageable = GetComponent<Damageable>();
+            TryGetComponent(out damageShield);
 
-            skeletonGhost = GetComponentInChildren<SkeletonGhost>();
-            if (skeletonGhost == null)
+            statusEffects = GetComponent<StatusEffectHandler>();
+            if (statusEffects == null)
+                statusEffects = gameObject.AddComponent<StatusEffectHandler>();
+            statusEffects.BindTarget(this);
+            playerState?.BindStatusEffects(statusEffects);
+            hitReactionResolver = new PlayerHitReactionResolver(
+                transform,
+                controller,
+                statusEffects,
+                defaultHitstunDuration);
+            grabController = new PlayerGrabController(this, playerState, controller);
+
+            if (attributes != null && baseStats != null)
+                attributes.Initialize(baseStats);
+
+            RuntimeStats = GetComponent<PlayerRuntimeStats>();
+            if (RuntimeStats == null) RuntimeStats = gameObject.AddComponent<PlayerRuntimeStats>();
+            PlayerProgression progression = PlayerProgression.Ensure();
+            RuntimeStats.Initialize(baseStats, attributes, progression, PlayerUpgrades.Ensure(progression.transform));
+            RuntimeStats.Refreshed += ApplyUpgrades;
+            DashStrike = GetComponent<PlayerDashStrike>() ?? gameObject.AddComponent<PlayerDashStrike>();
+
+            if (damageable != null)
+                damageable.Bind(baseStats, attributes, playerState);
+
+            if (attributes != null)
+                attributes.OnDeath += HandleDeath;
+
+            skeletonGhosts = GetComponentsInChildren<SkeletonGhost>(includeInactive: true);
+            if (skeletonGhosts.Length == 0)
             {
                 Debug.LogError("SkeletonGhost component not found on player character!", this);
+            }
+            else
+            {
+                ConfigureDashGhost();
             }
 
             inputManager = GameInputManager.Instance;
             _cachedColliders = GetComponentsInChildren<Collider>(includeInactive: true);
-            _rb = GetComponent<Rigidbody>();
             _spriteRenderers = GetComponentsInChildren<SpriteRenderer>(includeInactive: true);
             audioHandler = GetComponent<PlayerAudioHandler>();
 
@@ -105,14 +178,12 @@ namespace junklite
         }
 
 
-        protected override void Start()
+        protected virtual void Start()
         {
-            base.Start();
-
             // Pipe controller events into CharacterState flags
             ConnectController();
 
-            // Apply movement stats to controller
+            // Apply movement stats and owned upgrades to the controller, weapon manager and dash strike.
             UpdateControllerStats();
 
             ////// SCREENSHAKE AND FEEDBACK, VIBRATION CONTROLLER, FLASH VFX ETC
@@ -134,9 +205,12 @@ namespace junklite
             }
         }
 
-        protected override void OnDestroy()
+        protected virtual void OnDestroy()
         {
-            base.OnDestroy();
+            if (attributes != null)
+                attributes.OnDeath -= HandleDeath;
+            if (RuntimeStats != null)
+                RuntimeStats.Refreshed -= ApplyUpgrades;
 
             if (controller != null && playerState != null)
             {
@@ -180,37 +254,95 @@ namespace junklite
             playerState.SetMoving(isMoving);
         }
 
-        // Apply baseStats movement into controller
+        // Apply baseStats movement into the controller, then the owned upgrades on top.
         protected virtual void UpdateControllerStats()
         {
-            if (controller == null || baseStats == null) return;
-
-            controller.MoveSpeed = baseStats.moveSpeed;
-
-            // set optional fields if they exist
-            SetControllerProperty("JumpForce", baseStats.jumpForce);
-            SetControllerProperty("DashForce", baseStats.dashForce);
-            SetControllerProperty("DashDuration", baseStats.dashDuration);
+            if (controller == null) return;
+            CaptureMovementBaseline();
+            if (baseStats != null)
+            {
+                controller.MoveSpeed = baseStats.moveSpeed;
+                controller.JumpForce = baseStats.jumpForce;
+                controller.DashForce = baseStats.dashForce;
+                controller.DashDuration = baseStats.dashDuration;
+            }
+            ApplyUpgrades();
         }
 
-        private void SetControllerProperty(string prop, object value)
+        /// <summary>Remembers the prefab-authored values that have no CharacterStats field, before any multiplier is applied.</summary>
+        private void CaptureMovementBaseline()
         {
-            var p = controller.GetType().GetProperty(prop);
-            if (p != null && p.CanWrite) p.SetValue(controller, value);
+            if (movementBaselineCaptured || controller == null) return;
+            baseDoubleJumpForce = controller.DoubleJumpForce;
+            baseDashCooldown = controller.DashCooldown;
+            baseMaxAirJumps = Mathf.Max(1, controller.MaxAirJumps);
+            movementBaselineCaptured = true;
+        }
+
+        /// <summary>
+        /// The one place upgrades reach the mechanics: movement stats, attack speed,
+        /// finisher force and the dash strike. Runs on spawn and whenever runtime stats refresh.
+        /// </summary>
+        public void ApplyUpgrades()
+        {
+            PlayerRuntimeStats stats = RuntimeStats;
+            if (controller != null)
+            {
+                CaptureMovementBaseline();
+                float baseMove = baseStats != null ? baseStats.moveSpeed : controller.MoveSpeed;
+                float baseJump = baseStats != null ? baseStats.jumpForce : controller.JumpForce;
+                controller.MoveSpeed = stats != null ? stats.Evaluate(PlayerStat.MoveSpeed, baseMove) : baseMove;
+                controller.JumpForce = stats != null ? stats.Evaluate(PlayerStat.JumpForce, baseJump) : baseJump;
+                controller.DoubleJumpForce = stats != null ? stats.Evaluate(PlayerStat.DoubleJumpForce, baseDoubleJumpForce) : baseDoubleJumpForce;
+                controller.DashCooldown = stats != null ? stats.Evaluate(PlayerStat.DashCooldown, baseDashCooldown) : baseDashCooldown;
+                controller.DashEnabled = true;
+                controller.MaxAirJumps = baseMaxAirJumps;
+            }
+            if (_weaponManager != null)
+            {
+                _weaponManager.AttackSpeedMultiplier = stats != null ? stats.Multiplier(PlayerStat.AttackSpeed) : 1f;
+                _weaponManager.FinisherForceMultiplier = stats != null ? stats.Multiplier(PlayerStat.FinisherForce) : 1f;
+            }
+            if (DashStrike != null)
+                DashStrike.Unlocked = stats != null && stats.HasAbility(PlayerAbility.DashStrike);
+        }
+
+        public Attribute GetAttribute(AttributeType type) => attributes ? attributes.Get(type) : null;
+
+        public void Heal(float amount)
+        {
+            attributes?.Heal(amount);
+        }
+
+        public DamageResult Kill()
+        {
+            if (!IsAlive || attributes?.Health == null)
+                return DamageResult.Rejected(DamageOutcome.Dead, 0f);
+
+            return ReceiveDamage(DamageRequest.Forced(attributes.Health.Current));
+        }
+
+        protected void InstantDeath()
+        {
+            Kill();
         }
 
         // ====================================================================
         // DEACTIVATE & ACTIVATE
         // ====================================================================
 
-        public override void Deactivate()
+        public virtual void Deactivate()
         {
+            IsActive = false;
+            ResetDashVFX();
+            CancelGrab(stopCoroutine: true);
             UnsubscribeFromInput();
 
             if (Controller != null)
             {
-                Controller.CanMove = false;
-                if (_rb != null) _rb.linearVelocity = Vector3.zero;
+                Controller.InterruptSpecialMovement();
+                Controller.SetLocomotionEnabled(false);
+                Controller.StopAllVelocity();
             }
 
             if (disableCollidersOnDeactivate && _cachedColliders != null)
@@ -226,16 +358,19 @@ namespace junklite
                     playerState.SetVulnerable(false);
                 }
             }
+
+            OnDeactivated?.Invoke();
         }
 
-        public override void Activate()
+        public virtual void Activate()
         {
+            IsActive = true;
             if (_cachedColliders != null)
                 foreach (var c in _cachedColliders)
                     if (c) c.enabled = true;
 
             if (Controller != null)
-                Controller.CanMove = true;
+                Controller.SetLocomotionEnabled(true);
 
             if (playerState != null)
             {
@@ -246,18 +381,25 @@ namespace junklite
             }
 
             SubscribeToInput();
+            OnActivated?.Invoke();
         }
 
         public void ReviveAt(Vector3 position)
         {
+            RuntimeStats?.Refresh(false);
+            // The same player object is reused across deaths. Clear transient dash
+            // presentation in case deactivation interrupted its end callback.
+            ResetDashVFX();
+
             if (attributes != null)
                 attributes.RestoreHealthToMax();
 
             if (Controller != null)
             {
+                Controller.InterruptSpecialMovement();
                 Controller.TeleportTo(position);
                 Controller.SetMovementInput(0f);
-                Controller.CanMove = false;
+                Controller.SetLocomotionEnabled(false);
             }
             else
                 transform.position = position;
@@ -268,12 +410,16 @@ namespace junklite
                 playerState.SetGrounded(true);
                 playerState.SetVulnerable(false);
             }
+
+            OnRevived?.Invoke();
         }
 
         //  void OnEnable() => SubscribeToInput();
         void OnDisable()
         {
+            ResetDashVFX();
             UnsubscribeFromInput();
+            CancelGrab(stopCoroutine: true);
         }
 
         // ====================================================================
@@ -283,10 +429,11 @@ namespace junklite
         void Update() //PLEASE REMOVE THIS
         {
             HandleInput();
+            UpdateBufferedAttackCancels();
 
             //Temp Debug keys 
             if (Keyboard.current?.hKey.wasPressedThisFrame == true) Heal(20f);
-            if (Keyboard.current?.tKey.wasPressedThisFrame == true) TakeDamage(new DamageInfo(15f, null));
+            if (Keyboard.current?.tKey.wasPressedThisFrame == true) ReceiveDamage(new DamageRequest(15f));
             if (Keyboard.current?.yKey.wasPressedThisFrame == true) InstantDeath();
         }
 
@@ -294,7 +441,7 @@ namespace junklite
         {
             if (playerState != null && playerState.CanMove && Controller != null)
             {
-                Controller.SetMovementInput(horizontalAxis);
+                Controller.SetMovementInput(horizontalAxis, verticalAxis);
                 Controller.SetJumpHeld(JumpHeld);
             }
 
@@ -323,7 +470,7 @@ namespace junklite
         {
             if (playerState == null || Controller == null) return;
 
-            // Only process when airborne and not wall sliding
+            // Wall sliding owns its airborne pose.
             if (playerState.IsGrounded || playerState.IsWallSliding) return;
 
             float yVel = Controller.Velocity.y;
@@ -340,7 +487,7 @@ namespace junklite
                 playerState.SetFalling(true);
             }
             // If going up but not marked as jumping (e.g. launched by something), set jumping
-            else if (yVel > 0.1f && !playerState.IsJumping && !playerState.IsWallJumping && !playerState.IsDoubleJumping)
+            else if (yVel > 0.1f && !playerState.IsJumping && !playerState.IsDoubleJumping)
             {
                 // Only auto-set jumping if we're clearly going upward
                 // This handles edge cases like external forces
@@ -349,10 +496,9 @@ namespace junklite
 
         void HandleInput()
         {
-            if (inputManager != null && playerState != null && playerState.CanMove && Controller != null)
-                horizontalAxis = inputManager.MoveDirection.x;
-            else
-                horizontalAxis = 0f;
+            bool canMove = inputManager != null && playerState != null && playerState.CanMove && Controller != null;
+            horizontalAxis = canMove ? inputManager.MoveDirection.x : 0f;
+            verticalAxis = canMove ? inputManager.MoveDirection.y : 0f;
 
         }
 
@@ -371,11 +517,9 @@ namespace junklite
                 inputManager.OnJumpReleased += OnJumpReleased;
                 inputManager.OnAttack += HandleAttackInput;
                 inputManager.OnDash += OnDashPressed;
+                inputManager.InteractBlocker = () => IsInCombat;
 
                 
-                inputManager.OnCombatModeToggle += HandleCombatModeToggle;
-                inputManager.OnWeapon1Attack += HandleWeapon1Attack;
-                inputManager.OnWeapon2Attack += HandleWeapon2Attack;
                 inputManager.OnModActivate1 += HandleModActivate1;
                 inputManager.OnModActivate2 += HandleModActivate2;
                 inputManager.OnModActivate3 += HandleModActivate3;
@@ -391,7 +535,6 @@ namespace junklite
                 Controller.OnDashEnded += HandleDashEnded;
 
                 // === NEW MOVEMENT STATES ===
-                Controller.OnWallSlideChanged += HandleWallSlideChanged;
                 Controller.OnLedgeDetectedChanged += HandleLedgeDetectedChanged;
                 Controller.OnWallJumped += HandleWallJumped;
                 Controller.OnDoubleJumpPerformed += HandleDoubleJump;
@@ -414,11 +557,9 @@ namespace junklite
                 inputManager.OnJumpReleased -= OnJumpReleased;
                 inputManager.OnAttack -= HandleAttackInput;
                 inputManager.OnDash -= OnDashPressed;
+                inputManager.InteractBlocker = null;
 
                 // TODO: Unwire when added to GameInputManager
-                inputManager.OnCombatModeToggle -= HandleCombatModeToggle;
-                inputManager.OnWeapon1Attack -= HandleWeapon1Attack;
-                inputManager.OnWeapon2Attack -= HandleWeapon2Attack;
                 inputManager.OnModActivate1 -= HandleModActivate1;
                 inputManager.OnModActivate2 -= HandleModActivate2;
                 inputManager.OnModActivate3 -= HandleModActivate3;
@@ -433,7 +574,6 @@ namespace junklite
                 Controller.OnDashEnded -= HandleDashEnded;
 
                 // New movement unsubscriptions
-                Controller.OnWallSlideChanged -= HandleWallSlideChanged;
                 Controller.OnLedgeDetectedChanged -= HandleLedgeDetectedChanged;
                 Controller.OnWallJumped -= HandleWallJumped;
                 Controller.OnDoubleJumpPerformed -= HandleDoubleJump;
@@ -464,11 +604,6 @@ namespace junklite
         // NEW MOVEMENT STATE HOOKS
         // =======================
 
-        void HandleWallSlideChanged(bool sliding)
-        {
-            playerState?.SetWallSliding(sliding);
-        }
-
         void HandleLedgeDetectedChanged(bool detected)
         {
             playerState?.SetLedgeDetected(detected);
@@ -476,19 +611,9 @@ namespace junklite
 
         void HandleWallJumped()
         {
-            // Wall jump: first clear wall sliding, then set wall jumping, then set jumping
-            // Order matters for proper state transitions!
-            playerState?.SetWallSliding(false);  // Clear wall slide first
-            playerState?.SetWallJumping(true);   // Mark as wall jumping
-            playerState?.SetJumping(true);       // Now we're also jumping
-            playerState?.SetFalling(false);      // Not falling while going up
-            StartCoroutine(ResetWallJumpFlag());
-        }
-
-        IEnumerator ResetWallJumpFlag()
-        {
-            yield return new WaitForSeconds(0.20f);
-            playerState?.SetWallJumping(false);
+            // The controller already cleared the slide; the push-off is an ordinary rising jump.
+            playerState?.SetFalling(false);
+            playerState?.SetJumping(true);
         }
 
         void HandleDoubleJump()
@@ -496,10 +621,15 @@ namespace junklite
             // Refund one air attack if scheduled (e.g. pogo hit) so player can pogo again after double jump
             playerState?.TryRefundAirAttackAfterDoubleJump();
 
-            // Double jump: clear falling, set jumping and double jumping
+            // Double jump: clear falling, set jumping BEFORE double jumping.
+            // Order matters: OnDoubleJumpChanged fires synchronously from
+            // SetDoubleJumping(true), and the Spine controller's guard requires a
+            // valid airborne state (IsJumping/IsFalling) at that instant. Setting
+            // jumping first prevents the animation from being swallowed when double
+            // jumping while falling.
             playerState?.SetFalling(false);       // Clear falling first
-            playerState?.SetDoubleJumping(true);  // Mark as double jumping
-            playerState?.SetJumping(true);        // Also set regular jumping
+            playerState?.SetJumping(true);        // Set regular jumping first
+            playerState?.SetDoubleJumping(true);  // Now fire double jump with valid state
             StartCoroutine(ResetDoubleJumpFlag());
         }
 
@@ -534,7 +664,6 @@ namespace junklite
         {
             playerState?.SetFalling(false);
             playerState?.SetJumping(false);
-            playerState?.SetWallJumping(false);
             playerState?.SetDoubleJumping(false);
 
             if (particleJumpDown != null)
@@ -545,24 +674,113 @@ namespace junklite
         }
 
         #region Input Actions
+
+        // Jump / dash pressed during an attack's startup or hit window waits here and
+        // fires the moment the swing reaches recovery (see WeaponManager.TryCancelAttackForMovement).
+        private const float AttackCancelBufferTime = 0.25f;
+        private float bufferedJumpUntil = -1f;
+        private float bufferedDashUntil = -1f;
+        private bool jumpButtonHeld;
+
+        /// <summary>
+        /// True when no attack blocks the action (none running, or it was just cancelled
+        /// in recovery). Otherwise the press is buffered and false is returned.
+        /// </summary>
+        private bool TryClearAttackFor(ref float bufferedUntil)
+        {
+            if (_weaponManager == null || !_weaponManager.IsAttacking)
+                return true;
+
+            if (_weaponManager.TryCancelAttackForMovement())
+            {
+                bufferedUntil = -1f;
+                return true;
+            }
+
+            bufferedUntil = Time.time + AttackCancelBufferTime;
+            return false;
+        }
+
+        private void UpdateBufferedAttackCancels()
+        {
+            // Hit-stop pauses time right as a swing connects: wait it out.
+            if (Time.timeScale <= 0f)
+                return;
+
+            if (bufferedJumpUntil > 0f)
+            {
+                if (Time.time > bufferedJumpUntil)
+                    bufferedJumpUntil = -1f;
+                else if (_weaponManager == null || !_weaponManager.IsAttacking || _weaponManager.IsAttackCancelable)
+                {
+                    bufferedJumpUntil = -1f;
+                    PerformJump(jumpButtonHeld);
+                }
+            }
+
+            if (bufferedDashUntil > 0f)
+            {
+                if (Time.time > bufferedDashUntil)
+                    bufferedDashUntil = -1f;
+                else if (_weaponManager == null || !_weaponManager.IsAttacking || _weaponManager.IsAttackCancelable)
+                {
+                    bufferedDashUntil = -1f;
+                    PerformDash();
+                }
+            }
+        }
+
         void OnJumpPressed()
         {
+            jumpButtonHeld = true;
+            PerformJump(true);
+        }
+
+        private void PerformJump(bool held)
+        {
+            if (playerState == null) return;
+            if (IsGrabbed)
+            {
+                // Each press struggles against the hold; enough of them break it.
+                grabController?.RegisterEscapePress();
+                return;
+            }
+            if (Time.timeScale <= 0f)
+            {
+                // Pressed during an attack's hit-stop: keep it for when time resumes.
+                if (_weaponManager != null && _weaponManager.IsAttacking)
+                    bufferedJumpUntil = Time.time + AttackCancelBufferTime;
+                return;
+            }
+            if (!TryClearAttackFor(ref bufferedJumpUntil)) return;
+            if (!playerState.CanJump) return;
             if (playerState != null && playerState.CanJump && Controller != null)
             {
                 Controller.SetJumpHeld(true);
                 Controller.Jump();
+                // A buffered tap released before it fired is a short hop, like any tap.
+                if (!held)
+                    Controller.SetJumpHeld(false);
             }
         }
 
         void OnDashPressed()
         {
-            if (playerState != null && playerState.CanDash && Controller != null)
+            PerformDash();
+        }
+
+        private void PerformDash()
+        {
+            if (playerState == null) return;
+            if (!TryClearAttackFor(ref bufferedDashUntil)) return;
+            if (playerState.CanDash && Controller != null)
                 Controller.Dash();
         }
 
 
         void OnJumpReleased()
         {
+            jumpButtonHeld = false;
             if (Controller != null)
                 Controller.SetJumpHeld(false);
         }
@@ -594,35 +812,15 @@ namespace junklite
 
         void HandleAttackInput()
         {
+            // Held by a grabber: attacking does nothing. Mash jump to break free.
+            if (IsGrabbed)
+                return;
+
             if (playerState == null || !playerState.CanAttack || _weaponManager == null)
                 return;
 
-            // Regular mode: fists (slot 0). Mod combat uses weapon-specific inputs.
-            if (!_weaponManager.IsModCombat)
-                _weaponManager.Attack(0, inputManager.MoveDirection, playerState.IsGrounded);
-        }
-
-        void HandleWeapon1Attack()
-        {
-            if (playerState == null || !playerState.CanAttack || _weaponManager == null)
-                return;
-
-            if (_weaponManager.IsModCombat)
-                _weaponManager.Attack(1, inputManager.MoveDirection, playerState.IsGrounded);
-        }
-
-        void HandleWeapon2Attack()
-        {
-            if (playerState == null || !playerState.CanAttack || _weaponManager == null)
-                return;
-
-            if (_weaponManager.IsModCombat)
-                _weaponManager.Attack(2, inputManager.MoveDirection, playerState.IsGrounded);
-        }
-
-        void HandleCombatModeToggle()
-        {
-            _weaponManager?.TryToggleCombatMode();
+            // One attack input, one weapon: whatever the arm currently carries.
+            _weaponManager.Attack(inputManager.MoveDirection, playerState.IsGrounded);
         }
 
         void HandleModActivate1() => _modManager?.TryActivateMod(0);
@@ -676,68 +874,102 @@ namespace junklite
         // ====================================================================
 
         #region Damage
-        public override bool TakeDamage(DamageInfo info)
+
+        public void ApplyStatusEffectSnapshot(StatusEffectSnapshot snapshot)
         {
-            // parry check comes first
-            if (parryHandler != null && parryHandler.HandleIncomingHit(info.Source))
-                return false;
+            bool wasCrowdControlled = playerState != null && playerState.IsStunned;
 
-            if (playerState != null && !playerState.CanTakeDamage)
-                return false;
+            playerState?.ApplyStatusEffectSnapshot(snapshot);
+            controller?.SetStatusMoveSpeedMultiplier(snapshot.MoveSpeedMultiplier);
 
-            var shield = GetComponent<DamageShield>();
-            if (shield != null && shield.IsActive)
+            if (snapshot.IsCrowdControlled && !wasCrowdControlled)
+                controller?.InterruptSpecialMovement();
+        }
+
+        public DamageResult ReceiveDamage(DamageRequest request)
+        {
+            float originallyRequested = request.Amount;
+
+            if (damageable == null)
+                return DamageResult.Rejected(DamageOutcome.Invalid, originallyRequested);
+
+            // Validate the target/source/team before player-specific defenses.
+            if (!damageable.TryValidateRequest(request, out var rejection, checkDefensiveState: false))
+                return rejection;
+
+            if (!request.BypassesDefenses)
             {
-                float remainder = shield.Absorb(info.Amount);
-                if (remainder <= 0f) return false; // fully absorbed
-                info.Amount = remainder; // partial, pass remainder through
+                if (!request.Unparryable && parryHandler != null && parryHandler.HandleIncomingHit(request.Source))
+                    return DamageResult.Rejected(DamageOutcome.Parried, originallyRequested);
+
+                if (playerState != null && (!playerState.CanTakeDamage || playerState.IsInvincible))
+                    return DamageResult.Rejected(DamageOutcome.Invulnerable, originallyRequested);
+
+                if (damageShield == null)
+                    TryGetComponent(out damageShield);
+
+                var shield = damageShield;
+                if (shield != null && shield.IsActive)
+                {
+                    float remainder = shield.Absorb(request.Amount);
+                    if (remainder <= 0f)
+                        return DamageResult.Rejected(DamageOutcome.Blocked, originallyRequested);
+
+                    request = request.WithAmount(remainder);
+                }
             }
 
-            // Invincible: skip health reduction but still do all reactions
-            bool damageDealt;
-            if (playerState != null && playerState.IsInvincible)
-                damageDealt = true; // Pretend damage was dealt
-            else
+            // Simulation levels: hits still land, but never below 1 HP.
+            if (CannotDie && Health != null)
             {
-                damageDealt = base.TakeDamage(info);
-                if (!damageDealt)
-                    return false;
+                float allowed = Health.Current - 1f;
+                if (allowed <= 0f)
+                    return DamageResult.Rejected(DamageOutcome.Invulnerable, originallyRequested);
+                if (request.Amount > allowed)
+                    request = request.WithAmount(allowed);
             }
+
+            DamageResult result = damageable.ReceiveDamage(request)
+                .WithRequestedDamage(originallyRequested);
+            if (!result.WasApplied)
+                return result;
 
             if (!IsAlive)
-                return true;
+                return result;
 
-            // Everything below still runs when invincible:
-            // i-frames, VFX, camera shake, knockback, stun
-            if (playerState != null && damageInvulnerability > 0f)
-                playerState.ApplyInvulnerability(damageInvulnerability);
-
-            audioHandler?.PlayHurt(); // TODO - Maybe move this to audio handler? IDK
-
-            if (damageHitVFXPrefab != null)
+            // Periodic damage changes health without repeatedly granting i-frames
+            // or replaying the full impact presentation.
+            if (!request.IsTickDamage)
             {
-                Vector3 spawnPos = transform.position + damageVFXOffset;
-                GameObject vfx = Instantiate(damageHitVFXPrefab, spawnPos, Quaternion.identity);
+                if (playerState != null && damageInvulnerability > 0f && !request.SkipsHitInvulnerability)
+                    playerState.ApplyInvulnerability(damageInvulnerability);
+
+                audioHandler?.PlayHurt();
+
+                if (damageHitVFXPrefab != null)
+                {
+                    Vector3 spawnPos = transform.position + damageVFXOffset;
+                    if (damageHitVFXLifetime > 0f)
+                    {
+                        VFXPool.SpawnTimed(
+                            damageHitVFXPrefab,
+                            spawnPos,
+                            Quaternion.identity,
+                            damageHitVFXLifetime);
+                    }
+                    else
+                    {
+                        Instantiate(damageHitVFXPrefab, spawnPos, Quaternion.identity);
+                    }
+                }
+
+                if (feedbackManager != null)
+                    feedbackManager.DoCameraShake(damageImpulseSource, cameraShakeOnHit);
             }
 
-            if (feedbackManager != null)
-                feedbackManager.DoCameraShake(damageImpulseSource, cameraShakeOnHit);
+            hitReactionResolver?.Resolve(request);
 
-            if (info.Source != null && Controller != null && info.KnockbackForce.sqrMagnitude > 0f)
-            {
-                Vector3 dir = (transform.position - info.Source.transform.position).normalized;
-                Vector3 knockback = new Vector3(
-                    dir.x * info.KnockbackForce.x,
-                    info.KnockbackForce.y,
-                    dir.z * info.KnockbackForce.x
-                );
-                Controller.AddForce(knockback, ForceMode.VelocityChange);
-            }
-
-            if (playerState != null)
-                playerState.ApplyStun(0.25f);
-
-            return true;
+            return result;
         }
         #endregion
 
@@ -749,103 +981,119 @@ namespace junklite
 
         public void GetGrabbed(GrabInfo info)
         {
-            if (!CanBeGrabbed) return;
-            StartCoroutine(HandleGrab(info));
+            if (grabController == null || !grabController.TryBegin())
+                return;
+
+            grabRoutine = StartCoroutine(RunGrab(info));
         }
 
-        private IEnumerator HandleGrab(GrabInfo info)
+        public void ReleaseGrab(GameObject source, int throwDirection, Vector2 throwForce, float throwDamage)
         {
-            isGrabbed = true;
+            grabController?.RequestRelease(source, throwDirection, throwForce, throwDamage);
+        }
 
-            // Stun player for entire grab + throw recovery
-            if (playerState != null)
-                playerState.ApplyStun(info.Duration + 0.5f);
+        public void CancelGrab(GameObject source)
+        {
+            if (grabController == null || !grabController.IsHeldBy(source))
+                return;
 
-            // Disable controller movement and stop velocity
-            if (Controller != null)
+            CancelGrab(stopCoroutine: true);
+            playerState?.ApplyStun(0f);
+        }
+
+        /// <summary>
+        /// Body-contact shove (<see cref="EnemyContactDamage"/>): sets her lane speed away from
+        /// the body instead of adding to it, so running into the enemy can't cancel it, and
+        /// stuns her for lockSeconds so input can't either. Runs with or without damage.
+        /// </summary>
+        public void ApplyBodyShove(Vector3 direction, Vector2 force, float lockSeconds, GameObject source)
+        {
+            if (!IsAlive || IsGrabbed || controller == null)
+                return;
+
+            if (lockSeconds > 0f)
+                statusEffects?.ApplyHitstun(lockSeconds, source);
+            controller.ApplyExternalShove(direction, force);
+        }
+
+        /// <summary>
+        /// Launches the player away from sourcePosition; on landing she lies down
+        /// (death pose) and gets up after a short delay. Ignored while grabbed.
+        /// </summary>
+        public void KnockDown(Vector3 sourcePosition, Vector2 force)
+        {
+            if (!IsAlive || IsGrabbed || controller == null)
+                return;
+
+            if (knockDownRoutine != null)
+                StopCoroutine(knockDownRoutine);
+            knockDownRoutine = StartCoroutine(RunKnockDown(sourcePosition, force));
+        }
+
+        private IEnumerator RunKnockDown(Vector3 sourcePosition, Vector2 force)
+        {
+            var anim = GetComponentInChildren<SpineAnimationController>();
+
+            // Stunned skips air drag, so the launch carries the flight.
+            playerState?.ApplyStun(10f);
+            controller.StopAllVelocity();
+            controller.ApplyExternalKnockback(sourcePosition, force);
+
+            float flight = 0f;
+            while (flight < 2f && (flight < 0.1f || !controller.IsGrounded))
             {
-                Controller.CanMove = false;
-                Controller.StopAllVelocity();
-            }
-
-            // Disable rigidbody physics during grab
-            bool wasKinematic = false;
-            if (_rb != null)
-            {
-                wasKinematic = _rb.isKinematic;
-                _rb.isKinematic = true;
-                _rb.linearVelocity = Vector3.zero;
-            }
-
-            Transform enemyTransform = info.Source?.transform;
-
-            // Hold player attached to enemy for grab duration
-            float timer = 0f;
-            while (timer < info.Duration)
-            {
-                timer += Time.deltaTime;
-
-                // Keep player attached to enemy at grabOffset
-                if (enemyTransform != null)
-                {
-                    transform.position = enemyTransform.position + info.GrabOffset;
-                }
-
-                // Keep velocity zero during grab
-                if (Controller != null)
-                    Controller.StopAllVelocity();
-
+                if (!IsAlive) yield break;
+                flight += Time.deltaTime;
                 yield return null;
             }
 
-            // Re-enable rigidbody physics before throw
-            if (_rb != null)
-            {
-                _rb.isKinematic = wasKinematic;
-            }
+            if (!IsAlive) yield break;
+            controller.StopAllVelocity();
+            anim?.PlayKnockdown();
+            float lieDown = anim != null && anim.TryGetDeathAnimationDuration(out float deathTime) ? deathTime : 0f;
+            yield return new WaitForSeconds(lieDown + 0.5f);
 
-            // Apply throw damage
-            if (info.ThrowDamage > 0f && attributes != null)
-                attributes.Health.Remove(info.ThrowDamage);
+            if (!IsAlive) yield break;
+            anim?.EndKnockdown();
+            playerState?.ApplyStun(0f);
+            knockDownRoutine = null;
+        }
 
-            // Apply throw force
-            if (Controller != null && info.ThrowForce.sqrMagnitude > 0f)
-            {
-                Vector3 throwKnockback = new Vector3(
-                    info.ThrowDirection * info.ThrowForce.x,
-                    info.ThrowForce.y,
-                    0f
-                );
+        private IEnumerator RunGrab(GrabInfo info)
+        {
+            yield return grabController.Execute(info);
+            grabRoutine = null;
+        }
 
-                Controller.AddForce(throwKnockback, ForceMode.VelocityChange);
-                Debug.Log($"Player thrown! Direction: {info.ThrowDirection}, Force: {throwKnockback}");
-            }
+        private void CancelGrab(bool stopCoroutine)
+        {
+            if (stopCoroutine && grabRoutine != null)
+                StopCoroutine(grabRoutine);
 
-            // Re-enable controller after throw
-            if (Controller != null)
-            {
-                Controller.CanMove = true;
-            }
-
-            isGrabbed = false;
+            grabRoutine = null;
+            grabController?.Cancel();
         }
 
         #endregion
 
         #region Death Handling
 
-        protected override void HandleDeath()
+        protected virtual void HandleDeath()
         {
+            RuntimeStats?.Progression?.Flush();
+            IsActive = false;
             // Stop all movement and velocity on death
             if (controller != null)
             {
-                controller.CanMove = false;
+                controller.SetLocomotionEnabled(false);
                 controller.StopAllVelocity();
             }
 
-            isGrabbed = false;
+            statusEffects?.ClearAllEffects();
+            // Do not stop the coroutine from inside a damage callback. Cancelling the
+            // helper releases ownership immediately; the iterator exits on its next check.
+            CancelGrab(stopCoroutine: false);
 
-            base.HandleDeath();
             UnsubscribeFromInput();
         }
 
@@ -861,32 +1109,103 @@ namespace junklite
 
         public void SkeletonGhostActivation(bool activate)
         {
-            if (skeletonGhost == null)
+            if (skeletonGhosts == null || skeletonGhosts.Length == 0)
             {
                 Debug.LogWarning("[PlayerCharacter] SkeletonGhost is null!", this);
                 return;
             }
 
-            // Ensure the GameObject is active
-            if (!skeletonGhost.gameObject.activeInHierarchy)
+            // Both sides ghost; the hidden skeleton is inactive, so it never spawns.
+            foreach (SkeletonGhost ghost in skeletonGhosts)
             {
-                Debug.LogWarning("[PlayerCharacter] SkeletonGhost GameObject is inactive, activating it...", this);
-                skeletonGhost.gameObject.SetActive(true);
+                if (ghost != null)
+                    ghost.ghostingEnabled = activate;
+            }
+        }
+
+        private void ConfigureDashGhost()
+        {
+            // SkeletonGhost clones a mesh for every after-image. Cap both the spawn
+            // rate and pool size before its Start method allocates the pool.
+            foreach (SkeletonGhost ghost in skeletonGhosts)
+            {
+                if (ghost == null) continue;
+                ghost.ghostingEnabled = false;
+                ghost.enabled = true;
+                ghost.spawnInterval = Mathf.Max(ghost.spawnInterval, minimumDashGhostSpawnInterval);
+                ghost.maximumGhosts = Mathf.Clamp(ghost.maximumGhosts, 1, Mathf.Max(1, maximumDashGhosts));
+            }
+        }
+
+        private void ResetDashVFX()
+        {
+            if (dashTrail != null)
+            {
+                dashTrail.emitting = false;
+                dashTrail.Clear();
             }
 
-            // Ensure the component is enabled
-            skeletonGhost.enabled = true;
+            if (particleDashBurst != null)
+            {
+                particleDashBurst.Stop(
+                    true,
+                    ParticleSystemStopBehavior.StopEmittingAndClear);
+            }
 
-            // Ensure it's initialized (in case Start() hasn't run yet)
-            skeletonGhost.Initialize(false);
-
-            // Toggle ghosting
-            skeletonGhost.ghostingEnabled = activate;
-
-            //Debug.Log($"[PlayerCharacter] SkeletonGhost ghostingEnabled set to: {skeletonGhost.ghostingEnabled}, Component enabled: {skeletonGhost.enabled}, GameObject active: {skeletonGhost.gameObject.activeInHierarchy}", this);
+            SkeletonGhostActivation(false);
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Resolves the player's response after damage was accepted. It does not own
+    /// health, Rigidbody state or timers; it delegates those responsibilities.
+    /// </summary>
+    internal sealed class PlayerHitReactionResolver
+    {
+        private readonly Transform targetTransform;
+        private readonly Character2D5Controller controller;
+        private readonly StatusEffectHandler statusEffects;
+        private readonly float defaultHitstunDuration;
+
+        public PlayerHitReactionResolver(
+            Transform targetTransform,
+            Character2D5Controller controller,
+            StatusEffectHandler statusEffects,
+            float defaultHitstunDuration)
+        {
+            this.targetTransform = targetTransform;
+            this.controller = controller;
+            this.statusEffects = statusEffects;
+            this.defaultHitstunDuration = Mathf.Max(0f, defaultHitstunDuration);
+        }
+
+        public void Resolve(DamageRequest request)
+        {
+            HitReactionRequest reaction = request.HitReaction;
+            if (!reaction.HasAnyReaction)
+                return;
+
+            float hitstunDuration = reaction.ResolveHitstunDuration(defaultHitstunDuration);
+            if (hitstunDuration > 0f)
+                statusEffects?.ApplyHitstun(hitstunDuration, request.Source);
+
+            if (reaction.HasKnockback && controller != null)
+            {
+                Vector3 sourcePosition = request.Source != null
+                    ? request.Source.transform.position
+                    : targetTransform.position;
+                controller.ApplyExternalKnockback(
+                    sourcePosition,
+                    reaction.KnockbackForce,
+                    reaction.InterruptsActions);
+            }
+            else if (reaction.InterruptsActions && hitstunDuration <= 0f)
+            {
+                controller?.InterruptSpecialMovement();
+            }
+        }
     }
 
 }

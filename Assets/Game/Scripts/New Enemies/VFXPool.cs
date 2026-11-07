@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 
 namespace junklite
@@ -44,6 +45,30 @@ namespace junklite
             return Instance.GetInternal(prefab, parent, scale);
         }
 
+        public static GameObject Get(
+            GameObject prefab,
+            Vector3 position,
+            Quaternion rotation,
+            float scale = 1f)
+        {
+            GameObject obj = Get(prefab, null, scale);
+            if (obj == null) return null;
+            obj.transform.SetPositionAndRotation(position, rotation);
+            return obj;
+        }
+
+        public static void SpawnTimed(
+            GameObject prefab,
+            Vector3 position,
+            Quaternion rotation,
+            float lifetime,
+            float scale = 1f)
+        {
+            GameObject obj = Get(prefab, position, rotation, scale);
+            if (obj != null && lifetime > 0f)
+                Instance.StartCoroutine(Instance.ReleaseAfterDelay(obj, lifetime));
+        }
+
         /// <summary>
         /// Return a VFX instance to the pool.
         /// </summary>
@@ -59,15 +84,19 @@ namespace junklite
             int prefabId = prefab.GetInstanceID();
 
             // Try get from pool
-            if (pools.TryGetValue(prefabId, out var pool) && pool.Count > 0)
+            if (pools.TryGetValue(prefabId, out var pool))
             {
-                var obj = pool.Dequeue();
-                obj.transform.SetParent(parent);
-                obj.transform.localPosition = Vector3.zero;
-                obj.transform.localRotation = Quaternion.identity;
-                obj.transform.localScale = Vector3.one * scale;
-                obj.SetActive(true);
-                return obj;
+                while (pool.Count > 0)
+                {
+                    var obj = pool.Dequeue();
+                    if (obj == null) continue;
+                    obj.transform.SetParent(parent);
+                    obj.transform.localPosition = Vector3.zero;
+                    obj.transform.localRotation = Quaternion.identity;
+                    obj.transform.localScale = Vector3.one * scale;
+                    obj.SetActive(true);
+                    return obj;
+                }
             }
 
             // Create new
@@ -104,6 +133,13 @@ namespace junklite
                 pools[prefabId] = pool;
             }
             pool.Enqueue(obj);
+        }
+
+        private IEnumerator ReleaseAfterDelay(GameObject obj, float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (obj != null)
+                ReleaseInternal(obj);
         }
 
         /// <summary>

@@ -1,0 +1,159 @@
+using UnityEngine;
+
+namespace junklite
+{
+    public enum AttackHitResult
+    {
+        None,
+        Enemy,
+        Environment
+    }
+
+    internal readonly struct WeaponHitDetectionResult
+    {
+        public AttackHitResult Type { get; }
+        public Collider Target { get; }
+        public Collider[] AllTargets { get; }
+        public int AllTargetCount { get; }
+        public Vector3 Point { get; }
+
+        public WeaponHitDetectionResult(
+            AttackHitResult type,
+            Collider target = null,
+            Collider[] allTargets = null,
+            int allTargetCount = 0,
+            Vector3 point = default)
+        {
+            Type = type;
+            Target = target;
+            AllTargets = allTargets;
+            AllTargetCount = allTargetCount;
+            Point = point;
+        }
+    }
+
+    /// <summary>
+    /// Performs weapon overlap queries and classifies the result. It does not apply
+    /// damage, consume durability or trigger presentation.
+    /// </summary>
+    internal sealed class WeaponHitResolver
+    {
+        private readonly LayerMask enemyLayer;
+        private readonly LayerMask environmentLayer;
+        private Collider[] queryBuffer = new Collider[64];
+        private Collider[] enemyBuffer = new Collider[64];
+        private const int MaxQueryCapacity = 512;
+
+        public WeaponHitResolver(LayerMask enemyLayer, LayerMask environmentLayer)
+        {
+            this.enemyLayer = enemyLayer;
+            this.environmentLayer = environmentLayer;
+        }
+
+        /// <summary>
+        /// Overlaps a sphere at <paramref name="origin"/>. Non-piercing hits return the one enemy nearest
+        /// <paramref name="attacker"/> (the front of a pack, never the one standing behind it); piercing
+        /// hits return every enemy in the sphere.
+        /// </summary>
+        public WeaponHitDetectionResult Detect(Vector3 origin, float radius, bool piercing, Vector3? attacker = null,
+            Collider preferred = null)
+        {
+            Vector3 reference = attacker ?? origin;
+            int hitCount = QueryOverlaps(origin, radius);
+
+            Collider closestEnemy = null;
+            float closestDistance = float.MaxValue;
+            bool hitEnvironment = false;
+            bool preferredHit = false;
+            int enemyCount = 0;
+
+            for (int i = 0; i < hitCount; i++)
+            {
+                Collider hit = queryBuffer[i];
+                if (hit == null)
+                    continue;
+                int layerMask = 1 << hit.gameObject.layer;
+
+                if ((layerMask & enemyLayer) != 0)
+                {
+                    if (piercing)
+                    {
+                        enemyBuffer[enemyCount++] = hit;
+                        continue;
+                    }
+
+                    // The combat focus wins whenever the swing reaches it.
+                    if (preferredHit) continue;
+                    if (preferred != null && hit == preferred)
+                    {
+                        preferredHit = true;
+                        closestEnemy = hit;
+                        continue;
+                    }
+
+                    // Nearest body surface to the attacker: the enemy in front, not the one whose
+                    // centre happens to sit closest to the middle of the swing.
+                    float distance = (hit.ClosestPointOnBounds(reference) - reference).sqrMagnitude;
+                    if (distance < closestDistance)
+                    {
+                        closestDistance = distance;
+                        closestEnemy = hit;
+                    }
+                }
+                else if ((layerMask & environmentLayer) != 0)
+                {
+                    hitEnvironment = true;
+                }
+            }
+
+            if (piercing && enemyCount > 0)
+            {
+                return new WeaponHitDetectionResult(
+                    AttackHitResult.Enemy,
+                    allTargets: enemyBuffer,
+                    allTargetCount: enemyCount,
+                    point: enemyBuffer[0].ClosestPoint(origin));
+            }
+
+            if (!piercing && closestEnemy != null)
+            {
+                return new WeaponHitDetectionResult(
+                    AttackHitResult.Enemy,
+                    target: closestEnemy,
+                    point: closestEnemy.ClosestPoint(origin));
+            }
+
+            return hitEnvironment
+                ? new WeaponHitDetectionResult(AttackHitResult.Environment)
+                : new WeaponHitDetectionResult(AttackHitResult.None);
+        }
+
+        private int QueryOverlaps(Vector3 origin, float radius)
+        {
+            while (true)
+            {
+                int count = Physics.OverlapSphereNonAlloc(
+                    origin,
+                    radius,
+                    queryBuffer,
+                    enemyLayer | environmentLayer,
+                    QueryTriggerInteraction.Ignore);
+
+                if (count < queryBuffer.Length || queryBuffer.Length >= MaxQueryCapacity)
+                {
+                    EnsureEnemyCapacity(queryBuffer.Length);
+                    return count;
+                }
+
+                int nextCapacity = Mathf.Min(queryBuffer.Length * 2, MaxQueryCapacity);
+                queryBuffer = new Collider[nextCapacity];
+            }
+        }
+
+        private void EnsureEnemyCapacity(int capacity)
+        {
+            if (enemyBuffer.Length < capacity)
+                enemyBuffer = new Collider[capacity];
+        }
+    }
+}

@@ -18,7 +18,7 @@ namespace junklite
         public override void Enter()
         {
             movement = enemy.Movement;
-            stunnable = enemy as IStunnable;
+            stunnable = GetCapability<IStunnable>();
             complete = false;
 
             if (stunnable == null)
@@ -30,17 +30,21 @@ namespace junklite
 
             stunVFX = stunnable.StunVFXObject;
 
-            // ForcedStunDuration > 0 means parry/explicit stun — use that.
-            // Otherwise use the enemy's stagger duration (normal hit).
-            duration = stunnable.ForcedStunDuration > 0f
-                ? stunnable.ForcedStunDuration
-                : stunnable.StaggerDuration;
+            // Status-driven control owns its absolute expiry. Legacy/direct FSM
+            // stuns retain the enemy capability duration as a fallback.
+            bool statusControlsDuration = enemy.StatusEffects != null &&
+                                          enemy.StatusEffects.IsCrowdControlled;
+            duration = statusControlsDuration
+                ? 0f
+                : stunnable.ForcedStunDuration > 0f
+                    ? stunnable.ForcedStunDuration
+                    : stunnable.StaggerDuration;
 
             timer = duration;
 
             // Only stop voluntary movement (chase/patrol). If knockback is
             // already in flight (applied in TakeDamage before entering this
-            // state), preserve it — the Update loop waits for it to finish.
+            // state), preserve it â€” the Update loop waits for it to finish.
             if (movement != null && !movement.IsInKnockback)
                 movement.Stop();
 
@@ -54,8 +58,13 @@ namespace junklite
 
             timer -= Time.deltaTime;
 
-            // Wait for both: timer expired AND knockback finished
-            if (timer <= 0f && (movement == null || !movement.IsInKnockback))
+            // Status-driven crowd control owns its own absolute expiry. Normal
+            // hitstun also waits for knockback so voluntary movement cannot erase it.
+            bool statusStillControls = enemy.StatusEffects != null &&
+                                       enemy.StatusEffects.IsCrowdControlled;
+            if (timer <= 0f &&
+                !statusStillControls &&
+                (movement == null || !movement.IsInKnockback))
             {
                 Complete();
             }

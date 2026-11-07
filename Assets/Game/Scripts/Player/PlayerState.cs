@@ -11,16 +11,41 @@ namespace junklite
     public class PlayerState : CharacterState
     {
         // Capability checks
-        public override bool CanMove => IsAlive && !IsStunned && !IsInputLocked && !IsAttacking && !IsParrying;
-        public override bool CanJump => IsAlive && !IsStunned && !IsInputLocked && !IsParrying;
-        public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsInputLocked;
-        public override bool CanAttack => IsAlive && !IsStunned && !IsInputLocked && !IsWallSliding && !IsParrying; // No IsAttacking check - WeaponManager handles cooldown
-        public bool CanRoll => IsAlive && !IsStunned && !IsRolling && !IsInputLocked;
+        public override bool CanMove => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Move) && !IsInputLocked && !IsAttacking && !IsParrying;
+        public override bool CanJump => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Jump) && !IsInputLocked && !IsParrying;
+        public bool CanDash => IsAlive && !IsDashing && !IsStunned && !IsActionBlocked(StatusActionBlock.Dash) && !IsInputLocked;
+        public override bool CanAttack => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Attack) && (!IsInputLocked || IsAttacking) && !IsWallSliding && !IsParrying; // Allows buffering during attack execution
+        public bool CanRoll => IsAlive && !IsStunned && !IsActionBlocked(StatusActionBlock.Roll) && !IsRolling && !IsInputLocked;
+        public override bool CanTakeDamage => base.CanTakeDamage && damageImmunityLocks.Count == 0;
+
+        /// <summary>Written by Character2D5Controller while the player slides down a Wall-layer wall.</summary>
+        public bool IsWallSliding { get; private set; }
+        public event Action<bool> OnWallSlidingChanged;
+
+        public void SetWallSliding(bool sliding)
+        {
+            if (IsWallSliding == sliding) return;
+            IsWallSliding = sliding;
+            if (sliding)
+            {
+                SetJumping(false);
+                SetFalling(false);
+                SetDoubleJumping(false);
+            }
+            OnWallSlidingChanged?.Invoke(sliding);
+        }
 
         // State flags
         public bool IsDashing { get; private set; }
         public bool IsRolling { get; private set; }
-        public bool IsInputLocked { get; private set; }
+        private bool legacyInputLocked;
+        private int nextLockId;
+        private readonly HashSet<int> inputLocks = new();
+        private readonly HashSet<int> damageImmunityLocks = new();
+        private StatusEffectHandler statusEffects;
+        private StatusEffectSnapshot statusSnapshot = StatusEffectSnapshot.Clear;
+
+        public bool IsInputLocked => legacyInputLocked || inputLocks.Count > 0;
 
         private bool isInvincible;
         public bool IsInvincible => isInvincible;
@@ -28,8 +53,6 @@ namespace junklite
 
 
         // Movement states
-        public bool IsWallSliding { get; private set; }
-        public bool IsWallJumping { get; private set; }
         public bool IsDoubleJumping { get; private set; }
 
         // ledge detection
@@ -41,7 +64,7 @@ namespace junklite
         public event Action<bool> OnParryChanged;
 
         /// <summary>True when player is allowed to initiate a parry (grounded, alive, not stunned/attacking/etc).</summary>
-        public bool CanParry => IsAlive && IsGrounded && !IsFalling && !IsStunned && !IsInputLocked && !IsAttacking;
+        public bool CanParry => IsAlive && IsGrounded && !IsFalling && !IsStunned && !IsActionBlocked(StatusActionBlock.Parry) && !IsInputLocked && !IsAttacking;
 
         /// <summary>How many air attacks have been used this air time.</summary>
         public int AirAttacksUsed { get; private set; }
@@ -62,8 +85,6 @@ namespace junklite
         public event Action<bool> OnDashingChanged;
         public event Action<bool> OnRollingChanged;
         public event Action<bool> OnInputLockedChanged;
-        public event Action<bool> OnWallSlideChanged;
-        public event Action<bool> OnWallJumpChanged;
         public event Action<bool> OnDoubleJumpChanged;
         public event Action<int> OnComboAttackTriggered;
         public event Action<string> OnAttackAnimationRequested;
@@ -81,10 +102,11 @@ namespace junklite
 
         public override void ResetForRespawn()
         {
-            base.ResetForRespawn();
             SetWallSliding(false);
-            SetWallJumping(false);
+            statusEffects?.ClearAllEffects();
+            base.ResetForRespawn();
             SetDoubleJumping(false);
+            ClearAbilityLocks();
             SetInputLocked(false);
             SetLedgeDetected(false);
             SetParrying(false);
@@ -95,12 +117,47 @@ namespace junklite
             refundAirAttackAfterNextDoubleJump = false;
         }
 
+        public void BindStatusEffects(StatusEffectHandler handler)
+        {
+            statusEffects = handler;
+            ApplyStatusEffectSnapshot(handler != null
+                ? handler.CurrentSnapshot
+                : StatusEffectSnapshot.Clear);
+        }
+
+        public void ApplyStatusEffectSnapshot(StatusEffectSnapshot snapshot)
+        {
+            statusSnapshot = snapshot;
+            SetStatusStunned(snapshot.IsCrowdControlled);
+        }
+
+        public bool IsActionBlocked(StatusActionBlock action)
+        {
+            return (statusSnapshot.BlockedActions & action) != 0;
+        }
+
+        public override void ApplyStun(float duration)
+        {
+            if (statusEffects == null)
+                statusEffects = GetComponent<StatusEffectHandler>();
+
+            if (statusEffects != null)
+            {
+                if (duration <= 0f)
+                    statusEffects.Remove(StatusEffectType.Stun);
+                else
+                    statusEffects.ApplyStun(duration, gameObject);
+                return;
+            }
+
+            base.ApplyStun(duration);
+        }
+
         public override void ClearTransient()
         {
             base.ClearTransient();
             SetDashing(false);
             SetRolling(false);
-            SetWallJumping(false);
             SetDoubleJumping(false);
             SetParrying(false);
         }
@@ -114,10 +171,9 @@ namespace junklite
 
             if (grounded)
             {
+                SetWallSliding(false);
                 SetJumping(false);
                 SetFalling(false);
-                SetWallSliding(false);
-                SetWallJumping(false);
                 SetDoubleJumping(false);
                 AirAttacksUsed = 0;
                 refundAirAttackAfterNextDoubleJump = false;
@@ -174,23 +230,63 @@ namespace junklite
 
         public void SetInputLocked(bool locked)
         {
-            if (IsInputLocked == locked) return;
-            IsInputLocked = locked;
-            OnInputLockedChanged?.Invoke(locked);
+            bool wasLocked = IsInputLocked;
+            legacyInputLocked = locked;
+            NotifyInputLockChanged(wasLocked);
         }
 
-        public void SetWallSliding(bool sliding)
+        public IDisposable AcquireInputLock()
         {
-            if (IsWallSliding == sliding) return;
+            bool wasLocked = IsInputLocked;
+            int id = ++nextLockId;
+            inputLocks.Add(id);
+            NotifyInputLockChanged(wasLocked);
+            return new StateLock(() => ReleaseInputLock(id));
+        }
 
-            if (sliding)
+        public IDisposable AcquireDamageImmunity()
+        {
+            int id = ++nextLockId;
+            damageImmunityLocks.Add(id);
+            return new StateLock(() => damageImmunityLocks.Remove(id));
+        }
+
+        private void ReleaseInputLock(int id)
+        {
+            bool wasLocked = IsInputLocked;
+            inputLocks.Remove(id);
+            NotifyInputLockChanged(wasLocked);
+        }
+
+        private void ClearAbilityLocks()
+        {
+            bool wasLocked = IsInputLocked;
+            inputLocks.Clear();
+            damageImmunityLocks.Clear();
+            NotifyInputLockChanged(wasLocked);
+        }
+
+        private void NotifyInputLockChanged(bool wasLocked)
+        {
+            if (wasLocked != IsInputLocked)
+                OnInputLockedChanged?.Invoke(IsInputLocked);
+        }
+
+        private sealed class StateLock : IDisposable
+        {
+            private Action release;
+
+            public StateLock(Action releaseAction)
             {
-                if (IsJumping) { IsJumping = false; InvokeJumpStateChanged(false); }
-                if (IsFalling) { IsFalling = false; InvokeFallStateChanged(false); }
+                release = releaseAction;
             }
 
-            IsWallSliding = sliding;
-            OnWallSlideChanged?.Invoke(sliding);
+            public void Dispose()
+            {
+                Action releaseAction = release;
+                release = null;
+                releaseAction?.Invoke();
+            }
         }
 
         public void SetLedgeDetected(bool detected)
@@ -206,20 +302,6 @@ namespace junklite
             if (IsParrying == parrying) return;
             IsParrying = parrying;
             OnParryChanged?.Invoke(parrying);
-        }
-
-        public void SetWallJumping(bool jumping)
-        {
-            if (IsWallJumping == jumping) return;
-
-            if (jumping && IsWallSliding)
-            {
-                IsWallSliding = false;
-                OnWallSlideChanged?.Invoke(false);
-            }
-
-            IsWallJumping = jumping;
-            OnWallJumpChanged?.Invoke(jumping);
         }
 
         public void SetDoubleJumping(bool jumping)
@@ -278,7 +360,6 @@ namespace junklite
             if (IsJumping) list.Add("Jumping");
             if (IsFalling) list.Add("Falling");
             if (IsWallSliding) list.Add("WallSliding");
-            if (IsWallJumping) list.Add("WallJumping");
             if (IsDoubleJumping) list.Add("DoubleJumping");
             if (IsLedgeDetected) list.Add("LedgeDetected");
             if (IsParrying) list.Add("Parrying");

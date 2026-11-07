@@ -1,8 +1,9 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System;
 
 namespace junklite
 {
+    [RequireComponent(typeof(ModExecutionRunner))]
     public class ModManager : MonoBehaviour
     {
         #region Fields
@@ -22,8 +23,12 @@ namespace junklite
         // References
         private WeaponManager weaponManager;
         private PlayerCharacter playerCharacter;
+        private ModExecutionRunner executionRunner;
 
         private bool isActive;
+        private bool developerSlotOverride;
+        private int baseActiveSlots;
+        private int basePassiveSlots;
 
         #endregion
 
@@ -47,60 +52,61 @@ namespace junklite
         {
             weaponManager = GetComponent<WeaponManager>();
             playerCharacter = GetComponent<PlayerCharacter>();
+            executionRunner = GetComponent<ModExecutionRunner>();
+            if (executionRunner == null)
+                executionRunner = gameObject.AddComponent<ModExecutionRunner>();
 
+            // Four input actions are supported. Correct legacy prefab/scene limits before allocation.
+            maxActiveSlots = 4;
             activeSlots = new ModInstance[maxActiveSlots];
             passiveSlots = new ModInstance[maxPassiveSlots];
 
             unlockedActiveSlots = Mathf.Clamp(unlockedActiveSlots, 0, maxActiveSlots);
             unlockedPassiveSlots = Mathf.Clamp(unlockedPassiveSlots, 0, maxPassiveSlots);
+            // The prefab's starting counts are the floor; upgrade nodes add to them.
+            baseActiveSlots = unlockedActiveSlots;
+            basePassiveSlots = unlockedPassiveSlots;
         }
 
         private void OnEnable()
         {
             if (weaponManager != null)
-            {
-                weaponManager.OnCombatModeChanged += OnCombatModeChanged;
                 weaponManager.OnEnemyHit += OnEnemyHit;
-            }
+
+            // Mods are always live: there is no combat mode to enter. Installed mods are
+            // enabled while this component is, and disabled (executions cancelled) with it.
+            Activate();
         }
 
         private void OnDisable()
         {
+            Deactivate();
+
             if (weaponManager != null)
-            {
-                weaponManager.OnCombatModeChanged -= OnCombatModeChanged;
                 weaponManager.OnEnemyHit -= OnEnemyHit;
-            }
         }
 
         #endregion
 
-        #region Combat Mode
-
-        private void OnCombatModeChanged()
-        {
-            if (weaponManager.IsModCombat)
-                Activate();
-            else
-                Deactivate();
-        }
+        #region Enable / Disable
 
         private void Activate()
         {
+            if (isActive) return;
             isActive = true;
 
             for (int i = 0; i < unlockedPassiveSlots; i++)
             {
                 var mod = passiveSlots[i];
-                if (mod != null && !mod.IsBroken && mod.Data is PassiveModData passive)
-                    passive.OnEquip(playerCharacter);
+                if (mod != null && !mod.IsBroken)
+                    mod.Data.OnCombatModeEntered(mod, playerCharacter);
             }
 
             for (int i = 0; i < unlockedActiveSlots; i++)
             {
                 var mod = activeSlots[i];
-                if (mod != null && !mod.IsBroken && mod.Data is ActiveModData active)
-                    active.OnEquip(playerCharacter);
+                if (mod != null && !mod.IsBroken)
+                    mod.Data.OnCombatModeEntered(mod, playerCharacter);
             }
 
             OnModSlotsChanged?.Invoke();
@@ -108,18 +114,22 @@ namespace junklite
 
         private void Deactivate()
         {
+            if (!isActive) return;
+
+            executionRunner?.CancelAll();
+
             for (int i = 0; i < unlockedPassiveSlots; i++)
             {
                 var mod = passiveSlots[i];
-                if (mod != null && mod.Data is PassiveModData passive)
-                    passive.OnUnequip(playerCharacter);
+                if (mod != null)
+                    mod.Data.OnCombatModeExited(mod, playerCharacter);
             }
 
             for (int i = 0; i < unlockedActiveSlots; i++)
             {
                 var mod = activeSlots[i];
-                if (mod != null && mod.Data is ActiveModData active)
-                    active.OnUnequip(playerCharacter);
+                if (mod != null)
+                    mod.Data.OnCombatModeExited(mod, playerCharacter);
             }
 
             isActive = false;
@@ -144,9 +154,9 @@ namespace junklite
 
                     if (mod.IsBroken)
                     {
-                        passive.OnUnequip(playerCharacter);
+                        mod.Data.OnCombatModeExited(mod, playerCharacter);
+                        mod.Data.OnRemoved(mod, playerCharacter);
                         passiveSlots[i] = null;
-                        Debug.Log($"[ModManager] Passive mod broke: {mod.Data.modName}");
                         OnModSlotsChanged?.Invoke();
                     }
                 }
@@ -183,16 +193,20 @@ namespace junklite
             if (mod == null || mod.IsBroken) return false;
             if (mod.Data is not ActiveModData active) return false;
 
-            bool used = active.TryActivate(mod, playerCharacter);
+            bool used = active.TryActivate(mod, playerCharacter, executionRunner);
             if (used)
             {
+                PlayModActivationSfx(active);
                 mod.ConsumeDurability();
                 OnActiveModActivated?.Invoke(activeSlotIndex);
                 if (mod.IsBroken)
                 {
-                    active.OnUnequip(playerCharacter);
+                    // The final use is allowed to finish even though the broken mod
+                    // immediately leaves its slot. Mode exit/removal hooks must not
+                    // hold per-execution state; the runner owns that cleanup.
+                    mod.Data.OnCombatModeExited(mod, playerCharacter);
+                    mod.Data.OnRemoved(mod, playerCharacter);
                     activeSlots[activeSlotIndex] = null;
-                    Debug.Log($"[ModManager] Active mod broke: {mod.Data.modName}");
                 }
                 OnModSlotsChanged?.Invoke();
             }
@@ -221,26 +235,21 @@ namespace junklite
             if (slots[slotIndex] != null) return false; // slot occupied
 
             slots[slotIndex] = mod;
+            mod.Data.OnInstalled(mod, playerCharacter);
 
-            // Fire equip callbacks if combat is active
+            // Enable the installed mod immediately when combat mode is already active.
             if (isActive)
-            {
-                if (mod.Data is ActiveModData active) active.OnEquip(playerCharacter);
-                else if (mod.Data is PassiveModData passive) passive.OnEquip(playerCharacter);
-            }
+                mod.Data.OnCombatModeEntered(mod, playerCharacter);
 
             OnModSlotsChanged?.Invoke();
             return true;
         }
 
-        /// <summary>
-        /// Place a mod in the first available slot matching its type.
-        /// Active mods → active slots only. Passive mods → passive slots only.
-        /// Returns false if no compatible slot is available (mod should go to inventory).
-        /// </summary>
         public bool EquipModAny(ModInstance mod)
         {
             if (mod == null) return false;
+
+            if (FindEquippedMod(mod.Data, out _, out _)) return false;
 
             if (mod.IsActive)
             {
@@ -277,12 +286,12 @@ namespace junklite
             ModInstance mod = slots[slotIndex];
             if (mod == null) return null;
 
-            // Fire unequip callbacks if combat is active
+            executionRunner?.Cancel(mod);
+
             if (isActive)
-            {
-                if (mod.Data is ActiveModData active) active.OnUnequip(playerCharacter);
-                else if (mod.Data is PassiveModData passive) passive.OnUnequip(playerCharacter);
-            }
+                mod.Data.OnCombatModeExited(mod, playerCharacter);
+
+            mod.Data.OnRemoved(mod, playerCharacter);
 
             slots[slotIndex] = null;
             OnModSlotsChanged?.Invoke();
@@ -317,22 +326,66 @@ namespace junklite
             OnModSlotsChanged?.Invoke();
         }
 
+        /// <summary>Developer override: unlock one more active slot regardless of upgrades.</summary>
         public void UnlockActiveSlot()
         {
+            developerSlotOverride = true;
             if (unlockedActiveSlots < maxActiveSlots)
-            {
-                unlockedActiveSlots++;
-                OnModSlotsChanged?.Invoke();
-            }
+                SetUnlockedCounts(unlockedActiveSlots + 1, unlockedPassiveSlots);
         }
 
+        /// <summary>Developer override: unlock one more passive slot regardless of upgrades.</summary>
         public void UnlockPassiveSlot()
         {
+            developerSlotOverride = true;
             if (unlockedPassiveSlots < maxPassiveSlots)
+                SetUnlockedCounts(unlockedActiveSlots, unlockedPassiveSlots + 1);
+        }
+
+        /// <summary>
+        /// Unlocked slots = the prefab's starting slots plus the extra slots bought in the upgrade tree.
+        /// Called by <see cref="PlayerRuntimeStats"/> on every upgrade change. Installed items in slots that
+        /// become locked are retained but suspended.
+        /// </summary>
+        public void ApplyUnlockedSlots(int extraActive, int extraPassive)
+        {
+            if (developerSlotOverride || activeSlots == null) return;
+            SetUnlockedCounts(baseActiveSlots + Mathf.Max(0, extraActive), basePassiveSlots + Mathf.Max(0, extraPassive));
+        }
+
+        private void SetUnlockedCounts(int active, int passive)
+        {
+            active = Mathf.Clamp(active, 0, maxActiveSlots);
+            passive = Mathf.Clamp(passive, 0, maxPassiveSlots);
+            if (active == unlockedActiveSlots && passive == unlockedPassiveSlots) return;
+            ResizeUnlocked(activeSlots, ref unlockedActiveSlots, active);
+            ResizeUnlocked(passiveSlots, ref unlockedPassiveSlots, passive);
+            OnModSlotsChanged?.Invoke();
+        }
+
+        private void ResizeUnlocked(ModInstance[] slots, ref int unlocked, int count)
+        {
+            if (count == unlocked) return;
+            for (int i = count; i < unlocked; i++)
             {
-                unlockedPassiveSlots++;
-                OnModSlotsChanged?.Invoke();
+                var mod = slots[i];
+                if (mod == null) continue;
+                executionRunner?.Cancel(mod);
+                if (isActive) mod.Data.OnCombatModeExited(mod, playerCharacter);
             }
+            if (isActive)
+                for (int i = unlocked; i < count; i++)
+                    if (slots[i] != null && !slots[i].IsBroken)
+                        slots[i].Data.OnCombatModeEntered(slots[i], playerCharacter);
+            unlocked = count;
+        }
+
+        public void ClearDeveloperSlotOverride()
+        {
+            developerSlotOverride = false;
+            PlayerUpgrades upgrades = PlayerUpgrades.Instance;
+            ApplyUnlockedSlots(upgrades != null ? upgrades.ExtraModSlots(ModSlotKind.Active) : 0,
+                upgrades != null ? upgrades.ExtraModSlots(ModSlotKind.Passive) : 0);
         }
 
         #endregion
@@ -350,6 +403,45 @@ namespace junklite
         {
             for (int i = 0; i < unlockedPassiveSlots; i++)
                 if (passiveSlots[i] == null) return true;
+            return false;
+        }
+
+        private void PlayModActivationSfx(ActiveModData active)
+        {
+            if (AudioManager.Instance == null || active == null || active.activationSfx == null || !active.activationSfx.IsValid)
+                return;
+
+            Vector3 position = playerCharacter != null ? playerCharacter.transform.position : transform.position;
+            AudioManager.Instance.PlaySpatialAtPosition(active.activationSfx, position, spatialBlend: 0f);
+        }
+
+
+        public bool FindEquippedMod(ModData data, out bool isActiveSlot, out int foundIndex)
+        {
+            isActiveSlot = false;
+            foundIndex = -1;
+            if (data == null) return false;
+
+            for (int i = 0; i < unlockedActiveSlots; i++)
+            {
+                if (activeSlots[i] != null && activeSlots[i].Data == data)
+                {
+                    isActiveSlot = true;
+                    foundIndex = i;
+                    return true;
+                }
+            }
+
+            for (int i = 0; i < unlockedPassiveSlots; i++)
+            {
+                if (passiveSlots[i] != null && passiveSlots[i].Data == data)
+                {
+                    isActiveSlot = false;
+                    foundIndex = i;
+                    return true;
+                }
+            }
+
             return false;
         }
 

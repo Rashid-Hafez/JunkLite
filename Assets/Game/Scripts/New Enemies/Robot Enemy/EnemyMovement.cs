@@ -44,10 +44,12 @@ namespace junklite
         [Header("Ground Detection")]
         [SerializeField] private float groundCheckDistance = 0.1f;
         [SerializeField] private LayerMask groundLayers = ~0; // Default to all layers
+        [SerializeField, Min(1), Tooltip("Ground checks are throttled by this many physics ticks while settled.")]
+        private int settledGroundCheckInterval = 3;
 
         // Components
         private Rigidbody rb;
-        private StateMachine stateMachine;
+        private Collider bodyCollider;
 
         // State
         private Vector3 targetPosition;
@@ -57,6 +59,7 @@ namespace junklite
         private bool isDashing;
         private float currentSpeed;
         private float dashSpeed;
+        private float statusMoveSpeedMultiplier = 1f;
         private int facingDirection = 1;
 
         // Axis-agnostic movement plane (cached once at startup)
@@ -74,8 +77,30 @@ namespace junklite
         // Push-over-time state (parry pushback etc.)
         private bool isPushActive;
 
+        // Launch state: airborne after a launching hit. Voluntary movement and the
+        // idle horizontal zeroing are suspended until the owner ends the launch.
+        private bool isLaunched;
+        private bool launchArmed;
+        // A launched fall faster than this that keeps less than this fraction of its speed
+        // in one physics step was stopped by a collider: treat it as the landing.
+        private const float ContactStopMinFallSpeed = 2f;
+        private const float ContactStopKeptFraction = 0.25f;
+        private bool landingPending;
+        private bool launchEndsOnLanding;
+        private float launchGravityScale = 1f;
+        // Apex hang: while launched and moving slower than this vertically, use the
+        // lighter hang gravity so the body floats at the top for air attacks.
+        private float launchHangSpeed;
+        private float launchHangGravityScale = 1f;
+        // Timed slow fall after a mid-air hit (scaled time, so hit-stop extends it).
+        private float launchFallHangScale = 1f;
+        private float launchFallHangUntil;
+        private float lastAirVerticalSpeed;
+        private float landingImpactSpeed;
+
         // Ground state
         private bool isGrounded;
+        private int settledGroundCheckCounter;
 
         // Events for FSM integration
         /// <summary>
@@ -90,25 +115,31 @@ namespace junklite
 
         // Public accessors
         public float MoveSpeed { get => moveSpeed; set => moveSpeed = value; }
-        public float CurrentSpeed => currentSpeed;
+        public float CurrentSpeed => currentSpeed * statusMoveSpeedMultiplier;
+        public float EffectiveMoveSpeed => moveSpeed * statusMoveSpeedMultiplier;
         public bool IsMoving => isMoving;
         public bool HasReachedDestination => !isMoving || (!isDirectionalMovement && DistanceToTarget <= stoppingDistance);
         public float DistanceToTarget => GetPlanarDistance(rb.position, targetPosition);
         public Vector3 MoveDirection => moveDirection;
+        /// <summary>Actual physics velocity (zero while kinematic, e.g. mid-leap).</summary>
+        public Vector3 Velocity => rb != null && !rb.isKinematic ? rb.linearVelocity : Vector3.zero;
         public int FacingDirection => facingDirection;
         public bool IsGrounded => isGrounded;
         public bool IsInKnockback => isInKnockback;
+        /// <summary>True from a launching hit until the owner state (or the landing, for corpses) ends it.</summary>
+        public bool IsLaunched => isLaunched;
+        /// <summary>Only a dynamic body under gravity can be thrown (not flying, frozen or kinematic enemies).</summary>
+        public bool CanBeLaunched => rb != null && !rb.isKinematic && rb.useGravity;
         public bool IgnoreKnockback { get => ignoreKnockback; set => ignoreKnockback = value; }
-
         private void Awake()
         {
             rb = GetComponent<Rigidbody>();
-            stateMachine = GetComponentInParent<StateMachine>();
+            bodyCollider = GetComponent<Collider>();
 
             // Configure Rigidbody for velocity-based movement with gravity
             rb.isKinematic = false;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
-            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
             // Cache the movement plane axes from the enemy's initial orientation
             CacheMovementAxes();
@@ -177,19 +208,23 @@ namespace junklite
         {
             if (rb.isKinematic) return;
 
-            // if we're stunned but not currently being knocked back, freeze movement
-            if (stateMachine != null && stateMachine.CurrentState is StunnedState && !isInKnockback)
+            bool needsFrequentGroundCheck = !isGrounded || isMoving || isInKnockback || isPushActive || isLaunched;
+            if (needsFrequentGroundCheck || ++settledGroundCheckCounter >= settledGroundCheckInterval)
             {
-                float vertical = rb.useGravity ? rb.linearVelocity.y : 0f;
-                rb.linearVelocity = BuildVelocity(0f, vertical);
-                return;
+                settledGroundCheckCounter = 0;
+                CheckGrounded();
             }
 
-            CheckGrounded();
-
-            if (rb.useGravity && gravityScale > 1f)
+            float effectiveGravityScale = isLaunched ? CurrentLaunchGravityScale() : gravityScale;
+            if (rb.useGravity && (effectiveGravityScale > 1f || (isLaunched && effectiveGravityScale < 1f)))
             {
-                rb.AddForce(Vector3.down * Physics.gravity.magnitude * (gravityScale - 1f), ForceMode.Acceleration);
+                rb.AddForce(Vector3.down * Physics.gravity.magnitude * (effectiveGravityScale - 1f), ForceMode.Acceleration);
+            }
+
+            if (isLaunched)
+            {
+                HandleLaunch();
+                return;
             }
 
             if (isInKnockback)
@@ -205,12 +240,25 @@ namespace junklite
         private void CheckGrounded()
         {
             // Ground check is always downward — axis-independent
+            // The ray starts at the feet: enemy roots sit at the body centre (the
+            // grunt's is ~1.3 u above the floor), so a ray from the transform would
+            // never reach the ground.
             isGrounded = Physics.Raycast(
-                rb.position + Vector3.up * 0.05f,
+                GetFeetPosition() + Vector3.up * 0.05f,
                 Vector3.down,
                 groundCheckDistance + 0.05f,
-                groundLayers
+                groundLayers,
+                QueryTriggerInteraction.Ignore
             );
+        }
+
+        /// <summary>Bottom of the body collider under the transform (the transform itself without one).</summary>
+        public Vector3 GetFeetPosition()
+        {
+            Vector3 position = rb != null ? rb.position : transform.position;
+            if (bodyCollider != null && bodyCollider.enabled)
+                position.y = bodyCollider.bounds.min.y;
+            return position;
         }
 
         // ============================================================
@@ -284,7 +332,207 @@ namespace junklite
         {
             isInKnockback = false;
             knockbackVelocity = Vector3.zero;
+            RefreshCollisionDetectionMode();
             OnKnockbackEnd?.Invoke();
+        }
+
+        // ============================================================
+        // LAUNCH
+        // ============================================================
+
+        /// <summary>
+        /// Records the vertical speed every airborne step and flags one landing
+        /// per flight, using the speed from the step before contact (by the time
+        /// the ground check sees the floor the contact has already killed it).
+        /// </summary>
+        private void HandleLaunch()
+        {
+            if (!isGrounded)
+            {
+                // Contact stop: gravity only ever speeds a fall up, so a fall that lost most of
+                // its speed in one step hit something solid. Counts as a landing even when that
+                // floor is on a layer outside Ground Layers (otherwise the body lay on it in the
+                // flight pose until Max Air Time ran out).
+                float verticalSpeed = rb.linearVelocity.y;
+                if (launchArmed && lastAirVerticalSpeed < -ContactStopMinFallSpeed &&
+                    verticalSpeed > lastAirVerticalSpeed * ContactStopKeptFraction)
+                {
+                    launchArmed = false;
+                    landingImpactSpeed = -lastAirVerticalSpeed;
+                    landingPending = true;
+                    if (launchEndsOnLanding)
+                        EndLaunch();
+                    return;
+                }
+
+                launchArmed = true;
+                lastAirVerticalSpeed = verticalSpeed;
+                TryLandThisStep();
+                return;
+            }
+
+            if (!launchArmed)
+                return;
+
+            launchArmed = false;
+            landingImpactSpeed = Mathf.Max(0f, -lastAirVerticalSpeed);
+            landingPending = true;
+
+            if (launchEndsOnLanding)
+                EndLaunch();
+        }
+
+        /// <summary>
+        /// A fast fall moves up to half a unit per physics step, so the body would end
+        /// the step inside the floor and the solver would push it back out at up to
+        /// the depenetration limit (10 u/s): a big rebound before any authored bounce.
+        /// When the floor is within this step's travel, slow the fall so the feet
+        /// arrive exactly on it, and report the landing with the real impact speed.
+        /// </summary>
+        private void TryLandThisStep()
+        {
+            Vector3 velocity = rb.linearVelocity;
+            if (velocity.y >= 0f)
+                return;
+
+            float dt = Time.fixedDeltaTime;
+            float gravity = rb.useGravity ? Physics.gravity.magnitude * CurrentLaunchGravityScale() : 0f;
+            // Velocity is integrated before position, so this step's gravity adds travel too.
+            float travel = (-velocity.y + gravity * dt) * dt;
+            const float Skin = 0.02f;
+
+            Vector3 origin = GetFeetPosition() + Vector3.up * 0.05f;
+            if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, travel + 0.05f + Skin,
+                    groundLayers, QueryTriggerInteraction.Ignore))
+            {
+                return;
+            }
+
+            // Put the feet on the floor now and leave no downward speed: arriving at
+            // full speed still made the solver stop (and push back) a fast body.
+            // +gravity*dt cancels this step's gravity so the body stays put.
+            float gap = Mathf.Max(0f, hit.distance - 0.05f - Skin);
+            rb.position += Vector3.down * gap;
+            velocity.y = gravity * dt;
+            rb.linearVelocity = velocity;
+
+            launchArmed = false;
+            landingImpactSpeed = Mathf.Max(0f, -lastAirVerticalSpeed);
+            landingPending = true;
+
+            if (launchEndsOnLanding)
+                EndLaunch();
+        }
+
+        /// <summary>
+        /// Throws the body with an explicit velocity (projected onto the movement
+        /// plane) under a launch-only gravity scale. Knockback and voluntary movement
+        /// are suspended until <see cref="EndLaunch"/>. With <paramref name="endOnLanding"/>
+        /// the launch ends itself on the first landing (corpses, no owner state).
+        /// </summary>
+        public void Launch(Vector3 velocity, float gravityScale, bool endOnLanding = false)
+        {
+            if (!CanBeLaunched)
+                return;
+
+            Stop();
+            isInKnockback = false;
+            knockbackVelocity = Vector3.zero;
+
+            isLaunched = true;
+            launchArmed = false;
+            landingPending = false;
+            launchEndsOnLanding = endOnLanding;
+            launchGravityScale = Mathf.Max(1f, gravityScale);
+
+            rb.linearVelocity = ProjectOntoMovementPlane(velocity);
+            lastAirVerticalSpeed = rb.linearVelocity.y;
+            RefreshCollisionDetectionMode();
+        }
+
+        /// <summary>Replaces the velocity mid-launch (juggle hit, bounce). No-op when not launched.</summary>
+        public void SetLaunchVelocity(Vector3 velocity)
+        {
+            if (!isLaunched || rb == null)
+                return;
+
+            rb.linearVelocity = ProjectOntoMovementPlane(velocity);
+            lastAirVerticalSpeed = rb.linearVelocity.y;
+            launchArmed = false;
+            landingPending = false;
+        }
+
+        /// <summary>Changes the launch-only gravity mid-flight (a softer bounce, a juggle). No-op when not launched.</summary>
+        public void SetLaunchGravityScale(float gravityScale)
+        {
+            if (isLaunched)
+                launchGravityScale = Mathf.Max(1f, gravityScale);
+        }
+
+        /// <summary>True once per landing while launched, with the downward speed just before contact.</summary>
+        public bool TryConsumeLanding(out float impactSpeed)
+        {
+            impactSpeed = landingImpactSpeed;
+            if (!landingPending)
+                return false;
+
+            landingPending = false;
+            return true;
+        }
+
+        /// <summary>Lets the launch end itself on the next landing (the owner state is gone).</summary>
+        public void ReleaseLaunchToPhysics()
+        {
+            launchEndsOnLanding = true;
+        }
+
+        /// <summary>
+        /// Floats the launched body near its apex: while its vertical speed is below
+        /// <paramref name="speed"/>, gravity uses <paramref name="gravityScale"/>.
+        /// 0 speed turns the hang off (bounce, spike).
+        /// </summary>
+        public void SetLaunchHang(float speed, float gravityScale)
+        {
+            launchHangSpeed = Mathf.Max(0f, speed);
+            launchHangGravityScale = Mathf.Max(0.05f, gravityScale);
+        }
+
+        /// <summary>
+        /// While launched and falling, use <paramref name="gravityScale"/> for <paramref name="seconds"/>
+        /// (the air time earned by a mid-air hit). Rising is unaffected. 0 seconds clears it.
+        /// </summary>
+        public void SetLaunchFallHang(float gravityScale, float seconds)
+        {
+            launchFallHangScale = Mathf.Max(0.05f, gravityScale);
+            launchFallHangUntil = seconds > 0f ? Time.time + seconds : 0f;
+        }
+
+        /// <summary>True while a mid-air hit's slow fall is still running.</summary>
+        public bool IsLaunchFallHangActive => isLaunched && Time.time < launchFallHangUntil;
+
+        private float CurrentLaunchGravityScale()
+        {
+            if (Time.time < launchFallHangUntil && rb != null && rb.linearVelocity.y <= 0f)
+                return launchFallHangScale;
+            if (launchHangSpeed > 0f && rb != null && Mathf.Abs(rb.linearVelocity.y) < launchHangSpeed)
+                return launchHangGravityScale;
+            return launchGravityScale;
+        }
+
+        public void EndLaunch()
+        {
+            if (!isLaunched)
+                return;
+
+            launchHangSpeed = 0f;
+            launchFallHangUntil = 0f;
+
+            isLaunched = false;
+            launchArmed = false;
+            landingPending = false;
+            launchEndsOnLanding = false;
+            launchGravityScale = 1f;
+            RefreshCollisionDetectionMode();
         }
 
         // ============================================================
@@ -351,7 +599,7 @@ namespace junklite
             Vector3 planarDir = GetPlanarDirection(direction);
 
             float speed = currentSpeed > 0f ? currentSpeed : moveSpeed;
-            return planarDir * speed;
+            return planarDir * speed * statusMoveSpeedMultiplier;
         }
 
         private Vector3 CalculateDashVelocity()
@@ -378,7 +626,7 @@ namespace junklite
                 return Vector3.zero;
             }
 
-            return moveDirection * currentSpeed;
+            return moveDirection * currentSpeed * statusMoveSpeedMultiplier;
         }
 
         // ============================================================
@@ -390,14 +638,14 @@ namespace junklite
         /// </summary>
         public void MoveTo(Vector3 position)
         {
-                if (isInKnockback) return;
-                if (stateMachine != null && stateMachine.CurrentState is StunnedState) return;
+            if (isInKnockback) return;
 
             targetPosition = position;
             isMoving = true;
             isDirectionalMovement = false;
             isDashing = false;
             currentSpeed = moveSpeed;
+            RefreshCollisionDetectionMode();
             UpdateFacingFromDirection(position - rb.position);
         }
 
@@ -415,14 +663,14 @@ namespace junklite
         /// </summary>
         public void MoveTo(Vector3 position, float speed)
         {
-                if (isInKnockback) return;
-                if (stateMachine != null && stateMachine.CurrentState is StunnedState) return;
+            if (isInKnockback) return;
 
             targetPosition = position;
             currentSpeed = speed;
             isMoving = true;
             isDirectionalMovement = false;
             isDashing = false;
+            RefreshCollisionDetectionMode();
             UpdateFacingFromDirection(position - rb.position);
         }
 
@@ -432,8 +680,7 @@ namespace junklite
         /// </summary>
         public void DashTo(Vector3 position, float speed)
         {
-                if (isInKnockback) return;
-                if (stateMachine != null && stateMachine.CurrentState is StunnedState) return;
+            if (isInKnockback) return;
 
             targetPosition = position;
             dashSpeed = speed;
@@ -441,6 +688,7 @@ namespace junklite
             isMoving = true;
             isDirectionalMovement = false;
             isDashing = true;
+            RefreshCollisionDetectionMode();
             UpdateFacingFromDirection(position - rb.position);
         }
 
@@ -449,14 +697,14 @@ namespace junklite
         /// </summary>
         public void MoveInDirection(Vector3 direction)
         {
-                if (isInKnockback) return;
-                if (stateMachine != null && stateMachine.CurrentState is StunnedState) return;
+            if (isInKnockback) return;
 
             moveDirection = GetPlanarDirection(direction);
             currentSpeed = moveSpeed;
             isMoving = true;
             isDirectionalMovement = true;
             isDashing = false;
+            RefreshCollisionDetectionMode();
             UpdateFacingFromDirection(direction);
         }
 
@@ -465,15 +713,24 @@ namespace junklite
         /// </summary>
         public void MoveInDirection(Vector3 direction, float speed)
         {
-                if (isInKnockback) return;
-                if (stateMachine != null && stateMachine.CurrentState is StunnedState) return;
+            if (isInKnockback) return;
 
             moveDirection = GetPlanarDirection(direction);
             currentSpeed = speed;
             isMoving = true;
             isDirectionalMovement = true;
             isDashing = false;
+            RefreshCollisionDetectionMode();
             UpdateFacingFromDirection(direction);
+        }
+
+        /// <summary>
+        /// Applies the aggregate status multiplier without mutating the configured
+        /// base speed. This prevents a slow expiring from overwriting upgrades.
+        /// </summary>
+        public void SetStatusMoveSpeedMultiplier(float multiplier)
+        {
+            statusMoveSpeedMultiplier = Mathf.Max(0f, multiplier);
         }
 
         /// <summary>
@@ -486,6 +743,7 @@ namespace junklite
             isDashing = false;
             currentSpeed = 0f;
             moveDirection = Vector3.zero;
+            RefreshCollisionDetectionMode();
         }
 
         /// <summary>
@@ -495,13 +753,14 @@ namespace junklite
         /// </summary>
         public bool ApplyKnockback(Vector3 force)
         {
-            if (ignoreKnockback)
+            if (ignoreKnockback || isLaunched)
                 return false;
 
             Stop();
 
             isInKnockback = true;
             knockbackTimer = 0f;
+            RefreshCollisionDetectionMode();
 
             // Project the knockback force onto our movement plane
             knockbackVelocity = ProjectOntoMovementPlane(force);
@@ -528,6 +787,7 @@ namespace junklite
             if (rb == null || duration <= 0f) yield break;
 
             isPushActive = true;
+            RefreshCollisionDetectionMode();
 
             float hDot = Vector3.Dot(worldDir, horizontalAxis);
             float hSign = hDot >= 0f ? 1f : -1f;
@@ -544,6 +804,7 @@ namespace junklite
             }
 
             isPushActive = false;
+            RefreshCollisionDetectionMode();
 
             // Stop sliding after push ends
             if (rb != null)
@@ -562,6 +823,18 @@ namespace junklite
             {
                 EndKnockback();
             }
+        }
+
+        private void RefreshCollisionDetectionMode()
+        {
+            if (rb == null || rb.isKinematic)
+                return;
+
+            CollisionDetectionMode desired = isDashing || isInKnockback || isPushActive || isLaunched
+                ? CollisionDetectionMode.ContinuousDynamic
+                : CollisionDetectionMode.ContinuousSpeculative;
+            if (rb.collisionDetectionMode != desired)
+                rb.collisionDetectionMode = desired;
         }
 
         // ============================================================
@@ -664,7 +937,8 @@ namespace junklite
 
             // Draw ground check
             Gizmos.color = isGrounded ? Color.green : Color.red;
-            Gizmos.DrawLine(pos + Vector3.up * 0.05f, pos + Vector3.down * groundCheckDistance);
+            Vector3 feet = Application.isPlaying ? GetFeetPosition() : pos;
+            Gizmos.DrawLine(feet + Vector3.up * 0.05f, feet + Vector3.down * groundCheckDistance);
 
             // Draw horizontal movement axis (blue line shows which direction "right" is)
             Gizmos.color = Color.blue;
