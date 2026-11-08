@@ -217,6 +217,13 @@ namespace junklite
             returningToPassive = false;
         }
 
+        /// <summary>Blocked at an edge: the last known position across the gap would only walk it back there.</summary>
+        protected override void OnLedgeBlocked()
+        {
+            chase.ClearLastKnownPosition();
+            base.OnLedgeBlocked();
+        }
+
         public virtual bool TryGetCapability<T>(out T capability) where T : class
         {
             if (this is T brainCapability)

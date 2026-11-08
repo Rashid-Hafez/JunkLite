@@ -921,7 +921,7 @@ namespace junklite
         private static bool IsAirborne(EnemyCharacter enemy)
         {
             IState state = enemy.StateMachine != null ? enemy.StateMachine.CurrentState : null;
-            return state is LeapState || state is LaunchedState;
+            return state is LeapState || state is LaunchedState || state is GapJumpState;
         }
 
         private static void Prune(Group group)

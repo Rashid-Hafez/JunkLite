@@ -44,6 +44,7 @@ namespace junklite
         private readonly Collider[] overlapBuffer = new Collider[8];
         private EnemyMovement ownerMovement;
         private float coneBypassUntil;
+        private float ignoreTargetsUntil;
 
         /// <summary>Fires after the current target changes. Arguments are previous and current.</summary>
         public event Action<PlayerCharacter, PlayerCharacter> TargetChanged;
@@ -163,6 +164,18 @@ namespace junklite
             OnTargetExit?.Invoke(previous);
         }
 
+        /// <summary>
+        /// Forgets the target and ignores every player for a while (the chase was given up at a
+        /// ledge, say). Colliders inside the sensor stay tracked, so the validation loop picks the
+        /// player up again once the window has passed.
+        /// </summary>
+        public void ForgetTarget(float ignoreSeconds)
+        {
+            ignoreTargetsUntil = Mathf.Max(ignoreTargetsUntil, Time.time + Mathf.Max(0f, ignoreSeconds));
+            ClearTarget();
+            EnsureValidationRunning();
+        }
+
         private void OnTriggerEnter(Collider other)
         {
             TryTrackCollider(other);
@@ -246,6 +259,8 @@ namespace junklite
             targetColliders.Add(other);
 
             if (currentTarget == player || currentTarget != null)
+                return;
+            if (Time.time < ignoreTargetsUntil)
                 return;
 
             if (!IsValidTarget(player))

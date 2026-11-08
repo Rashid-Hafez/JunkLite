@@ -111,6 +111,7 @@ namespace junklite
         private bool isParryStunned;
         private bool statusCrowdControlled;
         private bool deathHandled;
+        private bool fellOutOfWorld;
 
         // Launch handoff: ReceiveDamage stores the throw, LaunchedState.Enter applies it.
         private bool hasPendingLaunch;
@@ -200,6 +201,7 @@ namespace junklite
             {
                 movement.IgnoreKnockback = !canBeKnockedBack;
                 movement.OnKnockbackEnd += HandleKnockbackEnd;
+                movement.FellOutOfWorld += HandleFellOutOfWorld;
             }
 
             if (detectionZone != null)
@@ -877,7 +879,8 @@ namespace junklite
             IgnoreEnemyBodyCollisionsOnDeath();
             LevelStatsTracker.Instance?.NotifyEnemyKilled(this);
 
-            if (DropManager.Instance != null)
+            // No drops from a body that fell out of the world: they would fall forever too.
+            if (DropManager.Instance != null && !fellOutOfWorld)
             {
                 if (customDropTable != null)
                     DropManager.Instance.RequestDrop(transform.position, customDropTable, dropChance);
@@ -912,6 +915,37 @@ namespace junklite
             // Defer the visual/physics teardown until the corpse has landed and the
             // death animation has had time to play. Teardown happens in DeathSequence.
             StartCoroutine(DeathSequence());
+        }
+
+        /// <summary>
+        /// EnemyMovement: the body is far below any floor it stood on. A live enemy dies through
+        /// the damage pipeline (kill tracking, encounters and Died listeners all see it; no drops),
+        /// then the object is torn down at once instead of waiting for a landing that never comes.
+        /// An enemy the pipeline cannot kill (an invincible dummy) is removed the same way.
+        /// </summary>
+        private void HandleFellOutOfWorld()
+        {
+            if (fellOutOfWorld || !gameObject.activeInHierarchy)
+                return;
+
+            fellOutOfWorld = true;
+            if (IsAlive)
+                InstantDeath();
+
+            StopAllCoroutines();
+            if (detectionZone != null)
+            {
+                detectionZone.ClearTarget();
+                detectionZone.enabled = false;
+            }
+            PlayerCombatTracker.Instance?.NotifyEnemyExitedCombat(this);
+            isInCombat = false;
+
+            DisableEnemyVisual();
+            DisablePhysics();
+            movement?.Stop();
+            enabled = false;
+            gameObject.SetActive(false);
         }
 
         /// <summary>

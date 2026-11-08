@@ -540,7 +540,7 @@ namespace junklite
                 return;
 
             // LeapState and LaunchedState drive their phases through the presenter API.
-            if (to is LeapState || to is LaunchedState)
+            if (to is LeapState || to is LaunchedState || to is GapJumpState)
                 return;
 
             var state = skeletonAnimation.AnimationState;

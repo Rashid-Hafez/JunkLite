@@ -921,7 +921,7 @@ namespace junklite
                     if (!other.IsAlive)
                         continue;
                     IState otherState = other.StateMachine != null ? other.StateMachine.CurrentState : null;
-                    if (otherState is LeapState || otherState is LaunchedState)
+                    if (otherState is LeapState || otherState is LaunchedState || otherState is GapJumpState)
                         continue;
                 }
 

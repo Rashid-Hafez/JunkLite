@@ -193,6 +193,9 @@ namespace junklite
 
         // Update last known position
         void UpdateLastKnownPosition(Vector3 position);
+
+        // Forget the last known position (the chase has nowhere left to go)
+        void ClearLastKnownPosition();
     }
 
     /// <summary>
@@ -332,6 +335,22 @@ namespace junklite
         void OnLeapAborted();
         /// <summary>The leap was interrupted before landing (hit during telegraph, forced state).</summary>
         void OnLeapCancelled();
+    }
+
+    /// <summary>
+    /// Enemy can jump a gap in the floor it was about to walk off. Implemented by EnemyBrain
+    /// for every enemy; the landing comes from EnemyMovement.ProbeGap.
+    /// Used by: GapJumpState
+    /// </summary>
+    public interface IGapJumper
+    {
+        /// <summary>Landing point (feet height) chosen when the jump was started.</summary>
+        Vector3 GapLanding { get; }
+        float GapJumpSpeed { get; }
+        /// <summary>Arc height for a jump of this horizontal length.</summary>
+        float GapArcHeight(float distance);
+        /// <summary>Landed (true), or the jump was cut short by a forced state (false).</summary>
+        void OnGapJumpFinished(bool landed);
     }
 
     /// <summary>
