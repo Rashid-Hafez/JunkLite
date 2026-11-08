@@ -6,6 +6,7 @@ namespace junklite
     {
         private ICharger charger;
         private ILockedDashAim aimLock;
+        private IChargeArmor armor;
         private EnemyMovement movement;
         private float timer;
         private float duration;
@@ -23,6 +24,7 @@ namespace junklite
             }
 
             aimLock = GetCapability<ILockedDashAim>();
+            armor = GetCapability<IChargeArmor>();
             movement = enemy.Movement;
             timer = charger.ChargeTime;
             duration = timer;
@@ -53,6 +55,9 @@ namespace junklite
         // Past the lock point the facing stays put; the dash follows it.
         private bool IsAimLocked() =>
             aimLock != null && (duration <= 0f || 1f - timer / duration >= aimLock.AimLockNormalized);
+
+        /// <summary>An armored charge (brain-decided) shrugs off hitstun and knockback; damage still applies.</summary>
+        public override bool CanBeInterrupted => armor == null || !armor.ChargeIsArmored;
 
         public override void Exit()
         {

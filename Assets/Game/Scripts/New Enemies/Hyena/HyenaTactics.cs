@@ -4,12 +4,20 @@ namespace junklite
 {
     /// <summary>
     /// Pure decision maths for <see cref="HyenaBrain"/>: dodge fatigue, swing threat,
-    /// and which side to dodge to. No Unity lifecycle, so it is unit-testable.
+    /// which side to dodge to and when a stagger breaks.
+    /// No Unity lifecycle, so it is unit-testable.
     /// </summary>
     public static class HyenaTactics
     {
         /// <summary>Side tolerance: a side counts as open when its room is within this of the full dodge.</summary>
         public const float OpenSideTolerance = 0.05f;
+
+        /// <summary>
+        /// Hits landed inside the pressure window that break a stagger at once:
+        /// true when <paramref name="hitsToBreak"/> is enabled (&gt; 0) and reached.
+        /// </summary>
+        public static bool StaggerBreaks(int recentHits, int hitsToBreak) =>
+            hitsToBreak > 0 && recentHits >= hitsToBreak;
 
         /// <summary>Fatigue left after <paramref name="elapsed"/> seconds of not dodging (1 → 0 over <paramref name="recoverySeconds"/>).</summary>
         public static float DecayFatigue(float fatigue, float elapsed, float recoverySeconds)

@@ -173,6 +173,17 @@ namespace junklite
     }
 
     /// <summary>
+    /// Optional for ICharger: the brain says whether the charge it just started may be
+    /// interrupted. True = hits still deal damage but no hitstun or knockback, so a
+    /// telegraph the enemy has earned (the Hyena's counter out of a hop) plays out.
+    /// Used by: ChargeState (enemies without it keep an interruptible charge)
+    /// </summary>
+    public interface IChargeArmor
+    {
+        bool ChargeIsArmored { get; }
+    }
+
+    /// <summary>
     /// Enemy can chase targets persistently.
     /// Used by: ChaseState
     /// </summary>

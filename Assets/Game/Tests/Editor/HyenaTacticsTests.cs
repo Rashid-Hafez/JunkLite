@@ -4,8 +4,8 @@ using UnityEngine;
 namespace junklite.Tests
 {
     /// <summary>
-    /// Pure-logic checks for the Hyena's dodge policy: fatigue, swing threat and
-    /// side choice. No Play Mode, no prefab load.
+    /// Pure-logic checks for the Hyena's dodge policy: fatigue, swing threat, side
+    /// choice and the stagger break. No Play Mode, no prefab load.
     /// </summary>
     public sealed class HyenaTacticsTests
     {
@@ -102,6 +102,15 @@ namespace junklite.Tests
         {
             float almost = 4f - HyenaTactics.OpenSideTolerance * 0.5f;
             Assert.That(HyenaTactics.ChooseDodgeSide(almost, 0f, 4f, 1f, 0f, preferAway: false), Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void StaggerBreaksAtTheHitCountAndNeverWhenDisabled()
+        {
+            Assert.That(HyenaTactics.StaggerBreaks(1, 2), Is.False, "one hit is a normal stagger");
+            Assert.That(HyenaTactics.StaggerBreaks(2, 2), Is.True, "the second hit in the window breaks it");
+            Assert.That(HyenaTactics.StaggerBreaks(5, 2), Is.True);
+            Assert.That(HyenaTactics.StaggerBreaks(5, 0), Is.False, "0 disables the break");
         }
     }
 }

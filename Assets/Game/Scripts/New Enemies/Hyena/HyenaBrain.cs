@@ -16,29 +16,36 @@ namespace junklite
     /// - The dodge side is chosen (IDodgeAim): away when there is room, through the
     ///   player when the back is blocked by a wall or a lane-mate; landing behind a
     ///   player mid-swing earns a bite before she turns.
-    /// - The counter-dash only punishes a player still mid-swing when the dodge ends,
-    ///   on one dash cooldown shared with the opener, so dodge-dash never loops. A
-    ///   whiffed dash still stuns it (the punish window) and leaves it winded.
-    /// - Under hit pressure a stagger ends with a retreat hop instead of walking back
-    ///   into the combo, once per cooldown.
+    /// - Every hop ends in the dash. The moment a dodge lands (reactive or retreat) she
+    ///   winds up (ChargeState, charge.chargeTime, the warning and the charge pose: the
+    ///   player's window to react) and then dashes, no queue lease, no roll by default
+    ///   (counterChance), as long as the player is inside maxCounterDashRange. The dodge
+    ///   has i-frames, the counter's wind-up is armored (IChargeArmor) and the dash
+    ///   cannot be interrupted, so hop, wind-up and punish are one uninterruptible beat;
+    ///   hits still deal damage throughout. A whiffed dash still stuns her (the punish
+    ///   window) and leaves her winded; a landed dash restarts the shared dash cooldown,
+    ///   which only gates the opener. Fatigue is what stops the hop itself from looping.
+    /// - Hit pressure: a stagger that keeps getting refreshed by a combo is broken at
+    ///   once after a couple of hits (the dodge has i-frames), and a stagger that ends
+    ///   under pressure ends with a retreat hop. Both are hops, so both dash back.
     /// </summary>
-    public sealed class HyenaBrain : MeleeChaserBrain, IDodgeAim
+    public sealed class HyenaBrain : MeleeChaserBrain, IDodgeAim, IChargeArmor
     {
         private enum DodgePurpose { None, Reactive, Retreat }
 
         [Header("Hyena - Reactive Dodge")]
         [SerializeField] private DodgeBehavior dodge = new();
         [Tooltip("Base chance to dodge a swing that can reach it. Fatigue lowers it.")]
-        [SerializeField, Range(0f, 1f)] private float dodgeChance = 0.6f;
+        [SerializeField, Range(0f, 1f)] private float dodgeChance = 0.7f;
         [Tooltip("Never reacts to a swing started further away than this (axis distance).")]
         [SerializeField] private float dodgeCheckRange = 4f;
         [Tooltip("Added to the player's weapon reach: a swing inside reach + margin is a threat (covers the attack lunge).")]
         [SerializeField, Min(0f)] private float dodgeReachMargin = 1.5f;
         [Tooltip("Weapon reach used when the player's weapon can't be read.")]
         [SerializeField, Min(0f)] private float fallbackSwingReach = 1.5f;
-        [SerializeField] private float dodgeCooldown = 0.8f;
+        [SerializeField] private float dodgeCooldown = 0.7f;
         [Tooltip("Each dodge adds this much fatigue (0-1). Chance = base x (1 - fatigue).")]
-        [SerializeField, Range(0f, 1f)] private float dodgeFatiguePerDodge = 0.35f;
+        [SerializeField, Range(0f, 1f)] private float dodgeFatiguePerDodge = 0.3f;
         [Tooltip("Seconds for fatigue to recover from 1 to 0 while it isn't dodging.")]
         [SerializeField, Min(0.1f)] private float dodgeFatigueRecovery = 4f;
         [Tooltip("Layers that block a dodge: walls, floor edges, other enemies. Empty = Default + Ground + Wall + Enemies.")]
@@ -51,13 +58,13 @@ namespace junklite
         [Header("Hyena - Charge Dash")]
         [SerializeField] private ChargeBehavior charge = new();
         [SerializeField] private DashBehavior dash = new();
-        [Tooltip("After a reactive dodge, chance to punish a player still mid-swing with the dash.")]
-        [SerializeField, Range(0f, 1f)] private float dashChance = 0.6f;
+        [Tooltip("Chance that a landed hop (reactive dodge or retreat) is followed by the counter: the charge wind-up (charge.chargeTime, armored against hitstun) and then the dash. 1 = every hop is punished.")]
+        [SerializeField, Range(0f, 1f)] private float counterChance = 1f;
         [Tooltip("Stun after a dash that hit nothing: the punish window.")]
         [SerializeField] private float whiffStunDuration = 1.5f;
         [Tooltip("Furthest the dash (counter or opener) is attempted from (axis distance).")]
         [SerializeField] private float maxCounterDashRange = 8f;
-        [Tooltip("Seconds between dashes of either kind, so dodge-dash never loops.")]
+        [Tooltip("Seconds before the opener dash may be rolled again after any dash. The counter after a hop ignores it.")]
         [SerializeField, Min(0f)] private float dashCooldown = 4f;
         [Tooltip("Opener: while chasing from at least this far, roll for a charged dash instead of running in. 0 = never.")]
         [SerializeField, Min(0f)] private float openerDashMinRange = 5f;
@@ -68,9 +75,16 @@ namespace junklite
         [Header("Hyena - Hit Pressure")]
         [SerializeField, Min(0.1f)] private float pressureWindow = 2.5f;
         [SerializeField, Min(1)] private int pressureHitsToMax = 3;
+        [Tooltip("Hits landed inside the pressure window that break a stagger at once: it hops out of the combo (i-frames) instead of eating the next swing. 0 = never.")]
+        [SerializeField, Min(0)] private int breakStaggerHits = 2;
+        [Tooltip("Seconds between stagger breaks. Parry and whiff stuns are never broken.")]
+        [SerializeField, Min(0f)] private float breakStaggerCooldown = 1f;
         [Tooltip("Pressure (0-1) at which a stagger ends with a retreat hop instead of re-engaging.")]
         [SerializeField, Range(0f, 1f)] private float retreatPressure = 0.66f;
         [SerializeField, Min(0f)] private float retreatCooldown = 5f;
+        [Header("Hyena - Debug")]
+        [Tooltip("Log stagger breaks and what each dodge ended in (counter, lease refused, chase).")]
+        [SerializeField] private bool logDecisions;
 
         private const float ObstacleRayHeight = 0.5f;
         private const float ObstacleBuffer = 0.3f;
@@ -86,9 +100,11 @@ namespace junklite
         private float nextDashAllowed;
         private float nextOpenerRoll;
         private float nextRetreatAllowed;
+        private float nextBreakAllowed;
         private bool wasPlayerAttacking;
         private DodgePurpose dodgePurpose;
         private int dodgeSign;
+        private bool counterCharging;
 
         // Target cache (refreshed when the target transform changes)
         private Transform cachedTarget;
@@ -100,6 +116,9 @@ namespace junklite
 
         /// <summary>IDodgeAim: set right before entering DodgeState, cleared when it ends.</summary>
         public int DodgeDirectionSign => dodgeSign;
+
+        /// <summary>IChargeArmor: the wind-up of a counter out of a hop cannot be staggered; the opener's can.</summary>
+        public bool ChargeIsArmored => counterCharging && StateMachine.CurrentState is ChargeState;
 
         /// <summary>0-1 how tired its legs are; 1 = will not dodge.</summary>
         public float DodgeFatigue => CurrentFatigue();
@@ -136,6 +155,7 @@ namespace junklite
 
             dodgePurpose = DodgePurpose.None;
             dodgeSign = 0;
+            counterCharging = false;
             UninitializeHyenaCapabilities();
             base.OnDisable();
         }
@@ -172,6 +192,9 @@ namespace junklite
             }
 
             RefreshTargetCache();
+
+            if (TryBreakStagger())
+                return;
 
             if (TryOpenerDash())
                 return;
@@ -271,7 +294,23 @@ namespace junklite
             dodgePurpose = purpose;
             lastDodgeTime = Time.time;
             AddFatigue(dodgeFatiguePerDodge);
+
+            if (purpose == DodgePurpose.Retreat)
+                LeaveStagger();
+
             ChangeState<DodgeState>();
+        }
+
+        /// <summary>
+        /// A hop out of a stagger ends the stagger's side effects first: the knockback
+        /// still in flight (cancelled while StunnedState is current, so its end callback
+        /// is a no-op) and the hitstun status, so the next hit after the hop staggers
+        /// her normally instead of refreshing a status she already escaped.
+        /// </summary>
+        private void LeaveStagger()
+        {
+            Movement?.CancelKnockback();
+            Actor.StatusEffects?.Remove(StatusEffectType.Hitstun);
         }
 
         /// <summary>Picks the open side: never into a wall or a lane-mate when the other way is clear.</summary>
@@ -312,7 +351,6 @@ namespace junklite
 
             DodgePurpose purpose = dodgePurpose;
             dodgePurpose = DodgePurpose.None;
-            bool landedThrough = dodgeSign > 0;
             dodgeSign = 0;
 
             if (!Actor.HasTarget)
@@ -321,32 +359,43 @@ namespace junklite
                 return;
             }
 
-            if (purpose == DodgePurpose.Reactive)
-            {
-                bool playerCommitted = targetState != null && targetState.IsAttacking;
-                if (playerCommitted)
-                {
-                    // Punish the swing she can't cancel.
-                    if (CanDash()
-                        && AxisDistanceToTarget() <= maxCounterDashRange
-                        && Random.value <= dashChance
-                        && TryAcquireAttackPermission())
-                    {
-                        StartDash();
-                        return;
-                    }
-
-                    // Landed behind her mid-swing: bite before she turns.
-                    if (landedThrough && IsTargetInMeleeRange() && !IsPlayerFacingMe()
-                        && TryAcquireAttackPermission())
-                    {
-                        ChangeState<MeleeAttackState>();
-                        return;
-                    }
-                }
-            }
+            if (TryCounterAfterDodge(purpose))
+                return;
 
             EvaluateNextAction(true);
+        }
+
+        /// <summary>
+        /// The hop's second half: the armored wind-up and then the dash, while the
+        /// player is inside <see cref="maxCounterDashRange"/>. Nothing else gates it
+        /// (no queue lease, no dash cooldown), so a dodge the player sees is always
+        /// followed by the punish. Returns false when the normal evaluation (chase,
+        /// queue) should take over instead.
+        /// </summary>
+        private bool TryCounterAfterDodge(DodgePurpose purpose)
+        {
+            float axisDistance = AxisDistanceToTarget();
+            if (axisDistance > maxCounterDashRange)
+            {
+                Log($"dodge ended ({purpose}); player out of dash range ({axisDistance:0.0}): re-engage");
+                return false;
+            }
+
+            if (Random.value > counterChance)
+            {
+                Log($"dodge ended ({purpose}); counter roll failed: re-engage");
+                return false;
+            }
+
+            Log($"counter dash after {purpose} hop (axis {axisDistance:0.0})");
+            StartCounterDash();
+            return true;
+        }
+
+        private void Log(string message)
+        {
+            if (logDecisions)
+                Debug.Log($"[Hyena] {name}: {message}", this);
         }
 
         // =============================================================
@@ -355,10 +404,31 @@ namespace junklite
 
         private bool CanDash() => Time.time >= nextDashAllowed;
 
+        /// <summary>Opener: telegraphed (ChargeState shows the warning) then the dash.</summary>
         private void StartDash()
         {
             nextDashAllowed = Time.time + dashCooldown;
             dash.ResetHitResult();
+            ChangeState<ChargeState>();
+        }
+
+        /// <summary>
+        /// Counter out of a hop: the charge wind-up (charge.chargeTime; ChargeState shows
+        /// the warning and the charge pose, the player's window to react) armored against
+        /// hitstun through <see cref="IChargeArmor"/>, then the dash. The group lease is
+        /// taken when free but never waited for, and a knockback that somehow outlived
+        /// the hop is dropped so <see cref="EnemyMovement.DashTo"/> cannot refuse the
+        /// run. DashState strikes in place when already in reach.
+        /// </summary>
+        private void StartCounterDash()
+        {
+            nextDashAllowed = Time.time + dashCooldown;
+            EnemyEngagementDirector.TryAcquireAttack(Actor, requireFrontPosition: false);
+            if (Movement != null && Movement.IsInKnockback)
+                Movement.CancelKnockback();
+
+            dash.ResetHitResult();
+            counterCharging = true;
             ChangeState<ChargeState>();
         }
 
@@ -392,6 +462,7 @@ namespace junklite
 
         private void HandleChargeCompleted()
         {
+            counterCharging = false;
             if (!Actor.IsAlive)
                 return;
 
@@ -404,6 +475,8 @@ namespace junklite
             if (!Actor.IsAlive)
                 return;
 
+            counterCharging = false;
+            Actor.HideAttackWarning();
             ReleaseAttackPermission();
 
             if (!Actor.HasTarget)
@@ -415,6 +488,7 @@ namespace junklite
             if (!dash.LastHitApplied)
             {
                 // The punish window: stunned, and too winded to dodge straight out of it.
+                Log("dash whiffed: punish window");
                 AddFatigue(1f);
                 stun.ForcedStunDuration = whiffStunDuration;
                 ChangeState<StunnedState>();
@@ -437,6 +511,31 @@ namespace junklite
             EnemyEngagementDirector.ReportHitTaken(Actor);
         }
 
+        /// <summary>
+        /// Being combo'd: every hit refreshes the stagger, so waiting for it to end never
+        /// happens. After <see cref="breakStaggerHits"/> hits in the window she breaks the
+        /// stagger herself with a hop (i-frames), then counters from <see cref="HandleDodgeCompleted"/>.
+        /// Earned punish windows (parry stun, whiff stun) are never broken.
+        /// </summary>
+        private bool TryBreakStagger()
+        {
+            if (Time.time < nextBreakAllowed || StateMachine.CurrentState is not StunnedState)
+                return false;
+            if (Actor.IsParryStunned || stun.ForcedStunDuration > 0f)
+                return false;
+            if (!HyenaTactics.StaggerBreaks(pressure.CountWithin(Time.time, pressureWindow), breakStaggerHits))
+                return false;
+            if (AxisDistanceToTarget() > dodgeCheckRange)
+                return false;
+
+            nextBreakAllowed = Time.time + breakStaggerCooldown;
+            pressure.Clear();
+            StartDodge(DodgePurpose.Retreat, preferAway: true);
+            bool broke = StateMachine.CurrentState is DodgeState;
+            Log(broke ? "stagger broken: hop out of the combo" : "stagger break requested but the hop did not start");
+            return broke;
+        }
+
         /// <summary>Out of a stagger while being combo'd: hop away (or through, if the back is blocked).</summary>
         private bool TryRetreatHop()
         {
@@ -451,6 +550,7 @@ namespace junklite
 
             nextRetreatAllowed = Time.time + retreatCooldown;
             pressure.Clear();
+            Log("stagger ended under pressure: retreat hop");
             StartDodge(DodgePurpose.Retreat, preferAway: true);
             return true;
         }

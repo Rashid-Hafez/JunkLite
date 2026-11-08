@@ -285,8 +285,8 @@ MonoBehaviour:
     knockback: {x: 5, y: 2}
     hitbox: {fileID: 4213466484449388956}
     vfxPrefab: {fileID: 0}
-    hitStartNormalized: 0.45
-    hitEndNormalized: 0.55
+    hitStartNormalized: 0.36
+    hitEndNormalized: 0.7
   stun:
     staggerDuration: 0.5
     stunVFXObject: {fileID: 0}
@@ -318,7 +318,6 @@ MonoBehaviour:
     attackStartNormalized: 0.8
     attackActiveDuration: 0.12
     whiffResolveDelay: 0.05
-  dashChance: 1
   whiffStunDuration: 1.5
   maxCounterDashRange: 8
 --- !u!114 &424022102533304986
@@ -885,8 +884,8 @@ Transform:
   m_GameObject: {fileID: 9101347373124830079}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.896, y: -0.14, z: 0}
-  m_LocalScale: {x: 1, y: 0.67, z: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8757400840095143692}
@@ -910,8 +909,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.0820189, y: 2.0810027, z: 0.96183014}
-  m_Center: {x: 0.21881533, y: 0.45660686, z: 0}
+  m_Size: {x: 2.55, y: 2.05, z: 0.96}
+  m_Center: {x: 0.9, y: 0.2, z: 0}
 --- !u!114 &4213466484449388956
 MonoBehaviour:
   m_ObjectHideFlags: 0
