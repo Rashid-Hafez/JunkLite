@@ -150,6 +150,7 @@ namespace junklite
             public float NextAttackAllowedTime;
             public float AttackHandoffDelay = DefaultAttackHandoffDelay;
             public float NextLeapAllowedTime;
+            public EnemyCharacter LeapHolder;
             public readonly HitPressureWindow Pressure = new(12);
         }
 
@@ -576,7 +577,21 @@ namespace junklite
                 return false;
 
             group.NextLeapAllowedTime = Time.time + Mathf.Max(0f, cooldown);
+            group.LeapHolder = enemy;
             return true;
+        }
+
+        /// <summary>
+        /// The holder's leap was cancelled before take-off (hit during the crouch): frees the
+        /// window at once so its retry, or another member, is not held by the group cooldown.
+        /// </summary>
+        public static void ReleaseLeap(EnemyCharacter enemy)
+        {
+            if (!Memberships.TryGetValue(enemy, out Group group) || group.LeapHolder != enemy)
+                return;
+
+            group.LeapHolder = null;
+            group.NextLeapAllowedTime = 0f;
         }
 
         /// <summary>Brains call this with successfully applied hits only.</summary>

@@ -354,7 +354,7 @@ namespace junklite
                     BuildActionSection(toolContent, "RUN CONTROL", toolSource.RunActions);
                     break;
                 case 4:
-                    BuildActionSection(toolContent, "ROOM SPAWNS", toolSource.RoomActions);
+                    BuildActionSection(toolContent, "ROOMS & CHECKPOINTS", toolSource.RoomActions);
                     break;
             }
             categoryPages.Add(toolContent);

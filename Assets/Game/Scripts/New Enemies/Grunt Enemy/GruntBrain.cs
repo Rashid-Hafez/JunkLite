@@ -130,7 +130,7 @@ namespace junklite
         [Header("Grunt - Vault To Open Side")]
         [SerializeField] private bool vaultEnabled = true;
         [Tooltip("Only the second grunt in a side's queue vaults, and only when this close (axis distance) to the player.")]
-        [SerializeField, Min(0f)] private float vaultMaxStartDistance = 4.5f;
+        [SerializeField, Min(0f)] private float vaultMaxStartDistance = 7f;
         [Tooltip("0 = vault only when the far side is empty. 1 = allow a 2/2 split with four grunts.")]
         [SerializeField, Min(0)] private int vaultMaxFarSideCount = 0;
         [Tooltip("Land this far outside attack range so the grunt takes one step in instead of landing on the player.")]
@@ -139,16 +139,18 @@ namespace junklite
         [Tooltip("Arc height. Must clear the grunt in front (capsule height ~2.3).")]
         [SerializeField, Min(0f)] private float vaultHeight = 1.6f;
         [Tooltip("Grounded crouch before leaving the ground. A hit during this cancels the vault.")]
-        [SerializeField, Min(0f)] private float vaultTelegraph = 0.2f;
+        [SerializeField, Min(0f)] private float vaultTelegraph = 0.08f;
         [SerializeField, Min(0f)] private float leapLandDuration = 0.12f;
         [SerializeField] private bool leapHasIFrames;
-        [SerializeField, Range(0f, 1f)] private float vaultChance = 0.85f;
+        [SerializeField, Range(0f, 1f)] private float vaultChance = 1f;
         [SerializeField, Min(0f)] private float vaultCooldown = 3f;
         [Tooltip("Never two grunts of the same group airborne within this many seconds.")]
         [SerializeField, Min(0f)] private float groupLeapCooldown = 1f;
         [Tooltip("Call the vault off during the crouch if the player moves this far along the lane.")]
         [SerializeField, Min(0.1f)] private float vaultAbortDistance = 1.5f;
         [SerializeField, Min(0f)] private float vaultAbortCooldown = 1f;
+        [Tooltip("A hit during the crouch cancels the vault. It is retried this soon after the stun (no chance roll, group window freed) instead of waiting out Vault Cooldown.")]
+        [SerializeField, Min(0f)] private float vaultRetryDelay = 0.1f;
         [Tooltip("How fast (units/s) the landing point may follow the player while airborne. 0 = fixed landing.")]
         [SerializeField, Min(0f)] private float vaultMaxCorrectionSpeed = 8f;
         [Tooltip("Walls, floors, door blockers. Empty = Default + Ground + Wall.")]
@@ -232,6 +234,7 @@ namespace junklite
         private Vector3 leapDestination;
         private bool leapIsFallBack;
         private int vaultSide;
+        private bool vaultRetryPending;
         private Vector3 vaultAnchor;
         private float vaultGroundY;
 
@@ -375,6 +378,7 @@ namespace junklite
         protected override void OnTargetChanged(PlayerCharacter previous, PlayerCharacter current)
         {
             ClearReactions();
+            vaultRetryPending = false;
             engaged = false;
             modeTimer = 0f;
 
@@ -739,15 +743,17 @@ namespace junklite
             float distance,
             bool holding)
         {
+            // Getting round the line beats flinching behind it: the vault is tried first,
+            // even while an ally-hit recoil is pending (StartLeap drops the recoil).
+            if (TryStartVault(lane, distance))
+                return;
+
             // A flinch in progress (or about to start) owns the slot behaviour.
             if (IsRecoiling)
             {
                 ChangeState<HoldPositionState>();
                 return;
             }
-
-            if (TryStartVault(lane, distance))
-                return;
 
             // Measure against where the body ahead really is, not its ideal slot,
             // or a lagging leader leaves this grunt "not arrived" forever.
@@ -1058,7 +1064,7 @@ namespace junklite
 
         private bool TryStartVault(EnemyLaneSnapshot lane, float distance)
         {
-            if (!vaultEnabled || !engaged || IsRecoiling)
+            if (!vaultEnabled || !engaged)
                 return false;
             if (lane.QueueIndex != 1 || lane.CountFarSide > vaultMaxFarSideCount)
                 return false;
@@ -1072,7 +1078,8 @@ namespace junklite
             if (!TryComputeVaultLanding(out Vector3 destination) || !IsLeapLandingValid(destination))
                 return false;
 
-            if (Random.value > vaultChance)
+            // A retry after a cancelled crouch already won its roll.
+            if (!vaultRetryPending && Random.value > vaultChance)
             {
                 // Hesitate briefly instead of re-rolling every tick.
                 nextVaultAllowed = Time.time + 0.5f;
@@ -1136,6 +1143,8 @@ namespace junklite
         {
             leapDestination = destination;
             leapIsFallBack = fallBack;
+            vaultRetryPending = false;
+            ClearReactions();
             if (fallBack)
                 EnemyEngagementDirector.SetYielding(Actor, true);
 
@@ -1219,6 +1228,7 @@ namespace junklite
         public void OnLeapComplete()
         {
             EnemyEngagementDirector.SetYielding(Actor, false);
+            vaultRetryPending = false;
             if (!Actor.IsAlive)
                 return;
 
@@ -1229,6 +1239,7 @@ namespace junklite
         {
             EnemyEngagementDirector.SetYielding(Actor, false);
             nextVaultAllowed = Time.time + vaultAbortCooldown;
+            vaultRetryPending = false;
             if (!Actor.IsAlive)
                 return;
 
@@ -1239,6 +1250,15 @@ namespace junklite
         {
             // Called from LeapState.Exit inside a state change: bookkeeping only.
             EnemyEngagementDirector.SetYielding(Actor, false);
+            if (leapIsFallBack)
+                return;
+
+            // Hit during the crouch (the stun now owns the body): the vault was the right
+            // call and it never left the ground, so give the cooldowns back and retry as
+            // soon as the stun ends (HandleStunCompleted -> EvaluateQueued -> TryStartVault).
+            nextVaultAllowed = Time.time + vaultRetryDelay;
+            vaultRetryPending = true;
+            EnemyEngagementDirector.ReleaseLeap(Actor);
         }
 
         // ------------------------------------------------------------

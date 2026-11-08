@@ -66801,7 +66801,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   TrackerSettings:
-    BindingMode: 0
+    BindingMode: 4
     PositionDamping: {x: 1, y: 1, z: 1}
     AngularDampingMode: 0
     RotationDamping: {x: 1, y: 1, z: 1}
@@ -648776,54 +648776,6 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 7469832150642187350, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: grab.cooldown
-      value: 3
-      objectReference: {fileID: 0}
-    - target: {fileID: 7469832150642187350, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: grab.holdTime
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7469832150642187350, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: dash.dashSpeed
-      value: 25
-      objectReference: {fileID: 0}
-    - target: {fileID: 7469832150642187350, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: charge.chargeTime
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 7469832150642187350, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: grab.throwForce.y
-      value: 10
-      objectReference: {fileID: 0}
-    - target: {fileID: 7469832150642187350, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: grab.throwDuration
-      value: 0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 7469832150642187350, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: chargeDash.cooldown
-      value: 3
-      objectReference: {fileID: 0}
-    - target: {fileID: 7469832150642187350, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: grab.reachActiveTime
-      value: 0.3
-      objectReference: {fileID: 0}
-    - target: {fileID: 7469832150642187350, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: dash.dashStopDistance
-      value: 0.8
-      objectReference: {fileID: 0}
-    - target: {fileID: 7469832150642187350, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: grab.postSlamIdleTime
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 7469832150642187350, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: dash.attackStartNormalized
-      value: 0.474
-      objectReference: {fileID: 0}
-    - target: {fileID: 7469832150642187350, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
-      propertyPath: grab.throwReleaseNormalized
-      value: 0.301
-      objectReference: {fileID: 0}
     - target: {fileID: 8579331337950473440, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
       propertyPath: m_LocalPosition.y
       value: 0.337
@@ -931889,7 +931841,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   TrackerSettings:
-    BindingMode: 0
+    BindingMode: 4
     PositionDamping: {x: 1, y: 1, z: 1}
     AngularDampingMode: 0
     RotationDamping: {x: 1, y: 1, z: 1}
@@ -963109,7 +963061,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   TrackerSettings:
-    BindingMode: 0
+    BindingMode: 4
     PositionDamping: {x: 1, y: 1, z: 1}
     AngularDampingMode: 0
     RotationDamping: {x: 1, y: 1, z: 1}
@@ -968496,7 +968448,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   TrackerSettings:
-    BindingMode: 0
+    BindingMode: 4
     PositionDamping: {x: 1, y: 1, z: 1}
     AngularDampingMode: 0
     RotationDamping: {x: 1, y: 1, z: 1}
@@ -968912,7 +968864,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   TrackerSettings:
-    BindingMode: 0
+    BindingMode: 4
     PositionDamping: {x: 1, y: 1, z: 1}
     AngularDampingMode: 0
     RotationDamping: {x: 1, y: 1, z: 1}
@@ -979176,6 +979128,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.Checkpoint
   spawnPoint: {fileID: 0}
   reachedVisual: {fileID: 0}
+  order: 1
 --- !u!1 &1900000010
 GameObject:
   m_ObjectHideFlags: 0
@@ -979244,6 +979197,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.Checkpoint
   spawnPoint: {fileID: 0}
   reachedVisual: {fileID: 0}
+  order: 2
 --- !u!1 &1900000014
 GameObject:
   m_ObjectHideFlags: 0
@@ -979312,6 +979266,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.Checkpoint
   spawnPoint: {fileID: 0}
   reachedVisual: {fileID: 0}
+  order: 3
 --- !u!1 &1900000018
 GameObject:
   m_ObjectHideFlags: 0
@@ -979380,6 +979335,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.Checkpoint
   spawnPoint: {fileID: 0}
   reachedVisual: {fileID: 0}
+  order: 4
 --- !u!1 &1900000022
 GameObject:
   m_ObjectHideFlags: 0
@@ -979448,6 +979404,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.Checkpoint
   spawnPoint: {fileID: 0}
   reachedVisual: {fileID: 0}
+  order: 5
 --- !u!1 &1900000026
 GameObject:
   m_ObjectHideFlags: 0
@@ -979516,6 +979473,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.Checkpoint
   spawnPoint: {fileID: 0}
   reachedVisual: {fileID: 0}
+  order: 6
 --- !u!1 &1900000030
 GameObject:
   m_ObjectHideFlags: 0
@@ -979584,3 +979542,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.Checkpoint
   spawnPoint: {fileID: 0}
   reachedVisual: {fileID: 0}
+  order: 7

@@ -32,8 +32,8 @@ namespace junklite
         [SerializeField, Min(0f)] private float escapeStunDuration = 0.4f;
         [Tooltip("Gameplay length of the throw animation.")]
         [SerializeField] private float throwDuration = 0.7f;
-        [Tooltip("Point in the slam (0-1) where the player is released. 1 = when the slam animation ends.")]
-        [SerializeField][Range(0f, 1f)] private float throwReleaseNormalized = 1f;
+        [Tooltip("Point in the throw (0-1) where the player leaves his hands. In 9_Throw he hoists her overhead for the first 40% and sweeps down at ~0.42; release there so she flies with the swing.")]
+        [SerializeField][Range(0f, 1f)] private float throwReleaseNormalized = 0.42f;
         [Tooltip("Recovery after a missed grab.")]
         [SerializeField] private float missRecoveryTime = 0.6f;
 
@@ -56,8 +56,8 @@ namespace junklite
         [SerializeField, Min(0f)] private float touchMinOverlap = 0.05f;
         [Tooltip("Seconds the bodies must stay overlapped before the touch grabs. 0 = the first overlapping frame grabs.")]
         [SerializeField, Min(0f)] private float touchHoldTime = 0f;
-        [Tooltip("Clutch before the throw after a touch grab. 0 = thrown at once. A touch grab can never be broken.")]
-        [SerializeField, Min(0f)] private float touchThrowDelay = 0f;
+        [Tooltip("Clutch before the throw after a touch grab, counted from the touch. The grab clip (8_Grab, 0.3 s) plays first, so keep this above 0.3 or the throw cuts it off. A touch grab can never be broken.")]
+        [SerializeField, Min(0f)] private float touchThrowDelay = 0.55f;
 
         // A touch that caught nothing (dash, shield) waits this long before testing again.
         private const float TouchRetryDelay = 0.3f;
