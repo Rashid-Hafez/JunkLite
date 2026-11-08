@@ -24,6 +24,10 @@ namespace junklite
 
         [Header("Presentation")]
         [SerializeField] private TMP_FontAsset bodyFont;
+        [Tooltip("Overall size of the active-mods bar (the whole 400x144 layout is scaled by this). Lead-tunable; 1 = the original size.")]
+        [SerializeField, Range(0.4f, 1f)] private float interfaceScale = 0.7f;
+        [Tooltip("Gap between the bottom of the screen and the bar, in reference pixels (1920x1080).")]
+        [SerializeField, Min(0f)] private float bottomMargin = 20f;
 
         private static readonly Color Frame = new(0.032f, 0.045f, 0.087f, 0.97f);
         private static readonly Color Card = new(0.055f, 0.073f, 0.125f, 0.96f);
@@ -193,9 +197,11 @@ namespace junklite
             RectTransform root = (RectTransform)transform;
             root.anchorMin = root.anchorMax = new Vector2(0.5f, 0f);
             root.pivot = new Vector2(0.5f, 0.5f);
-            root.anchoredPosition = new Vector2(0f, 92f);
+            // The bar is laid out at 400x144 and then scaled as a whole, so every element keeps
+            // its proportions; the anchored Y keeps the bottom edge at bottomMargin.
             root.sizeDelta = new Vector2(400f, 144f);
-            root.localScale = Vector3.one;
+            root.localScale = Vector3.one * interfaceScale;
+            root.anchoredPosition = new Vector2(0f, bottomMargin + 72f * interfaceScale);
 
             if (panel == null)
                 panel = CreateRect("Panel", transform).gameObject;

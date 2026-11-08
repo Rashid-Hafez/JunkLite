@@ -1,5 +1,12 @@
 # JunkLite Architecture Refactor Handoff
 
+### Gameplay HUD shrunk: objective tracker and active-mods bar (2026-11-08)
+
+- **Objective tracker** (`New UI/Prefabs/New/Objective Tracker HUD.prefab`, nested in `New Player UI 2.prefab`): 540×132 at (40, −40) → 378×92 at (28, −28), children scaled ~0.7 (title 40 → 28 pt, header/tags 20 → 14, body 20 → 15, accent 6 → 4 px). The nested instance in `New Player UI 2` overrides the root's size and position, so those overrides were updated too; the tracker is still authored UI, `ObjectiveTrackerView` only binds text.
+- **Active-mods bar** is still the legacy code-built interface: `ModCombatUI.Awake` → `BuildInterface()` destroys the authored `Panel` children in the HUD prefab and builds the 400×144 frame, card and slots in code, so prefab edits to `Mod Combat UI` have no effect at runtime. Rather than extend that code, it now takes two serialized knobs: `interfaceScale` (0.7; scales the whole built layout from the root, 1 = original) and `bottomMargin` (20 reference px kept under the bar). Converting the bar to an authored prefab is still the right end state (UI rule: no UI built in code) and is not done.
+- **Not touched:** the health dial (`Health`, 270×270 bottom-left) and the weapon slots authored in the HUD prefab (those are the ones destroyed by `BuildInterface`).
+- **Status:** compiles (offline dotnet check). Not viewed in the Editor or Play Mode.
+
 ### Service Floor: Wing2 pit shaft walls (2026-11-08)
 
 - **Symptom:** falling into the 5 u gap after `Checkpoint_Wing2` (Floor_Wing_South ends at z 151, Floor_Wing_North starts at z 156, both 1 u thick), the player could drift along the lane under the floors, miss `FallRecovery_Room2A` (y −12..−8, z 148..156) and fall to `Kill Y` at −30.
