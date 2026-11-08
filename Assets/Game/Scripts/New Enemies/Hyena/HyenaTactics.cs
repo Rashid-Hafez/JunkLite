@@ -4,13 +4,28 @@ namespace junklite
 {
     /// <summary>
     /// Pure decision maths for <see cref="HyenaBrain"/>: dodge fatigue, swing threat,
-    /// which side to dodge to and when a stagger breaks.
+    /// which side to dodge to, when a stagger breaks and when a vault is open.
     /// No Unity lifecycle, so it is unit-testable.
     /// </summary>
     public static class HyenaTactics
     {
         /// <summary>Side tolerance: a side counts as open when its room is within this of the full dodge.</summary>
         public const float OpenSideTolerance = 0.05f;
+
+        /// <summary>
+        /// Whether a vault over the player is on: she is squared up to a grounded,
+        /// planted player (facing her, not rolling) inside the vault band. A player who
+        /// has turned away is already flanked, so there is nothing to vault for.
+        /// </summary>
+        public static bool VaultOpen(
+            float axisDistance,
+            float minRange,
+            float maxRange,
+            bool playerFacingHer,
+            bool playerGrounded,
+            bool playerRolling) =>
+            playerFacingHer && playerGrounded && !playerRolling
+            && axisDistance >= minRange && axisDistance <= maxRange;
 
         /// <summary>
         /// Hits landed inside the pressure window that break a stagger at once:

@@ -5,7 +5,7 @@ namespace junklite.Tests
 {
     /// <summary>
     /// Pure-logic checks for the Hyena's dodge policy: fatigue, swing threat, side
-    /// choice and the stagger break. No Play Mode, no prefab load.
+    /// choice, the stagger break and the vault gate. No Play Mode, no prefab load.
     /// </summary>
     public sealed class HyenaTacticsTests
     {
@@ -102,6 +102,17 @@ namespace junklite.Tests
         {
             float almost = 4f - HyenaTactics.OpenSideTolerance * 0.5f;
             Assert.That(HyenaTactics.ChooseDodgeSide(almost, 0f, 4f, 1f, 0f, preferAway: false), Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void VaultOpensOnlyForAPlantedPlayerFacingHerInsideTheBand()
+        {
+            Assert.That(HyenaTactics.VaultOpen(3f, 1.5f, 5f, true, true, false), Is.True);
+            Assert.That(HyenaTactics.VaultOpen(1f, 1.5f, 5f, true, true, false), Is.False, "too close");
+            Assert.That(HyenaTactics.VaultOpen(6f, 1.5f, 5f, true, true, false), Is.False, "too far");
+            Assert.That(HyenaTactics.VaultOpen(3f, 1.5f, 5f, false, true, false), Is.False, "already behind her: nothing to vault for");
+            Assert.That(HyenaTactics.VaultOpen(3f, 1.5f, 5f, true, false, false), Is.False, "player airborne");
+            Assert.That(HyenaTactics.VaultOpen(3f, 1.5f, 5f, true, true, true), Is.False, "player rolling");
         }
 
         [Test]

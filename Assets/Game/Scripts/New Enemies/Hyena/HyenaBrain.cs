@@ -28,8 +28,12 @@ namespace junklite
     /// - Hit pressure: a stagger that keeps getting refreshed by a combo is broken at
     ///   once after a couple of hits (the dodge has i-frames), and a stagger that ends
     ///   under pressure ends with a retreat hop. Both are hops, so both dash back.
+    /// - Vault (ILeaper, LeapState): squared up to a planted player who faces her, she
+    ///   sometimes jumps clean over them and lands just behind, then bites before they
+    ///   turn. Same leap as the Grunt's vault (telegraph crouch, kinematic arc, landing),
+    ///   aimed at the player's far side instead of the far front slot.
     /// </summary>
-    public sealed class HyenaBrain : MeleeChaserBrain, IDodgeAim, IChargeArmor
+    public sealed class HyenaBrain : MeleeChaserBrain, IDodgeAim, IChargeArmor, ILeaper
     {
         private enum DodgePurpose { None, Reactive, Retreat }
 
@@ -82,6 +86,32 @@ namespace junklite
         [Tooltip("Pressure (0-1) at which a stagger ends with a retreat hop instead of re-engaging.")]
         [SerializeField, Range(0f, 1f)] private float retreatPressure = 0.66f;
         [SerializeField, Min(0f)] private float retreatCooldown = 5f;
+        [Header("Hyena - Vault Over The Player")]
+        [SerializeField] private bool vaultEnabled = true;
+        [Tooltip("Axis distance band the vault is attempted from: too close and the arc is a hop in place, too far and it reads as a lunge.")]
+        [SerializeField, Min(0f)] private float vaultMinRange = 1.5f;
+        [SerializeField, Min(0f)] private float vaultMaxRange = 5f;
+        [Tooltip("Chance per roll (every vaultRetry seconds while the vault is open).")]
+        [SerializeField, Range(0f, 1f)] private float vaultChance = 0.4f;
+        [SerializeField, Min(0.1f)] private float vaultRetry = 0.8f;
+        [SerializeField, Min(0f)] private float vaultCooldown = 5f;
+        [Tooltip("Land this far behind the player's centre: inside bite range, so the landing bite connects.")]
+        [SerializeField, Min(0f)] private float vaultLandBehind = 1.4f;
+        [SerializeField, Min(0.5f)] private float vaultSpeed = 12f;
+        [Tooltip("Arc height. Must clear the player (capsule ~2.4).")]
+        [SerializeField, Min(0f)] private float vaultHeight = 2.2f;
+        [Tooltip("Grounded crouch before leaving the ground. A hit during this cancels the vault.")]
+        [SerializeField, Min(0f)] private float vaultTelegraph = 0.12f;
+        [SerializeField, Min(0f)] private float vaultLandDuration = 0.1f;
+        [Tooltip("Untouchable while airborne, like her dodge.")]
+        [SerializeField] private bool vaultHasIFrames = true;
+        [Tooltip("Call the vault off during the crouch if the player moves this far along the lane.")]
+        [SerializeField, Min(0.1f)] private float vaultAbortDistance = 1.5f;
+        [Tooltip("Never two enemies of the same group airborne within this many seconds.")]
+        [SerializeField, Min(0f)] private float groupLeapCooldown = 1f;
+        [Tooltip("After landing behind the player, chance to bite at once.")]
+        [SerializeField, Range(0f, 1f)] private float vaultBiteChance = 0.9f;
+
         [Header("Hyena - Debug")]
         [Tooltip("Log stagger breaks and what each dodge ended in (counter, lease refused, chase).")]
         [SerializeField] private bool logDecisions;
@@ -106,6 +136,15 @@ namespace junklite
         private int dodgeSign;
         private bool counterCharging;
 
+        // Vault
+        private readonly Collider[] overlapBuffer = new Collider[8];
+        private Vector3 leapDestination;
+        private Vector3 vaultAnchor;
+        private float vaultGroundY;
+        private int vaultSide;
+        private float nextVaultAllowed;
+        private float nextVaultRoll;
+
         // Target cache (refreshed when the target transform changes)
         private Transform cachedTarget;
         private PlayerState targetState;
@@ -119,6 +158,15 @@ namespace junklite
 
         /// <summary>IChargeArmor: the wind-up of a counter out of a hop cannot be staggered; the opener's can.</summary>
         public bool ChargeIsArmored => counterCharging && StateMachine.CurrentState is ChargeState;
+
+        // ILeaper
+        public Vector3 LeapDestination => leapDestination;
+        public float LeapSpeed => vaultSpeed;
+        public float LeapHeight => vaultHeight;
+        public float LeapTelegraph => vaultTelegraph;
+        public float LeapLandDuration => vaultLandDuration;
+        public bool LeapHasIFrames => vaultHasIFrames;
+        public float LeapMaxCorrectionSpeed => 6f;
 
         /// <summary>0-1 how tired its legs are; 1 = will not dodge.</summary>
         public float DodgeFatigue => CurrentFatigue();
@@ -171,6 +219,7 @@ namespace junklite
                 new DodgeState(Actor),
                 new ChargeState(Actor),
                 new DashState(Actor),
+                new LeapState(Actor),
                 new StunnedState(Actor),
                 new ParriedState(Actor),
                 new DeadState(Actor));
@@ -197,6 +246,9 @@ namespace junklite
                 return;
 
             if (TryOpenerDash())
+                return;
+
+            if (TryVault())
                 return;
 
             CheckForDodgeOpportunity();
@@ -228,7 +280,8 @@ namespace junklite
             return base.IsDecisionLocked()
                 || current is DodgeState
                 || current is ChargeState
-                || current is DashState;
+                || current is DashState
+                || current is LeapState;
         }
 
         public override bool TryGetCapability<T>(out T capability)
@@ -278,7 +331,7 @@ namespace junklite
                 return false;
 
             IState current = StateMachine.CurrentState;
-            if (current is DodgeState || current is ChargeState || current is DashState)
+            if (current is DodgeState || current is ChargeState || current is DashState || current is LeapState)
                 return false;
 
             // The swing has started: commit to it instead of flickering out.
@@ -496,6 +549,173 @@ namespace junklite
             }
 
             EvaluateNextAction(true);
+        }
+
+        // =============================================================
+        // VAULT OVER THE PLAYER
+        // =============================================================
+
+        /// <summary>
+        /// Closing in or waiting on a planted player who faces her: roll to jump clean
+        /// over them and land behind. Only from Chase or the queue, never mid-action.
+        /// </summary>
+        private bool TryVault()
+        {
+            if (!vaultEnabled || Time.time < nextVaultAllowed || Time.time < nextVaultRoll)
+                return false;
+
+            IState current = StateMachine.CurrentState;
+            if (current is not ChaseState && current is not WaitForOpeningState)
+                return false;
+            if (Movement == null || !Movement.IsGrounded)
+                return false;
+
+            nextVaultRoll = Time.time + vaultRetry;
+
+            float axisDistance = AxisDistanceToTarget();
+            bool grounded = targetState == null || targetState.IsGrounded;
+            bool rolling = targetState != null && targetState.IsRolling;
+            if (!HyenaTactics.VaultOpen(axisDistance, vaultMinRange, vaultMaxRange, IsPlayerFacingMe(), grounded, rolling))
+                return false;
+
+            float signed = Movement.GetSignedAxisDistance(transform.position, Actor.Target.position);
+            vaultSide = signed >= 0f ? 1 : -1;
+            vaultGroundY = transform.position.y;
+            if (!TryComputeVaultLanding(out Vector3 destination) || !IsLeapLandingValid(destination))
+                return false;
+
+            if (Random.value > vaultChance)
+                return false;
+            if (!EnemyEngagementDirector.TryReserveLeap(Actor, groupLeapCooldown))
+                return false;
+
+            nextVaultAllowed = Time.time + vaultCooldown;
+            vaultAnchor = Actor.Target.position;
+            leapDestination = destination;
+            ReleaseAttackPermission();
+            Log($"vault over the player (axis {axisDistance:0.0})");
+            ChangeState<LeapState>();
+            return StateMachine.CurrentState is LeapState;
+        }
+
+        /// <summary>Landing point just behind the player (her far side), at take-off ground height and this lane depth.</summary>
+        private bool TryComputeVaultLanding(out Vector3 landing)
+        {
+            landing = default;
+            if (!Actor.HasTarget || Movement == null)
+                return false;
+
+            Vector3 laneAxis = Mathf.Abs(Movement.MovementAxis.x) >= Mathf.Abs(Movement.MovementAxis.z)
+                ? Vector3.right
+                : Vector3.forward;
+            Vector3 depthAxis = Vector3.Cross(Vector3.up, laneAxis);
+
+            landing = Actor.Target.position + laneAxis * (vaultSide * vaultLandBehind);
+            landing.y = vaultGroundY;
+            landing += depthAxis * (Vector3.Dot(transform.position, depthAxis) - Vector3.Dot(landing, depthAxis));
+            return true;
+        }
+
+        public void RefreshLeapDestination()
+        {
+            if (!TryComputeVaultLanding(out Vector3 landing))
+                return;
+
+            // Keep the last good landing if the new one is behind a wall or over a gap.
+            if (!IsSegmentClear(Actor.Target.position, landing) || !HasGroundAt(landing))
+                return;
+
+            leapDestination = landing;
+        }
+
+        public bool ShouldAbortLeap()
+        {
+            if (!Actor.HasTarget)
+                return true;
+            if (targetState != null && (targetState.IsRolling || !targetState.IsGrounded))
+                return true;
+
+            return Movement.GetAbsAxisDistance(Actor.Target.position, vaultAnchor) > vaultAbortDistance;
+        }
+
+        private bool IsLeapLandingValid(Vector3 destination)
+        {
+            Vector3 delta = destination - transform.position;
+            delta.y = 0f;
+            if (delta.magnitude <= 0.2f)
+                return false;
+
+            // Wall, door blocker, or ledge between her and the landing point.
+            if (!IsSegmentClear(transform.position, destination) || !HasGroundAt(destination))
+                return false;
+
+            // Another enemy body already standing there.
+            int count = Physics.OverlapSphereNonAlloc(
+                destination + Vector3.up * 1f,
+                0.45f,
+                overlapBuffer,
+                LayerMask.GetMask("Enemies"),
+                QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+            {
+                EnemyCharacter other = overlapBuffer[i].GetComponentInParent<EnemyCharacter>();
+                overlapBuffer[i] = null;
+                if (other != null && other != Actor)
+                    return false;
+            }
+
+            return true;
+        }
+
+        private bool IsSegmentClear(Vector3 from, Vector3 to)
+        {
+            Vector3 origin = new(from.x, vaultGroundY + 0.9f, from.z);
+            Vector3 delta = to - from;
+            delta.y = 0f;
+            float distance = delta.magnitude;
+            if (distance <= 0.001f)
+                return true;
+
+            return !Physics.Raycast(origin, delta / distance, distance, resolvedObstacleLayers, QueryTriggerInteraction.Ignore);
+        }
+
+        private bool HasGroundAt(Vector3 point) =>
+            Physics.Raycast(point + Vector3.up * 0.5f, Vector3.down, 2.5f, resolvedObstacleLayers, QueryTriggerInteraction.Ignore);
+
+        /// <summary>Landed behind the player: bite before they turn, else re-engage normally.</summary>
+        public void OnLeapComplete()
+        {
+            if (!Actor.IsAlive)
+                return;
+
+            if (Actor.HasTarget && IsTargetInMeleeRange() && Random.value <= vaultBiteChance
+                && TryAcquireAttackPermission())
+            {
+                Log("vault landed behind the player: bite");
+                ChangeState<MeleeAttackState>();
+                return;
+            }
+
+            Log("vault landed: re-engage");
+            EvaluateNextAction(true);
+        }
+
+        public void OnLeapAborted()
+        {
+            // The opening closed during the crouch: try again soon, not after the full cooldown.
+            nextVaultAllowed = Time.time + 1f;
+            Log("vault called off during the crouch");
+            if (!Actor.IsAlive)
+                return;
+
+            EvaluateNextAction(true);
+        }
+
+        public void OnLeapCancelled()
+        {
+            // Hit during the crouch: the stun owns the body. Give the group window back.
+            EnemyEngagementDirector.ReleaseLeap(Actor);
+            nextVaultAllowed = Time.time + 1f;
         }
 
         // =============================================================
