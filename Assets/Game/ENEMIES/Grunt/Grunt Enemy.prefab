@@ -5373,19 +5373,20 @@ MonoBehaviour:
   recoilHoldRange: {x: 0.35, y: 0.6}
   creepSpeed: 1.5
   vaultEnabled: 1
-  vaultMaxStartDistance: 4.5
+  vaultMaxStartDistance: 7
   vaultMaxFarSideCount: 0
   vaultOvershoot: 0.3
   vaultSpeed: 13
   vaultHeight: 1.6
-  vaultTelegraph: 0.2
+  vaultTelegraph: 0.08
   leapLandDuration: 0.12
   leapHasIFrames: 0
-  vaultChance: 0.85
+  vaultChance: 1
   vaultCooldown: 3
   groupLeapCooldown: 1
   vaultAbortDistance: 1.5
   vaultAbortCooldown: 1
+  vaultRetryDelay: 0.1
   vaultMaxCorrectionSpeed: 11
   obstacleLayers:
     serializedVersion: 2

@@ -1,5 +1,13 @@
 # JunkLite Architecture Refactor Handoff
 
+### Grunt vault: earlier, immediate, and it survives a hit (2026-11-08)
+
+- **Symptom:** the second grunt took too long to hop to the player's open side, and a swing that clipped it while crouching stunned it and the hop never came.
+- **Why (four stacked waits):** (1) a vault was only considered within 4.5 u; (2) `EvaluateQueued` returned to `HoldPositionState` whenever an ally-hit recoil was pending, which every hit on the front grunt schedules, so the queued grunt flinched instead of vaulting; (3) `vaultChance` 0.85 with a 0.5 s hesitation and a 0.2 s crouch; (4) a hit during the crouch cancelled the `LeapState` but `TryStartVault` had already spent the 3 s `vaultCooldown` and the group's 1 s leap window, so after the stun (`staggerDuration` 1 s) the retry was refused for seconds.
+- **Changes (`GruntBrain`):** `TryStartVault` runs before the recoil check and no longer requires `!IsRecoiling`; `StartLeap` clears reactions. New `vaultRetryDelay` (0.1 s) and `vaultRetryPending`: `OnLeapCancelled` (vaults only) sets `nextVaultAllowed` to the retry delay, flags the retry (which skips the chance roll) and calls the new `EnemyEngagementDirector.ReleaseLeap` (frees the group window if this grunt holds it; `Group.LeapHolder`). The flag clears on complete, abort, a new leap and target change. After the stun, `HandleStunCompleted` → `EvaluateNextAction(true)` → `EvaluateQueued` → `TryStartVault` goes straight back into the hop.
+- **Tuning (`Grunt Enemy.prefab`, the only GruntBrain prefab; no scene overrides):** `vaultMaxStartDistance` 4.5 → 7, `vaultTelegraph` 0.2 → 0.08, `vaultChance` 0.85 → 1, `vaultRetryDelay` 0.1 (code defaults match). Unchanged: Engage-only (player planted ≥ `engageDelay` 0.35 s), queue index 1 with an empty far side, player grounded and not rolling, clear path and landing, `vaultCooldown` 3 s after a vault that left the ground, `groupLeapCooldown` 1 s.
+- **Status:** compiles (offline dotnet check). Not verified in Play Mode. To check: two grunts, hit the front one repeatedly: the second hops over within a beat of planting (from up to 7 u); clip the second one mid-crouch: it staggers, then hops as soon as it stands; a hop never repeats within 3 s once airborne.
+
 ### Jump heights lowered (2026-11-08)
 
 - **Values:** `Player Stats.asset` `jumpForce` 13.5 → 12.5 (this is what reaches the controller: `PlayerCharacter.UpdateControllerStats` copies it over the prefab field, so `Player_Cass.prefab` `jumpForce` was set to 12.5 too, to match). `Player_Cass.prefab` `doubleJumpForce` 14.5 → 13.4 (controller-only; the stats asset has no double-jump field).
