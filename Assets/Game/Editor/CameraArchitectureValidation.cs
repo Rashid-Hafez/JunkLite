@@ -1,4 +1,5 @@
 using Unity.Cinemachine;
+using Unity.Cinemachine.TargetTracking;
 using UnityEditor;
 using UnityEngine;
 
@@ -50,6 +51,16 @@ namespace junklite.Editor
                 }
             }
 
+            // A Lock To Target binding re-latches to the player's yaw on every cut, so a respawn or teleport
+            // on a lane facing +Z or -X puts the camera on the wrong side. Offsets are authored in world space.
+            CinemachineFollow[] follows = Find<CinemachineFollow>();
+            foreach (CinemachineFollow follow in follows)
+            {
+                BindingMode mode = follow.TrackerSettings.BindingMode;
+                if (mode != BindingMode.WorldSpace)
+                    Report(follow, $"Follow binding is {mode}; set it to World Space (checkpoint respawns and teleports re-latch the frame to the player's yaw).");
+            }
+
             foreach (CameraZone zone in zones)
             {
                 if (zone.RoomCamera == null)
@@ -82,7 +93,7 @@ namespace junklite.Editor
                     if (leaf != null && GameObjectUtility.AreStaticEditorFlagsSet(leaf.gameObject, StaticEditorFlags.BatchingStatic))
                         Report(door, $"leaf '{leaf.name}' is Batching Static, so it can't slide. Clear Batching Static on the leaves.");
 
-            string summary = $"{faders.Length} fader(s), {occluders.Length} occluder(s), " +
+            string summary = $"{follows.Length} follow camera(s), {faders.Length} fader(s), {occluders.Length} occluder(s), " +
                              $"{zones.Length} zone(s), {transitions.Length} transition(s)";
             if (issues == 0)
                 Debug.Log($"[CameraValidation] Passed for {summary} in the open scene.");

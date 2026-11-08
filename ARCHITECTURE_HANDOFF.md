@@ -1,5 +1,31 @@
 # JunkLite Architecture Refactor Handoff
 
+### Lane cameras: World Space follow binding (2026-11-07)
+
+- **Symptom:** respawning at a Wing checkpoint (player yaw 270, lane along +Z) framed the wrong side: first the outside world (Hall camera), then, with the right lane camera restored, a view across the lane with the player out of frame.
+- **Root cause (scene data, not code):** every lane vcam's `CinemachineFollow` used `BindingMode: LockToTargetOnAssign`. Cinemachine re-latches that frame to the target's rotation whenever the target is assigned **or** `PreviousStateIsValid` is false (`TargetTracking.Tracker.InitStateInfo`), which every cut does (`ResetToSpawnCamera`, `CutToLaneCamera`). In normal play the first latch happens at Room 0 with yaw 0, so the authored offsets behaved like world space and the corner cameras looked right. A cut while the player is yawed 270 rotated `NegXCam`'s offset (28.6, 4, 0) into (0, 4, 28.6): camera down the lane, facing −X. The dev-tool teleport to Room 10 had the same latent bug.
+- **Fix:** `PosXCam`, `PosZCam`, `NegXCam`, `NegZCam`, `BasementCam` in Service Floor now use `BindingMode: WorldSpace` (scene YAML edit; offsets unchanged, so normal play is identical). `CameraManager.RegisterCamera` logs a warning for any Follow camera that is not World Space, and *Validate Cameras* reports them.
+- **Still yaw-bound (not touched, flagged by the validator):** `Scenes/Level 1/Cameras.prefab`, `Cameras .prefab`, `Rooftop Scene v2/v3.unity` (4 vcams each), `rashid LVL1.unity`. Set each Follow binding to World Space in the Inspector when those levels get checkpoints or teleports.
+- **Kept:** the checkpoint route snapshot (lane camera + corner states) from the entry below is still needed, since death resets corners and every spawn snaps to the spawn camera.
+- **Status:** compiles (offline dotnet check). Not verified in Play Mode. To check: die at `Checkpoint_Wing2` → `NegXCam` from +X, player centred; corner at x 188 turns back to the Hall correctly; Room 0 respawn unchanged; Console has no `[CameraManager]` binding warning in Service Floor.
+
+### Checkpoints: camera and corners restored on respawn (2026-11-07)
+
+- **Why:** a respawn at a Wing checkpoint spawned the player in the right place facing +Z but with the Hall camera: `CameraManager.ConnectToPlayer` snaps to `spawnCamera` on every `PlayerSpawned`, and `CameraSwitchTrigger.HandlePlayerDied` resets every corner to its uncrossed state, so the lane camera was PosX and the corner would have turned the wrong way when walked back.
+- **Snapshot, not wiring.** `Checkpoint.CaptureRoute()` runs when the checkpoint is reached: it stores `CameraManager.LaneCamera` (new getter for `layers.Lane`, the camera under any zone or cinematic) and `CaptureRouteState()` of every `CameraSwitchTrigger` (new `RouteState` struct: `UsingFirstState`, `HasSwitched`, `OneWayLocked`, `Hidden`). Because the player physically walked there, the snapshot is exactly the route state for that spot, with any number of corners and no designer fields.
+- **Restore.** `PlayerLifecycle` now keeps the `Checkpoint` itself (`ActiveCheckpoint` is a `Checkpoint`; `GetActiveSpawnPoint` uses its `SpawnTransform`). `SpawnPlayer` calls `activeCheckpoint.RestoreRoute()` after `PlayerSpawned` fires, so it runs after the spawn-camera snap and any `CameraZone` re-apply: each corner gets `RestoreRouteState` (state fields, hidden objects via `HideObjects`, `ApplyLockState`) and the manager `CutToLaneCamera`s the stored lane camera (a zone on top stays on top). `ResetProgress` clears the snapshot.
+- **Not covered:** `CameraTransition` one-shots re-arm on death as before; encounter and enemy state are still not restored.
+- **Status:** compiles (offline dotnet check). Not verified in Play Mode. To check: die at `Checkpoint_Wing2` → PosZ camera framing the Wing lane; walk back to the corner → it turns to the Hall correctly; die before any checkpoint → spawn camera as before.
+
+### Checkpoints: forward-only progress (2026-11-07)
+
+- **Why:** the first version kept whichever checkpoint the player touched last, so backtracking to the start re-armed `Checkpoint_ServiceDoor` and a later death sent the player back to Room 0. Standard checkpoint semantics are a monotonic progress marker: a checkpoint fires once, and reaching an earlier one never moves the respawn back.
+- **`Checkpoint`:** new `order` (int, 1 = first along the route; `Order`). `Activate` is one-shot (`reached` guards it) and asks `PlayerLifecycle.TryReachCheckpoint(this)`, only marking itself reached (and switching on `reachedVisual`) when that accepts. `ResetProgress()` clears the flag and visual.
+- **`PlayerLifecycle`:** `SetCheckpoint` became `TryReachCheckpoint(Checkpoint) : bool`: rejects a checkpoint whose `Order` is below `activeCheckpointOrder` (equal orders, including all-0 unnumbered checkpoints, are accepted, which makes an unnumbered level first-come plus one-shot: still forward-only on a linear route). `ResetCheckpointProgress()` (Restart Level via `RestartAtPrimarySpawn`, and `ConfigureScene`) clears the active checkpoint and calls `ResetProgress` on every registered checkpoint, so a restart in the same scene instance gets fresh checkpoints. `CheckpointReached` now fires only on progress.
+- **Service Floor:** the seven checkpoints carry `order` 1–7 in route order (ServiceDoor, Hall3, HallEast, Room11, Wing1, Wing2, BruteDoor), set in the scene YAML.
+- **Rule for designers:** number checkpoints along the intended route; a side room that can be entered from either direction can share an order with its neighbour. Backtracking is free: nothing re-triggers.
+- **Status:** compiles (offline dotnet check). Not verified in Play Mode. To check: reach `Checkpoint_Wing1`, walk back to Room 0 past the Service Door checkpoint, die → respawn at Wing 1; Restart Level → Room 0 and the Service Door checkpoint arms again.
+
 ### Checkpoints: respawn at the last reached one (2026-11-07)
 
 - **Why:** `PlayerLifecycle.HandlePlayerDeath` picked the spawn marker nearest the death. Service Floor has two markers, both at the start, so every death (enemies, the kill slab, the Brute) sent the player back to Room 0.

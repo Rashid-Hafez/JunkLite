@@ -297,6 +297,39 @@ namespace junklite
             }
         }
 
+        /// <summary>Run state of this corner: which side the player is on, one-way lock, hidden objects.</summary>
+        public struct RouteState
+        {
+            public bool UsingFirstState;
+            public bool HasSwitched;
+            public bool OneWayLocked;
+            public bool Hidden;
+        }
+
+        /// <summary>Snapshot for a checkpoint: restored on a respawn there, since death resets every corner.</summary>
+        public RouteState CaptureRouteState()
+        {
+            return new RouteState
+            {
+                UsingFirstState = usingFirstState,
+                HasSwitched = hasSwitched,
+                OneWayLocked = oneWayLocked,
+                Hidden = hidden
+            };
+        }
+
+        /// <summary>Puts the corner back the way it was when the checkpoint was reached (after the death reset).</summary>
+        public void RestoreRouteState(RouteState state)
+        {
+            CancelBillboardRotation();
+            usingFirstState = state.UsingFirstState;
+            hasSwitched = state.HasSwitched;
+            oneWayLocked = state.OneWayLocked;
+            if (objectsToHide != null && objectsToHide.Length > 0 && hidden != state.Hidden)
+                HideObjects();
+            ApplyLockState();
+        }
+
         /// <summary>
         /// For a teleport (dev tools): sets this corner's state as if the player crossed it to the side
         /// whose yaw is <paramref name="laneYRotation"/>, so walking back turns the right way. Returns that

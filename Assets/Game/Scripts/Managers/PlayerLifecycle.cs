@@ -31,7 +31,8 @@ namespace junklite
 
         private readonly List<Transform> spawnPoints = new();
         private readonly HashSet<Checkpoint> checkpoints = new();
-        private Transform activeCheckpoint;
+        private Checkpoint activeCheckpoint;
+        private int activeCheckpointOrder = -1;
         private LevelContext levelContext;
         private SceneSettings legacySceneSettings;
         private PlayerCharacter currentPlayer;
@@ -77,7 +78,7 @@ namespace junklite
         }
         public int CurrentSpawnIndex => currentSpawnIndex;
         /// <summary>The reached checkpoint the next respawn uses; null = the scene spawn.</summary>
-        public Transform ActiveCheckpoint => activeCheckpoint;
+        public Checkpoint ActiveCheckpoint => activeCheckpoint;
         /// <summary>True when the level has checkpoints: only a reached one is ever used, never the nearest marker.</summary>
         public bool HasCheckpoints => checkpoints.Count > 0;
         public bool ShouldSpawnPlayer => levelContext != null
@@ -86,7 +87,7 @@ namespace junklite
 
         public event Action<PlayerCharacter> PlayerSpawned;
         public event Action<PlayerCharacter> PlayerDied;
-        /// <summary>A checkpoint became the respawn point (also when reached again).</summary>
+        /// <summary>A checkpoint became the respawn point (progress only, once per checkpoint per run).</summary>
         public event Action<Checkpoint> CheckpointReached;
 
         /// <summary>
@@ -150,11 +151,11 @@ namespace junklite
             UnsubscribeFromPlayer(currentPlayer);
             currentPlayer = null;
             currentSpawnIndex = 0;
-            activeCheckpoint = null;
             levelContext = context;
             legacySceneSettings = legacySettings;
             ResolveSpawnPoints();
             ResolveCheckpoints();
+            ResetCheckpointProgress();
         }
 
         public PlayerCharacter SpawnPlayer()
@@ -197,6 +198,12 @@ namespace junklite
 
             PlayerCombatTracker.Instance?.ClearCombatState();
             PlayerSpawned?.Invoke(currentPlayer);
+
+            // After the listeners: CameraManager has just snapped to the spawn camera and the corners
+            // were reset on death, so a checkpoint spawn puts the route back the way it was there.
+            if (activeCheckpoint != null)
+                activeCheckpoint.RestoreRoute();
+
             return currentPlayer;
         }
 
@@ -211,7 +218,7 @@ namespace junklite
         public void RestartAtPrimarySpawn()
         {
             currentSpawnIndex = 0;
-            activeCheckpoint = null;
+            ResetCheckpointProgress();
             RespawnAtCurrentSpawn();
         }
 
@@ -247,15 +254,35 @@ namespace junklite
                 checkpoints.Remove(checkpoint);
         }
 
-        /// <summary>The player reached a checkpoint: respawn there from now on.</summary>
-        public void SetCheckpoint(Checkpoint checkpoint)
+        /// <summary>
+        /// The player walked into a checkpoint. It becomes the respawn point only if it is
+        /// progress: its Order is not below the active checkpoint's. Returns false (and
+        /// changes nothing) for a checkpoint behind the current one, so backtracking never
+        /// moves the respawn back. Equal orders (unnumbered checkpoints) are accepted.
+        /// </summary>
+        public bool TryReachCheckpoint(Checkpoint checkpoint)
         {
             if (checkpoint == null)
-                return;
+                return false;
 
             checkpoints.Add(checkpoint);
-            activeCheckpoint = checkpoint.SpawnTransform;
+            if (activeCheckpoint != null && checkpoint.Order < activeCheckpointOrder)
+                return false;
+
+            activeCheckpoint = checkpoint;
+            activeCheckpointOrder = checkpoint.Order;
             CheckpointReached?.Invoke(checkpoint);
+            return true;
+        }
+
+        /// <summary>Back to the primary spawn with every checkpoint unreached (new run of the level).</summary>
+        private void ResetCheckpointProgress()
+        {
+            activeCheckpoint = null;
+            activeCheckpointOrder = -1;
+            checkpoints.RemoveWhere(checkpoint => checkpoint == null);
+            foreach (Checkpoint checkpoint in checkpoints)
+                checkpoint.ResetProgress();
         }
 
         /// <summary>Checkpoints already enabled before this lifecycle looked at the scene (scene objects wake first).</summary>
@@ -281,6 +308,7 @@ namespace junklite
             spawnPoints.Clear();
             checkpoints.Clear();
             activeCheckpoint = null;
+            activeCheckpointOrder = -1;
             levelContext = null;
             legacySceneSettings = null;
             currentSpawnIndex = 0;
@@ -437,7 +465,7 @@ namespace junklite
         private Transform GetActiveSpawnPoint()
         {
             if (activeCheckpoint != null)
-                return activeCheckpoint;
+                return activeCheckpoint.SpawnTransform;
 
             if (spawnPoints.Count == 0)
                 return null;

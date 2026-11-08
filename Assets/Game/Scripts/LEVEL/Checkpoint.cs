@@ -1,26 +1,39 @@
+using System.Collections.Generic;
+using Unity.Cinemachine;
 using UnityEngine;
 
 namespace junklite
 {
     /// <summary>
-    /// A respawn point the player has to reach. Trigger box across the lane: when the
-    /// player walks into it, <see cref="PlayerLifecycle"/> respawns her here (position
+    /// A progress marker the player has to reach. Trigger box across the lane: when the
+    /// player first walks into it, <see cref="PlayerLifecycle"/> respawns her here (position
     /// and yaw of Spawn Point, this transform by default) until a later checkpoint is
-    /// reached. Only reached checkpoints count: in a scene with any Checkpoint, dying
-    /// before the first one respawns at the primary spawn, never at the nearest marker.
-    /// Restart Level forgets it. Lives under [Gameplay]; the yaw must match the lane
-    /// (0 = lane along +X, 270 = lane along +Z, as LanePath.YRotationFor).
+    /// reached. Progress only moves forward: each checkpoint fires once per run, and one
+    /// with a lower Order than the active checkpoint is ignored, so backtracking through an
+    /// earlier checkpoint never moves the respawn back. Only reached checkpoints count: in a
+    /// scene with any Checkpoint, dying before the first one respawns at the primary spawn,
+    /// never at the nearest marker. Restart Level resets every checkpoint. Lives under
+    /// [Gameplay]; the yaw must match the lane (0 = lane along +X, 270 = lane along +Z, as
+    /// LanePath.YRotationFor).
+    /// Reaching it also snapshots the route: the live lane camera and every Camera Switch
+    /// Trigger's state. A respawn here restores them, because death resets the corners and
+    /// every spawn snaps the camera back to the spawn camera.
     /// </summary>
     [RequireComponent(typeof(Collider))]
     public sealed class Checkpoint : MonoBehaviour
     {
+        [Tooltip("Position in the level's checkpoint sequence (1 = first). A checkpoint with a lower order than the active one is ignored, so number them along the intended route. Equal orders (or all 0) fall back to first-come.")]
+        [SerializeField, Min(0)] private int order;
         [Tooltip("Where to respawn. Empty = this transform. Its yaw must match the lane.")]
         [SerializeField] private Transform spawnPoint;
         [Tooltip("Optional object switched on once this checkpoint has been reached (a light, a glow).")]
         [SerializeField] private GameObject reachedVisual;
 
         private bool reached;
+        private CinemachineCamera laneCamera;
+        private readonly List<(CameraSwitchTrigger corner, CameraSwitchTrigger.RouteState state)> cornerStates = new();
 
+        public int Order => order;
         public Transform SpawnTransform => spawnPoint != null ? spawnPoint : transform;
         public bool Reached => reached;
 
@@ -55,17 +68,59 @@ namespace junklite
             Activate();
         }
 
-        /// <summary>Makes this the respawn point. Reaching it again is harmless.</summary>
+        /// <summary>
+        /// Reaches this checkpoint. Fires once per run, and only if it is progress
+        /// (not behind the active checkpoint); otherwise nothing happens.
+        /// </summary>
         public void Activate()
         {
-            if (!reached)
+            if (reached)
+                return;
+
+            PlayerLifecycle lifecycle = PlayerLifecycle.Instance;
+            if (lifecycle != null && !lifecycle.TryReachCheckpoint(this))
+                return;
+
+            reached = true;
+            CaptureRoute();
+            if (reachedVisual != null)
+                reachedVisual.SetActive(true);
+        }
+
+        /// <summary>Forgets that this checkpoint was reached (Restart Level).</summary>
+        public void ResetProgress()
+        {
+            reached = false;
+            laneCamera = null;
+            cornerStates.Clear();
+            if (reachedVisual != null)
+                reachedVisual.SetActive(false);
+        }
+
+        /// <summary>
+        /// Called by PlayerLifecycle right after the player spawned here: every corner goes back to
+        /// the state it had when this checkpoint was reached, and the camera cuts to the lane camera
+        /// that framed it, so the view faces the lane and walking back through a corner turns the
+        /// right way.
+        /// </summary>
+        public void RestoreRoute()
+        {
+            foreach ((CameraSwitchTrigger corner, CameraSwitchTrigger.RouteState state) in cornerStates)
             {
-                reached = true;
-                if (reachedVisual != null)
-                    reachedVisual.SetActive(true);
+                if (corner != null)
+                    corner.RestoreRouteState(state);
             }
 
-            PlayerLifecycle.Instance?.SetCheckpoint(this);
+            if (laneCamera != null && CameraManager.Instance != null)
+                CameraManager.Instance.CutToLaneCamera(laneCamera);
+        }
+
+        private void CaptureRoute()
+        {
+            laneCamera = CameraManager.Instance != null ? CameraManager.Instance.LaneCamera : null;
+            cornerStates.Clear();
+            foreach (CameraSwitchTrigger corner in FindObjectsByType<CameraSwitchTrigger>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                cornerStates.Add((corner, corner.CaptureRouteState()));
         }
 
 #if UNITY_EDITOR

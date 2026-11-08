@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Cinemachine;
+using Unity.Cinemachine.TargetTracking;
 using UnityEngine;
 
 namespace junklite
@@ -80,6 +81,8 @@ namespace junklite
         public CinemachineCamera MainCamera => mainCamera;
         /// <summary>The camera the manager made live (top layer). Shown in the dev console.</summary>
         public CinemachineCamera LiveCamera => activeCamera;
+        /// <summary>The lane camera under any zone or cinematic (what a corner last set).</summary>
+        public CinemachineCamera LaneCamera => layers.Lane;
         public string LiveLayer => layers.CinematicCount > 0 ? "Cinematic" : layers.Zone != null ? "Zone" : "Lane";
         public bool IsBlending => cameraBrain != null && cameraBrain.IsBlending;
 
@@ -509,6 +512,23 @@ namespace junklite
                 return;
 
             managedCameras.Add(camera);
+            WarnIfYawBound(camera);
+        }
+
+        /// <summary>
+        /// Lane cameras keep their Follow offset in world space. Any Lock To Target binding re-latches
+        /// its frame to the player's yaw on every cut (spawn, respawn, teleport), so a respawn on a +Z
+        /// lane (yaw 270) rotates the offset and puts the camera beside or behind the player.
+        /// </summary>
+        private static void WarnIfYawBound(CinemachineCamera camera)
+        {
+            if (!camera.TryGetComponent(out CinemachineFollow follow))
+                return;
+
+            BindingMode mode = follow.TrackerSettings.BindingMode;
+            if (mode != BindingMode.WorldSpace)
+                Debug.LogWarning($"[CameraManager] '{camera.name}' Follow binding is {mode}. Lane cameras must use World Space, " +
+                                 "or a respawn/teleport on a lane facing +Z or -X frames the wrong side.", camera);
         }
 
         private CinemachineCamera GetFirstManagedCamera()
