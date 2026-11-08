@@ -1,42 +1,32 @@
 using UnityEngine;
 using System.Collections.Generic;
-using TMPro;
-using UnityEngine.UI;
 
 namespace junklite
 {
     /// <summary>
     /// Active-mod HUD bar at the bottom of the screen. Mods are always live, so the bar is
     /// visible whenever a player is bound. One slot per unlocked active mod slot, with
-    /// device-aware input hints. (Legacy code-built layout; convert to a prefab when asked.)
+    /// device-aware input hints.
+    ///
+    /// The bar is authored UI: <c>Active Mods Bar.prefab</c>, built once by
+    /// <c>Tools &gt; JunkLite &gt; UI &gt; Build Active Mods Bar Prefab</c> and edited in the
+    /// Inspector afterwards. This component only copies the inactive slot template, binds
+    /// mods to the copies and shows or hides the panel. It draws nothing.
     /// </summary>
     [DisallowMultipleComponent]
     public class ModCombatUI : MonoBehaviour
     {
         #region Fields
 
-        [Header("Panel (child object to show/hide)")]
+        [Header("Authored bar")]
+        [Tooltip("Child object shown while a player is bound.")]
         [SerializeField] private GameObject panel;
-
-        [Header("Active Mod Slots")]
+        [Tooltip("Layout parent the slot copies go under.")]
         [SerializeField] private Transform activeModParent;
+        [Tooltip("Inactive authored slot inside the bar; one copy is made per unlocked slot.")]
+        [SerializeField] private CombatModSlotUI slotTemplate;
+        [Tooltip("Fallback slot prefab for a HUD that has no template authored.")]
         [SerializeField] private CombatModSlotUI modSlotPrefab;
-
-        [Header("Presentation")]
-        [SerializeField] private TMP_FontAsset bodyFont;
-        [Tooltip("Overall size of the active-mods bar (the whole 400x144 layout is scaled by this). Lead-tunable; 1 = the original size.")]
-        [SerializeField, Range(0.4f, 1f)] private float interfaceScale = 0.7f;
-        [Tooltip("Gap between the bottom of the screen and the bar, in reference pixels (1920x1080).")]
-        [SerializeField, Min(0f)] private float bottomMargin = 20f;
-
-        private static readonly Color Frame = new(0.032f, 0.045f, 0.087f, 0.97f);
-        private static readonly Color Card = new(0.055f, 0.073f, 0.125f, 0.96f);
-        private static readonly Color Well = new(0.025f, 0.035f, 0.07f, 0.9f);
-        private static readonly Color Cyan = new(0.24f, 0.91f, 0.98f, 1f);
-        private static readonly Color Magenta = new(0.86f, 0.25f, 0.89f, 1f);
-        private static readonly Color Paper = new(0.9f, 0.94f, 1f, 1f);
-        private static readonly Color Muted = new(0.51f, 0.61f, 0.74f, 1f);
-        private static readonly Color Line = new(0.18f, 0.27f, 0.38f, 0.75f);
 
         // Runtime
         private ModManager _modManager;
@@ -46,16 +36,13 @@ namespace junklite
         private readonly List<CombatModSlotUI> activeSlotUIs = new();
 
         private int lastActiveCount;
-        private bool themedInterfaceBuilt;
 
         #endregion
 
         private void Awake()
         {
-            if (bodyFont == null)
-                bodyFont = UIFonts.HudBody;
-
-            BuildInterface();
+            if (slotTemplate != null && slotTemplate.gameObject.activeSelf)
+                slotTemplate.gameObject.SetActive(false);
         }
 
         // -----------------------------------------------------------------------
@@ -126,7 +113,7 @@ namespace junklite
                 RebuildAndRefreshMods();
                 // A bought Mod Slot upgrade: flash the slots that just appeared.
                 if (lastActiveCount > previousCount)
-                    HighlightUnlockedSlots(previousCount, lastActiveCount - previousCount, Magenta);
+                    HighlightUnlockedSlots(previousCount, lastActiveCount - previousCount, new Color(0.86f, 0.25f, 0.89f, 1f));
                 return;
             }
 
@@ -146,15 +133,20 @@ namespace junklite
 
             lastActiveCount = _modManager.UnlockedActiveSlots;
 
-            if (activeModParent != null && (themedInterfaceBuilt || modSlotPrefab != null))
+            CombatModSlotUI source = slotTemplate != null ? slotTemplate : modSlotPrefab;
+            if (activeModParent == null || source == null)
             {
-                for (int i = 0; i < lastActiveCount; i++)
-                {
-                    CombatModSlotUI slot = themedInterfaceBuilt
-                        ? CreateThemedModSlot(i)
-                        : Instantiate(modSlotPrefab, activeModParent);
-                    activeSlotUIs.Add(slot);
-                }
+                if (lastActiveCount > 0)
+                    Debug.LogWarning($"{name}: no authored slot template or prefab. Run Tools > JunkLite > UI > Build Active Mods Bar Prefab.", this);
+                return;
+            }
+
+            for (int i = 0; i < lastActiveCount; i++)
+            {
+                CombatModSlotUI slot = Instantiate(source, activeModParent);
+                slot.name = $"Mod Slot {i + 1}";
+                slot.gameObject.SetActive(true);
+                activeSlotUIs.Add(slot);
             }
         }
 
@@ -189,186 +181,6 @@ namespace junklite
 
         #endregion
 
-
-        #region Presentation
-
-        private void BuildInterface()
-        {
-            RectTransform root = (RectTransform)transform;
-            root.anchorMin = root.anchorMax = new Vector2(0.5f, 0f);
-            root.pivot = new Vector2(0.5f, 0.5f);
-            // The bar is laid out at 400x144 and then scaled as a whole, so every element keeps
-            // its proportions; the anchored Y keeps the bottom edge at bottomMargin.
-            root.sizeDelta = new Vector2(400f, 144f);
-            root.localScale = Vector3.one * interfaceScale;
-            root.anchoredPosition = new Vector2(0f, bottomMargin + 72f * interfaceScale);
-
-            if (panel == null)
-                panel = CreateRect("Panel", transform).gameObject;
-
-            Stretch((RectTransform)panel.transform);
-            panel.transform.localScale = Vector3.one;
-
-            for (int i = panel.transform.childCount - 1; i >= 0; i--)
-            {
-                GameObject child = panel.transform.GetChild(i).gameObject;
-                child.SetActive(false);
-                Destroy(child);
-            }
-
-            Image frame = CreateImage("Combat Interface", panel.transform, Frame);
-            Stretch(frame.rectTransform);
-            frame.raycastTarget = false;
-            AddBorder(frame.rectTransform, Line);
-            RectImage("Cyan Edge", frame.transform, Cyan, 0f, 0f, 160f, 3f);
-            RectImage("Magenta Edge", frame.transform, Magenta, 240f, 141f, 160f, 3f);
-
-            Image modsCard = RectImage("Active Mods", frame.transform, Card, 18f, 18f, 364f, 108f);
-            AddBorder(modsCard.rectTransform, Line);
-            RectImage("Mods Accent", modsCard.transform, Cyan, 0f, 0f, 3f, 108f);
-            TextAt("Mods Label", modsCard.transform, "ACTIVE MODS", 13f, Cyan,
-                16f, 8f, 180f, 20f, FontStyles.Bold);
-
-            RectTransform modParent = CreateRect("Mod Slots", modsCard.transform);
-            Place(modParent, 14f, 32f, 336f, 66f);
-            HorizontalLayoutGroup layout = modParent.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.spacing = 10f;
-            layout.childControlWidth = false;
-            layout.childControlHeight = false;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-            activeModParent = modParent;
-
-            themedInterfaceBuilt = true;
-        }
-
         private void OnDestroy() => Unbind();
-
-        private CombatModSlotUI CreateThemedModSlot(int index)
-        {
-            RectTransform root = CreateRect($"Mod Slot {index + 1}", activeModParent);
-            root.sizeDelta = new Vector2(66f, 66f);
-            LayoutElement layout = root.gameObject.AddComponent<LayoutElement>();
-            layout.minWidth = layout.preferredWidth = 66f;
-            layout.minHeight = layout.preferredHeight = 66f;
-
-            Image background = root.gameObject.AddComponent<Image>();
-            background.color = Well;
-            background.raycastTarget = false;
-            AddBorder(root, new Color(Cyan.r, Cyan.g, Cyan.b, 0.24f));
-
-            Image icon = CreateImage("Icon", root, Color.white);
-            Place(icon.rectTransform, 9f, 12f, 48f, 43f);
-            icon.preserveAspect = true;
-            icon.raycastTarget = false;
-
-            TMP_Text hint = TextAt("Input Hint", root, "", 11f, Paper,
-                4f, 2f, 58f, 18f, FontStyles.Bold);
-            hint.horizontalAlignment = HorizontalAlignmentOptions.Right;
-
-            Image durabilityTrack = RectImage("Durability Track", root, Line, 7f, 58f, 52f, 4f);
-            Image durability = CreateImage("Durability Fill", durabilityTrack.transform, Magenta);
-            Stretch(durability.rectTransform);
-            durability.type = Image.Type.Filled;
-            durability.fillMethod = Image.FillMethod.Horizontal;
-            durability.fillOrigin = 0;
-            durability.raycastTarget = false;
-
-            CombatModSlotUI slot = root.gameObject.AddComponent<CombatModSlotUI>();
-            slot.Configure(icon, durability, hint, null, Color.white,
-                new Color(Muted.r, Muted.g, Muted.b, 0.55f),
-                modSlotPrefab != null ? modSlotPrefab.CooldownStyle : null);
-            return slot;
-        }
-
-        private static RectTransform CreateRect(string name, Transform parent)
-        {
-            GameObject go = new(name, typeof(RectTransform));
-            go.layer = parent.gameObject.layer;
-            RectTransform rect = (RectTransform)go.transform;
-            rect.SetParent(parent, false);
-            return rect;
-        }
-
-        private static Image CreateImage(string name, Transform parent, Color color)
-        {
-            Image image = CreateRect(name, parent).gameObject.AddComponent<Image>();
-            image.color = color;
-            return image;
-        }
-
-        private static Image RectImage(
-            string name, Transform parent, Color color,
-            float x, float y, float width, float height)
-        {
-            Image image = CreateImage(name, parent, color);
-            Place(image.rectTransform, x, y, width, height);
-            image.raycastTarget = false;
-            return image;
-        }
-
-        private TMP_Text TextAt(
-            string name, Transform parent, string value, float size, Color color,
-            float x, float y, float width, float height,
-            FontStyles style = FontStyles.Normal)
-        {
-            TextMeshProUGUI text = CreateRect(name, parent).gameObject.AddComponent<TextMeshProUGUI>();
-            text.font = bodyFont;
-            text.text = value;
-            text.fontSize = size;
-            text.fontStyle = style;
-            text.color = color;
-            text.raycastTarget = false;
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Ellipsis;
-            text.verticalAlignment = VerticalAlignmentOptions.Middle;
-            Place(text.rectTransform, x, y, width, height);
-            return text;
-        }
-
-        private static void AddBorder(RectTransform parent, Color color)
-        {
-            Image top = CreateImage("Top Border", parent, color);
-            Stretch(top.rectTransform);
-            top.rectTransform.anchorMin = new Vector2(0f, 1f);
-            top.rectTransform.sizeDelta = new Vector2(0f, 1f);
-
-            Image bottom = CreateImage("Bottom Border", parent, color);
-            Stretch(bottom.rectTransform);
-            bottom.rectTransform.anchorMax = new Vector2(1f, 0f);
-            bottom.rectTransform.sizeDelta = new Vector2(0f, 1f);
-
-            Image left = CreateImage("Left Border", parent, color);
-            Stretch(left.rectTransform);
-            left.rectTransform.anchorMax = new Vector2(0f, 1f);
-            left.rectTransform.sizeDelta = new Vector2(1f, 0f);
-
-            Image right = CreateImage("Right Border", parent, color);
-            Stretch(right.rectTransform);
-            right.rectTransform.anchorMin = new Vector2(1f, 0f);
-            right.rectTransform.sizeDelta = new Vector2(1f, 0f);
-
-            foreach (Image edge in new[] { top, bottom, left, right })
-                edge.raycastTarget = false;
-        }
-
-        private static void Place(
-            RectTransform rect, float x, float y, float width, float height)
-        {
-            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(x, -y);
-            rect.sizeDelta = new Vector2(width, height);
-        }
-
-        private static void Stretch(RectTransform rect)
-        {
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = rect.offsetMax = Vector2.zero;
-        }
-
-        #endregion
     }
 }
