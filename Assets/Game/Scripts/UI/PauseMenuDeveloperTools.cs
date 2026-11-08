@@ -5,6 +5,7 @@ using System.Linq;
 using Unity.Cinemachine;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace junklite
 {
@@ -170,10 +171,74 @@ namespace junklite
             runActions.Add(new ToolAction("RESET GAME", ResetGame));
         }
 
-        // Each entry names a scene object; the button fails with a message in scenes without it.
+        // Checkpoint jumps work in any scene with Checkpoints. The anchor entries name a scene
+        // object; the button fails with a message in scenes without it.
         private void BuildRoomActions()
         {
+            roomActions.Add(new ToolAction("NEXT CHECKPOINT", () => JumpToCheckpoint(+1)));
+            roomActions.Add(new ToolAction("PREVIOUS CHECKPOINT", () => JumpToCheckpoint(-1)));
             roomActions.Add(new ToolAction("SPAWN NEAR ROOM 10", () => TeleportToAnchor("room10 spawn")));
+        }
+
+        /// <summary>
+        /// Skips through the level one checkpoint at a time. The checkpoint after (or before) the
+        /// active one becomes the respawn point exactly as if the player had walked there: every
+        /// corner is synced to the side of its lane, that lane's camera is live, and each checkpoint
+        /// up to it is reached in order, so its route snapshot is right. The player is then respawned
+        /// through PlayerLifecycle (the same path a death takes), so a later death returns there too.
+        /// Progress is forward-only, so a step back restarts the run and replays it up to the target;
+        /// a step back from the first checkpoint is Restart Level.
+        /// </summary>
+        private static string JumpToCheckpoint(int step)
+        {
+            PlayerLifecycle lifecycle = PlayerLifecycle.Instance;
+            if (lifecycle == null)
+                return "No player lifecycle";
+
+            Scene scene = SceneManager.GetActiveScene();
+            List<Checkpoint> checkpoints = UnityEngine.Object
+                .FindObjectsByType<Checkpoint>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .Where(checkpoint => checkpoint.gameObject.scene == scene)
+                .OrderBy(checkpoint => checkpoint.Order)
+                .ThenBy(checkpoint => checkpoint.name)
+                .ToList();
+            if (checkpoints.Count == 0)
+                return "No checkpoints in this scene";
+
+            int current = checkpoints.IndexOf(lifecycle.ActiveCheckpoint); // -1 = level spawn
+            int target = current + step;
+            if (target >= checkpoints.Count)
+                return "Already at the last checkpoint";
+            if (target < 0)
+            {
+                if (current < 0)
+                    return "Already at the level spawn";
+                lifecycle.RestartAtPrimarySpawn();
+                return "Back to the level spawn";
+            }
+
+            Checkpoint destination = checkpoints[target];
+            if (step < 0)
+                lifecycle.ResetCheckpointProgress();
+
+            // The route as if walked: corners on the side of the destination's lane, and its lane camera.
+            float yaw = destination.SpawnTransform.eulerAngles.y;
+            CinemachineCamera laneCamera = null;
+            foreach (CameraSwitchTrigger corner in UnityEngine.Object.FindObjectsByType<CameraSwitchTrigger>(
+                         FindObjectsSortMode.None))
+                laneCamera = corner.SyncToLaneSide(yaw) ?? laneCamera;
+            if (laneCamera != null && CameraManager.Instance != null)
+                CameraManager.Instance.CutToLaneCamera(laneCamera);
+
+            // Reach every checkpoint up to the destination in order (one-shot, so already-reached
+            // ones are skipped); each snapshots the route set up above.
+            for (int i = 0; i <= target; i++)
+                checkpoints[i].Activate();
+            if (lifecycle.ActiveCheckpoint != destination)
+                return $"Could not activate {destination.name}";
+
+            lifecycle.RespawnAtCurrentSpawn();
+            return $"Respawning at {destination.name} ({target + 1}/{checkpoints.Count})";
         }
 
         /// <summary>

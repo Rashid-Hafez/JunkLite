@@ -17,7 +17,8 @@ namespace junklite
     /// <summary>
     /// Brute close-range grab: warning, reach (unparryable hitbox), hold, throw. The hold
     /// can be broken by mashing jump (EscapeJumpPresses). A grab on touch (caught by the
-    /// brain) skips to the hold, throws after TouchThrowDelay and can't be broken.
+    /// brain) skips the warning and the hitbox: the grab clip plays as he scoops her up,
+    /// he throws after TouchThrowDelay (from the touch), and it can't be broken.
     /// The boss owns the timing: the player stays held until ReleaseGrab, and Exit
     /// always cancels a grab that is still held (stun, death, disable).
     /// </summary>
@@ -193,7 +194,13 @@ namespace junklite
             held = target;
             caught = true;
             enemy.GetComponentInChildren<EnemyAudioHandler>()?.PlayGrab();
-            presenter?.PlayGrabHold();
+            // A hitbox catch happens mid-reach, so the clip is already playing: freeze its
+            // end pose. A touch catch comes from idle: play the reach so the grab reads,
+            // then the clip holds its last frame until the throw (TouchThrowDelay).
+            if (touchGrab)
+                presenter?.PlayGrabReach();
+            else
+                presenter?.PlayGrabHold();
             SetPhase(Phase.Hold);
         }
 

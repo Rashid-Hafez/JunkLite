@@ -1,5 +1,27 @@
 # JunkLite Architecture Refactor Handoff
 
+### Jump heights lowered (2026-11-08)
+
+- **Values:** `Player Stats.asset` `jumpForce` 13.5 → 12.5 (this is what reaches the controller: `PlayerCharacter.UpdateControllerStats` copies it over the prefab field, so `Player_Cass.prefab` `jumpForce` was set to 12.5 too, to match). `Player_Cass.prefab` `doubleJumpForce` 14.5 → 13.4 (controller-only; the stats asset has no double-jump field).
+- **Heights (gravity 9.81 × `gravityMultiplier` 2, `heldJumpGravityRamp` 1):** held ground jump 4.64 m → 3.98 m; tap jump (0.1 s min hold, 0.35 cut, 3× low-jump gravity) ≈1.39 m → ≈1.27 m; double jump (rise gravity 2.1×) 2.55 m → 2.18 m above its launch point. Both about 15 % lower.
+- **Shared:** `Player_2.2.prefab` uses the same stats asset, so its ground jump drops too; its own `doubleJumpForce` (12.61) is unchanged. Game Root spawns `Player_Cass` (`useNewPlayer`).
+- **Status:** data only, no compile needed. Not verified in Play Mode: check every ledge and gap tuned for the old height (Rooftop wall-jump routes, Service Floor pit/room ledges).
+
+### Dev tools: NEXT / PREVIOUS CHECKPOINT (2026-11-08)
+
+- **What:** two buttons in the dev console's ROOMS & CHECKPOINTS tab (`PauseMenuDeveloperTools.JumpToCheckpoint(±1)`). Next makes the checkpoint after the active one (by `Order`, then name; −1 = level spawn) the respawn point and respawns there; Previous steps back, and from the first checkpoint it is Restart Level.
+- **How (no teleport shortcut):** the route is built as if walked: every `CameraSwitchTrigger.SyncToLaneSide(yaw)` for the destination's lane yaw, `CutToLaneCamera` on the corner camera that produced, then `Activate()` on every checkpoint up to the destination in order (one-shot, so reached ones are skipped; each snapshots that route), then `PlayerLifecycle.RespawnAtCurrentSpawn()`: the normal death path, so `PlayerSpawned` listeners, the spawn-camera snap and `RestoreRoute` all run, and a later death returns to the same checkpoint. A step back first calls `ResetCheckpointProgress()` (now public) because progress is forward-only.
+- **Limit:** the lane camera comes from corners only. A lane whose camera is set solely by a `LaneEntryTrigger` (no corner shares its yaw) keeps whatever lane camera is live; in Service Floor the Wing lane's camera is also the corner's B camera, so every checkpoint there frames correctly. Encounters, doors and objectives between checkpoints are not triggered (the Brute bay door still needs its objective or the ZDoor key).
+- **Status:** compiles (offline dotnet check). Not verified in Play Mode. To check: F10 → ROOMS & CHECKPOINTS → NEXT CHECKPOINT seven times reaches `Checkpoint_BruteDoor` facing +Z with `NegXCam`; die there → same checkpoint; PREVIOUS from Wing 1 → Room 11 facing +Z; PREVIOUS from Service Door → Room 0 spawn with every checkpoint re-armed.
+
+### Brute touch grab: reach clip + clutch, throw release on the swing (2026-11-08)
+
+- **Symptom:** running into the Brute threw the player almost instantly (~0.1 s from touch to release): the touch path froze the grab pose, `touchThrowDelay` was 0, and the throw released at 0.15 of `9_Throw`, while he is still hoisting her overhead.
+- **Clip facts (Enemy_3.json):** `8_Grab` is 0.3 s and ends on the grab pose; `9_Throw` is 0.7 s, starts from that pose, hoists overhead by 0.05 s, holds until 0.283 s, sweeps down and through by 0.317 s, then recovers. The natural release is the sweep, ≈0.42 normalized.
+- **Changes:** `BruteGrabState.HandleCaught` plays `PlayGrabReach` for a touch catch (the clip then holds its last frame) and keeps `PlayGrabHold` for a hitbox catch (the reach clip is already playing). `BruteGrabBehavior.touchThrowDelay` default 0 → 0.55 (counted from the touch: 0.3 s reach + a beat; keep it above 0.3). `throwReleaseNormalized` default 1 → 0.42 and the prefab's 0.15 → 0.42, so **the voluntary grab releases later too**; the Brute Boss prefab now also serializes `touchThrowDelay: 0.55`. Touch grab timeline: touch → 0.55 s clutch → 0.7 s throw, release at 0.29 s into it.
+- **Also:** the Service Floor Brute instance carried 12 stale `BruteBrain` overrides from the October level pass (grab/charge cooldowns, throw release, dash speed...), so prefab tuning never reached it; they were removed from the scene, and the instance now reads the prefab like the SANDBOX one. Tune in SANDBOX and apply to the prefab; Inspector edits on the level instance would create overrides again.
+- **Status:** compiles (offline dotnet check). Not verified in Play Mode. To check: walk into him → he scoops (grab clip), holds half a second, throws, and she leaves his hands as the arms sweep down; the telegraphed grab also releases on the sweep.
+
 ### Lane cameras: World Space follow binding (2026-11-07)
 
 - **Symptom:** respawning at a Wing checkpoint (player yaw 270, lane along +Z) framed the wrong side: first the outside world (Hall camera), then, with the right lane camera restored, a view across the lane with the player out of frame.

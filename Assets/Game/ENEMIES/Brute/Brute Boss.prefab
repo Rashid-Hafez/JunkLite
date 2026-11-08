@@ -5378,7 +5378,7 @@ MonoBehaviour:
     reachActiveTime: 0.3
     holdTime: 0.9
     throwDuration: 0.7
-    throwReleaseNormalized: 0.15
+    throwReleaseNormalized: 0.42
     postSlamIdleTime: 1
     missRecoveryTime: 0.6
     grabHitbox: {fileID: 1624337157859359872}
@@ -5387,6 +5387,7 @@ MonoBehaviour:
     grabDamage: 5
     throwForce: {x: 22, y: 9}
     throwDamage: 20
+    touchThrowDelay: 0.55
   recovery:
     recoveryTime: 0.6
     recoveryVFXPrefab: {fileID: 0}

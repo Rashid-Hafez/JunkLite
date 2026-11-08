@@ -275,8 +275,11 @@ namespace junklite
             return true;
         }
 
-        /// <summary>Back to the primary spawn with every checkpoint unreached (new run of the level).</summary>
-        private void ResetCheckpointProgress()
+        /// <summary>
+        /// Every checkpoint unreached and the primary spawn active again (new run of the level).
+        /// Restart Level does this before respawning; the dev tools use it to jump backwards.
+        /// </summary>
+        public void ResetCheckpointProgress()
         {
             activeCheckpoint = null;
             activeCheckpointOrder = -1;
