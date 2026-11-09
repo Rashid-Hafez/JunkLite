@@ -2,6 +2,17 @@
 
 graphify turns the first-party code (`Assets/Game/Scripts`, `Editor`, `Tests`) and the root `.md` docs into a queryable graph. Use it to **find and scope** before reading files. It is optional tooling: if `graphify-out/graph.json` does not exist on your machine, skip this file and use grep/Read as normal.
 
+## Team note (2026-11-09): please install it
+
+Recommended for everyone working on architecture, especially Ajas and the CTO. It is free for code and makes agents find the right files without reading the whole repo.
+
+1. `pip install graphifyy` (two y's: that is the official package).
+2. Register it with your AI tool: `graphify install --platform claude` for Claude Code. Other values: `codex`, `cursor`, `gemini`, `copilot`, `agents` (generic `AGENTS.md` tools) and more; run `graphify --help` for the list.
+3. In the repo root, build once: `/graphify .` in Claude Code, or `graphify update .` in a terminal (code only, no tokens).
+4. After architecture changes, run `graphify update .` again.
+
+If you use a tool that graphify has no platform for, use the CLI directly (`graphify explain`, `path`, `query`): any agent that can run shell commands can call it.
+
 ## The rule
 
 **Query the graph before your first grep or file read for any codebase question.** Then read only the lines it points to. Raw files are for the exact lines the graph already located.
