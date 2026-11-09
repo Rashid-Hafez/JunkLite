@@ -2,7 +2,12 @@
 
 > **Agents: before reading this file, check for `graphify-out/graph.json`.** If it exists, read `GRAPHIFY_WORKFLOW.md` and use `graphify explain` / `graphify path` / `graphify query --seed` to locate code before you grep or open files. If it does not exist, say so to the user and continue with grep/Read.
 >
-> **For Ajas and anyone working on architecture:** we recommend using the graph and keeping it fresh. Run `graphify update .` (free, code only) after architecture changes so the next developer and agent get accurate answers. Install and scope notes are in `GRAPHIFY_WORKFLOW.md`. The graph only covers C# and `.md` files and does not replace this document.
+> **For Ajas and anyone working on architecture: please install graphify** (free for code, optional, nothing breaks without it). It lets your agent find the right files without reading the whole repo.
+> 1. `pip install graphifyy` (two y's: the official package)
+> 2. `graphify install --platform claude` (other tools: `graphify --help` lists platforms; any agent that can run shell commands can call the `graphify` CLI directly)
+> 3. In the repo root: `graphify update .` (code only, no tokens)
+>
+> After architecture changes, run `graphify update .` again so the next developer and agent get accurate answers. Details are in `GRAPHIFY_WORKFLOW.md`. The graph covers C# and `.md` files only and does not replace this document.
 
 ### Review fixes: gap jump cut mid-air, Hyena armor flag, code-built tab hints (2026-11-09)
 
