@@ -54,3 +54,6 @@ Assets/Game/Scenes/TutorialV1.1/TutorialV1.1 Baking Set.CellSupportData.bytes
 
 # Local art exports (FBX/blend/renders): too big for GitHub
 Exports/
+
+# graphify generated graph (local per developer)
+graphify-out/
