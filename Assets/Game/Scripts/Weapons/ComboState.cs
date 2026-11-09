@@ -114,9 +114,6 @@ namespace junklite
             animationName = null;
             if (weaponData == null) return false;
 
-            // Read the open combo window before closing it: the air continuation
-            // below needs it (it was cleared first, so a jump always restarted the chain).
-            bool windowOpen = comboActive;
             comboActive = false;
 
             if (dir == AttackDirection.Side)
@@ -128,28 +125,17 @@ namespace junklite
                 // nothing more until the player lands (ResetAirChain).
                 if (!isGrounded && airSideAttacksThisAirtime >= comboLength) return false;
 
-                // Option B: allow the first air side attack after a grounded side hit
-                // to continue the ground combo index instead of restarting the air chain.
-                bool continuingFromGround =
-                    !isGrounded &&
-                    windowOpen &&           // combo window is still open
-                    sideComboIndex > 0;     // we have progressed at least one step on ground
-
-                if (continuingFromGround)
-                {
-                    if (sideComboIndex >= comboLength) sideComboIndex = 0;
-                    comboIndex = sideComboIndex;
-                    airComboIndex = sideComboIndex; // sync air track to continuation point
-                }
-                else if (isGrounded)
+                if (isGrounded)
                 {
                     if (sideComboIndex >= comboLength) sideComboIndex = 0;
                     comboIndex = sideComboIndex;
                 }
                 else
                 {
-                    if (airComboIndex >= comboLength) airComboIndex = 0;
-                    comboIndex = airComboIndex;
+                    // Air steps always run in order from the first, so the last hit (the
+                    // spike) is the last one of the airtime, however the jump started.
+                    comboIndex = airSideAttacksThisAirtime;
+                    airComboIndex = comboIndex;
                 }
             }
             else

@@ -4,6 +4,9 @@ namespace junklite
 {
     public class ChaseState : EnemyStateBase
     {
+        private const float SpacedStopDistance = 0.12f;
+        private const float SpacedPullEpsilon = 0.01f;
+
         private IChaser chaser;
         private IChaseDestinationProvider destinationProvider;
         private ILaneSpacing spacing;
@@ -53,7 +56,18 @@ namespace junklite
                 // when close instead of shoving it toward the player.
                 float speed = movement != null ? movement.MoveSpeed : 0f;
                 if (spacing != null)
+                {
+                    Vector3 unspaced = destination;
                     spacing.ApplySpacing(ref destination, ref speed);
+
+                    // Held back by a body: the stop distance belonged to the goal it can no
+                    // longer reach (attack range around the player), so walk up to the spaced
+                    // point itself instead of stopping that far short of it.
+                    float pulled = movement.GetAbsAxisDistance(destination, Target.position)
+                        - movement.GetAbsAxisDistance(unspaced, Target.position);
+                    if (pulled > SpacedPullEpsilon)
+                        stopDistance = Mathf.Min(stopDistance, SpacedStopDistance);
+                }
 
                 if (stopDistance > 0f)
                 {

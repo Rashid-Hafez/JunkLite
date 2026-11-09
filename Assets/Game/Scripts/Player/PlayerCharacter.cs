@@ -56,6 +56,8 @@ namespace junklite
         public event Action OnActivated;
         public event Action OnDeactivated;
         public event Action OnRevived;
+        /// <summary>A hit landed and she survived: applied damage only (never blocked, parried or invulnerable) and not periodic ticks.</summary>
+        public event Action OnHurt;
 
         private Vector3 damageVFXOffset;
 
@@ -105,6 +107,8 @@ namespace junklite
         private Coroutine knockDownRoutine;
         private Coroutine grabRoutine;
         public bool IsGrabbed => grabController?.IsGrabbed ?? false;
+        /// <summary>Physically held right now. IsGrabbed also covers the throw's flight and the get-up, when physics is hers again.</summary>
+        public bool IsHeldByGrabber => IsGrabbed && controller != null && controller.IsPhysicsOverridden;
         public bool CanBeGrabbed => grabController?.CanBeGrabbed ?? false;
         public PlayerSoundProfile SoundProfile => soundProfile;
 
@@ -945,6 +949,7 @@ namespace junklite
                     playerState.ApplyInvulnerability(damageInvulnerability);
 
                 audioHandler?.PlayHurt();
+                OnHurt?.Invoke();
 
                 if (damageHitVFXPrefab != null)
                 {
@@ -1014,6 +1019,18 @@ namespace junklite
             if (lockSeconds > 0f)
                 statusEffects?.ApplyHitstun(lockSeconds, source);
             controller.ApplyExternalShove(direction, force);
+        }
+
+        /// <summary>
+        /// Body push (<see cref="EnemyContactDamage"/>): moves her back and holds off her input
+        /// for holdSeconds, with no stun, no Hurt clip and no damage.
+        /// </summary>
+        public void ApplyBodyPush(Vector3 direction, Vector2 force, float holdSeconds)
+        {
+            if (!IsAlive || IsGrabbed || controller == null)
+                return;
+
+            controller.ApplyExternalShove(direction, force, holdSeconds);
         }
 
         /// <summary>

@@ -10,6 +10,8 @@ namespace junklite
     [RequireComponent(typeof(GruntBrain))]
     public sealed class GruntEnemy : EnemyCharacter
     {
+        protected override bool ReactsToHitsWhileStunned => true;
+
         protected override void Awake()
         {
             base.Awake();

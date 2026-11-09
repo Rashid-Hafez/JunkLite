@@ -27,6 +27,8 @@ namespace junklite
         public event Action OnSpecialAttack = delegate { };
         public event Action OnParry = delegate { };
         public event Action OnInteract = delegate { };
+        /// <summary>Raised after OnInteract when the press had an interact prompt to act on: an interaction really happened.</summary>
+        public event Action OnInteractionPerformed = delegate { };
 
         // Mod activation events (gated by IsGameplayInputEnabled)
         public event Action OnModActivate1 = delegate { };
@@ -344,6 +346,8 @@ namespace junklite
             controls.Player.SpecialAttack.performed += ctx =>
             {
                 if (!IsGameplayInputEnabled) return;
+                // A control bound to both (gamepad right trigger) stays Parry only.
+                if (IsParryControl(ctx.control)) return;
                 OnSpecialAttack();
             };
 
@@ -368,7 +372,10 @@ namespace junklite
             controls.Player.Interact.performed += _ =>
             {
                 if (!IsGameplayInputEnabled || IsInteractBlocked) return;
+                // Read first: the interactable that handles the press hides the prompt.
+                bool hadPrompt = IsInteractPromptShowing();
                 OnInteract();
+                if (hadPrompt) OnInteractionPerformed();
             };
 
             // === INVENTORY TOGGLE (Always active - UI input) ===
@@ -425,6 +432,28 @@ namespace junklite
             if (nextTab != null) nextTab.performed += _ => OnUINextTab();
 
 
+        }
+
+        private bool IsParryControl(InputControl control)
+        {
+            InputAction parry = controls.FindAction("Parry", throwIfNotFound: false);
+            if (parry == null) return false;
+
+            var parryControls = parry.controls;
+            for (int i = 0; i < parryControls.Count; i++)
+            {
+                if (parryControls[i] == control)
+                    return true;
+            }
+            return false;
+        }
+
+        // Every world interactable shows TutorialPromptHUD's shared prompt while it can be used. It keeps
+        // that instance private, so it is found by the name it creates it with. Runs only on a press.
+        private static bool IsInteractPromptShowing()
+        {
+            GameObject prompt = GameObject.Find("InteractPrompt");
+            return prompt != null && prompt.TryGetComponent(out TutorialPromptHUD hud) && hud.IsShowing;
         }
 
         private static bool IsDevConsoleClick(InputAction.CallbackContext context)

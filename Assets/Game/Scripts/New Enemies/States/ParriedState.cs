@@ -9,7 +9,8 @@ namespace junklite
     /// 
     /// This state:
     /// - Cannot be interrupted by reactive behaviors (dodge, chase tracking, etc.)
-    /// - Respects the ForcedStunDuration timer set by ParryHandler
+    /// - Respects the ForcedStunDuration timer set by ParryHandler. Hits still push the body
+    ///   and restart the hurt clip (EnemyCharacter.ReceiveDamage) but never touch the timer
     /// - Calls enemy.OnParryComplete() when done - enemy decides what to do next
     /// - Is scalable for future features (execution prompts, special animations)
     /// </summary>

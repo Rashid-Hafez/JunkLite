@@ -30,7 +30,8 @@ namespace junklite
             int countFarSide,
             float groupPressure,
             float groupQuietSeconds,
-            bool hasActiveAttacker)
+            bool hasActiveAttacker,
+            int bodiesAhead = 0)
         {
             Side = side;
             QueueIndex = queueIndex;
@@ -39,6 +40,7 @@ namespace junklite
             GroupPressure = groupPressure;
             GroupQuietSeconds = groupQuietSeconds;
             HasActiveAttacker = hasActiveAttacker;
+            BodiesAhead = bodiesAhead;
         }
 
         /// <summary>+1 or -1 along the lane axis, relative to the player.</summary>
@@ -52,15 +54,20 @@ namespace junklite
         /// <summary>Seconds since any member of the group took a hit.</summary>
         public float GroupQuietSeconds { get; }
         public bool HasActiveAttacker { get; }
+        /// <summary>Stunned or parried bodies between this enemy and the player. They hold no slot, but they are still in the way.</summary>
+        public int BodiesAhead { get; }
 
         public bool IsFront => QueueIndex == 0;
         public bool FarFrontOccupied => CountFarSide > 0;
+        /// <summary>0 = nothing between this enemy and the player, counting staggered bodies that hold no slot.</summary>
+        public int PlaceInLine => QueueIndex + BodiesAhead;
     }
 
     /// <summary>
     /// The bodies directly ahead of and behind one enemy on its side of the lane,
     /// with distances measured from the player on that side (larger = further).
-    /// Leaping enemies are excluded: they are airborne and crossing the line.
+    /// Leaping and launched enemies are excluded: they are airborne and crossing the
+    /// line. Stunned and parried ones count: they hold no slot, but they stand there.
     /// </summary>
     public readonly struct EnemyLaneNeighbors
     {
@@ -165,7 +172,7 @@ namespace junklite
             }
         }
 
-        private const float DefaultQueueGap = 0.2f;
+        public const float DefaultQueueGap = 0.2f;
         private const float MinimumHalfWidth = 0.3f;
         private const float SideDeadZone = 0.1f;
         private const float LaneVerticalTolerance = 1.5f;
@@ -220,7 +227,10 @@ namespace junklite
             {
                 Enemy = enemy,
                 HalfWidthX = MeasureHalfWidth(enemy, Vector3.right),
-                HalfWidthZ = MeasureHalfWidth(enemy, Vector3.forward)
+                HalfWidthZ = MeasureHalfWidth(enemy, Vector3.forward),
+                QueueGap = enemy.Brain is MeleeChaserBrain chaser
+                    ? Mathf.Max(0f, chaser.LaneQueueGap)
+                    : DefaultQueueGap
             };
 
             group.Entries[enemy] = entry;
@@ -309,7 +319,8 @@ namespace junklite
             group.LastAttacker = enemy;
             group.NextAttackAllowedTime = Time.time + group.AttackHandoffDelay;
 
-            if (group.Entries.TryGetValue(enemy, out Entry entry))
+            // The target may already be destroyed (scene teardown, Play Mode exit).
+            if (group.Target != null && group.Entries.TryGetValue(enemy, out Entry entry))
                 group.LastAttackSide = GetSide(entry, group.Target, GetAxis(GetAxisKind(enemy)));
         }
 
@@ -351,7 +362,8 @@ namespace junklite
                 countFarSide,
                 group.Pressure.Pressure01(now, GroupPressureWindow, GroupPressureHitsToMax),
                 group.Pressure.QuietSeconds(now),
-                group.ActiveAttacker != null);
+                group.ActiveAttacker != null,
+                CountStaggeredAhead(group, requestingEntry, axisKind, axis, side, requestY));
             return true;
         }
 
@@ -460,9 +472,12 @@ namespace junklite
 
             foreach (Entry entry in group.Entries.Values)
             {
+                // A staggered body holds no slot but still stands there: spacing keeps
+                // lane-mates out of it until it recovers, or they vault it.
                 if (entry == me
                     || IsAirborne(entry.Enemy)
-                    || !IsLaneMember(entry, group, axisKind, axis, side, requestY))
+                    || !IsOnLaneSide(entry, group, axisKind, axis, side, requestY)
+                    || !(IsHoldingPlace(entry.Enemy) || IsStaggered(entry.Enemy)))
                 {
                     continue;
                 }
@@ -550,19 +565,6 @@ namespace junklite
             }
 
             entry.Yielding = yielding;
-        }
-
-        /// <summary>Spacing this enemy wants between itself and the enemy in front of it (default 0.2).</summary>
-        public static void SetQueueGap(EnemyCharacter enemy, float gap)
-        {
-            if (ReferenceEquals(enemy, null)
-                || !Memberships.TryGetValue(enemy, out Group group)
-                || !group.Entries.TryGetValue(enemy, out Entry entry))
-            {
-                return;
-            }
-
-            entry.QueueGap = Mathf.Max(0f, gap);
         }
 
         /// <summary>
@@ -699,12 +701,51 @@ namespace junklite
             int side,
             float requestY)
         {
+            return IsHoldingPlace(entry.Enemy)
+                && IsOnLaneSide(entry, group, axisKind, axis, side, requestY);
+        }
+
+        private static bool IsOnLaneSide(
+            Entry entry,
+            Group group,
+            AxisKind axisKind,
+            Vector3 axis,
+            int side,
+            float requestY)
+        {
             return IsValidForGroup(entry.Enemy, group.Target)
-                && IsHoldingPlace(entry.Enemy)
                 && entry.Enemy.Brain is IChaseDestinationProvider
                 && GetAxisKind(entry.Enemy) == axisKind
                 && GetSide(entry, group.Target, axis) == side
                 && Mathf.Abs(entry.Enemy.transform.position.y - requestY) <= LaneVerticalTolerance;
+        }
+
+        /// <summary>Stunned or parried bodies between <paramref name="me"/> and the player on its side.</summary>
+        private static int CountStaggeredAhead(
+            Group group,
+            Entry me,
+            AxisKind axisKind,
+            Vector3 axis,
+            int side,
+            float requestY)
+        {
+            Vector3 targetPosition = group.Target.transform.position;
+            float myDistance = side * Vector3.Dot(me.Enemy.transform.position - targetPosition, axis);
+            int count = 0;
+            foreach (Entry entry in group.Entries.Values)
+            {
+                if (entry == me
+                    || !IsStaggered(entry.Enemy)
+                    || !IsOnLaneSide(entry, group, axisKind, axis, side, requestY))
+                {
+                    continue;
+                }
+
+                if (side * Vector3.Dot(entry.Enemy.transform.position - targetPosition, axis) < myDistance)
+                    count++;
+            }
+
+            return count;
         }
 
         /// <summary>Axis distance from the player for the slot at <paramref name="index"/> of a sorted lane.</summary>
@@ -899,10 +940,10 @@ namespace junklite
         /// <summary>
         /// False for an enemy that is not holding its place in the line (stunned, parried,
         /// knocked down, standing idle after a get-up, alerting, searching, patrolling,
-        /// dead). It is no slot, leader or follower for anyone else, so the others walk
-        /// through it (bodies do not collide) instead of queueing behind it forever. The
-        /// enemy asking is always in its own lane, so its own queries and the ally-hit
-        /// ripple still work while it is stunned.
+        /// dead). It takes no slot, so the next enemy moves up the queue. Bodies do not
+        /// collide, so the others walk through it, except a staggered one (see
+        /// <see cref="IsStaggered"/>). The enemy asking is always in its own lane, so its
+        /// own queries and the ally-hit ripple still work while it is stunned.
         /// </summary>
         private static bool IsHoldingPlace(EnemyCharacter enemy)
         {
@@ -915,6 +956,17 @@ namespace junklite
                 || state is SearchState
                 || state is PatrolState
                 || state is DeadState);
+        }
+
+        /// <summary>
+        /// Stunned or parried: standing in the line for a moment, usually knocked back into
+        /// the enemy behind. It takes no slot, but spacing still keeps the others out of its
+        /// body. A stagger ends by itself, so nobody queues behind it forever.
+        /// </summary>
+        private static bool IsStaggered(EnemyCharacter enemy)
+        {
+            IState state = enemy.StateMachine != null ? enemy.StateMachine.CurrentState : null;
+            return state is StunnedState || state is ParriedState;
         }
 
         /// <summary>Leaping or launched bodies are not in the line: no slot, no neighbour.</summary>

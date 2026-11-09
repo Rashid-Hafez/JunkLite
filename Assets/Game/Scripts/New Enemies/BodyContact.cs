@@ -38,5 +38,16 @@ namespace junklite
 
             return null;
         }
+
+        /// <summary>World half width of the root capsule (radius times the root scale), or <paramref name="fallback"/> without one.</summary>
+        public static float CapsuleHalfWidth(Component owner, float fallback)
+        {
+            CapsuleCollider body = owner.GetComponent<CapsuleCollider>();
+            if (body == null)
+                return fallback;
+
+            Vector3 scale = owner.transform.lossyScale;
+            return body.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
+        }
     }
 }

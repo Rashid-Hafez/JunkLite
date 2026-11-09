@@ -11,8 +11,12 @@ namespace junklite
         [Header("Parry Settings")]
         [SerializeField] private float parryDuration = 0.25f;
         [SerializeField] private float parryCooldown = 0.2f;
-        [SerializeField, Tooltip("How long player input remains locked after successful parry (usually matches Perry_2 length)")]
+        [SerializeField, Tooltip("How long player input remains locked after successful parry (usually matches the Parry Hit Clip length)")]
         private float parryLockDuration = 0.3f;
+        [Tooltip("Clip played when the parry starts. A rig without it plays nothing; the parry itself is timed, not clip-driven.")]
+        [SerializeField] private string parryStartClip = "Perry_1";
+        [Tooltip("Clip played on a successful parry. It replaces the whole pose, with no blend.")]
+        [SerializeField] private string parryHitClip = "Perry_2";
         [SerializeField] private float parryRadius = 3f;
         [SerializeField] private LayerMask enemyLayer;
         [SerializeField] private GameObject parryVFXPrefab;
@@ -25,6 +29,23 @@ namespace junklite
 
         [Header("Feedback")]
         [SerializeField] private float hitstopDuration = 0.1f;
+        [Tooltip("Seconds after the block before the push, slow motion and zoom. Short = the hit reads at once.")]
+        [SerializeField, Min(0f)] private float impactDelay = 0.05f;
+        [Tooltip("One-shot burst where the blows met (between her and the attacker), e.g. sparks.")]
+        [SerializeField] private GameObject parryImpactBurstPrefab;
+        [SerializeField, Min(0f)] private float parryImpactBurstLifetime = 0.8f;
+        [Tooltip("Camera shake force on a parry. Negative = the default impulse.")]
+        [SerializeField] private float parryShakeForce = 1.6f;
+
+        [Header("Slow Motion And Zoom (negative = the camera's own value)")]
+        [Tooltip("Time scale during the parry slow motion.")]
+        [SerializeField] private float slowMoScale = 0.4f;
+        [Tooltip("Real seconds the slow motion holds.")]
+        [SerializeField] private float slowMoHoldRealtime = 0.35f;
+        [Tooltip("Real seconds of zoom before the slow motion starts.")]
+        [SerializeField] private float slowMoStartDelayRealtime = 0.02f;
+        [Tooltip("Zoom target (field of view, or ortho size). Lower = closer (lane cameras sit near 29, so 26 is slight). Negative = the camera's own.")]
+        [SerializeField] private float zoomTarget = 26f;
 
         // remembered attacker for stage-2 special logic
         private GameObject primaryAttacker;
@@ -45,6 +66,8 @@ namespace junklite
         private const int MaxParryOverlapCapacity = 256;
 
         public bool IsParrying => parryActive;
+        public string ParryHitClip => parryHitClip;
+        public string ParryStartClip => parryStartClip;
         /// <summary>Raised once per successful parry with the attacker that was parried (may be null).</summary>
         public event Action<GameObject> ParrySucceeded;
         // Other rewards can clone this authored distortion without triggering a parry or its gameplay effects.
@@ -90,7 +113,7 @@ namespace junklite
             parryStage = 1;
             playerState?.SetParrying(true);
             playerState?.ApplyInvulnerability(parryDuration);
-            playerState?.RequestAttackAnimation("Perry_1");
+            playerState?.RequestAttackAnimation(parryStartClip);
 
             yield return new WaitForSeconds(parryDuration);
 
@@ -135,16 +158,23 @@ namespace junklite
 
                 playerState?.ApplyInvulnerability(parryDuration);
                 // immediately switch to the hit animation before anything else
-                playerState?.RequestAttackAnimation("Perry_2");
+                playerState?.RequestAttackAnimation(parryHitClip);
 
                 if (parryVFXPrefab != null)
                     Instantiate(parryVFXPrefab, transform.position, Quaternion.identity);
 
+                if (parryImpactBurstPrefab != null)
+                {
+                    Vector3 point = attacker != null
+                        ? Vector3.Lerp(transform.position, attacker.transform.position, 0.5f) + Vector3.up
+                        : transform.position + Vector3.up;
+                    VFXPool.SpawnTimed(parryImpactBurstPrefab, point, Quaternion.identity, parryImpactBurstLifetime);
+                }
+
                 PlayParrySuccessSound();
 
-                // feedback effects
-               // FeedbackManager.Instance?.DoHitstop(hitstopDuration);
-                FeedbackManager.Instance?.DoCameraShake(); // uses default impulse internally
+                // feedback effects (no hit-stop: it would fight the slow motion over Time.timeScale)
+                FeedbackManager.Instance?.DoCameraShake(parryShakeForce);
 
                 // delay slow‑motion/zoom slightly so animation plays first
                 StartCoroutine(DelayedCameraEffect());
@@ -161,11 +191,13 @@ namespace junklite
 
         private IEnumerator DelayedCameraEffect()
         {
-            yield return new WaitForSeconds(0.2f);
-                PushEnemies();
+            if (impactDelay > 0f)
+                yield return new WaitForSeconds(impactDelay);
+            PushEnemies();
 
-                parryRoutine = StartCoroutine(ParryStage2Coroutine());
-            camManager?.DoParryCameraEffect();
+            parryRoutine = StartCoroutine(ParryStage2Coroutine());
+            if (camManager == null) camManager = CameraManager.Instance;
+            camManager?.DoParryCameraEffect(zoomTarget, slowMoScale, slowMoHoldRealtime, slowMoStartDelayRealtime);
         }
 
         private void PlayParryStartSound()

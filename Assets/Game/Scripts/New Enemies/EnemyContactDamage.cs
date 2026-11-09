@@ -1,18 +1,17 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace junklite
 {
     /// <summary>
-    /// Body contact: a ready push. When her body overlaps its body and the shove is off
-    /// cooldown she is shoved back to the side she came from, instantly (lane speed
-    /// replaced, not added), and takes the contact damage. While the shove cools down the
-    /// body is passable: no push, no hitstun, no damage, so one bump is one push and she
-    /// can slip past a grunt that has just used his. Damage lands at most once per cooldown,
-    /// through the one damage path (i-frames, shields and death rules apply as usual).
-    /// Player and enemy bodies do not collide (layer matrix), so without this she passes freely.
-    /// Only a player facing the body is blocked: one that backs into it (e.g. shoved there by
-    /// another enemy) passes through, so two flanking enemies can't ping-pong her.
+    /// Body contact: a shove. A player running at full speed, or for long enough, into its body
+    /// gets a quick shove: the enemy plays its attack clip fast (no attack warning, can't be
+    /// parried), then she takes a little damage and is pushed back to the side she came from
+    /// (lane speed replaced, not added). This is not the enemy's attack: that is MeleeAttackState.
+    /// Anything slower walks through it, and so does a dash, and any body that is stunned or
+    /// parried. One push per cooldown. Player and enemy bodies do not collide (layer matrix),
+    /// so without this she passes freely. Only a player facing the body is pushed: one that
+    /// backs into it (e.g. shoved there by another enemy) passes through, so two flanking
+    /// enemies can't ping-pong her.
     ///
     /// Optional per enemy: add it to the enemy root and tune per prefab (weak enemies shove
     /// softly, heavies hard).
@@ -27,21 +26,22 @@ namespace junklite
         [Header("Shove")]
         [Tooltip("x = lane speed back to the side the player came from (must beat her run speed). y = minimum upward speed.")]
         [SerializeField] private Vector2 knockback = new(9f, 2f);
-        [Tooltip("Seconds the player loses control on each shove so her input can't cancel it.")]
+        [Tooltip("Seconds her input can't cancel the push. No stun and no Hurt clip.")]
         [SerializeField, Min(0f)] private float hitstun = 0.2f;
         [Tooltip("After a shove, seconds before this body can shove again. Meanwhile she passes through it freely.")]
         [SerializeField, Min(0f)] private float shoveCooldown = 1f;
+        [Tooltip("Damage of the shove: a little. 0 = push only. Unparryable, no attack warning.")]
+        [SerializeField, Min(0f)] private float shoveDamage = 3f;
+        [Tooltip("Seconds the attack clip plays for the shove (fast).")]
+        [SerializeField, Min(0.05f)] private float shoveClipDuration = 0.25f;
+        [Tooltip("Seconds into the shove clip when she is hit and pushed.")]
+        [SerializeField, Min(0f)] private float shoveImpactDelay = 0.08f;
 
-        [Header("Damage")]
-        [Tooltip("Damage per bump. 0 = shove only, no damage.")]
-        [SerializeField, Min(0f)] private float damage = 5f;
-        [Tooltip("Shortest time between two separate bumps' damage, so one bump never counts twice.")]
-        [SerializeField, Min(0.05f)] private float minBumpInterval = 0.25f;
-        [Tooltip("Seconds between hits while she stays pressed against the body without separating (e.g. cornered against a wall).")]
-        [FormerlySerializedAs("cooldown")]
-        [SerializeField, Min(0.05f)] private float repeatInterval = 0.6f;
-        [Tooltip("Off = a parry does not catch contact hits (they are not attacks).")]
-        [SerializeField] private bool parryable = false;
+        [Header("When It Pushes")]
+        [Tooltip("Pushes when her speed into the body is at least this fraction of her run speed. Above 1 = only the run time below can push.")]
+        [SerializeField, Min(0f)] private float pushSpeedFraction = 0.95f;
+        [Tooltip("Also pushes when she has held the run this long, at any speed.")]
+        [SerializeField, Min(0f)] private float pushRunTime = 1.5f;
 
         [Header("Contact")]
         [Tooltip("How deep (metres) the bodies must overlap before it counts. Avoids triggering on a brush of the edges.")]
@@ -50,8 +50,6 @@ namespace junklite
         [SerializeField] private Collider bodyCollider;
 
         [Header("Exceptions")]
-        [Tooltip("A dashing or rolling player passes through (no shove, no damage).")]
-        [SerializeField] private bool dashPassesThrough = false;
         [Tooltip("No contact while this enemy is in the air (vault, leap, launch).")]
         [SerializeField] private bool groundedOnly = true;
 
@@ -61,15 +59,18 @@ namespace junklite
         private PlayerCharacter player;
         private Collider playerBody;
 
-        private float lastDamageTime = float.NegativeInfinity;
         private float lastShoveTime = float.NegativeInfinity;
         // Lane side (+1/-1, relative to this enemy) the player was on when the overlap began; 0 = not overlapping.
         private float entrySide;
         // She entered with her back to this body (e.g. shoved into it by another enemy): no shove,
         // no damage, until she turns to face it or the overlap ends. Stops flanking enemies ping-ponging her.
         private bool passThrough;
-        // This overlap already dealt damage; further hits wait for repeatInterval instead of minBumpInterval.
-        private bool damagedThisContact;
+        // She came in on a dash, or this body was stunned: free pass until the overlap ends.
+        private bool freePass;
+        // A shove whose clip is playing: the hit lands at pendingImpactTime, pushing along pendingDirection.
+        private bool impactPending;
+        private float pendingImpactTime;
+        private Vector3 pendingDirection;
 
         private void Awake()
         {
@@ -81,11 +82,15 @@ namespace junklite
 
         private void OnDisable()
         {
+            impactPending = false;
             EndContact();
         }
 
         private void FixedUpdate()
         {
+            if (impactPending && Time.time >= pendingImpactTime)
+                LandShove();
+
             if (bodyCollider == null || !enemy.IsAlive || enemy.IsTutorialFrozen)
             {
                 EndContact();
@@ -116,54 +121,41 @@ namespace junklite
                 }
             }
 
-            // Push on cooldown: the body is passable until it is ready again.
-            if (passThrough || !CanShove() || Time.time < lastShoveTime + shoveCooldown)
-                return;
+            // A dash or a stun that ends inside the body must not push her out of it.
+            if (IsPassable())
+                freePass = true;
 
-            if (TryDamage() == DamageOutcome.Parried)
+            // Push on cooldown: the body is passable until it is ready again.
+            if (freePass || passThrough || !CanShove() || !IsRunningIntoBody(axis) ||
+                Time.time < lastShoveTime + shoveCooldown)
                 return;
 
             lastShoveTime = Time.time;
-            player.ApplyBodyShove(axis * entrySide, knockback, hitstun, gameObject);
+            pendingDirection = axis * entrySide;
+            pendingImpactTime = Time.time + shoveImpactDelay;
+            impactPending = true;
+            movement?.FaceTarget(player.transform.position);
+            enemy.AnimationPresenter?.PlayShove(shoveClipDuration);
+            if (shoveImpactDelay <= 0f)
+                LandShove();
+        }
+
+        private void LandShove()
+        {
+            impactPending = false;
+            if (player == null || !player.IsAlive || !enemy.IsAlive || IsPassable())
+                return;
+
+            if (shoveDamage > 0f)
+                DamageReceiverUtility.Receive(player, new DamageRequest(shoveDamage, gameObject).AsUnparryable());
+            player.ApplyBodyPush(pendingDirection, knockback, hitstun);
         }
 
         private void EndContact()
         {
             entrySide = 0f;
             passThrough = false;
-            damagedThisContact = false;
-        }
-
-        /// <summary>
-        /// Every new bump deals damage at once; staying pressed in repeats it every repeatInterval.
-        /// The shove follows whatever this returns, except a parry.
-        /// </summary>
-        private DamageOutcome TryDamage()
-        {
-            float wait = damagedThisContact ? repeatInterval : minBumpInterval;
-            if (damage <= 0f || Time.time < lastDamageTime + wait || IsReeling())
-                return DamageOutcome.Invalid;
-
-            // No hit reaction here: the shove is the reaction, applied every contact. No post-hit
-            // i-frames either, so a quick second bump isn't silently ignored.
-            var request = new DamageRequest(damage, gameObject, DamageType.Physical, hitReaction: HitReactionRequest.None)
-                .WithoutHitInvulnerability();
-            if (!parryable)
-                request = request.AsUnparryable();
-
-            DamageResult result = DamageReceiverUtility.Receive(playerBody, request);
-
-            // Other i-frames (a punch just landed, parry, dodge mods) reject it and it retries
-            // next step; a hit, a shield block or a parry counts as this contact's damage, so a
-            // shield isn't drained every physics step.
-            if (result.Outcome == DamageOutcome.Applied || result.Outcome == DamageOutcome.Blocked
-                || result.Outcome == DamageOutcome.Parried)
-            {
-                lastDamageTime = Time.time;
-                damagedThisContact = true;
-            }
-
-            return result.Outcome;
+            freePass = false;
         }
 
         private bool CanShove()
@@ -180,18 +172,39 @@ namespace junklite
                 return false;
 
             PlayerState playerState = player.State;
-            if (dashPassesThrough && playerState != null && (playerState.IsDashing || playerState.IsRolling))
+            // An attack lunge moves her fast too, and must not be read as running into the body.
+            if (playerState != null && playerState.IsAttacking)
                 return false;
 
             return true;
         }
 
-        /// <summary>Stunned or parried enemies still block, but don't hurt the player for standing close.</summary>
-        private bool IsReeling()
+        private bool IsPassable()
         {
             IState state = enemy.StateMachine != null ? enemy.StateMachine.CurrentState : null;
-            return state is StunnedState || state is ParriedState;
+            if (state is StunnedState || state is ParriedState)
+                return true;
+
+            PlayerState playerState = player.State;
+            return playerState != null && (playerState.IsDashing || playerState.IsRolling);
         }
+
+        // She holds a direction toward the body and is moving that way, fast enough or for long enough.
+        private bool IsRunningIntoBody(Vector3 axis)
+        {
+            Character2D5Controller controller = player.Controller;
+            if (controller == null)
+                return false;
+
+            float input = controller.HorizontalInput * Vector3.Dot(controller.MovementAxis, axis);
+            float speedIn = -Vector3.Dot(controller.Velocity, axis) * entrySide;
+            return input * entrySide < -0.1f &&
+                   ShouldPush(speedIn, controller.EffectiveMoveSpeed, controller.GroundRunTime, pushSpeedFraction, pushRunTime);
+        }
+
+        /// <summary>A push needs her moving in, at the speed fraction or after the run time.</summary>
+        public static bool ShouldPush(float speedIn, float runSpeed, float runTime, float speedFraction, float minRunTime) =>
+            speedIn > 0.1f && (speedIn >= runSpeed * speedFraction || runTime >= minRunTime);
 
         private bool TryRefreshPlayer()
         {

@@ -28,14 +28,38 @@ namespace junklite
         /// </summary>
         public virtual void SetLocomotionSpeed01(float speed01) { }
 
+        /// <summary>
+        /// A quick body shove (contact push): the attack clip as a one-shot over whatever plays,
+        /// fitted to <paramref name="gameplayDuration"/>, then the current clip shows again.
+        /// </summary>
+        public virtual void PlayShove(float gameplayDuration) { }
+
+        /// <summary>Attack warning on the body (e.g. visor flashing red) until the hit, <paramref name="secondsToHit"/> away.</summary>
+        public virtual void PlayAttackTell(float secondsToHit) { }
+
+        /// <summary>End the body warning early (attack called off, stunned).</summary>
+        public virtual void StopAttackTell() { }
+
         /// <summary>Present the grounded crouch before a leap.</summary>
         public virtual void PlayLeapTelegraph(float gameplayDuration) { }
 
         /// <summary>Present the airborne phase of a leap.</summary>
         public virtual void PlayLeapAir() { }
 
+        /// <summary>
+        /// Airborne phase of a leap that holds the landing clip's pose instead of playing an
+        /// air clip; the landing then plays that clip. Presenters without it show the air clip.
+        /// </summary>
+        public virtual void PlayLeapAirHoldingLandPose() => PlayLeapAir();
+
         /// <summary>Present the landing of a leap, then return to idle.</summary>
         public virtual void PlayLeapLand(float gameplayDuration) { }
+
+        /// <summary>
+        /// A real hit landed on an enemy already stunned or parried (no state change to
+        /// react to): restart the hurt clip from its first frame, then back to the stun loop.
+        /// </summary>
+        public virtual void PlayHitReaction() { }
 
         /// <summary>Thrown into the air by a launching hit (hold a hurt pose).</summary>
         public virtual void PlayLaunched() { }

@@ -59,19 +59,16 @@ namespace junklite.Tests
             float g = Physics.gravity.magnitude;
             float velocity = settings.LaunchUpSpeed(0f);
             float height = 0f;
-            const float dt = 0.0005f;
+            float dt = Time.fixedDeltaTime;
 
-            // Same two-regime gravity EnemyMovement applies while launched.
+            // Same gravity curve and fixed step the launched body flies on.
             while (velocity > 0f)
             {
-                float scale = Mathf.Abs(velocity) < settings.ApexHangSpeed
-                    ? settings.ApexHangGravityScale
-                    : settings.GravityScale;
-                velocity -= g * scale * dt;
+                velocity -= g * LaunchArc.GravityScaleAt(velocity, settings.Arc) * dt;
                 height += velocity * dt;
             }
 
-            Assert.That(height, Is.EqualTo(settings.ApexHeight).Within(0.05f));
+            Assert.That(height, Is.EqualTo(settings.ApexHeight).Within(settings.ApexHeight * 0.02f));
         }
 
         [Test]

@@ -38,9 +38,20 @@ namespace junklite
             public float forwardImpulseDuration;
             [Tooltip("Velocity curve over the lunge duration. Left = start, Right = end. Default ease-out if left empty.")]
             public AnimationCurve lungeCurve;
+            [Tooltip("Wind-up: seconds the clip pauses at its Hold event, with the player planted. The lunge fires on release. " +
+                     "0 = the player's default hold (SpineAnimationController.attackHoldDuration). Clips without a Hold event ignore it.")]
+            [Min(0f)] public float windupHold;
+            [Tooltip("Clips with no Hold event: clip seconds where the wind-up pause happens (the pulled-back pose). " +
+                     "After it the rest of the swing runs at SpineAnimationController.attackReleaseSpeed. Needs windupHold.")]
+            [Min(0f)] public float windupAt;
+            [Tooltip("How far the combat-focus slide goes, times the usual (no target: noTargetLungeDistance; focused: up to hitting range). 0 or 1 = usual. 1.1 = 10% further.")]
+            [Min(0f)] public float lungeDistanceScale;
+
+            /// <summary>lungeDistanceScale, with 0 (unset) read as 1.</summary>
+            public float LungeScale => lungeDistanceScale > 0f ? lungeDistanceScale : 1f;
 
             [Header("On Hit")]
-            [Tooltip("Delay after lunge starts before the hitbox opens. Tune this to match when the sword visually connects.")]
+            [Tooltip("Delay after lunge starts before the hitbox opens. Tune this to match when the sword visually connects. Measure on the plain clip: a clip's Hold and Release events shift it automatically.")]
             public float hitDelay;
             [Tooltip("Horizontal recoil applied to the player on a successful hit.")]
             public float hitRecoil;

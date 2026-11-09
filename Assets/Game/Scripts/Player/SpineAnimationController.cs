@@ -40,7 +40,7 @@ namespace junklite
         [Header("Locomotion Animations")]
         [SerializeField] private string idle = "idle";
         [SerializeField] private string run = "run";
-        [Tooltip("Short one-shot played when Run stops, then Idle. Leave empty to go straight to Idle (no animation yet).")]
+        [Tooltip("One-shot played when she stops running, or turns around mid-run, then Idle or Run. Leave empty to go straight to Idle. A rig without the clip skips it.")]
         [SerializeField] private string runStop = "";
         [SerializeField] private string jumpStart = "Jump_1_Start";
         [SerializeField] private string jumpAir = "Jump_2_Air";
@@ -48,8 +48,13 @@ namespace junklite
         [SerializeField] private string doubleJump = "doubleJump";
         [SerializeField, InspectorName("Wall Slide")] private string wallSlide = "wallSlide";
         [SerializeField] private string dash = "dash";
+        [Tooltip("Played on every applied hit, and held for as long as a stun lasts.")]
         [SerializeField] private string stun = "stun";
         [SerializeField] private string death = "death";
+        [Tooltip("Looped while a grabber holds her. A rig without the clip keeps the stun pose.")]
+        [SerializeField] private string grabbed = "Grabbed";
+        [Tooltip("Played once when an interaction happens, standing on the ground. Moving cancels it into Run.")]
+        [SerializeField] private string interact = "Interact";
 
         [Header("Animation Looping")]
         [SerializeField] private bool idleLoop = true;
@@ -68,7 +73,24 @@ namespace junklite
         [SerializeField, Range(0.1f, 3f)] private float runTimeScale = 1f;
         [Tooltip("Extra run clip speed while the front/back rig is shown (running toward or away from the camera). Side runs ignore it.")]
         [SerializeField, Range(0.1f, 3f)] private float depthRunTimeScale = 1f;
-        [SerializeField, Range(0.1f, 3f)] private float runStopTimeScale = 1f;
+        [SerializeField, Range(0.1f, 3f)] private float runStopTimeScale = 1.6f;
+        [Tooltip("Crossfade seconds from Run Stop into Idle.")]
+        [SerializeField, Min(0f)] private float runStopToIdleBlend = 0.3f;
+        [SerializeField, Range(0f, 1f), Tooltip("How far through Run Stop (0..1) the fade into Idle starts.")]
+        private float runStopFadeStart = 0.6f;
+        [SerializeField, Range(0.1f, 3f), Tooltip("Run Stop speed during a reversal slide.")]
+        private float turnSlideClipTimeScale = 1.2f;
+
+        [SerializeField, Tooltip("Upward speed at or below which Jump Start hands over to Jump Air: the apex of the jump.")]
+        private float jumpAirApexSpeed = 1.05f;
+        [Tooltip("Turning around mid-run: the share of the Run Stop clip shown before Run takes over.")]
+        [SerializeField, Range(0f, 1f)] private float turnStopPortion = 0.35f;
+        [Tooltip("Blend seconds from Run Stop back into Run (after a turn, or pressing a direction during the stop).")]
+        [SerializeField, Min(0f)] private float turnStopBlend = 0.1f;
+        [Tooltip("Run must have played this long before a turn or a stop shows the Run Stop clip. Keeps tapping and direction spam from stuttering.")]
+        [SerializeField, Min(0f)] private float turnStopMinRunTime = 0.5f;
+        [Tooltip("Seconds after one turn clip before another can play. Inside it she just keeps running.")]
+        [SerializeField, Min(0f)] private float turnStopCooldown = 0.35f;
         [SerializeField, Range(0.1f, 3f)] private float jumpStartTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float jumpAirTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float landingTimeScale = 1f;
@@ -79,6 +101,8 @@ namespace junklite
         [SerializeField, Range(0.1f, 3f)] private float doubleJumpTimeScale = 1f;
         [SerializeField, InspectorName("Wall Slide Time Scale"), Range(0.1f, 3f)] private float wallSlideTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float dashTimeScale = 1f;
+        [Tooltip("Blend seconds out of Dash when the dash ends. The clip is longer than the dash, so it never reaches its end pose.")]
+        [SerializeField, Min(0f)] private float dashExitBlend = 0.1f;
         [SerializeField, Range(0.1f, 3f)] private float stunTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float deathTimeScale = 1f;
 
@@ -96,6 +120,8 @@ namespace junklite
         [Header("Attack Animation Settings")]
         [SerializeField] private bool attackOverwrite = false;
         [SerializeField] private float attackMix = 0.1f;
+        [Tooltip("Blend seconds from one attack into the next (a chained combo). Starting from idle/run uses Attack Mix.")]
+        [SerializeField, Min(0f)] private float attackToAttackBlend = 0.067f;
         [Tooltip("Seconds to blend from a finished attack back to idle/run.")]
         [SerializeField] private float attackMixOut = 0.25f;
         [SerializeField] private float attackMixOutDelay = 0.05f;
@@ -104,6 +130,10 @@ namespace junklite
         [Tooltip("Attack clip speed once an arm weapon (blades) has been acquired.")]
         [SerializeField, Range(0.1f, 3f)] private float weaponAttackTimeScale = 1f;
         [SerializeField, Range(0.1f, 3f)] private float downAttackTimeScale = 1.4f;
+        [Tooltip("Seconds an attack clip pauses at its 'Hold' Spine event. The hit window waits for it. 0 = no pause.")]
+        [SerializeField, Min(0f)] private float attackHoldDuration = 0.12f;
+        [Tooltip("Attack clip speed multiplier from its 'Release' Spine event to the end of the clip.")]
+        [SerializeField, Range(0.1f, 3f)] private float attackReleaseSpeed = 1.35f;
 
         [Header("Force Override (e.g. GroundPound)")]
         [Tooltip("When grounded, wait this long after the override animation ends before returning to idle/run")]
@@ -128,6 +158,12 @@ namespace junklite
         private PlayerAudioHandler audioHandler;
         private WeaponManager weaponManager;
         private PlayerCharacter playerCharacter;
+        private ParryHandler parryHandler;
+        private GameInputManager interactInput;
+
+        // Spine event names on attack clips.
+        private const string AttackHoldEvent = "Hold";
+        private const string AttackReleaseEvent = "Release";
 
         // State tracking
         private bool wasAirborne = false;
@@ -138,9 +174,19 @@ namespace junklite
         private bool settlingFromAttack;
         private TrackEntry currentAttackEntry = null;
         private bool forceOverrideActive = false;
+        private bool grabbedPoseActive;
+        private float attackBaseTimeScale = 1f;
+        private float attackHoldRemaining;
+        // A finished swing still mixing out counts as chaining into the next one.
+        private float attackChainUntil = float.NegativeInfinity;
+        private bool lastFacingRight;
+        private float runTime;
+        private float lastTurnClipTime = float.NegativeInfinity;
+        private bool stoppingDepthRun;
 
         // when an attack animation finishes during a parry, we defer the end until parry state clears
         private bool waitingForParryEnd = false;
+        private bool parryClipShowing;
 
         public TrackEntry CurrentAttackEntry => currentAttackEntry;
 
@@ -174,6 +220,7 @@ namespace junklite
             audioHandler = GetComponentInParent<PlayerAudioHandler>() ?? GetComponent<PlayerAudioHandler>();
             weaponManager = GetComponentInParent<WeaponManager>();
             playerCharacter = GetComponentInParent<PlayerCharacter>();
+            parryHandler = GetComponentInParent<ParryHandler>();
 
             if (HasSidedSkeletons)
             {
@@ -245,7 +292,16 @@ namespace junklite
             playerState.OnAttackAnimationRequested += OnAttackAnimationRequested; // new
 
             if (playerCharacter != null)
+            {
                 playerCharacter.OnRevived += OnRevived;
+                playerCharacter.OnHurt += HandleHurt;
+            }
+
+            interactInput = GameInputManager.Instance;
+            if (interactInput != null)
+                interactInput.OnInteractionPerformed += PlayInteract;
+
+            lastFacingRight = controller != null && controller.IsFacingRight;
 
             // Only the shown skeleton updates, so subscribing both never doubles an event.
             if (HasSidedSkeletons)
@@ -274,6 +330,15 @@ namespace junklite
             if (skeletonAnimation == null || controller == null || playerState == null)
                 return;
 
+            UpdateAttackHold();
+
+            bool facingRight = controller.IsFacingRight;
+            bool flipped = facingRight != lastFacingRight;
+            lastFacingRight = facingRight;
+
+            if (UpdateGrabbedPose())
+                return;
+
             SyncSkeletonToFacing();
 
             if (playerState.IsWallSliding && playerState.IsAlive && !playerState.IsStunned)
@@ -284,7 +349,7 @@ namespace junklite
 
             SyncCurrentLocomotion();
             ApplyAnyStateFallbacks();
-            UpdateLocomotionFromSpeed();
+            UpdateLocomotionFromSpeed(flipped);
             UpdateRunSpeed();
         }
 
@@ -324,7 +389,13 @@ namespace junklite
             }
 
             if (playerCharacter != null)
+            {
                 playerCharacter.OnRevived -= OnRevived;
+                playerCharacter.OnHurt -= HandleHurt;
+            }
+
+            if (interactInput != null)
+                interactInput.OnInteractionPerformed -= PlayInteract;
 
             if (controller != null)
                 controller.OnDoubleJumpPerformed -= OnControllerDoubleJumpPerformed;
@@ -365,8 +436,10 @@ namespace junklite
         {
             SkeletonAnimation side = controller.IsFacingRight ? rightSkeleton : leftSkeleton;
             // Land counts as locomotion here so a landing in depth already shows the front/back rig.
+            // Run Stop stays on the side rigs: the older front/back clip sets don't have it.
+            string current = GetCurrentLocomotionName();
             if ((frontSkeleton == null && backSkeleton == null) || !controller.IsGrounded ||
-                attackActive || (IsPlayingTransientAnim() && GetCurrentLocomotionName() != landing) || IsDead)
+                attackActive || (IsPlayingTransientAnim() && current != landing) || IsRunStop(current) || IsDead)
                 return side;
 
             // Clear diagonals use the side view: the front/back run cycle read as bent legs there.
@@ -434,10 +507,15 @@ namespace junklite
             {
                 copy.TrackTime = source.TrackTime;
                 copy.MixDuration = 0f; // same pose on the other side: nothing to blend from
+                // Events up to here already fired on the old rig; firing them again would pause a
+                // swing twice at its Hold. TrackTime 0 = never applied, so a Hold at 0 is still to come.
+                if (source.TrackTime > 0f)
+                    copy.AnimationLast = source.AnimationTime;
             }
             else
             {
                 copy.MixDuration = source.MixDuration;
+                copy.Delay = source.Delay;
             }
 
             RehookCallbacks(track, source, copy);
@@ -492,85 +570,98 @@ namespace junklite
                 return;
             }
 
+            ShowSideRigIfMissing(animationName);
             if (!HasAnimation(animationName))
             {
                 NotifyPlayerAttackComplete();
                 return;
             }
 
+            bool chained = attackActive || Time.time <= attackChainUntil;
             if (attackActive)
             {
                 // The weapon manager only requests a new attack after it has finished
                 // or cancelled the previous one, so the old clip is just still playing.
                 // Drop it silently: reporting it complete here would complete the NEW
                 // attack (advance the combo and cancel its hit).
-                attackActive = false;
-                currentAttackEntry = null;
+                ClearCurrentAttack();
                 waitingForParryEnd = false;
             }
 
-            // Special-case: ensure the parry hit animation fully replaces everything
-            // and does not blend bones. This prevents head twisting from blending.
-            if (IsParryHit(animationName))
+            // Parry clips (start and hit) play alone on the base track: no overlay on top,
+            // no blend in or out, no wind-up. Partial keys must not mix with another pose.
+            if (IsParryClip(animationName))
             {
-                bool has = HasAnimation(animationName);
-                if (!has)
-                {
-                    Debug.LogWarning("Perry_2 not found on skeleton data! Check naming.");
-                }
                 attackActive = true;
-                // clear overlay so it cannot influence locomotion bones (we'll play on overlay)
-                skeletonAnimation?.AnimationState.ClearTrack(overlayTrack);
-                var entry = skeletonAnimation.AnimationState.SetAnimation(overlayTrack, animationName, false);
-                if (entry == null)
-                {
-                    Debug.LogWarning("SetAnimation returned null entry for Perry_2");
-                }
-                // immediate replace (no blend) to avoid bone mixing
-                if (entry != null)
-                {
-                    entry.MixDuration = 0f;
-                    entry.MixBlend = MixBlend.Replace;
-                    // standard time scale (no global compensation)
-                    entry.TimeScale = GetTimeScaleFor(animationName, 1f);
-                    HookAttackEntry(entry, false);
-                }
-                currentAttackEntry = entry;
+                var parryState = skeletonAnimation.AnimationState;
+                parryState.ClearTrack(overlayTrack);
+                skeletonAnimation.Skeleton.SetBonesToSetupPose();
+                var parryEntry = parryState.SetAnimation(locomotionTrack, animationName, false);
+                parryEntry.MixDuration = 0f;
+                parryEntry.MixBlend = MixBlend.Replace;
+                parryEntry.TimeScale = GetTimeScaleFor(animationName, 1f);
+                HookAttackEntry(parryEntry, false);
+                attackBaseTimeScale = parryEntry.TimeScale;
+                currentAttackEntry = parryEntry;
+                attackHoldRemaining = 0f;
+                timedHoldAt = -1f;
+                releaseFastAfterHold = false;
+                parryClipShowing = true;
                 return;
             }
 
             attackActive = true;
 
+            float timeScale = ResolveAttackTimeScale();
+            int track = attackOverwrite ? locomotionTrack : overlayTrack;
+            var entry = skeletonAnimation.AnimationState.SetAnimation(track, animationName, false);
+            entry.MixDuration = chained ? attackToAttackBlend : attackMix;
+            entry.MixBlend = MixBlend.Replace;
+            entry.TimeScale = timeScale;
+            HookAttackEntry(entry, !attackOverwrite);
+            attackBaseTimeScale = timeScale;
+            currentAttackEntry = entry;
+            releaseFastAfterHold = false;
+            timedHoldAt = attackHoldAtOverride >= 0f && WindupAppliesTo(animationName) && !HasHoldEvents(animationName)
+                ? attackHoldAtOverride : -1f;
+        }
+
+        private bool IsParryHit(string animationName) =>
+            parryHandler != null && string.Equals(animationName, parryHandler.ParryHitClip, StringComparison.OrdinalIgnoreCase);
+
+        private bool IsParryClip(string animationName) =>
+            IsParryHit(animationName) ||
+            (parryHandler != null && string.Equals(animationName, parryHandler.ParryStartClip, StringComparison.OrdinalIgnoreCase));
+
+        // A parry clip just ended: the next clip cuts in with no blend.
+        private void SnapAfterParryClip()
+        {
+            if (!parryClipShowing) return;
+            parryClipShowing = false;
+            TrackEntry next = skeletonAnimation != null ? skeletonAnimation.AnimationState.GetCurrent(locomotionTrack) : null;
+            if (next != null) next.MixDuration = 0f;
+        }
+
+        private float ResolveAttackTimeScale()
+        {
             bool isWeaponState = weaponManager != null && weaponManager.Armament != null &&
                                  weaponManager.Armament.HasUpgradedWeapon;
             float timeScale = isWeaponState ? weaponAttackTimeScale : fistAttackTimeScale;
             if (weaponManager != null) timeScale *= weaponManager.AttackSpeedMultiplier;
             if (playerState != null && playerState.IsDownAttackRequested)
                 timeScale = downAttackTimeScale;
-
-            if (attackOverwrite)
-            {
-                var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, animationName, false);
-                entry.MixDuration = attackMix;
-                entry.MixBlend = MixBlend.Replace;
-                entry.TimeScale = timeScale;
-                HookAttackEntry(entry, false);
-                currentAttackEntry = entry;
-            }
-            else
-            {
-                var entry = skeletonAnimation.AnimationState.SetAnimation(overlayTrack, animationName, false);
-                entry.MixDuration = attackMix;
-                entry.MixBlend = MixBlend.Replace;
-                entry.TimeScale = timeScale;
-                HookAttackEntry(entry, true);
-                currentAttackEntry = entry;
-            }
+            return timeScale;
         }
 
-        // Perry_2 fully replaces the pose on the overlay track but finishes like an overwrite attack.
-        private static bool IsParryHit(string animationName) =>
-            string.Equals(animationName, "Perry_2", StringComparison.OrdinalIgnoreCase);
+        // The front/back rigs have an older clip set: a clip only the side rigs have shows the side view first.
+        private void ShowSideRigIfMissing(string animationName)
+        {
+            if (!HasSidedSkeletons || HasAnimation(animationName)) return;
+
+            SkeletonAnimation side = controller != null && !controller.IsFacingRight ? leftSkeleton : rightSkeleton;
+            if (side != skeletonAnimation && side.Skeleton?.Data?.FindAnimation(animationName) != null)
+                SwapSkeleton(side);
+        }
 
         // Only the attack that is current may finish or interrupt it. A finished
         // clip stays on the base track when locomotion does not replace it (idle
@@ -597,8 +688,8 @@ namespace junklite
                 return;
             }
 
-            attackActive = false;
-            currentAttackEntry = null;
+            ClearCurrentAttack();
+            attackChainUntil = Time.time + attackMixOut + attackMixOutDelay;
 
             if (skeletonAnimation != null)
                 skeletonAnimation.AnimationState.AddEmptyAnimation(overlayTrack, attackMixOut, attackMixOutDelay);
@@ -617,8 +708,8 @@ namespace junklite
                 return;
             }
 
-            attackActive = false;
-            currentAttackEntry = null;
+            ClearCurrentAttack();
+            attackChainUntil = Time.time + attackMixOut + attackMixOutDelay;
 
             // Return to appropriate locomotion
             if (playerState != null)
@@ -635,6 +726,7 @@ namespace junklite
                 {
                     PlayJumpAir();
                 }
+                SnapAfterParryClip();
             }
 
             NotifyPlayerAttackComplete();
@@ -644,8 +736,7 @@ namespace junklite
         {
             if (!attackActive) return;
 
-            attackActive = false;
-            currentAttackEntry = null;
+            ClearCurrentAttack();
 
             if (skeletonAnimation != null)
                 skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
@@ -656,8 +747,7 @@ namespace junklite
 
         private void ForceFinishAttack()
         {
-            attackActive = false;
-            currentAttackEntry = null;
+            ClearCurrentAttack();
 
             if (skeletonAnimation != null)
                 skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
@@ -669,6 +759,16 @@ namespace junklite
         {
             if (playerState != null)
                 playerState.NotifyAttackAnimationComplete();
+        }
+
+        // Every way an attack ends comes through here, so a paused Hold can't outlive its swing.
+        private void ClearCurrentAttack()
+        {
+            if (attackHoldRemaining > 0f && currentAttackEntry != null)
+                currentAttackEntry.TimeScale = attackBaseTimeScale;
+            attackHoldRemaining = 0f;
+            attackActive = false;
+            currentAttackEntry = null;
         }
 
         /// <summary>
@@ -818,14 +918,149 @@ namespace junklite
         {
             if (!attackActive) return;
 
-            attackActive = false;
-            currentAttackEntry = null;
+            ClearCurrentAttack();
 
             if (skeletonAnimation != null)
                 skeletonAnimation.AnimationState.ClearTrack(overlayTrack);
 
             if (playerState != null)
                 playerState.NotifyAttackAnimationInterrupted();
+        }
+
+        #endregion
+
+        #region Attack Hold / Release
+
+        private float attackHoldOverride;
+        private float attackHoldAtOverride = -1f;
+        // Clip seconds of a timed wind-up pause on the current swing (clips with no Hold event); negative = none.
+        private float timedHoldAt = -1f;
+        private bool releaseFastAfterHold;
+        private float BaseAttackHold => attackHoldOverride > 0f ? attackHoldOverride : attackHoldDuration;
+        private float ScaledAttackHold => BaseAttackHold / (weaponManager != null ? weaponManager.AttackSpeedMultiplier : 1f);
+
+        /// <summary>
+        /// Wind-up for the swing about to start (a combo step's windupHold / windupAt). Hold 0 = attackHoldDuration
+        /// at the clip's own Hold event. With a hold, a clip without Hold events pauses at <paramref name="holdAt"/>.
+        /// </summary>
+        public void SetAttackWindup(float holdSeconds, float holdAt, string clip = null)
+        {
+            attackHoldOverride = Mathf.Max(0f, holdSeconds);
+            attackHoldAtOverride = attackHoldOverride > 0f ? Mathf.Max(0f, holdAt) : -1f;
+            windupClip = clip;
+        }
+
+        // The wind-up belongs to this clip only; any other clip (push, parry) ignores it.
+        private string windupClip;
+        private bool WindupAppliesTo(string clip) =>
+            string.IsNullOrEmpty(windupClip) || string.Equals(windupClip, clip, StringComparison.Ordinal);
+
+        /// <summary>Real seconds the swing clip runs, with its wind-up pause and fast release. 0 when unknown.</summary>
+        public float GetAttackRealDuration(string animationName)
+        {
+            SkeletonAnimation rig = HasSidedSkeletons ? rightSkeleton : skeletonAnimation;
+            Spine.Animation clip = rig != null && !string.IsNullOrEmpty(animationName)
+                ? rig.Skeleton?.Data?.FindAnimation(animationName)
+                : null;
+            float scale = ResolveAttackTimeScale();
+            return clip != null && scale > 0f ? WarpAttackDelay(animationName, clip.Duration / scale) : 0f;
+        }
+
+        /// <summary>Real seconds from the clip start until the wind-up pause ends. 0 when the clip has none.</summary>
+        public float GetWindupReleaseTime(string animationName)
+        {
+            if (!TryGetAttackHoldMarks(animationName, out float holdAt, out _) || holdAt < 0f) return 0f;
+            float scale = ResolveAttackTimeScale();
+            return (scale > 0f ? holdAt / scale : 0f) + ScaledAttackHold;
+        }
+
+        /// <summary>Seconds the clip pauses at its Hold event. 0 when it has none.</summary>
+        public float GetAttackHoldDuration(string animationName) =>
+            TryGetAttackHoldMarks(animationName, out float holdAt, out _) && holdAt >= 0f ? ScaledAttackHold : 0f;
+
+        /// <summary>Real seconds until the swing reaches the moment <paramref name="delay"/> points at on the plain clip.</summary>
+        public float WarpAttackDelay(string animationName, float delay)
+        {
+            if (!TryGetAttackHoldMarks(animationName, out float holdAt, out float releaseAt))
+                return delay;
+
+            return AttackHoldTiming.WarpDelay(delay, ResolveAttackTimeScale(), holdAt, releaseAt,
+                ScaledAttackHold, attackReleaseSpeed);
+        }
+
+        // Clip seconds of the clip's Hold and Release events; negative when absent.
+        private bool TryGetAttackHoldMarks(string animationName, out float holdAt, out float releaseAt)
+        {
+            holdAt = releaseAt = -1f;
+            SkeletonAnimation rig = HasSidedSkeletons ? rightSkeleton : skeletonAnimation;
+            Spine.Animation clip = rig != null && !string.IsNullOrEmpty(animationName)
+                ? rig.Skeleton?.Data?.FindAnimation(animationName)
+                : null;
+            if (clip == null) return false;
+
+            Timeline[] timelines = clip.Timelines.Items;
+            for (int i = 0; i < clip.Timelines.Count; i++)
+            {
+                if (timelines[i] is not EventTimeline eventTimeline) continue;
+
+                Spine.Event[] events = eventTimeline.Events;
+                for (int e = 0; e < events.Length; e++)
+                {
+                    string eventName = events[e].Data.Name;
+                    if (eventName == AttackHoldEvent) holdAt = events[e].Time;
+                    else if (eventName == AttackReleaseEvent) releaseAt = events[e].Time;
+                }
+                break;
+            }
+
+            // No Hold/Release events: a timed wind-up pauses there, then releases fast.
+            if (holdAt < 0f && releaseAt < 0f && attackHoldAtOverride >= 0f && WindupAppliesTo(animationName))
+                holdAt = releaseAt = Mathf.Min(attackHoldAtOverride, clip.Duration);
+
+            return holdAt >= 0f || releaseAt >= 0f;
+        }
+
+        private bool HasHoldEvents(string animationName)
+        {
+            float saved = attackHoldAtOverride;
+            attackHoldAtOverride = -1f;
+            bool has = TryGetAttackHoldMarks(animationName, out _, out _);
+            attackHoldAtOverride = saved;
+            return has;
+        }
+
+        private void BeginAttackHold(TrackEntry entry)
+        {
+            if (entry != currentAttackEntry || BaseAttackHold <= 0f) return;
+
+            entry.TimeScale = 0f;
+            attackHoldRemaining = ScaledAttackHold;
+        }
+
+        private void ReleaseAttackHold(TrackEntry entry)
+        {
+            if (entry != currentAttackEntry) return;
+
+            attackHoldRemaining = 0f;
+            entry.TimeScale = attackBaseTimeScale * attackReleaseSpeed;
+        }
+
+        // Gameplay delta: hit-stop and slow motion stretch the pause exactly as they stretch the clip.
+        // A skeleton swap re-points currentAttackEntry and copies the paused time scale.
+        private void UpdateAttackHold()
+        {
+            if (timedHoldAt >= 0f && currentAttackEntry != null && currentAttackEntry.TrackTime >= timedHoldAt)
+            {
+                timedHoldAt = -1f;
+                releaseFastAfterHold = true;
+                BeginAttackHold(currentAttackEntry);
+            }
+
+            if (attackHoldRemaining <= 0f) return;
+
+            attackHoldRemaining -= Time.deltaTime;
+            if (attackHoldRemaining <= 0f && currentAttackEntry != null)
+                currentAttackEntry.TimeScale = attackBaseTimeScale * (releaseFastAfterHold ? attackReleaseSpeed : 1f);
         }
 
         #endregion
@@ -860,9 +1095,24 @@ namespace junklite
             if (attackActive)
                 return;
 
+            // A dash keeps its clip through touching the ground; the dash's end picks the pose.
+            if (playerState.IsDashing)
+            {
+                wasAirborne = !grounded;
+                return;
+            }
+
             if (grounded)
             {
                 ClearDoubleJumpFlag();
+
+                // A hit that lifts her off the floor keeps its Hurt clip through the touchdown.
+                TrackEntry hurtEntry = skeletonAnimation.AnimationState.GetCurrent(locomotionTrack);
+                if (hurtEntry != null && hurtEntry.Animation.Name == stun && !hurtEntry.IsComplete)
+                {
+                    wasAirborne = false;
+                    return;
+                }
 
                 float speed = GetSpeed();
                 if (speed > speedThreshold)
@@ -907,6 +1157,10 @@ namespace junklite
             }
             else
             {
+                // A stun ended the dash: Hurt already owns the pose.
+                if (playerState.IsStunned)
+                    return;
+
                 if (playerState.IsGrounded)
                 {
                     float speed = GetSpeed();
@@ -916,6 +1170,10 @@ namespace junklite
                 {
                     PlayJumpAir();
                 }
+
+                // Ease out of the held dash pose instead of snapping to the stance.
+                TrackEntry back = skeletonAnimation.AnimationState.GetCurrent(locomotionTrack);
+                if (back != null && back.MixingFrom != null) back.MixDuration = dashExitBlend;
             }
         }
 
@@ -1000,10 +1258,12 @@ namespace junklite
                 {
                     float speed = GetSpeed();
                     PlayLocomotion(speed > speedThreshold ? run : idle, true);
+                    SnapAfterParryClip();
                 }
                 else
                 {
                     PlayJumpAir();
+                    SnapAfterParryClip();
                 }
             }
         }
@@ -1071,6 +1331,9 @@ namespace junklite
             // Don't let stun overwrite the death animation
             if (!playerState.IsAlive) return;
 
+            // The grabbed loop owns the pose; ending the hold restores it from the stun state then.
+            if (grabbedPoseActive) return;
+
             if (stunned)
             {
                 InterruptAttack("stun");
@@ -1112,9 +1375,9 @@ namespace junklite
         private void OnRevived()
         {
             // Clear transient presentation flags
-            attackActive = false;
-            currentAttackEntry = null;
+            ClearCurrentAttack();
             forceOverrideActive = false;
+            grabbedPoseActive = false;
             waitingForParryEnd = false;
             wasAirborne = false;
 
@@ -1132,6 +1395,101 @@ namespace junklite
             // Restore a clean idle baseline so locomotion fallbacks take over normally.
             currentLocomotionAnim = "";
             PlayLocomotion(idle, true);
+        }
+
+        /// <summary>
+        /// Applied damage (PlayerCharacter.OnHurt), stunning or not. The stun that may follow finds this
+        /// clip already current and leaves it alone, so one hit never restarts it twice. Whatever owns the
+        /// locomotion track keeps it: replacing an attack clip there would interrupt the swing's gameplay,
+        /// so Hurt shows on the overlay instead and clears itself, while the owner's clip runs on underneath.
+        /// </summary>
+        private void HandleHurt()
+        {
+            if (IsDead || skeletonAnimation == null || GetCurrentLocomotionName() == death || !HasAnimation(stun))
+                return;
+
+            var state = skeletonAnimation.AnimationState;
+            if (attackActive || forceOverrideActive || playerState.IsDashing || playerState.IsWallSliding)
+            {
+                if (currentAttackEntry != null && currentAttackEntry.TrackIndex == overlayTrack)
+                    return;
+
+                var overlay = state.SetAnimation(overlayTrack, stun, false);
+                overlay.MixDuration = 0f;
+                overlay.TimeScale = GetTimeScaleFor(stun, 1f);
+                state.AddEmptyAnimation(overlayTrack, attackMixOut, 0f);
+                return;
+            }
+
+            var entry = state.SetAnimation(locomotionTrack, stun, GetLoopFor(stun, false));
+            entry.MixDuration = locomotionBlend;
+            entry.TimeScale = GetTimeScaleFor(stun, 1f);
+            currentLocomotionAnim = stun;
+        }
+
+        /// <summary>
+        /// True while the grabbed loop owns the pose. Polled, so every way out of a hold (throw, escape,
+        /// the grabber being stunned or killed, her death) restores her without its own hook.
+        /// </summary>
+        private bool UpdateGrabbedPose()
+        {
+            bool held = playerState.IsAlive && playerCharacter != null && playerCharacter.IsHeldByGrabber;
+            if (held)
+            {
+                ShowSideRigIfMissing(grabbed);
+                held = HasAnimation(grabbed);
+            }
+
+            if (!held)
+            {
+                if (grabbedPoseActive) EndGrabbedPose();
+                return false;
+            }
+
+            if (!grabbedPoseActive)
+            {
+                grabbedPoseActive = true;
+                InterruptAttack("grabbed");
+            }
+
+            // Blocks the landing, facing and locomotion updates while she is carried.
+            forceOverrideActive = true;
+            if (GetCurrentLocomotionName() != grabbed)
+            {
+                var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, grabbed, true);
+                entry.MixDuration = locomotionBlend;
+                currentLocomotionAnim = grabbed;
+            }
+            return true;
+        }
+
+        private void EndGrabbedPose()
+        {
+            grabbedPoseActive = false;
+            forceOverrideActive = false;
+            if (IsDead) return;
+
+            if (playerState.IsStunned) PlayLocomotion(stun, true);
+            else ReturnToLocomotion();
+        }
+
+        private void PlayInteract()
+        {
+            if (IsDead || skeletonAnimation == null || playerState == null || attackActive || forceOverrideActive ||
+                !playerState.IsGrounded || playerState.IsAttacking || playerState.IsStunned || playerState.IsDashing ||
+                GetSpeed() > speedThreshold)
+                return;
+
+            ShowSideRigIfMissing(interact);
+            if (!HasAnimation(interact)) return;
+
+            var state = skeletonAnimation.AnimationState;
+            var entry = state.SetAnimation(locomotionTrack, interact, false);
+            entry.MixDuration = locomotionBlend;
+            currentLocomotionAnim = interact;
+
+            var idleEntry = state.AddAnimation(locomotionTrack, idle, GetLoopFor(idle, true), 0f);
+            idleEntry.TimeScale = GetTimeScaleFor(idle, 1f);
         }
 
         #endregion
@@ -1168,10 +1526,7 @@ namespace junklite
             entry.MixDuration = locomotionBlend;
             entry.TimeScale = GetTimeScaleFor(jumpStart, 1f);
             currentLocomotionAnim = jumpStart;
-
-            var airEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, jumpAir, GetLoopFor(jumpAir, false), 0f);
-            airEntry.TimeScale = GetTimeScaleFor(jumpAir, 1f);
-            airEntry.Complete += OnJumpAirComplete;
+            // Holds its last frame through the rise; ApplyAnyStateFallbacks plays Jump Air at the apex.
         }
 
         private void PlayJumpAir()
@@ -1275,8 +1630,24 @@ namespace junklite
 
             string current = GetCurrentLocomotionName();
 
+            // Hurt from a hit that didn't stun is a one-shot (a stun returned above and holds it).
+            if (current == stun)
+            {
+                TrackEntry hurtEntry = skeletonAnimation.AnimationState.GetCurrent(locomotionTrack);
+                if (hurtEntry != null && hurtEntry.IsComplete) ReturnToLocomotion();
+                return;
+            }
+
             if (playerState.IsDoubleJumping || current == doubleJump)
                 return;
+
+            // Jump Start owns the rise; Jump Air takes over at the apex.
+            if (!playerState.IsGrounded && current == jumpStart && controller != null &&
+                controller.Velocity.y <= jumpAirApexSpeed)
+            {
+                PlayJumpAir();
+                return;
+            }
 
             // If airborne and falling, force jump air (except during landing)
             if (!playerState.IsGrounded && playerState.IsFalling)
@@ -1300,58 +1671,211 @@ namespace junklite
             }
         }
 
-        private void UpdateLocomotionFromSpeed()
+        private void UpdateLocomotionFromSpeed(bool flipped)
         {
             float speed = GetSpeed();
-            stoppedTime = speed > speedThreshold ? 0f : stoppedTime + Time.deltaTime;
+            bool moving = speed > speedThreshold;
+            stoppedTime = moving ? 0f : stoppedTime + Time.deltaTime;
+
+            string current = GetCurrentLocomotionName();
+            bool hasInput = HasMoveInput;
+            // A front or back run has no stop clip: it goes straight to Idle, on whichever rig stops it.
+            bool onDepthRig = skeletonAnimation == frontSkeleton || skeletonAnimation == backSkeleton;
+            if (onDepthRig) stoppingDepthRun = true;
+            else if (moving) stoppingDepthRun = false;
+            if (current != run || onDepthRig) runTime = 0f;
+            else if (hasInput) runTime += Time.deltaTime;
 
             // IsAttacking also covers the lead before the clip starts, when the lunge is already moving her.
             bool attacking = attackActive || forceOverrideActive || (weaponManager != null && weaponManager.IsAttacking);
-            if (playerState.IsGrounded && !attacking && GetCurrentLocomotionName() == landing)
+            if (playerState.IsGrounded && !attacking && current == landing)
             {
                 UpdateLandingExit(speed);
                 return;
             }
 
-            if (!playerState.IsGrounded || IsPlayingTransientAnim() || attacking)
+            if (!playerState.IsGrounded || attacking)
+                return;
+
+            if (current == interact)
+            {
+                if (moving) BlendIntoRun();
+                return;
+            }
+
+            if (IsPlayingTransientAnim())
                 return;
 
             if (settlingFromAttack)
             {
-                if (speed > speedThreshold && !IsSteering) return;
+                if (moving && !IsSteering) return;
                 settlingFromAttack = false;
             }
 
-            string current = GetCurrentLocomotionName();
-            string targetAnim = speed > speedThreshold ? run : idle;
-
-            // Keep running through brief stops so Run doesn't restart.
-            if (targetAnim == idle && current == run && stoppedTime < idleDelay)
+            if (IsRunStop(current))
+            {
+                UpdateRunStopExit(moving, hasInput, flipped);
                 return;
+            }
 
-            // Let the stop animation finish into its queued Idle; moving again cancels it.
-            if (targetAnim == idle && IsRunStop(current))
-                return;
-
-            if (targetAnim == idle && current == run && HasAnimation(runStop))
+            // Let go of a real run: the stop clip starts now, while speed is still sliding down.
+            bool ranLongEnough = current == run && runTime >= turnStopMinRunTime && HasAnimation(runStop);
+            if (ranLongEnough && !hasInput)
             {
                 PlayRunStop();
                 return;
             }
 
-            if (current != targetAnim)
+            // A long run's reversal slides first: the stop clip plays on the old facing, and the flip
+            // that ends the slide blends it into Run (UpdateRunStopExit).
+            if (controller.IsTurnSliding && current == run && HasAnimation(runStop))
+            {
+                StartRunStopClip(skeletonAnimation.AnimationState).TimeScale = turnSlideClipTimeScale;
+                lastTurnClipTime = Time.time;
+                return;
+            }
+
+            if (flipped && current == run && moving && hasInput && HasAnimation(runStop) &&
+                ShouldPlayTurnClip(runTime, Time.time - lastTurnClipTime, turnStopMinRunTime, turnStopCooldown))
+            {
+                PlayTurnStop();
+                return;
+            }
+
+            // A tap or a turn is not a run: only one unbroken hold can earn the stop clip.
+            if (!hasInput || flipped) runTime = 0f;
+
+            // Easing out of a run after letting go is not running; anything else moving her still shows Run.
+            bool sliding = !hasInput && controller.IsGroundStopSliding;
+            string targetAnim = moving && !sliding ? run : idle;
+
+            // A stopped front or back run skips the side Run frames the idle delay would hold.
+            if (stoppingDepthRun && !moving && current == run)
+            {
+                PlayLocomotion(idle, true);
+                return;
+            }
+
+            // Keep running through brief stops so Run doesn't restart.
+            if (targetAnim == idle && current == run && stoppedTime < idleDelay)
+                return;
+
+            if (targetAnim == idle && ranLongEnough)
+            {
+                PlayRunStop();
+                return;
+            }
+
+            // Most of the visible stop is Idle crossfading out of the clip: moving there blends too.
+            if (targetAnim == run && current == idle && IsRunStop(FadingFromName()))
+                BlendIntoRun();
+            else if (current != targetAnim)
                 PlayLocomotion(targetAnim, true);
         }
 
+        private string FadingFromName() =>
+            skeletonAnimation.AnimationState.GetCurrent(locomotionTrack)?.MixingFrom?.Animation?.Name;
+
+        /// <summary>
+        /// Turn-clip guard against direction spam: she must have run long enough and the last turn clip
+        /// must be old enough. Otherwise she keeps Run, which the skeleton swap carries over without a restart.
+        /// </summary>
+        public static bool ShouldPlayTurnClip(float runTime, float sinceLastTurnClip, float minRunTime, float cooldown) =>
+            runTime >= minRunTime && sinceLastTurnClip >= cooldown;
+
         private void PlayRunStop()
         {
-            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, runStop, false);
+            var state = skeletonAnimation.AnimationState;
+            StartRunStopClip(state);
+            QueueIdleAfterRunStop(state);
+        }
+
+        // Turning mid-run: part of the stop clip, then back into Run. The delay is in the clip's own
+        // time, and the queued Run is copied with its delay if the rig swaps during the clip.
+        private void PlayTurnStop()
+        {
+            var state = skeletonAnimation.AnimationState;
+            TrackEntry entry = StartRunStopClip(state);
+            lastTurnClipTime = Time.time;
+
+            var runEntry = state.AddAnimation(locomotionTrack, run, GetLoopFor(run, true), 0f);
+            runEntry.SetMixDuration(turnStopBlend, Mathf.Max(0.01f, entry.Animation.Duration * turnStopPortion));
+            runEntry.TimeScale = GetTimeScaleFor(run, 1f);
+        }
+
+        private TrackEntry StartRunStopClip(Spine.AnimationState state)
+        {
+            var entry = state.SetAnimation(locomotionTrack, runStop, false);
             entry.MixDuration = locomotionBlend;
             entry.TimeScale = GetTimeScaleFor(runStop, 1f);
             currentLocomotionAnim = runStop;
+            return entry;
+        }
 
-            var idleEntry = skeletonAnimation.AnimationState.AddAnimation(locomotionTrack, idle, GetLoopFor(idle, true), 0f);
+        private void QueueIdleAfterRunStop(Spine.AnimationState state)
+        {
+            var idleEntry = state.AddAnimation(locomotionTrack, idle, GetLoopFor(idle, true), 0f);
+            // The delay is in the clip's own time. Start the fade part-way in so the clip reads first.
+            float clipLength = skeletonAnimation.Skeleton.Data.FindAnimation(runStop).Duration;
+            idleEntry.SetMixDuration(runStopToIdleBlend, Mathf.Max(0.01f, clipLength * runStopFadeStart));
             idleEntry.TimeScale = GetTimeScaleFor(idle, 1f);
+        }
+
+        // While Run Stop plays. Letting go during a turn ends it in Idle instead of Run. Moving on purpose
+        // cancels a stop at once, and flipping again cuts a turn short, so spam never restarts the clip.
+        private void UpdateRunStopExit(bool moving, bool hasInput, bool flipped)
+        {
+            var state = skeletonAnimation.AnimationState;
+            TrackEntry current = state.GetCurrent(locomotionTrack);
+            if (current == null) return;
+
+            bool runQueued = current.Next?.Animation?.Name == run;
+            if (!hasInput)
+            {
+                if (runQueued)
+                {
+                    state.ClearNext(current);
+                    QueueIdleAfterRunStop(state);
+                }
+                else if (current.Next == null)
+                {
+                    QueueIdleAfterRunStop(state);
+                }
+                return;
+            }
+
+            // Both keys held: the stop clip already started, so turn it into the slide's clip.
+            if (controller.IsTurnSliding)
+            {
+                state.ClearNext(current);
+                current.TimeScale = turnSlideClipTimeScale;
+                return;
+            }
+
+            // Wait one physics step: this may be the start of a slide, not a return to Run.
+            if (controller.IsInputAgainstLaneSpeed && !flipped)
+                return;
+
+            if (moving && (!runQueued || flipped))
+                BlendIntoRun();
+        }
+
+        private void BlendIntoRun()
+        {
+            if (!HasAnimation(run)) return;
+
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, run, GetLoopFor(run, true));
+            entry.MixDuration = turnStopBlend;
+            entry.TimeScale = GetTimeScaleFor(run, 1f);
+            currentLocomotionAnim = run;
+        }
+
+        private void ReturnToLocomotion()
+        {
+            if (playerState.IsGrounded)
+                PlayLocomotion(GetSpeed() > speedThreshold ? run : idle, true);
+            else
+                PlayJumpAir();
         }
 
         private bool IsRunStop(string animName) => !string.IsNullOrEmpty(runStop) && animName == runStop;
@@ -1385,6 +1909,8 @@ namespace junklite
                    current == jumpAir ||
                    current == doubleJump ||
                    current == wallSlide ||
+                   current == grabbed ||
+                   current == interact ||
                    current == death;
         }
 
@@ -1492,6 +2018,17 @@ namespace junklite
             if (e != null && e.Data != null)
             {
                 string eventName = e.Data.Name;
+                if (eventName == AttackHoldEvent)
+                {
+                    BeginAttackHold(trackEntry);
+                    return;
+                }
+                if (eventName == AttackReleaseEvent)
+                {
+                    ReleaseAttackHold(trackEntry);
+                    return;
+                }
+
                 if (eventName == "footstep" || eventName == "footstep_left" || eventName == "footstep_right")
                     audioHandler?.PlayFootstep();
             }

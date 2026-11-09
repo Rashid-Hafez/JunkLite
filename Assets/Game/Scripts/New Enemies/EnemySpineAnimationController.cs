@@ -36,10 +36,26 @@ namespace junklite
         [SerializeField] private string hurt = "Hurt";
         [SerializeField] private string death = "Death";
 
+        [Header("Attack Tell")]
+        [Tooltip("Slots tinted while the attack warning shows (Grunt: 1_Head, where the visor is). Empty = off.")]
+        [SerializeField] private string[] tellTintSlots;
+        [SerializeField] private Color tellTintColor = new(1f, 0.12f, 0.08f, 1f);
+        [Tooltip("Flashes per second at the start; doubles by the hit.")]
+        [SerializeField, Min(0f)] private float tellPulseHz = 6f;
+
+        [Header("Wind-up Charge")]
+        [Tooltip("With no wind-up clip: the attack clip runs to this point (0..1 of the clip) and holds there through the wind-up, " +
+                 "then the swing continues from it. 0 = off (idle during the wind-up).")]
+        [SerializeField, Range(0f, 1f)] private float windupChargePose = 0f;
+        [Tooltip("Share of the wind-up spent reaching the charge pose; the rest is the hold.")]
+        [SerializeField, Range(0.05f, 1f)] private float windupChargeReach = 0.35f;
+
         [Header("Leap (vault / fall back)")]
         [SerializeField] private string leapStart = "Jump_Start";
         [SerializeField] private string leapAir = "Float";
         [SerializeField] private string leapLand = "Jump_End";
+        [Tooltip("For brains that hold the landing pose in the air (Grunt): seconds into the Leap Land clip to freeze on during the flight. 0 = its first frame, which on the grunt is the airborne pose Jump_Start ends on. The clip then plays through on landing.")]
+        [SerializeField, Min(0f)] private float leapAirLandPoseTime = 0f;
 
         [Header("Launch Hurtbox")]
         [Tooltip("While launched or knocked down the drawn body is tilted and offset from the upright physics capsule. This box follows the drawn body (the skeleton mesh bounds) so a weapon hit that visibly overlaps it lands. It is on the Damageable layer: player weapons hit it, mods and enemy AI queries do not, and it has no physical contact with anything.")]
@@ -54,6 +70,8 @@ namespace junklite
         [Header("Launch (combo finisher)")]
         [Tooltip("One-shot held on its last frame while flying. The grunt has no Launched clip; Hurt reads well.")]
         [SerializeField] private string launchAir = "Hurt";
+        [Tooltip("Looping clip once the launch impact clip ends and the body is still in the air (Grunt: Float). Empty = hold the impact clip's last frame.")]
+        [SerializeField] private string launchAirLoop = "";
         [Tooltip("One-shot held on its last frame while lying down (used only when Downed Uses Death Fall is off).")]
         [SerializeField] private string launchDowned = "Hurt";
         [Tooltip("Knocked down: play the authored Death fall and hold it before the dead face, instead of rotating the sprite. The animator's fall already rests on the floor, like the corpse. Getting up plays the same fall in reverse.")]
@@ -129,6 +147,8 @@ namespace junklite
         private bool isDead;
         private float previousTimeScale = 1f;
         private bool playbackPaused;
+        // The current leap froze on the landing clip in the air: the landing replays it.
+        private bool landPoseHeldInAir;
 
         // Knockdown on the authored Death fall: Falling plays it forward to the hold
         // time, Holding freezes it, Rising drives it backward to the start (get up).
@@ -187,11 +207,112 @@ namespace junklite
                 tiltTarget.localPosition = tiltBasePosition;
                 bodyRenderer = skeletonAnimation.GetComponent<Renderer>();
                 bodyMeshFilter = skeletonAnimation.GetComponent<MeshFilter>();
+                skeletonAnimation.UpdateComplete += ApplyAttackTellTint;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (skeletonAnimation != null)
+                skeletonAnimation.UpdateComplete -= ApplyAttackTellTint;
+        }
+
+        // ---- Attack tell: tinted slots pulsing until the hit ----
+        private float tellStart;
+        private float tellEnd = float.NegativeInfinity;
+        private bool tellTinted;
+        private Slot[] tellSlots;
+
+        public override void PlayAttackTell(float secondsToHit)
+        {
+            if (isDead || tellTintSlots == null || tellTintSlots.Length == 0) return;
+            tellStart = Time.time;
+            tellEnd = Time.time + Mathf.Max(0.05f, secondsToHit);
+        }
+
+        public override void StopAttackTell() => tellEnd = float.NegativeInfinity;
+
+        private void ApplyAttackTellTint(ISkeletonAnimation animated)
+        {
+            bool active = Time.time < tellEnd && !isDead;
+            if (!active && !tellTinted) return;
+
+            Skeleton skeleton = skeletonAnimation.Skeleton;
+            if (tellSlots == null)
+            {
+                var found = new List<Slot>();
+                foreach (string name in tellTintSlots)
+                {
+                    Slot slot = skeleton.FindSlot(name);
+                    if (slot != null) found.Add(slot);
+                }
+                tellSlots = found.ToArray();
+            }
+
+            float span = Mathf.Max(0.01f, tellEnd - tellStart);
+            float t = Mathf.Clamp01((Time.time - tellStart) / span);
+            float elapsed = Time.time - tellStart;
+            float hz = tellPulseHz * (1f + t);
+            float pulse = active ? 0.5f + 0.5f * Mathf.Cos(elapsed * hz * Mathf.PI * 2f) : 0f;
+            // The last stretch before the hit holds solid red.
+            if (active && t > 0.8f) pulse = 1f;
+
+            foreach (Slot slot in tellSlots)
+            {
+                SlotData data = slot.Data;
+                var setup = new Color(data.R, data.G, data.B, data.A);
+                slot.SetColor(Color.Lerp(setup, setup * tellTintColor, pulse));
+            }
+            tellTinted = active;
+        }
+
+        // ---- Wind-up charge: attack clip held at its pulled-back pose ----
+        private TrackEntry chargeEntry;
+        private float chargeHoldAt;
+
+        // Safety net: a reaction clip (hurt, launch impact, parry flinch) that has ended and
+        // was not replaced, whatever played it, hands over like HandleHurtComplete. A frozen
+        // charge pose outside the attack is released the same way.
+        private void UpdateFinishedReactionClip()
+        {
+            if (isDead || skeletonAnimation == null || stateMachine == null) return;
+            TrackEntry e = skeletonAnimation.AnimationState.GetCurrent(0);
+            if (e == null || e.Loop || e.Next != null || e.Animation == null) return;
+
+            string name = e.Animation.Name;
+            bool frozenCharge = e.TimeScale == 0f && name == attack && !(stateMachine.CurrentState is MeleeAttackState);
+            bool reaction = name == hurt || name == launchAir || name == onParried;
+            if (reaction && e.TimeScale == 0f && downedEntry != e)
+                e.TimeScale = 1f; // a reaction clip is never meant to be paused
+            if (frozenCharge || (reaction && e.TrackTime >= e.Animation.Duration + 0.05f))
+                HandleHurtComplete(e);
+        }
+
+        private void ForgetChargeEntry(TrackEntry ended)
+        {
+            ended.End -= ForgetChargeEntry;
+            if (chargeEntry == ended) chargeEntry = null;
+        }
+
+        private void UpdateWindupCharge()
+        {
+            if (chargeEntry == null) return;
+            if (skeletonAnimation == null || skeletonAnimation.AnimationState.GetCurrent(0) != chargeEntry)
+            {
+                chargeEntry = null;
+                return;
+            }
+            if (chargeEntry.TimeScale > 0f && chargeEntry.TrackTime >= chargeHoldAt)
+            {
+                chargeEntry.TrackTime = chargeHoldAt;
+                chargeEntry.TimeScale = 0f;
             }
         }
 
         private void Update()
         {
+            UpdateWindupCharge();
+            UpdateFinishedReactionClip();
             UpdateMeasuredLocomotion();
             UpdateDownedPose();
             UpdateTilt();
@@ -526,6 +647,9 @@ namespace junklite
             // Only the locomotion states below re-enable the measured clip.
             locomotionState = false;
 
+            if (!(to is LeapState))
+                landPoseHeldInAir = false;
+
             // Leaving the launch ends any knockdown pose (the next state plays its own clip).
             if (!(to is LaunchedState))
             {
@@ -595,22 +719,63 @@ namespace junklite
                     return;
                 }
 
-                // Hard-cut to hurt, then hard-cut to stun loop on completion.
-                var hurtEntry = PlayWithSettings(0, hurt, false, hurtSettings);
-                if (hurtEntry != null)
-                {
-                    hurtEntry.Complete += _ =>
-                    {
-                        if (stateMachine.CurrentState is StunnedState)
-                        {
-                            string stunAnim = string.IsNullOrEmpty(stunLoop) ? idle : stunLoop;
-                            PlayWithSettings(0, stunAnim, true, stunSettings);
-                        }
-                    };
-                }
+                PlayHurtThenStunLoop();
             }
 
         }
+
+        /// <summary>Hard-cut to hurt from its first frame, then hard-cut to the stun loop on completion.</summary>
+        private void PlayHurtThenStunLoop()
+        {
+            if (!HasClip(hurt))
+                return;
+
+            var hurtEntry = PlayWithSettings(0, hurt, false, hurtSettings);
+            if (hurtEntry != null)
+                hurtEntry.Complete += HandleHurtComplete;
+        }
+
+        // A hurt clip never holds its last frame: it hands over to the stun loop while stunned
+        // or parried, to the air loop while launched and airborne, else to idle.
+        private void HandleHurtComplete(TrackEntry entry)
+        {
+            if (isDead || stateMachine == null || skeletonAnimation == null)
+                return;
+            // Only the entry still showing: a newer clip already took over.
+            if (skeletonAnimation.AnimationState.GetCurrent(0) != entry)
+                return;
+
+            IState current = stateMachine.CurrentState;
+            if (current is ParriedState)
+            {
+                PlayWithSettings(0, ParryLoopClip, true, stunSettings);
+            }
+            else if (current is StunnedState)
+            {
+                string stunAnim = string.IsNullOrEmpty(stunLoop) ? idle : stunLoop;
+                PlayWithSettings(0, stunAnim, true, stunSettings);
+            }
+            else if (current is LaunchedState)
+            {
+                // In the air: loop the float pose. On the ground the launch plays its own downed clip.
+                bool airborne = enemyCharacter == null || enemyCharacter.Movement == null || !enemyCharacter.Movement.IsGrounded;
+                if (airborne && HasClip(launchAirLoop))
+                    PlayWithSettings(0, launchAirLoop, true, stunSettings);
+            }
+            else if (!(current is MeleeAttackState || current is LeapState || current is GapJumpState || current is DeadState))
+            {
+                PlayWithSettings(0, idle, true, stunSettings);
+            }
+        }
+
+        private string ParryLoopClip => string.IsNullOrEmpty(parryStun)
+            ? (string.IsNullOrEmpty(stunLoop) ? hurt : stunLoop)
+            : parryStun;
+
+        private bool HasClip(string clip) =>
+            !string.IsNullOrEmpty(clip)
+            && skeletonAnimation != null
+            && skeletonAnimation.Skeleton.Data.FindAnimation(clip) != null;
 
         #region Public API
 
@@ -641,10 +806,21 @@ namespace junklite
             bool hasDistinctWindup = !string.IsNullOrEmpty(attackWindUp)
                 && !string.Equals(attackWindUp, attack, System.StringComparison.Ordinal);
 
+            chargeEntry = null;
             if (hasDistinctWindup)
             {
                 var entry = state.SetAnimation(0, attackWindUp, false);
                 FitToGameplayDuration(entry, gameplayDuration);
+            }
+            else if (windupChargePose > 0f && gameplayDuration > 0f && skeletonAnimation.Skeleton.Data.FindAnimation(attack) != null)
+            {
+                var entry = state.SetAnimation(0, attack, false);
+                chargeHoldAt = entry.Animation.Duration * windupChargePose;
+                entry.TimeScale = chargeHoldAt / Mathf.Max(0.01f, gameplayDuration * windupChargeReach);
+                chargeEntry = entry;
+                // Spine pools track entries: once this one ends, the object is reused for the
+                // next clip (often Hurt). Forget it then, or that clip would be frozen too.
+                entry.End += ForgetChargeEntry;
             }
             else
                 state.SetAnimation(0, idle, true);
@@ -655,6 +831,16 @@ namespace junklite
             if (isDead || skeletonAnimation == null) return;
 
             var state = skeletonAnimation.AnimationState;
+
+            // Charged: release the held swing from its pose; the rest of the clip fills the attack phase.
+            if (chargeEntry != null && state.GetCurrent(0) == chargeEntry)
+            {
+                float remaining = chargeEntry.Animation.Duration - chargeEntry.TrackTime;
+                chargeEntry.TimeScale = gameplayDuration > 0f ? Mathf.Max(0.01f, remaining) / gameplayDuration : 1f;
+                chargeEntry = null;
+                return;
+            }
+
             var entry = state.SetAnimation(0, attack, false);
             if (entry != null)
             {
@@ -703,11 +889,14 @@ namespace junklite
         {
             if (isDead || skeletonAnimation == null) return;
 
+            // A rig without the clip keeps the fight going: SetAnimation throws on a missing name.
+            string clip = HasClip(leapStart) ? leapStart : idle;
+            if (!HasClip(clip)) return;
+
             var state = skeletonAnimation.AnimationState;
             skeletonAnimation.Skeleton.SetToSetupPose();
             state.ClearTrack(0);
 
-            string clip = string.IsNullOrEmpty(leapStart) ? idle : leapStart;
             var entry = state.SetAnimation(0, clip, false);
             if (entry != null && fitActionAnimationsToGameplayDuration)
                 FitActionToGameplayDuration(entry, gameplayDuration);
@@ -717,18 +906,53 @@ namespace junklite
         {
             if (isDead || skeletonAnimation == null) return;
 
-            string clip = string.IsNullOrEmpty(leapAir) ? idle : leapAir;
-            var entry = skeletonAnimation.AnimationState.SetAnimation(0, clip, true);
+            // No air clip on this rig (the Hyena has none): the dodge hop, held on its last
+            // frame, is the closest thing. Failing that, idle.
+            bool hasAirClip = HasClip(leapAir);
+            string clip = hasAirClip ? leapAir : HasClip(dodge) ? dodge : idle;
+            if (!HasClip(clip)) return;
+
+            var entry = skeletonAnimation.AnimationState.SetAnimation(0, clip, hasAirClip || clip == idle);
             if (entry != null)
                 entry.MixDuration = 0.05f;
+        }
+
+        public override void PlayLeapAirHoldingLandPose()
+        {
+            if (isDead || skeletonAnimation == null) return;
+
+            if (!HasClip(leapLand))
+            {
+                PlayLeapAir();
+                return;
+            }
+
+            var entry = skeletonAnimation.AnimationState.SetAnimation(0, leapLand, false);
+            if (entry != null)
+            {
+                entry.MixDuration = 0.05f;
+                entry.TrackTime = Mathf.Min(leapAirLandPoseTime, entry.Animation.Duration);
+                entry.TimeScale = 0f;
+            }
+
+            landPoseHeldInAir = true;
+        }
+
+        public override void PlayHitReaction()
+        {
+            if (isDead || skeletonAnimation == null || stateMachine == null) return;
+            if (!(stateMachine.CurrentState is StunnedState || stateMachine.CurrentState is ParriedState)) return;
+
+            PlayHurtThenStunLoop();
         }
 
         public override void PlayLaunched()
         {
             if (isDead || skeletonAnimation == null) return;
 
-            // One-shot, no queued idle: Spine holds the last frame.
-            PlayWithSettings(0, string.IsNullOrEmpty(launchAir) ? hurt : launchAir, false, hurtSettings);
+            // One-shot impact, then the air loop (HandleHurtComplete).
+            var entry = PlayWithSettings(0, string.IsNullOrEmpty(launchAir) ? hurt : launchAir, false, hurtSettings);
+            if (entry != null) entry.Complete += HandleHurtComplete;
         }
 
         public override void PlayLaunchBounce()
@@ -736,7 +960,8 @@ namespace junklite
             if (isDead || skeletonAnimation == null) return;
 
             // Restart the hurt pose so the bounce reads as a second impact.
-            PlayWithSettings(0, string.IsNullOrEmpty(launchAir) ? hurt : launchAir, false, hurtSettings);
+            var entry = PlayWithSettings(0, string.IsNullOrEmpty(launchAir) ? hurt : launchAir, false, hurtSettings);
+            if (entry != null) entry.Complete += HandleHurtComplete;
         }
 
         public override bool PlayDowned()
@@ -813,16 +1038,21 @@ namespace junklite
         {
             if (isDead || skeletonAnimation == null) return;
 
+            string clip = HasClip(leapLand) ? leapLand : idle;
+            if (!HasClip(clip)) return;
+
             var state = skeletonAnimation.AnimationState;
-            string clip = string.IsNullOrEmpty(leapLand) ? idle : leapLand;
             var entry = state.SetAnimation(0, clip, false);
             if (entry != null)
             {
                 entry.MixDuration = 0f;
-                if (fitActionAnimationsToGameplayDuration)
+                // A pose held in the air replays inside the landing phase, so it finishes
+                // before the next state's clip cuts in, however short that phase is.
+                if (fitActionAnimationsToGameplayDuration || landPoseHeldInAir)
                     FitActionToGameplayDuration(entry, gameplayDuration);
             }
 
+            landPoseHeldInAir = false;
             state.AddAnimation(0, idle, true, 0f);
         }
 
@@ -855,9 +1085,7 @@ namespace junklite
         {
             var state = skeletonAnimation.AnimationState;
             string parriedAnim = string.IsNullOrEmpty(onParried) ? idle : onParried;
-            string stunAnim = string.IsNullOrEmpty(parryStun)
-                ? (string.IsNullOrEmpty(stunLoop) ? hurt : stunLoop)
-                : parryStun;
+            string stunAnim = ParryLoopClip;
 
             var parriedEntry = PlayWithSettings(0, parriedAnim, false, onParriedSettings);
             if (parriedEntry != null)
@@ -878,6 +1106,21 @@ namespace junklite
             FitActionToGameplayDuration(entry, gameplayDuration);
         }
 
+        // Above every state clip (track 0), so locomotion keeps running underneath and shows again after.
+        private const int ShoveTrack = 3;
+
+        public override void PlayShove(float gameplayDuration)
+        {
+            if (isDead || skeletonAnimation == null || string.IsNullOrEmpty(attack)) return;
+
+            var state = skeletonAnimation.AnimationState;
+            var entry = state.SetAnimation(ShoveTrack, attack, false);
+            if (entry == null) return;
+            entry.MixDuration = 0f;
+            FitActionToGameplayDuration(entry, gameplayDuration);
+            state.AddEmptyAnimation(ShoveTrack, 0.08f, 0f);
+        }
+
         private static void FitActionToGameplayDuration(TrackEntry entry, float gameplayDuration)
         {
             if (entry?.Animation == null || entry.Animation.Duration <= 0f || gameplayDuration <= 0f)
@@ -892,6 +1135,7 @@ namespace junklite
             isDead = true;
 
             var state = skeletonAnimation.AnimationState;
+            state.ClearTrack(ShoveTrack);
 
             // Killed while on the knockdown fall (lying or rising): it is already the
             // death clip, so just let it run forward to the end from where it is.

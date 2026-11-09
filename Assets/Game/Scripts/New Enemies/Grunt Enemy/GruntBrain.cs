@@ -28,7 +28,7 @@ namespace junklite
     /// in the director's runtime entries, never on an asset.
     /// </summary>
     public sealed class GruntBrain : MeleeChaserBrain,
-        IHoldPositioner, ILeaper, IBackOff, ILaneSpacing, IAllyHitListener,
+        IHoldPositioner, ILeaper, ILeapAirPose, IBackOff, ILaneSpacing, IAllyHitListener,
         IPatrolRhythm, IAlerter, ISearcher
     {
         [Header("Grunt - Patrol & Idle")]
@@ -67,8 +67,8 @@ namespace junklite
         [SerializeField, Range(0f, 0.5f)] private float rhythmVariance = 0.2f;
 
         [Header("Grunt - Lane Spacing")]
-        [Tooltip("Smallest edge-to-edge gap ever allowed to the grunt ahead or behind.")]
-        [SerializeField, Min(0f)] private float contactGap = 0.05f;
+        [Tooltip("Smallest edge-to-edge capsule gap ever allowed to the grunt ahead or behind. The drawn body is wider than the capsule (about 0.13 u each side at root scale 1.42), so below about 0.26 the art overlaps.")]
+        [SerializeField, Min(0f)] private float contactGap = 0.3f;
         [Tooltip("How sharply a follower slows as it nears its leader. Higher = later, harder braking.")]
         [SerializeField, Min(0.5f)] private float spacingGain = 6f;
 
@@ -129,8 +129,8 @@ namespace junklite
 
         [Header("Grunt - Vault To Open Side")]
         [SerializeField] private bool vaultEnabled = true;
-        [Tooltip("Only the second grunt in a side's queue vaults, and only when this close (axis distance) to the player.")]
-        [SerializeField, Min(0f)] private float vaultMaxStartDistance = 7f;
+        [Tooltip("Only the second grunt in a side's queue vaults (a stunned or parried grunt ahead counts as first), and only when this close (axis distance) to the player.")]
+        [SerializeField, Min(0f)] private float vaultMaxStartDistance = 9f;
         [Tooltip("0 = vault only when the far side is empty. 1 = allow a 2/2 split with four grunts.")]
         [SerializeField, Min(0)] private int vaultMaxFarSideCount = 0;
         [Tooltip("Land this far outside attack range so the grunt takes one step in instead of landing on the player.")]
@@ -140,10 +140,12 @@ namespace junklite
         [SerializeField, Min(0f)] private float vaultHeight = 1.6f;
         [Tooltip("Grounded crouch before leaving the ground. A hit during this cancels the vault.")]
         [SerializeField, Min(0f)] private float vaultTelegraph = 0.08f;
-        [SerializeField, Min(0f)] private float leapLandDuration = 0.12f;
+        [SerializeField, Min(0f)] private float leapLandDuration = 0.2f;
+        [Tooltip("In the air, hold the landing clip's pose (Jump_End) instead of playing the air clip (Float). The landing then plays Jump_End through.")]
+        [SerializeField] private bool leapHoldsLandPose = true;
         [SerializeField] private bool leapHasIFrames;
         [SerializeField, Range(0f, 1f)] private float vaultChance = 1f;
-        [SerializeField, Min(0f)] private float vaultCooldown = 3f;
+        [SerializeField, Min(0f)] private float vaultCooldown = 2f;
         [Tooltip("Never two grunts of the same group airborne within this many seconds.")]
         [SerializeField, Min(0f)] private float groupLeapCooldown = 1f;
         [Tooltip("Call the vault off during the crouch if the player moves this far along the lane.")]
@@ -280,6 +282,10 @@ namespace junklite
         public float LeapLandDuration => leapLandDuration;
         public bool LeapHasIFrames => leapHasIFrames;
         public float LeapMaxCorrectionSpeed => leapIsFallBack ? 0f : vaultMaxCorrectionSpeed;
+        public bool LeapAirHoldsLandPose => leapHoldsLandPose;
+
+        /// <summary>The queue gap is this archetype's: the director reads it whenever the grunt joins a group.</summary>
+        public override float LaneQueueGap => queueGap;
 
         public float BackOffTargetDistance => pendingBackOffDistance;
         public float BackOffSpeed => backOffSpeed;
@@ -325,9 +331,7 @@ namespace junklite
             // Walls and door blockers only: enemy bodies are passed through, and the
             // ones that matter (lane-mates holding their place) come from the director.
             probeMask = resolvedObstacleLayers.value;
-            CapsuleCollider body = GetComponent<CapsuleCollider>();
-            if (body != null)
-                myHalfWidth = body.radius * Mathf.Max(Mathf.Abs(transform.lossyScale.x), Mathf.Abs(transform.lossyScale.z));
+            myHalfWidth = BodyContact.CapsuleHalfWidth(this, myHalfWidth);
         }
 
         protected override void OnEnable()
@@ -408,10 +412,6 @@ namespace junklite
                 targetState = current.GetComponentInParent<PlayerState>();
                 if (targetState == null)
                     targetState = current.GetComponent<PlayerState>();
-
-                // Register first so the gap is in place before the base loop evaluates.
-                if (EnemyEngagementDirector.Register(Actor))
-                    EnemyEngagementDirector.SetQueueGap(Actor, queueGap);
             }
             else
             {
@@ -695,7 +695,9 @@ namespace junklite
             float distance = Movement.GetAbsAxisDistance(transform.position, Actor.Target.position);
             bool holding = StateMachine.CurrentState is HoldPositionState;
 
-            if (lane.IsFront)
+            // Front of the queue on paper, but a staggered body still stands in the way:
+            // until it recovers this grunt queues behind it or vaults, unless already in reach.
+            if (lane.IsFront && (lane.BodiesAhead == 0 || distance <= StopDistance))
                 EvaluateFront(lane, distance, holding);
             else
                 EvaluateQueued(lane, assignment, distance, holding);
@@ -841,29 +843,8 @@ namespace junklite
 
         public void ApplySpacing(ref Vector3 destination, ref float speed)
         {
-            if (!TryGetNeighbors(out EnemyLaneNeighbors n))
-                return;
-
-            float desired = n.Side * Vector3.Dot(destination - n.TargetPosition, n.Axis);
-            float approachMin = n.HasLeader ? n.LeaderDistance + n.LeaderComfortSpacing : float.NegativeInfinity;
-            float hardMin = n.HasLeader ? n.LeaderDistance + n.LeaderHardSpacing : float.NegativeInfinity;
-            float hardMax = n.HasFollower ? n.FollowerDistance - n.FollowerHardSpacing : float.PositiveInfinity;
-
-            float clamped = LaneSpacingSolver.ClampDistance(desired, n.MyDistance, approachMin, hardMin, hardMax);
-
-            float leaderClosing = n.HasLeader ? -n.Side * Vector3.Dot(n.LeaderVelocity, n.Axis) : 0f;
-            float followerReceding = n.HasFollower ? n.Side * Vector3.Dot(n.FollowerVelocity, n.Axis) : 0f;
-            speed = LaneSpacingSolver.LimitSpeed(
-                speed,
-                n.MyDistance,
-                clamped,
-                approachMin,
-                leaderClosing,
-                hardMax,
-                followerReceding,
-                spacingGain);
-
-            destination += n.Axis * (n.Side * (clamped - desired));
+            if (TryGetNeighbors(out EnemyLaneNeighbors n))
+                LaneSpacingSolver.Apply(n, ref destination, ref speed, spacingGain);
         }
 
         private bool TryGetNeighbors(out EnemyLaneNeighbors result)
@@ -1066,7 +1047,7 @@ namespace junklite
         {
             if (!vaultEnabled || !engaged)
                 return false;
-            if (lane.QueueIndex != 1 || lane.CountFarSide > vaultMaxFarSideCount)
+            if (lane.PlaceInLine != 1 || lane.CountFarSide > vaultMaxFarSideCount)
                 return false;
             if (distance > vaultMaxStartDistance || Time.time < nextVaultAllowed)
                 return false;
@@ -1190,11 +1171,11 @@ namespace junklite
             if (!IsSegmentClear(transform.position, destination) || !HasGroundAt(destination))
                 return false;
 
-            // Another enemy body already standing there.
+            // Another enemy body already standing there: this body must fit beside it.
             int enemiesMask = LayerMask.GetMask("Enemies");
             int count = Physics.OverlapSphereNonAlloc(
                 destination + Vector3.up * 1f,
-                0.45f,
+                myHalfWidth + contactGap,
                 overlapBuffer,
                 enemiesMask,
                 QueryTriggerInteraction.Ignore);

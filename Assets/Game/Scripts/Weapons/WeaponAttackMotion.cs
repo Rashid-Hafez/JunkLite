@@ -48,7 +48,8 @@ namespace junklite
             float duration,
             AnimationCurve lungeCurve,
             System.Func<bool> stopLunge = null,
-            bool ownHorizontalAtZero = false)
+            bool ownHorizontalAtZero = false,
+            float startDelay = 0f)
         {
             if (!IsCurrent(executionId) || controller == null)
                 yield break;
@@ -57,7 +58,8 @@ namespace junklite
             Vector3 up = controller.transform.up.normalized;
             Vector3 peakVelocity = Vector3.zero;
 
-            if (direction == AttackDirection.Side)
+            // The launcher steps forward like a side swing, though its hit goes up.
+            if (direction == AttackDirection.Side || direction == AttackDirection.Up)
             {
                 if (!Mathf.Approximately(forwardImpulse, 0f))
                     peakVelocity += right * (forwardImpulse * facing);
@@ -75,12 +77,25 @@ namespace junklite
             // A focus-warped side lunge owns the lane axis even at zero speed, so a running
             // start doesn't carry the player through a swing that should stand still.
             bool ownsHorizontal = !Mathf.Approximately(Vector3.Dot(peakVelocity, right), 0f) ||
-                                  (ownHorizontalAtZero && direction == AttackDirection.Side);
+                                  ownHorizontalAtZero;
             bool ownsVertical = !Mathf.Approximately(Vector3.Dot(peakVelocity, up), 0f);
             if (!ownsHorizontal && !ownsVertical)
                 yield break;
 
             AcquireMotionAxes(ownsHorizontal, ownsVertical);
+
+            // Wind-up: planted on the lane axis until the release, then the lunge fires.
+            for (float waited = 0f; waited < startDelay; waited += Time.deltaTime)
+            {
+                if (!IsCurrent(executionId)) yield break;
+                if (ownsHorizontal)
+                {
+                    Vector3 held = controller.Velocity;
+                    controller.SetVelocity(held - right * Vector3.Dot(held, right));
+                }
+                yield return null;
+            }
+            if (!IsCurrent(executionId)) yield break;
 
             float resolvedDuration = duration > 0f ? duration : defaultPushDuration;
             float elapsed = 0f;

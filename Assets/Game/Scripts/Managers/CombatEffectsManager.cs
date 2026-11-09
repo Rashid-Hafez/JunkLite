@@ -27,6 +27,12 @@ namespace junklite
         [Tooltip("Random shift in metres on screen, so repeated hits don't stack on one spot.")]
         [SerializeField, Min(0f)] private float enemyHitVFXRandomOffset = 0.25f;
 
+        [Header("Enemy Hit Sparks (metal)")]
+        [Tooltip("Small golden sparks thrown out of the enemy on every melee hit, next to the blood.")]
+        [SerializeField] private GameObject enemyHitSparksPrefab;
+        [SerializeField] private int enemyHitSparksPoolSize = 8;
+        [SerializeField] private float enemyHitSparksLifetime = 0.6f;
+
         [Header("Enemy Hurt Particle (Blood)")]
         [SerializeField] private GameObject enemyHurtParticlePrefab;
         [SerializeField] private int enemyHurtPoolSize = 8;
@@ -47,6 +53,7 @@ namespace junklite
         private readonly Queue<GameObject> envHitPool = new();
         private readonly Queue<GameObject> enemyHitVFXPool = new();
         private readonly Queue<GameObject> enemyHurtPool = new();
+        private readonly Queue<GameObject> enemyHitSparksPool = new();
         private readonly Queue<GameObject> hitCrossPool = new();
         private readonly Queue<GameObject> bloodSplatterPool = new();
 
@@ -54,6 +61,7 @@ namespace junklite
         private Transform envHitPoolRoot;
         private Transform enemyHitVFXPoolRoot;
         private Transform enemyHurtPoolRoot;
+        private Transform enemyHitSparksPoolRoot;
         private Transform hitCrossPoolRoot;
         private Transform bloodSplatterPoolRoot;
 
@@ -95,6 +103,12 @@ namespace junklite
             {
                 enemyHurtPoolRoot = CreatePoolRoot("EnemyHurtPool");
                 FillPool(enemyHurtPool, enemyHurtParticlePrefab, enemyHurtPoolRoot, enemyHurtPoolSize);
+            }
+
+            if (enemyHitSparksPrefab != null)
+            {
+                enemyHitSparksPoolRoot = CreatePoolRoot("EnemyHitSparksPool");
+                FillPool(enemyHitSparksPool, enemyHitSparksPrefab, enemyHitSparksPoolRoot, enemyHitSparksPoolSize);
             }
 
             if (hitCrossPrefab != null)
@@ -171,6 +185,20 @@ namespace junklite
                 enemyHitVFXLocalOffset + (Vector3)(Random.insideUnitCircle * enemyHitVFXRandomOffset));
             go.transform.Rotate(0f, 0f, Random.Range(-enemyHitVFXRandomRoll, enemyHitVFXRandomRoll), Space.Self);
             StartCoroutine(ReturnAfterDelay(go, enemyHitVFXPool, enemyHitVFXPoolRoot, enemyHitVFXLifetime));
+            SpawnEnemyHitSparks(position, attackDirection);
+        }
+
+        /// <summary>
+        /// Spawn the golden metal sparks that fly out of a hit enemy.
+        /// </summary>
+        public void SpawnEnemyHitSparks(Vector3 position, Vector3 attackDirection)
+        {
+            if (enemyHitSparksPrefab == null)
+                return;
+
+            GameObject go = GetFromPool(enemyHitSparksPool, enemyHitSparksPrefab, enemyHitSparksPoolRoot);
+            SetupParticle(go, position, attackDirection);
+            StartCoroutine(ReturnAfterDelay(go, enemyHitSparksPool, enemyHitSparksPoolRoot, enemyHitSparksLifetime));
         }
 
         /// <summary>

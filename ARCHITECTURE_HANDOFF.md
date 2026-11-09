@@ -9,6 +9,78 @@
 >
 > After architecture changes, run `graphify update .` again so the next developer and agent get accurate answers. Details are in `GRAPHIFY_WORKFLOW.md`. The graph covers C# and `.md` files only and does not replace this document.
 
+### Combat feel pass: tell, parry, shove, heavy punches (2026-11-09)
+
+- **Player parry clips play alone:**
+  - **Before:** Parry_1 blended in on the base track, and Parry_2 played on the overlay track and was never cleared. Its last frame stayed on top of idle and run, which broke the torso.
+  - **Now:** both play on the base track with the overlay cleared, `SetBonesToSetupPose`, mix 0, and no wind-up (`IsParryClip`). The next clip cuts in with mix 0 (`SnapAfterParryClip`).
+  - **Wind-up scope:** `SetAttackWindup` takes the clip it belongs to, so other one-off clips (push, parry) never pick up the last punch's pause.
+
+- **Two systems.** The shove (`EnemyContactDamage`) and the attack (`MeleeAttackState`) stay separate. The shove has no warning: `EnemyAnimationPresenter.PlayShove` plays the attack clip as a one-shot on track 3 (Spine), then `LandShove` sends an unparryable `DamageRequest` (`shoveDamage` 3) and `ApplyBodyPush`. This replaces "push only, no damage" below.
+- **Attack tell:**
+  - **Timing:** `EnemyCharacter.attackNotifyLead` (Grunt 0.45 s) shows the warning that long before the hitbox opens (wind-up + `attackDuration * hitStartNormalized`).
+  - **Sign:** `AttackTellView` on the warning object animates the authored sign. It pops in, and its outer ring closes onto the hit moment.
+  - **Body:** `PlayAttackTell` can pulse `tellTintSlots` red until the hit. It is off on the Grunt (empty list), because the user did not want the head flashing.
+  - **Burst:** `attackTellBurstPrefab` adds a red spark burst.
+  - **Stop:** `HideAttackWarning` stops the tint.
+- **Charge hold bug (fixed):** Spine pools `TrackEntry` objects, so the held charge entry was reused for the next clip (Hurt) and the hold froze Hurt at 0.13 s. `chargeEntry` is now cleared on the entry's `End` event. Never keep a `TrackEntry` reference past its `End` without this.
+- **Charge hold:** `EnemySpineAnimationController.windupChargePose` (Grunt 0.14) runs the attack clip to its pulled-back pose during the wind-up and holds it. `PlayMeleeAttack` then releases the same track entry. The Grunt's wind-up is now 0.45 s, and its hit window is 0.12–0.42 to match the swing.
+- **Parry:**
+  - **Feedback:** `ParryHandler.impactDelay` (0.05 s) and `parryImpactBurstPrefab` (Parry Impact Sparks).
+  - **Camera:** `parryShakeForce`, plus overrides passed to `CameraManager.DoParryCameraEffect(zoom, scale, hold, startDelay)`.
+  - **Slow-mo:** 0.4x for 0.35 s real. It slows time; it never stops it.
+  - **Zoom:** slight, FOV about 29 → 26 (`zoomTarget` 26). It runs in real time (`parryZoomInRealtimeMax` 0.15 s); in scaled time it never showed under slow-mo.
+- **Hurt never holds its last frame:** `EnemySpineAnimationController.HandleHurtComplete` hands Hurt over to the stun or parry loop, to `launchAirLoop` (Grunt: Float) while launched and airborne, or to idle. The launch impact (`PlayLaunched`, `PlayLaunchBounce`) uses the same handler. Before this, a launched Grunt froze on Hurt's last frame for the whole flight. Safety net: `UpdateFinishedReactionClip` checks every frame for a finished, unreplaced Hurt, launch-impact or OnParried clip, and for a frozen attack charge pose outside `MeleeAttackState`, and hands it over the same way.
+  - **Push:** `pushForce` 16, `pushDuration` 0.4.
+- **Heavy punches:**
+  - **Pause:** `MeleeComboStep.windupAt` gives clips with no Hold event a timed pause (`SpineAnimationController.SetAttackWindup`, `timedHoldAt`). After it, the clip runs at `attackReleaseSpeed` (now 1.6).
+  - **Lunge:** `GetWindupReleaseTime` feeds `WeaponAttackExecutionRequest.WindupRelease`, so the lunge waits for the release.
+  - **Fist:** holds 0.09/0.09/0.14 s.
+  - **Mantis:** holds 0.11/0.11/0.16 s.
+  - **Hitbox:** hit radii are 0.6/0.9/0.75.
+  - **Hit-stop:** `enemyHitHitstopDuration` 0.16, launch 0.18.
+- **Slide:** `MeleeComboStep.lungeDistanceScale` (0 or 1 = usual) scales the focus slide (no target: `noTargetLungeDistance`; focused: closer, never under 0.3 m from the body). Hits 1 and 2 of Fist and Mantis use 1.1. The wind-up started the lunge late and the swing's end cut it off mid-speed (about half the distance). `WeaponAttackExecutionRequest.ClipDuration` (`SpineAnimationController.GetAttackRealDuration`) now squeezes a lunge into the time the swing has left.
+- **Gold sparks:** `CombatEffectsManager.enemyHitSparksPrefab` (Hit Sparks Gold) spawns with every enemy hit VFX.
+- **Up attack:** wind-up 0.15 s, dash 22 for 0.2 s (2.2 m). `WeaponManager.upAttackCooldown` (1 s) turns up + attack into a side swing while the cooldown runs.
+
+### Up attack: ground only, wind-up then dash (2026-11-09)
+
+- **Ground only:** `WeaponManager.ResolveAttackDirection` only returns Up when grounded; up in the air is a normal air attack. It lunges like a side swing: `ResolveFocusLunge` warps it to the focused enemy, and with no target it steps its authored dash (`forwardImpulse` 20 for 0.25 s, about 2.5 m).
+- **Wind-up:** `MeleeComboStep.windupHold` (0 = off) sets how long the clip pauses at its `Hold` event (`SpineAnimationController.SetAttackHoldOverride`, set per swing in `StartAttack`). When it is set and the clip holds at frame 0, `WeaponAttackMotion.ApplyPush` keeps her planted on the lane axis for that pause (`startDelay`) and the lunge fires on release. Cass up attack: 0.3 s. Finishers that also hold at frame 0 (Punch/Mantis 3) keep their old timing because they leave `windupHold` at 0.
+- **Run legs under punches:** tried and removed at the user's request.
+
+### Enemy body contact: push only, no damage (2026-11-09)
+
+- **Replaces the 11-04 and 11-07 contact notes below.** `EnemyContactDamage` deals no damage and no longer stuns or plays Hurt (`PlayerCharacter.ApplyBodyPush`; `Character2D5Controller.ApplyExternalShove` holds the lane speed for `hitstun` seconds). `ApplyBodyShove` with its stun stays for the Brute roar.
+- **When:** she holds a direction into the body and moves that way at `pushSpeedFraction` (0.95) of run speed, or has run for `pushRunTime` (1.5 s). She reaches run speed at once, so a full-stick run pushes straight away. Above 1, the fraction leaves only the run time. Attack lunges never count. `shoveCooldown` and the facing rule stay.
+- **Pass through:** dash and roll always; stunned or parried bodies always. Either one lasts until the overlap ends (`freePass`). The Brute's touch grab already skips a dash.
+- **Prefabs:** Hyena Blue, Green and EASY now have the component with Hyena's values.
+
+### Run reversal slide (2026-11-09)
+
+- **Owner:** `Character2D5Controller.TryTurnSlide`. Reversing after `turnSlideMinRunTime` (0.5 s) of one unbroken hold, or half that at `turnSlideMinSpeed` (12, above the base run speed of 10), keeps the old direction and facing for `turnSlideDuration` (0.195 s), eased to a stop (about 0.95 u at run speed). Dash is blocked during it (`CanDash`). Up to `turnSlideInputGrace` (0.12 s) of no input counts as the same run, so holding both keys for a moment still slides. Facing then flips. Pressing the old direction again cancels it, and each reversal resets the run time, so spam never slides. Taps and spam never slide and never play `RunToIdle`: `turnStopMinRunTime` is 0.5 s, and only an unbroken hold counts toward it.
+- **Animation:** `SpineAnimationController` plays `RunToIdle` at 1.2x (`turnSlideClipTimeScale`) on the old facing during the slide (`IsTurnSliding`) and blends into Run at the flip. Front and back runs skip the stop clip and go straight to Idle.
+
+### Jump restored to the pre-11-07 values (2026-11-09)
+
+- **Decision (Rashid):** Ajas's jump tuning (2026-11-07 and 11-08) is dropped. `Player Stats.asset` `jumpForce` 12.5 → 13; `Player_Cass.prefab` `jumpForce` 12.5 → 12 (the stats asset overrides it at runtime), `doubleJumpForce` 13.4 → 11.34, `doubleJumpRiseGravity` 2.1 → 3. These are the values at `264b6060`. The gravity code in `Character2D5Controller.ApplyGravityFixed` was already the same, so the "Jump heights lowered" note below no longer applies.
+- **Clips:** `Jump_1_Start` plays on the jump and holds its last frame through the rise. `Jump_2_Air` plays when upward speed reaches `jumpAirApexSpeed` (1.05), not after the start clip. Double jump and landing are unchanged.
+
+### Combat update: Cass animations, air combo, stun reactions, push (2026-11-09)
+
+- **Run stop (`SpineAnimationController`, `Character2D5Controller`):** releasing input plays `RunToIdle` at 1.6x and fades into Idle over 0.3 s, starting 60% through the clip (`runStopFadeStart`). `groundStopSlideDuration` (0.15 s) eases lane speed to zero. A direction flip plays part of the clip, then blends back to Run; `ShouldPlayTurnClip` (min run 0.15 s, cooldown 0.35 s) keeps spam from restarting it.
+- **Attack feel:** `attackToAttackBlend` is 0.067 s (read as 2 frames at 30 fps). The `Hold` Spine event freezes the entry for `attackHoldDuration` (0.12 s), `Release` runs at `attackReleaseSpeed` (1.35x), and `AttackHoldTiming` shifts the hit window so the hit stays on the visual.
+- **New clips:** Hurt on every applied hit (overlay during attack, dash, wall slide), `Grabbed` loop while `PlayerCharacter.IsHeldByGrabber`, `Interact` via `GameInputManager.OnInteractionPerformed`, parry clip names on `ParryHandler`.
+- **Weapons:** `Fist (Cass)` and `Sword (Cass)` both have `upAttack` (Attack_Up, Launch) and a three-step air combo (Attack_Air_Combo_1/2/3, step 3 is Spike). `Sword (Cass)` side combo uses Attack_Punch_Mantis_1/2/3. `Player_Cass` `upAttack` anchor moved from above her head to in front of her (it could not reach a grounded enemy). `ComboState`: air steps now always run in order from the first; the ground-to-air index continuation is gone, because it could open a jump on the spike.
+- **Launch arc:** new pure `LaunchArc`. Gravity is a continuous function of vertical speed, applied the same way up and down, so the top is soft and symmetric. Grunt and Hyena time to apex 0.30 s to 0.35 s. New `juggleApexHeadroom`, `juggleLiftBlendSeconds`.
+- **Enemy hit reactions:** Grunt and Hyena restart Hurt and stagger back on every applied hit in `ParriedState` and `StunnedState` (`ReactsToHitsWhileStunned`, `PlayHitReaction`). The parry timer is not extended.
+- **Enemy behaviour:** Hyena damage about 15% lower. Grunt `vaultCooldown` 2, `vaultMaxStartDistance` 9, and a grunt behind a stunned ally may vault. Grunt leap holds Jump_End instead of Float (`ILeapAirPose`). Staggered bodies now count as lane neighbours; Hyena has lane spacing; Grunt `contactGap` 0.3. Hyena `QueuedVaultOpen` lets her vault when another enemy stands between her and the player.
+- **Push:** `PlayerPush` on `Player_Cass`. SpecialAttack (X, gamepad RB; the RT binding clashed with Parry) shoves enemies in front through `ApplyParryPush`, no damage, plays `Attack_Punch_Combo_1`.
+- **Wall jump opt-in:** `Character2D5Controller.requireWallJumpSurface` (true) only accepts colliders with a `WallJumpSurface`. Marked in Service Floor: `Wall_Pit_West`, `Wall_Chimney_Rim`, `Broken_Slab_Collider`, `Wall_Pit_Wing2_North/South`. **No other scene is marked, so wall jump is off there.**
+- **Mantis box:** `Sword CyberBox` moved to Room 1 (12, 0, 0.56), rotation Y 180.
+- **Verified in Play Mode (scripted input, Service Floor):** run stop, turn, Hurt, Interact, Attack_Up launch, three air hits, Mantis clips, push, stun restart and stagger on Grunt. **Not verified:** Hyena changes, Grunt vault animation, line spacing, Grabbed, wall jump with markers, hand feel.
+- **Tests:** EditMode 290 of 310 pass. The 20 failures are in Encounter, EnemyArchitecture, PlayerProgression and SingleTargetSword tests. No baseline was run on the previous commit.
+
 ### UI reverted to the 2026-11-08 state (2026-11-09)
 
 - **Decision (Rashid):** the HUD and I-menu changes pushed after `76d3bfe7` are dropped. Five files are back to that commit: `New Player UI 2.prefab`, `Objective Tracker HUD.prefab`, `CombatModSlotUI.cs`, `InventoryUI.cs`, `ModCombatUI.cs`.

@@ -218,6 +218,12 @@ namespace junklite.Tests
                 var holder = serialized.FindProperty("weaponHolder").objectReferenceValue as Transform;
                 Assert.That(holder, Is.Not.Null, path);
                 var visuals = serialized.FindProperty("heldVisuals");
+                // Cass draws her blades in the attack clips, so she has no separate held visual.
+                if (path.Contains("Player_Cass"))
+                {
+                    Assert.That(visuals.arraySize, Is.EqualTo(0), path);
+                    continue;
+                }
                 Assert.That(visuals.arraySize, Is.EqualTo(1), path);
                 var entry = visuals.GetArrayElementAtIndex(0);
                 Assert.That(entry.FindPropertyRelative("weapon").objectReferenceValue, Is.SameAs(blades), path);

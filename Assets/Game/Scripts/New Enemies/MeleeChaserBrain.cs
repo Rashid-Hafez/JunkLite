@@ -23,8 +23,15 @@ namespace junklite
         [Header("Stun")]
         [SerializeField] protected StunBehavior stun = new();
 
+        // Once waiting in a slot, the slot may drift this far before the wait ends, so a
+        // small shuffle of the body ahead does not get the whole queue up and walking.
+        private const float QueueLeaveDistance = 0.3f;
+
         private bool returningToPassive;
         private bool stateChangeSubscribed;
+
+        /// <summary>Spacing this archetype keeps behind the enemy in front of it, on top of both body widths.</summary>
+        public virtual float LaneQueueGap => EnemyEngagementDirector.DefaultQueueGap;
 
         protected override void Awake()
         {
@@ -337,9 +344,18 @@ namespace junklite
 
         protected bool IsAtAssignedDestination(EnemyEngagementAssignment assignment)
         {
-            return Movement.GetAbsAxisDistance(
-                transform.position,
-                assignment.Destination) <= queueArrivalDistance;
+            // Measure against where the body ahead really is, not its ideal slot.
+            Vector3 destination = assignment.Destination;
+            if (this is ILaneSpacing spacing)
+            {
+                float ignoredSpeed = 0f;
+                spacing.ApplySpacing(ref destination, ref ignoredSpeed);
+            }
+
+            float tolerance = StateMachine.CurrentState is WaitForOpeningState
+                ? Mathf.Max(queueArrivalDistance, QueueLeaveDistance)
+                : queueArrivalDistance;
+            return Movement.GetAbsAxisDistance(transform.position, destination) <= tolerance;
         }
 
         private void HandleMeleeCompleted()

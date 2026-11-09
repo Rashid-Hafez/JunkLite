@@ -21,6 +21,7 @@ GameObject:
   - component: {fileID: 6885050171418826779}
   - component: {fileID: 5511428486720858210}
   - component: {fileID: -8649487350880432651}
+  - component: {fileID: 4357134331705900391}
   m_Layer: 14
   m_Name: Hyena EASY
   m_TagString: Enemy
@@ -137,6 +138,19 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 6145
   settledGroundCheckInterval: 3
+  ledgeGuard: 1
+  ledgeProbeDistance: 0.7
+  ledgeDropTolerance: 0.8
+  maxGapWidth: 9
+  gapLandingMaxRise: 1
+  gapLandingMaxDrop: 2
+  gapJumpSpeed: 9
+  gapJumpHeight: 1.2
+  gapObstacleLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  fallKillDepth: 12
+  fallKillWorldY: -40
 --- !u!114 &7573309572259255426
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -206,8 +220,8 @@ MonoBehaviour:
   canBeLaunched: 1
   launch:
     apexHeight: 4
-    apexHangSpeed: 0
-    apexHangGravityScale: 2.5
+    apexHangSpeed: 10
+    apexHangGravityScale: 4
     gravityScale: 9
     passThroughEnemies: 1
     maxAirTime: 4
@@ -225,6 +239,8 @@ MonoBehaviour:
     spikeSkidKeep: 1.5
     maxJuggleHits: 3
     juggleLift: 12
+    juggleApexHeadroom: 0.5
+    juggleLiftBlendSeconds: 0.06
     juggleHorizontalScale: 0.15
     airHitHangDuration: 0.5
     airHitFallGravityScale: 1.5
@@ -257,6 +273,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f5d8c384d96b4d218faac214376d8e4e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.HyenaBrain
+  jumpGaps: 1
+  ledgeGiveUpDelay: 0.8
+  ledgeIgnoreTargetSeconds: 3
   patrolWhenPassive: 1
   patrol:
     patrolDistance: 6.05
@@ -279,7 +298,7 @@ MonoBehaviour:
     windUpDuration: 0
     attackDuration: 0.5
     attackSpeed: 0.4
-    damage: 5
+    damage: 4.25
     knockback: {x: 5, y: 2}
     hitbox: {fileID: 4213466484449388956}
     vfxPrefab: {fileID: 0}
@@ -301,13 +320,22 @@ MonoBehaviour:
     forwardDodgeChance: 0
   dodgeChance: 0
   dodgeCheckRange: 4
+  dodgeReachMargin: 1.5
+  fallbackSwingReach: 1.5
   dodgeCooldown: 0.5
+  dodgeFatiguePerDodge: 0.3
+  dodgeFatigueRecovery: 4
+  dodgeObstacleLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  throughDodgeChance: 0.35
+  throughClearance: 1
   charge:
     chargeTime: 0.5
     chargeVFXPrefab: {fileID: 4364062416287365583, guid: fe2205740225ab04bb07d3c6308b7c8b, type: 3}
   dash:
     dashSpeed: 25
-    dashDamage: 15
+    dashDamage: 13
     dashStopDistance: 1
     dashKnockback: {x: 15, y: 5}
     dashHitbox: {fileID: 8054053361408564859}
@@ -316,8 +344,40 @@ MonoBehaviour:
     attackStartNormalized: 0.8
     attackActiveDuration: 0.12
     whiffResolveDelay: 0.05
+  counterChance: 1
   whiffStunDuration: 1.5
   maxCounterDashRange: 8
+  dashCooldown: 4
+  openerDashMinRange: 5
+  openerDashChance: 0.35
+  openerDashRetry: 1.5
+  pressureWindow: 2.5
+  pressureHitsToMax: 3
+  breakStaggerHits: 2
+  breakStaggerCooldown: 1
+  retreatPressure: 0.66
+  retreatCooldown: 5
+  vaultEnabled: 1
+  vaultMinRange: 1.5
+  vaultMaxRange: 5
+  vaultChance: 0.4
+  vaultRetry: 0.8
+  vaultCooldown: 5
+  vaultLandBehind: 1.4
+  vaultSpeed: 12
+  vaultHeight: 2.2
+  vaultTelegraph: 0.12
+  vaultLandDuration: 0.1
+  vaultHasIFrames: 1
+  vaultAbortDistance: 1.5
+  groupLeapCooldown: 1
+  vaultBiteChance: 0.9
+  queuedVaultChance: 0.6
+  queuedVaultMaxRange: 7
+  queueGap: 0.5
+  contactGap: 0.1
+  spacingGain: 6
+  logDecisions: 0
 --- !u!114 &6885050171418826779
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -344,6 +404,7 @@ MonoBehaviour:
   leapStart: Jump_Start
   leapAir: Float
   leapLand: Jump_End
+  leapAirLandPoseTime: 0
   launchHurtbox: 1
   hurtboxDepth: 1
   overlapDepthStep: 0.01
@@ -491,6 +552,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyAudioHandler
   minDistance: 50
   maxDistance: 100
+--- !u!114 &4357134331705900391
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 84268223678430046}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f6d7fe951e02a045ac7ed1f84b574b5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.EnemyContactDamage
+  knockback: {x: 7, y: 1.5}
+  hitstun: 0.2
+  shoveCooldown: 1
+  pushSpeedFraction: 0.95
+  pushRunTime: 1.5
+  minOverlap: 0.02
+  bodyCollider: {fileID: 0}
+  groundedOnly: 1
 --- !u!1 &2180057967268017690
 GameObject:
   m_ObjectHideFlags: 0

@@ -9,6 +9,8 @@ namespace junklite
     [RequireComponent(typeof(HyenaBrain))]
     public sealed class HyenaEnemy : EnemyCharacter
     {
+        protected override bool ReactsToHitsWhileStunned => true;
+
         protected override void Awake()
         {
             base.Awake();

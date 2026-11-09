@@ -70,5 +70,39 @@ namespace junklite
 
             return desiredSpeed;
         }
+
+        /// <summary>
+        /// The full spacing rule for one move: pulls <paramref name="destination"/> back
+        /// from the bodies in <paramref name="n"/> and limits <paramref name="speed"/>.
+        /// Shared by every brain that keeps lane spacing.
+        /// </summary>
+        public static void Apply(in EnemyLaneNeighbors n, ref Vector3 destination, ref float speed, float gain)
+        {
+            float desired = n.Side * Vector3.Dot(destination - n.TargetPosition, n.Axis);
+            float approachMin = n.HasLeader ? n.LeaderDistance + n.LeaderComfortSpacing : float.NegativeInfinity;
+            float hardMin = n.HasLeader ? n.LeaderDistance + n.LeaderHardSpacing : float.NegativeInfinity;
+            float hardMax = n.HasFollower ? n.FollowerDistance - n.FollowerHardSpacing : float.PositiveInfinity;
+
+            float clamped = ClampDistance(desired, n.MyDistance, approachMin, hardMin, hardMax);
+
+            float leaderClosing = n.HasLeader ? -n.Side * Vector3.Dot(n.LeaderVelocity, n.Axis) : 0f;
+            float followerReceding = n.HasFollower ? n.Side * Vector3.Dot(n.FollowerVelocity, n.Axis) : 0f;
+            speed = LimitSpeed(speed, n.MyDistance, clamped, approachMin, leaderClosing, hardMax, followerReceding, gain);
+            speed = LimitSettleSpeed(speed, desired, n.MyDistance, clamped, gain);
+
+            destination += n.Axis * (n.Side * (clamped - desired));
+        }
+
+        /// <summary>
+        /// A body ended up inside the gap (knockback, a flinching leader) and the spacing is
+        /// pushing this enemy back out: ease out in proportion to the overlap instead of
+        /// running at the move's full speed. A move that wanted to go back anyway (recoil,
+        /// back-off) was not pushed, so it keeps its speed.
+        /// </summary>
+        public static float LimitSettleSpeed(float speed, float desired, float current, float clamped, float gain)
+        {
+            bool pushedBack = clamped > desired + MoveEpsilon && clamped > current + MoveEpsilon;
+            return pushedBack ? Mathf.Min(speed, gain * (clamped - current)) : speed;
+        }
     }
 }

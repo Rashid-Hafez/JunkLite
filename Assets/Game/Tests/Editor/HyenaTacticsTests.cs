@@ -116,6 +116,34 @@ namespace junklite.Tests
         }
 
         [Test]
+        public void QueuedVaultOpensOnlyWhenAnEnemyIsAheadOfHerInsideTheBand()
+        {
+            Assert.That(HyenaTactics.QueuedVaultOpen(4f, 1.5f, 7f, 1, 0, true, false), Is.True);
+            Assert.That(HyenaTactics.QueuedVaultOpen(4f, 1.5f, 7f, 0, 0, true, false), Is.False, "nobody ahead: she is the front, no wait to escape");
+            Assert.That(HyenaTactics.QueuedVaultOpen(1f, 1.5f, 7f, 1, 0, true, false), Is.False, "too close");
+            Assert.That(HyenaTactics.QueuedVaultOpen(8f, 1.5f, 7f, 1, 0, true, false), Is.False, "too far");
+            Assert.That(HyenaTactics.QueuedVaultOpen(4f, 1.5f, 7f, 1, 0, false, false), Is.False, "player airborne");
+            Assert.That(HyenaTactics.QueuedVaultOpen(4f, 1.5f, 7f, 1, 0, true, true), Is.False, "player rolling");
+        }
+
+        [Test]
+        public void QueuedVaultNeverHopsToASideAsCrowdedAsTheOneSheLeaves()
+        {
+            Assert.That(HyenaTactics.QueuedVaultOpen(4f, 1.5f, 7f, 1, 1, true, false), Is.False, "one ahead, one over there: no gain, and she would hop straight back");
+            Assert.That(HyenaTactics.QueuedVaultOpen(4f, 1.5f, 7f, 2, 1, true, false), Is.True, "the far side is the shorter queue");
+        }
+
+        [Test]
+        public void AnEnemyStandsBetweenOnlyOnHerSideAndCloserToThePlayer()
+        {
+            Assert.That(HyenaTactics.StandsBetween(4f, 2f), Is.True);
+            Assert.That(HyenaTactics.StandsBetween(-4f, -2f), Is.True, "works on either side of the player");
+            Assert.That(HyenaTactics.StandsBetween(4f, 5f), Is.False, "behind her");
+            Assert.That(HyenaTactics.StandsBetween(4f, -2f), Is.False, "on the player's far side");
+            Assert.That(HyenaTactics.StandsBetween(4f, 0f), Is.False, "on top of the player, no side");
+        }
+
+        [Test]
         public void StaggerBreaksAtTheHitCountAndNeverWhenDisabled()
         {
             Assert.That(HyenaTactics.StaggerBreaks(1, 2), Is.False, "one hit is a normal stagger");

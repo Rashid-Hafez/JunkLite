@@ -169,6 +169,100 @@ namespace junklite.Tests
             Assert.That(snapshot.FarFrontOccupied, Is.False);
             Assert.That(snapshot.HasActiveAttacker, Is.False);
             Assert.That(Mathf.Approximately(snapshot.GroupPressure, 0f), Is.True);
+            Assert.That(snapshot.BodiesAhead, Is.EqualTo(0));
+            Assert.That(snapshot.PlaceInLine, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void AStaggeredBodyAheadCountsAsAPlaceInLine()
+        {
+            // Promoted to the front because the grunt ahead is stunned: still second in
+            // line for the vault, and still behind a body.
+            var promoted = new EnemyLaneSnapshot(1, 0, 1, 0, 0f, 0f, false, bodiesAhead: 1);
+            Assert.That(promoted.IsFront, Is.True);
+            Assert.That(promoted.PlaceInLine, Is.EqualTo(1));
+
+            var queued = new EnemyLaneSnapshot(1, 1, 2, 0, 0f, 0f, false);
+            Assert.That(queued.PlaceInLine, Is.EqualTo(1));
+
+            var thirdBehindAStaggeredBody = new EnemyLaneSnapshot(1, 1, 2, 0, 0f, 0f, false, bodiesAhead: 1);
+            Assert.That(thirdBehindAStaggeredBody.PlaceInLine, Is.EqualTo(2));
+        }
+
+        private static EnemyLaneNeighbors NeighborsBehindLeaderAt(float leaderDistance, float myDistance) =>
+            new EnemyLaneNeighbors(
+                side: 1,
+                axis: Vector3.right,
+                targetPosition: Vector3.zero,
+                myDistance: myDistance,
+                hasLeader: true,
+                leaderDistance: leaderDistance,
+                leaderComfortSpacing: 1.6f,
+                leaderHardSpacing: 1.2f,
+                leaderVelocity: Vector3.zero,
+                hasFollower: false,
+                followerDistance: 0f,
+                followerHardSpacing: 0f,
+                followerVelocity: Vector3.zero);
+
+        [Test]
+        public void SpacingPullsTheGoalBackToTheComfortGapBehindTheBodyAhead()
+        {
+            // Heading for the attack distance (2) with a body standing at 2.3.
+            Vector3 destination = Vector3.right * 2f;
+            float speed = 7f;
+            LaneSpacingSolver.Apply(NeighborsBehindLeaderAt(2.3f, 5f), ref destination, ref speed, 6f);
+
+            Assert.That(destination.x, Is.EqualTo(3.9f).Within(0.0001f));
+            Assert.That(speed, Is.EqualTo(6.6f).Within(0.0001f), "brakes on the way in");
+        }
+
+        [Test]
+        public void ABodyKnockedIntoTheGapPushesTheEnemyOutGently()
+        {
+            // The body ahead was knocked back to 2.8: I stand at 3.7, 0.7 inside the gap.
+            Vector3 destination = Vector3.right * 2f;
+            float speed = 7f;
+            LaneSpacingSolver.Apply(NeighborsBehindLeaderAt(2.8f, 3.7f), ref destination, ref speed, 6f);
+
+            Assert.That(destination.x, Is.EqualTo(4.4f).Within(0.0001f));
+            Assert.That(speed, Is.EqualTo(4.2f).Within(0.0001f), "eases out in proportion to the overlap");
+        }
+
+        [Test]
+        public void ARetreatThatWasNotPushedKeepsItsSpeed()
+        {
+            float speed = LaneSpacingSolver.LimitSettleSpeed(4.5f, desired: 4.2f, current: 3.7f, clamped: 4.2f, gain: 6f);
+            Assert.That(speed, Is.EqualTo(4.5f).Within(0.0001f));
+        }
+
+        [Test]
+        public void SpacingWithNoBodiesLeavesTheMoveAlone()
+        {
+            var alone = new EnemyLaneNeighbors(
+                1, Vector3.right, Vector3.zero, 5f,
+                false, 0f, 0f, 0f, Vector3.zero,
+                false, 0f, 0f, Vector3.zero);
+
+            Vector3 destination = Vector3.right * 2f;
+            float speed = 7f;
+            LaneSpacingSolver.Apply(alone, ref destination, ref speed, 6f);
+
+            Assert.That(destination.x, Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(speed, Is.EqualTo(7f).Within(0.0001f));
+        }
+
+        [Test]
+        public void OnlyRealHitsStaggerAnEnemyAlreadyInAStun()
+        {
+            var swing = new DamageRequest(10f, knockback: new Vector2(5f, 2f));
+            Assert.That(EnemyCharacter.IsStaggeringHit(swing), Is.True);
+
+            var tick = new DamageRequest(1f, isTickDamage: true);
+            Assert.That(EnemyCharacter.IsStaggeringHit(tick), Is.False, "burn and shock ticks do not restart the clip");
+
+            var silent = new DamageRequest(10f, hitReaction: HitReactionRequest.None);
+            Assert.That(EnemyCharacter.IsStaggeringHit(silent), Is.False, "a reaction-less hit shows nothing");
         }
     }
 }

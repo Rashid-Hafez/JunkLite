@@ -35,6 +35,8 @@ namespace junklite
         [SerializeField] private float parryZoomInTarget = 30f;
         [Tooltip("Duration (s) to tween into parry zoom (uses normal time scale).")]
         [SerializeField] private float parryZoomInDuration = 0.12f;
+        [Tooltip("Cap on the parry zoom-in time (real seconds), so it shows while time is slowed.")]
+        [SerializeField, Min(0.01f)] private float parryZoomInRealtimeMax = 0.15f;
         [Tooltip("How long to hold the parry zoom/slow-mo in real seconds (unscaled).")]
         [SerializeField] private float parryZoomHoldRealtime = 0.06f;
         [Tooltip("Duration (s) to tween back to normal zoom after parry (uses normal time scale).")]
@@ -323,14 +325,21 @@ namespace junklite
         /// Simple camera effect triggered when the player successfully parries.
         /// Performs a parry effect: quick slow-motion + zoom-in, hold, then restore.
         /// </summary>
-        public void DoParryCameraEffect()
+        public void DoParryCameraEffect() => DoParryCameraEffect(-1f, -1f, -1f, -1f);
+
+        /// <summary>Parry zoom and slow motion; a negative value uses this camera's own setting.</summary>
+        public void DoParryCameraEffect(float zoomTarget, float slowMoScale, float slowMoHoldRealtime, float slowMoStartDelayRealtime)
         {
             if (zoomCoroutine != null)
                 StopCoroutine(zoomCoroutine);
-            StartCoroutine(CoParryEffect());
+            StartCoroutine(CoParryEffect(
+                zoomTarget >= 0f ? zoomTarget : parryZoomInTarget,
+                slowMoScale >= 0f ? slowMoScale : parrySlowMoScale,
+                slowMoHoldRealtime >= 0f ? slowMoHoldRealtime : parryZoomHoldRealtime,
+                slowMoStartDelayRealtime >= 0f ? slowMoStartDelayRealtime : parrySlowMoRealtimeDuration));
         }
 
-        private IEnumerator CoParryEffect()
+        private IEnumerator CoParryEffect(float zoomTarget, float slowScale, float holdRealtime, float startDelayRealtime)
         {
             if (activeCamera == null)
                 yield break;
@@ -340,26 +349,28 @@ namespace junklite
             defaultZoomValue = defaultIsOrthographic ? lens.OrthographicSize : lens.FieldOfView;
 
             if (zoomCoroutine != null) StopCoroutine(zoomCoroutine);
-            zoomCoroutine = StartCoroutine(CoZoom(parryZoomInTarget, parryZoomInDuration));
+            // Real time: the zoom must show while time is slowed.
+            zoomCoroutine = StartCoroutine(CoZoom(zoomTarget, Mathf.Min(parryZoomInDuration, parryZoomInRealtimeMax), true));
 
-            yield return new WaitForSecondsRealtime(parrySlowMoRealtimeDuration);
+            if (startDelayRealtime > 0f)
+                yield return new WaitForSecondsRealtime(startDelayRealtime);
 
             float origTime = Time.timeScale;
             float origFixed = Time.fixedDeltaTime;
-            Time.timeScale = Mathf.Clamp01(parrySlowMoScale);
+            Time.timeScale = Mathf.Clamp01(slowScale);
             Time.fixedDeltaTime = origFixed * Time.timeScale;
 
-            if (parryZoomHoldRealtime > 0f)
-                yield return new WaitForSecondsRealtime(parryZoomHoldRealtime);
+            if (holdRealtime > 0f)
+                yield return new WaitForSecondsRealtime(holdRealtime);
 
             Time.timeScale = origTime;
             Time.fixedDeltaTime = origFixed;
 
             if (zoomCoroutine != null) StopCoroutine(zoomCoroutine);
-            zoomCoroutine = StartCoroutine(CoZoom(defaultZoomValue, parryZoomReturnDuration));
+            zoomCoroutine = StartCoroutine(CoZoom(defaultZoomValue, parryZoomReturnDuration, true));
         }
 
-        private IEnumerator CoZoom(float targetValue, float duration)
+        private IEnumerator CoZoom(float targetValue, float duration, bool unscaled = false)
         {
             if (activeCamera == null || duration <= 0f)
             {
@@ -374,7 +385,7 @@ namespace junklite
 
             while (elapsed < duration)
             {
-                elapsed += Time.deltaTime;
+                elapsed += unscaled ? Time.unscaledDeltaTime : Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
                 t = t * t * (3f - 2f * t); // smoothstep
                 float value = Mathf.Lerp(start, targetValue, t);

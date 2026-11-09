@@ -150,7 +150,9 @@ namespace junklite.Tests
         {
             var grunt = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Game/ENEMIES/Grunt/Grunt Enemy.prefab");
             var launch = new SerializedObject(grunt.GetComponent<EnemyCharacter>()).FindProperty("launch");
-            Assert.That(launch.FindPropertyRelative("apexHangSpeed").floatValue, Is.Zero, "no float at the top of a plain launch");
+            Assert.That(launch.FindPropertyRelative("apexHangGravityScale").floatValue,
+                Is.GreaterThan(launch.FindPropertyRelative("airHitFallGravityScale").floatValue),
+                "the top of a plain launch is only soft: the real float is earned by an air hit");
             Assert.That(launch.FindPropertyRelative("airHitHangDuration").floatValue, Is.GreaterThan(0f));
             Assert.That(launch.FindPropertyRelative("airHitFallGravityScale").floatValue,
                 Is.LessThan(launch.FindPropertyRelative("gravityScale").floatValue), "the earned fall is slower than the launch fall");

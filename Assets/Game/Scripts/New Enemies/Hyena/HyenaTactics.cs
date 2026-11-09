@@ -28,6 +28,34 @@ namespace junklite
             && axisDistance >= minRange && axisDistance <= maxRange;
 
         /// <summary>
+        /// The vault for a Hyena stuck behind another enemy: someone stands between her and
+        /// the player (that includes whoever the player is swinging at in front of her), so
+        /// she goes over to the far side instead of waiting. The player's facing does not
+        /// matter here, because the wait is what she is escaping. The far side must hold
+        /// fewer enemies than are ahead of her, so she never hops to a side as crowded as the
+        /// one she left and hops back (no ping-pong).
+        /// </summary>
+        public static bool QueuedVaultOpen(
+            float axisDistance,
+            float minRange,
+            float maxRange,
+            int enemiesAhead,
+            int enemiesFarSide,
+            bool playerGrounded,
+            bool playerRolling) =>
+            enemiesAhead > 0 && enemiesFarSide < enemiesAhead
+            && playerGrounded && !playerRolling
+            && axisDistance >= minRange && axisDistance <= maxRange;
+
+        /// <summary>
+        /// Another enemy stands between her and the player: same side of the player, closer.
+        /// Both values are signed axis distances to the player.
+        /// </summary>
+        public static bool StandsBetween(float mySignedDistance, float otherSignedDistance) =>
+            mySignedDistance * otherSignedDistance > 0f
+            && Mathf.Abs(otherSignedDistance) < Mathf.Abs(mySignedDistance);
+
+        /// <summary>
         /// Hits landed inside the pressure window that break a stagger at once:
         /// true when <paramref name="hitsToBreak"/> is enabled (&gt; 0) and reached.
         /// </summary>

@@ -8,8 +8,9 @@ namespace junklite
     /// Mid-air hits keep it up (juggle, capped); ground hits keep it down (capped);
     /// the get-up is the punish window (a hit there is a normal flinch).
     ///
-    /// Physics stays dynamic the whole time (EnemyMovement.Launch); the state only
-    /// reacts to landings. Presentation goes through the animation presenter.
+    /// Physics stays dynamic the whole time (EnemyMovement.Launch); the state reacts to
+    /// landings and sets the gravity of the arc (LaunchArc) each physics step.
+    /// Presentation goes through the animation presenter.
     /// Entered through EnemyCharacter.TryBeginLaunch, which stores the launch velocity.
     /// </summary>
     public sealed class LaunchedState : EnemyStateBase
@@ -22,9 +23,19 @@ namespace junklite
         }
 
         private const float MinBounceTime = 0.04f;
+        // EnemyMovement uses the hang gravity while the body is slower than the hang speed.
+        // This speed makes that always true, so the scale set each step is the gravity in play.
+        private const float AlwaysHang = float.MaxValue;
 
         private float startY;
         private float apexY;
+        // Flying the arc: off once a spike or bounce sets its own gravity.
+        private bool followsArc;
+        private LaunchArc.Shape arc;
+        private float ceilingY;
+        private float fallHangLeft;
+        private float liftTarget;
+        private float liftBlendLeft;
 
         private void Log(string message)
         {
@@ -64,9 +75,12 @@ namespace junklite
             finished = false;
             bounced = false;
             spiked = false;
+            followsArc = false;
             juggleCount = 0;
             airTime = 0f;
             downedTotal = 0f;
+            fallHangLeft = 0f;
+            liftBlendLeft = 0f;
 
             if (movement == null || settings == null
                 || !enemy.TryConsumePendingLaunch(out Vector3 velocity, out GameObject source))
@@ -89,13 +103,42 @@ namespace junklite
             // The drawn body is tilted and offset from the upright capsule: hits test it.
             enemy.AnimationPresenter?.SetVisualHurtboxActive(true);
 
+            arc = settings.Arc;
             velocity.y = settings.LaunchUpSpeed(velocity.y);
             movement.Launch(velocity, settings.GravityScale);
-            movement.SetLaunchHang(settings.ApexHangSpeed, settings.ApexHangGravityScale);
+            movement.SetLaunchHang(AlwaysHang, LaunchArc.GravityScaleAt(velocity.y, arc));
+            followsArc = true;
             startY = Transform.position.y;
             apexY = startY;
-            Log($"launched: velocity {velocity.x:0.0}, {velocity.y:0.0} u/s, gravity x{settings.GravityScale:0.#}");
+            ceilingY = startY + settings.ApexRise(velocity.y) + settings.JuggleApexHeadroom;
+            Log($"launched: velocity {velocity.x:0.0}, {velocity.y:0.0} u/s, predicted {LaunchArc.TimeToApex(velocity.y, arc):0.00} s to the top");
             BeginAir();
+        }
+
+        /// <summary>Flies the arc: eases in a juggle lift and sets this step's gravity.</summary>
+        public override void FixedUpdate()
+        {
+            if (finished || phase != Phase.Air || !followsArc)
+                return;
+
+            float dt = Time.fixedDeltaTime;
+            Vector3 velocity = movement.Velocity;
+
+            if (liftBlendLeft > 0f)
+            {
+                velocity.y = Mathf.Lerp(velocity.y, liftTarget, dt / liftBlendLeft);
+                liftBlendLeft -= dt;
+                movement.SetLaunchVelocity(velocity);
+            }
+
+            float scale = LaunchArc.GravityScaleAt(velocity.y, arc);
+            if (fallHangLeft > 0f && liftBlendLeft <= 0f && velocity.y <= 0f)
+            {
+                scale = LaunchArc.FallHangScale(scale, settings.AirHitFallGravityScale, fallHangLeft, settings.AirHitHangDuration);
+                fallHangLeft -= dt;
+            }
+
+            movement.SetLaunchHang(AlwaysHang, scale);
         }
 
         public override void Update()
@@ -166,6 +209,9 @@ namespace junklite
             else
             {
                 // Killed mid-flight: keep flying, the death sequence waits for the ground.
+                // Nothing sets the gravity from here on, so hand back one that needs no steering.
+                if (followsArc)
+                    movement?.SetLaunchHang(settings.ApexHangSpeed, settings.ApexHangGravityScale);
                 movement?.ReleaseLaunchToPhysics();
             }
         }
@@ -199,9 +245,8 @@ namespace junklite
                         side.y = 0f;
                         float down = Mathf.Abs(request.KnockbackForce.y);
                         float fall = Mathf.Min(movement.Velocity.y, -down);
+                        LeaveArc();
                         movement.SetLaunchGravityScale(settings.SpikeGravityScale);
-                        movement.SetLaunchHang(0f, 1f);
-                        movement.SetLaunchFallHang(1f, 0f);
                         movement.SetLaunchVelocity(side + Vector3.up * fall);
                         juggleCount = settings.MaxJuggleHits;
                         spiked = true;
@@ -221,12 +266,12 @@ namespace junklite
                         // A juggle only ever adds lift: a hit while the body is still
                         // climbing faster than the juggle lift must not slow the climb
                         // (it used to replace the launch speed and cut the arc short).
-                        float lift = Mathf.Max(currentUp, settings.JuggleLift);
-                        movement.SetLaunchGravityScale(settings.GravityScale);
-                        movement.SetLaunchHang(settings.ApexHangSpeed, settings.ApexHangGravityScale);
-                        movement.SetLaunchVelocity(horizontal + Vector3.up * lift);
+                        // The lift stops at the ceiling, so hits at the top keep it in reach.
+                        liftTarget = LaunchArc.JuggleLiftSpeed(currentUp, settings.JuggleLift, ceilingY - Transform.position.y, arc);
+                        liftBlendLeft = settings.JuggleLiftBlendSeconds;
+                        movement.SetLaunchVelocity(horizontal + Vector3.up * (liftBlendLeft > 0f ? currentUp : liftTarget));
                         // The reward for hitting it in the air: it comes down slowly for a moment.
-                        movement.SetLaunchFallHang(settings.AirHitFallGravityScale, settings.AirHitHangDuration);
+                        fallHangLeft = settings.AirHitHangDuration;
                         bounced = false;
                         airTime = 0f;
                     }
@@ -278,6 +323,15 @@ namespace junklite
             enemy.AnimationPresenter?.SetBodyTilt(settings.AirTilt, true, settings.TiltBlendSeconds);
         }
 
+        /// <summary>A spike or bounce takes over the gravity: plain launch gravity from here on.</summary>
+        private void LeaveArc()
+        {
+            followsArc = false;
+            fallHangLeft = 0f;
+            liftBlendLeft = 0f;
+            movement.SetLaunchHang(0f, 1f);
+        }
+
         private void Bounce(float impactSpeed)
         {
             bounced = true;
@@ -287,9 +341,8 @@ namespace junklite
             velocity.y = 0f;
             velocity *= settings.BounceHorizontalKeep;
             velocity.y = impactSpeed * settings.BounceRestitution;
+            LeaveArc();
             movement.SetLaunchGravityScale(settings.BounceGravityScale);
-            movement.SetLaunchHang(0f, 1f);
-            movement.SetLaunchFallHang(1f, 0f);
             movement.SetLaunchVelocity(velocity);
             apexY = Transform.position.y;
             startY = apexY;
@@ -302,6 +355,7 @@ namespace junklite
         {
             Log($"downed (bounce rose {apexY - startY:0.00} u)");
             phase = Phase.Downed;
+            LeaveArc();
             movement.EndLaunch();
             movement.Stop();
 

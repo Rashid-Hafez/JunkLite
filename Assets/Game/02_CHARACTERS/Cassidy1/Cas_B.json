@@ -1,5 +1,5 @@
 {
-"skeleton": { "hash": "MMfgqezdn4g", "spine": "4.2.36", "x": -21.4, "y": -1.94, "width": 57.4, "height": 111.21 },
+"skeleton": { "hash": "MMfgqezdn4g", "spine": "4.2.36", "x": -25.65, "y": -0.79, "width": 46.74, "height": 127.24 },
 "bones": [
 	{ "name": "root" },
 	{ "name": "Cas", "parent": "root", "y": 52.58 },

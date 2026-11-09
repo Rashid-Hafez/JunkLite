@@ -10,14 +10,14 @@ namespace junklite
     public sealed class EnemyLaunchSettings
     {
         [Header("Flight")]
-        [Tooltip("How high the launch goes, in units above take-off (the feet), apex hang included. The launch speed is worked out from this, Gravity Scale and the hang, so the height stays put when you change them. 0 = use the upward knockback of the hit instead. With jump and double jump force 14 the player's sword reaches roughly 10 to 11 u at the top of a double jump (about 5 u on a single jump).")]
+        [Tooltip("How high the launch goes, in units above take-off (the feet). The launch speed is worked out from this and the gravity curve, so the height stays put when you change them. 0 = use the upward knockback of the hit instead. With jump and double jump force 14 the player's sword reaches roughly 10 to 11 u at the top of a double jump (about 5 u on a single jump).")]
         [SerializeField, Min(0f)] private float apexHeight = 6.5f;
-        [Tooltip("Near the top, while the body moves slower than this vertically, it floats on Apex Hang Gravity Scale. 0 = no float: up fast, down fast, and the extra air time only comes from hitting it (Air Hit Hang).")]
-        [SerializeField, Min(0f)] private float apexHangSpeed = 4f;
-        [Tooltip("Gravity multiplier during the apex hang. 1.5 with a hang speed of 4 floats the body for ~0.5 s at the top.")]
-        [SerializeField, Min(0.05f)] private float apexHangGravityScale = 1.5f;
-        [Tooltip("Gravity multiplier while launched. Lower = floatier, more time for air attacks. The sword finisher (0.5, 22) at 4 goes ~6.2 u up in ~0.56 s and is back down in ~1.1 s, ~0.6 u sideways.")]
-        [SerializeField, Min(1f)] private float gravityScale = 4f;
+        [Tooltip("Gravity eases from Gravity Scale (at this vertical speed and above) to Apex Hang Gravity Scale (at the very top), rising and falling alike, so the arc is a smooth bell. Larger = a softer, longer top. 0 = constant Gravity Scale, a plain parabola.")]
+        [SerializeField, Min(0f)] private float apexHangSpeed = 12f;
+        [Tooltip("Gravity multiplier at the very top of the arc. Lower = the body lingers longer near the top.")]
+        [SerializeField, Min(0.05f)] private float apexHangGravityScale = 1.2f;
+        [Tooltip("Gravity multiplier while moving fast (Apex Hang Speed or faster). Lower = floatier, more time for air attacks. These defaults reach 6.5 u in ~0.86 s. 4 u with 9, hang 4 and hang speed 10 takes ~0.35 s.")]
+        [SerializeField, Min(1f)] private float gravityScale = 3f;
         [Tooltip("Launched bodies fly through other enemies instead of stopping against the grunt behind (they still hit walls and the floor).")]
         [SerializeField] private bool passThroughEnemies = true;
         [Tooltip("Stop waiting for the ground after this long (launched off a ledge).")]
@@ -56,13 +56,17 @@ namespace junklite
         [Header("Juggle")]
         [Tooltip("Mid-air hits that keep the enemy up, per launch. Later hits only push it sideways.")]
         [SerializeField, Min(0)] private int maxJuggleHits = 3;
-        [Tooltip("Upward speed a mid-air hit gives back before the first landing (~0.8 u and ~0.4 s more air at the default gravity). Hits after the landing keep it down instead.")]
+        [Tooltip("Most upward speed a mid-air hit gives back before the first landing, less near the top (see Juggle Apex Headroom). Hits after the landing keep it down instead.")]
         [SerializeField, Min(0f)] private float juggleLift = 8f;
+        [Tooltip("How far above Apex Height juggle hits can carry the body, in units. Hits near the top only add what is left of this, so several hits at the apex cannot stack the enemy out of reach. They still earn the slow fall.")]
+        [SerializeField, Min(0f)] private float juggleApexHeadroom = 0.5f;
+        [Tooltip("Seconds a mid-air hit takes to ease the body into its lift, so the hit does not snap the velocity. 0 = instant.")]
+        [SerializeField, Min(0f)] private float juggleLiftBlendSeconds = 0.06f;
         [Tooltip("How much of the horizontal knockback of a mid-air hit is applied.")]
         [SerializeField, Range(0f, 1f)] private float juggleHorizontalScale = 0.15f;
-        [Tooltip("After a mid-air hit the enemy falls slowly for this long: the extra air time you earn by hitting it. 0 = no slow fall. The player gets the same (Weapon Manager > Air Hit Hang).")]
+        [Tooltip("After a mid-air hit the enemy falls slowly for this long once it starts to fall: the extra air time you earn by hitting it. The last half fades back into the arc. 0 = no slow fall. The player gets the same (Weapon Manager > Air Hit Hang).")]
         [SerializeField, Min(0f)] private float airHitHangDuration = 0.5f;
-        [Tooltip("Gravity multiplier while falling during the air-hit hang. 1.5 ≈ the player's air-hit hang (0.22 of its ~6.9 g fall), so both drift down together.")]
+        [Tooltip("Gravity multiplier during the slow fall. 1.5 ≈ the player's air-hit hang (0.22 of its ~6.9 g fall), so both drift down together.")]
         [SerializeField, Min(0.05f)] private float airHitFallGravityScale = 1.5f;
 
         [Header("Pose")]
@@ -82,27 +86,24 @@ namespace junklite
         public float ApexHeight => apexHeight;
         public float ApexHangSpeed => apexHangSpeed;
         public float ApexHangGravityScale => apexHangGravityScale;
+        public LaunchArc.Shape Arc => new(Physics.gravity.magnitude, apexHangGravityScale, gravityScale, apexHangSpeed);
 
         /// <summary>
-        /// Upward launch speed: exactly enough to reach <see cref="ApexHeight"/> under the
-        /// launch gravity, or the hit's own upward knockback when Apex Height is 0.
+        /// Upward launch speed: exactly enough to reach <see cref="ApexHeight"/> on the
+        /// launch arc, or the hit's own upward knockback when Apex Height is 0.
         /// </summary>
         public float LaunchUpSpeed(float requestedUp)
         {
             if (apexHeight <= 0f)
                 return requestedUp;
 
-            float gravity = Physics.gravity.magnitude * Mathf.Max(1f, gravityScale);
-            if (apexHangSpeed <= 0f)
-                return Mathf.Sqrt(2f * gravity * apexHeight);
-
-            // The last part of the climb (below the hang speed) uses the lighter hang
-            // gravity, which adds height: take that out of the fast part.
-            float hangGravity = Physics.gravity.magnitude * Mathf.Max(0.05f, apexHangGravityScale);
-            float hangRise = apexHangSpeed * apexHangSpeed / (2f * hangGravity);
-            float fastRise = Mathf.Max(0f, apexHeight - hangRise);
-            return Mathf.Sqrt(2f * gravity * fastRise + apexHangSpeed * apexHangSpeed);
+            return LaunchArc.LaunchSpeedForHeight(apexHeight, Arc, Time.fixedDeltaTime);
         }
+
+        /// <summary>Height above take-off that a launch at this upward speed tops out at.</summary>
+        public float ApexRise(float launchUp) =>
+            apexHeight > 0f ? apexHeight : LaunchArc.RiseFromSpeed(launchUp, Arc);
+
         public bool BounceEnabled => bounceEnabled;
         public bool DebugLog => debugLog;
         public bool PassThroughEnemies => passThroughEnemies;
@@ -118,6 +119,8 @@ namespace junklite
         public float KnockDownAgainTime => knockDownAgainTime;
         public int MaxJuggleHits => maxJuggleHits;
         public float JuggleLift => juggleLift;
+        public float JuggleApexHeadroom => juggleApexHeadroom;
+        public float JuggleLiftBlendSeconds => juggleLiftBlendSeconds;
         public float JuggleHorizontalScale => juggleHorizontalScale;
         public float AirHitHangDuration => airHitHangDuration;
         public float AirHitFallGravityScale => airHitFallGravityScale;

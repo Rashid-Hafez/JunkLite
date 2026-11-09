@@ -41,6 +41,11 @@ namespace junklite
         [SerializeField] private float launchHitstopDuration = 0.12f;
         [SerializeField] private float enemyHitShakeForce = 0.8f;
 
+        [Header("Up Attack")]
+        [Tooltip("Seconds after an up attack starts before the next one. Up + attack inside it is a side swing.")]
+        [SerializeField, Min(0f)] private float upAttackCooldown = 1f;
+        private float lastUpAttackTime = float.NegativeInfinity;
+
         [Header("Attack Timing & Combo Windows")]
         [Tooltip("Delay after attack animation ends before player can attack again.")]
         [SerializeField] private float attackCooldown = 0.15f;
@@ -111,6 +116,8 @@ namespace junklite
         private int currentComboIndex;
         private bool attackInputLockApplied;
         private bool currentAttackGrounded;
+        // A clip that is not this swing's (the Push clip, during this swing's lead time) must not finish it.
+        private bool attackAnimationRequested;
         private int nextAttackExecutionId;
         private int activeAttackExecutionId;
         private WeaponAttackExecutor.Execution activeAttackExecution;
@@ -229,7 +236,8 @@ namespace junklite
                 CompleteAttackWithoutAnimation,
                 (enemy, damage) => OnEnemyHit?.Invoke(enemy, damage),
                 () => OnEnvironmentHit?.Invoke(),
-                PlayHitFeedback);
+                PlayHitFeedback,
+                WarpHitDelay);
 
             EnsureCombatState();
         }
@@ -382,7 +390,8 @@ namespace junklite
 
         private AttackDirection ResolveAttackDirection(Vector2 moveInput, bool isGrounded)
         {
-            if (moveInput.y > inputThreshold)
+            // The launcher is a ground move: up in the air is just an air attack. On cooldown it is a side swing.
+            if (moveInput.y > inputThreshold && isGrounded && Time.time >= lastUpAttackTime + upAttackCooldown)
                 return AttackDirection.Up;
 
             if (moveInput.y < -inputThreshold && !isGrounded)
@@ -420,8 +429,24 @@ namespace junklite
                     playerState.MarkAirAttackUsed();
             }
 
+            float windupRelease = 0f;
+            float clipDuration = 0f;
+            if (spineController != null)
+            {
+                MeleeWeaponData.MeleeComboStep holdStep = default;
+                bool hasStep = data is MeleeWeaponData melee && melee.TryGetMeleeStep(dir, comboIndex, isGrounded, out holdStep);
+                spineController.SetAttackWindup(hasStep ? holdStep.windupHold : 0f, hasStep ? holdStep.windupAt : 0f, animName);
+                if (hasStep && holdStep.windupHold > 0f)
+                    windupRelease = spineController.GetWindupReleaseTime(animName);
+                clipDuration = spineController.GetAttackRealDuration(animName);
+            }
+            if (dir == AttackDirection.Up)
+                lastUpAttackTime = Time.time;
+
             isAttacking = true;
-            attackCancelableTime = Time.time + animationLeadTime + delayBeforeAttack + attackOpenWindow;
+            attackAnimationRequested = false;
+            attackCancelableTime = Time.time + animationLeadTime + delayBeforeAttack + attackOpenWindow +
+                                   (spineController != null ? spineController.GetAttackHoldDuration(animName) : 0f);
             activeWeaponData = data;
             currentAttackDir = dir;
             currentComboIndex = comboIndex;
@@ -460,7 +485,9 @@ namespace junklite
                 lungeDistance,
                 combatFocus != null ? combatFocus.GapCloseMaxSpeed : 0f,
                 focusCollider,
-                stopLunge);
+                stopLunge,
+                windupRelease,
+                clipDuration);
 
             activeAttackExecution = attackExecutor?.Prepare(executionRequest);
             if (activeAttackExecution == null)
@@ -489,7 +516,7 @@ namespace junklite
 
         public void OnAttackAnimationComplete()
         {
-            if (!isAttacking)
+            if (!isAttacking || !attackAnimationRequested)
                 return;
 
             CombatState completedCombatState = combat;
@@ -607,6 +634,7 @@ namespace junklite
             if (!IsCurrentAttackExecution(executionId))
                 return;
 
+            attackAnimationRequested = true;
             if (playerState != null && !string.IsNullOrEmpty(animationName))
                 playerState.RequestAttackAnimation(animationName);
             else
@@ -616,8 +644,14 @@ namespace junklite
         private void CompleteAttackWithoutAnimation(int executionId)
         {
             if (IsCurrentAttackExecution(executionId))
+            {
+                attackAnimationRequested = true;
                 OnAttackAnimationComplete();
+            }
         }
+
+        private float WarpHitDelay(string animationName, float hitDelay) =>
+            spineController != null ? spineController.WarpAttackDelay(animationName, hitDelay) : hitDelay;
 
         private bool IsCurrentAttackExecution(int executionId)
         {
@@ -645,7 +679,7 @@ namespace junklite
             lungeDistance = -1f;
             focusCollider = null;
             stopLunge = null;
-            if (dir != AttackDirection.Side || combatFocus == null || !combatFocus.isActiveAndEnabled ||
+            if ((dir != AttackDirection.Side && dir != AttackDirection.Up) || combatFocus == null || !combatFocus.isActiveAndEnabled ||
                 data is not MeleeWeaponData melee ||
                 !melee.TryGetMeleeStep(dir, comboIndex, isGrounded, out MeleeWeaponData.MeleeComboStep step))
                 return;
@@ -654,24 +688,34 @@ namespace junklite
             EnemyCharacter target = combatFocus.Acquire(side, out float gap);
             if (target == null)
             {
+                // The launcher always steps its authored dash; only side swings hold still with no target.
+                if (dir == AttackDirection.Up)
+                    return;
+
                 float authored = LungeWarp.AuthoredDistance(step.forwardImpulse, step.forwardImpulseDuration, step.lungeCurve);
-                lungeDistance = Mathf.Min(melee.noTargetLungeDistance, authored);
+                lungeDistance = Mathf.Min(melee.noTargetLungeDistance, authored) * step.LungeScale;
                 return;
             }
 
             // Stop where the focused enemy's near side sits focusSpacing deep inside the hit sphere.
-            Transform anchor = GetAttackTransform(AttackDirection.Side);
+            Transform anchor = GetAttackTransform(dir);
             Vector3 anchorPosition = anchor != null ? anchor.position : playerTransform.position;
             float sphereCentre = Mathf.Abs(Vector3.Dot(anchorPosition - playerTransform.position, FacingAxis)) +
                                  melee.attackRange;
             float sphereRadius = step.hitRadius + GetFallbackRadius(dir);
             float stopGap = sphereCentre + sphereRadius * (1f - melee.focusSpacing);
 
+            // A step that slides further closes in past the usual stop (never through the body).
+            float scaled = Mathf.Max(0f, gap - stopGap) * step.LungeScale;
+            stopGap = Mathf.Max(Mathf.Min(stopGap, gap - scaled), MinLungeStopGap);
             lungeDistance = Mathf.Max(0f, gap - stopGap);
             focusCollider = combatFocus.CurrentCollider;
             PlayerCombatFocus focus = combatFocus;
             stopLunge = () => !focus.TryGetCurrentGap(side, out float liveGap) || liveGap <= stopGap;
         }
+
+        // Closest a focus lunge may stop to the enemy's near side (m).
+        private const float MinLungeStopGap = 0.3f;
 
         private float GetFallbackRadius(AttackDirection dir)
         {

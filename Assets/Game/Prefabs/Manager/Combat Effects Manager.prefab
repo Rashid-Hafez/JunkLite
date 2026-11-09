@@ -53,6 +53,9 @@ MonoBehaviour:
   enemyHitVFXLocalOffset: {x: 0, y: 0, z: 0}
   enemyHitVFXRandomRoll: 12
   enemyHitVFXRandomOffset: 0.25
+  enemyHitSparksPrefab: {fileID: 3750267352718067041, guid: 3b58e8553cd63416ea798f3b3a875fff, type: 3}
+  enemyHitSparksPoolSize: 8
+  enemyHitSparksLifetime: 0.6
   enemyHurtParticlePrefab: {fileID: 9011770033359894996, guid: 4c510a185f6fcec488942b1e0e4e9d42, type: 3}
   enemyHurtPoolSize: 8
   enemyHurtLifetime: 2

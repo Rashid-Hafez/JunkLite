@@ -75,6 +75,11 @@ namespace junklite
         [SerializeField] protected GameObject attackWarningVfx;
         [Tooltip("Delay in seconds after entering melee attack before showing the notification. 0 = show immediately.")]
         [SerializeField] protected float attackNotifyDelay = 0f;
+        [Tooltip("Show the warning this many seconds before the hit opens (wind-up + attack start), so every attack gives the same parry read. 0 = use Attack Notify Delay.")]
+        [SerializeField, Min(0f)] protected float attackNotifyLead = 0f;
+        [Tooltip("One-shot burst at the warning sign when it shows (e.g. red sparks). Optional.")]
+        [SerializeField] protected GameObject attackTellBurstPrefab;
+        [SerializeField, Min(0f)] protected float attackTellBurstLifetime = 0.6f;
 
         [Header("Animation Presentation")]
         [FormerlySerializedAs("enemyAnimation")]
@@ -251,17 +256,41 @@ namespace junklite
                     StopCoroutine(attackNotifyCoroutine);
                     attackNotifyCoroutine = null;
                 }
-                if (attackNotifyDelay <= 0f)
+                float notifyDelay = ResolveAttackNotifyDelay();
+                if (notifyDelay <= 0f)
                     ShowAttackNotify();
                 else
                     attackNotifyCoroutine = StartCoroutine(AttackNotifyAfterDelay());
             }
         }
 
+        // Seconds from entering the melee attack until the hitbox opens; negative when unknown.
+        private float SecondsToMeleeHit()
+        {
+            IMeleeAttacker attacker = GetCapability<IMeleeAttacker>();
+            return attacker == null ? -1f
+                : attacker.MeleeWindUpDuration + attacker.MeleeAttackDuration * attacker.MeleeHitStartNormalized;
+        }
+
+        private float ResolveAttackNotifyDelay()
+        {
+            float toHit = SecondsToMeleeHit();
+            return attackNotifyLead > 0f && toHit >= 0f ? Mathf.Max(0f, toHit - attackNotifyLead) : attackNotifyDelay;
+        }
+
         private void ShowAttackNotify()
         {
+            float toHit = SecondsToMeleeHit();
+            float leftToHit = toHit >= 0f ? Mathf.Max(0.05f, toHit - ResolveAttackNotifyDelay()) : 0.4f;
             if (attackWarningVfx != null)
+            {
                 attackWarningVfx.SetActive(true);
+                if (attackWarningVfx.TryGetComponent(out AttackTellView tellView))
+                    tellView.Play(leftToHit);
+                if (attackTellBurstPrefab != null)
+                    VFXPool.SpawnTimed(attackTellBurstPrefab, attackWarningVfx.transform.position, Quaternion.identity, attackTellBurstLifetime);
+            }
+            animationPresenter?.PlayAttackTell(leftToHit);
             GetComponentInChildren<EnemyAudioHandler>()?.PlayAttackNotify();
             OnAttackNotifyShown?.Invoke(this);
         }
@@ -329,11 +358,12 @@ namespace junklite
             }
             if (attackWarningVfx != null)
                 attackWarningVfx.SetActive(false);
+            animationPresenter?.StopAttackTell();
         }
 
         private System.Collections.IEnumerator AttackNotifyAfterDelay()
         {
-            yield return new WaitForSeconds(attackNotifyDelay);
+            yield return new WaitForSeconds(ResolveAttackNotifyDelay());
             attackNotifyCoroutine = null;
             if (stateMachine != null && stateMachine.CurrentState is MeleeAttackState)
                 ShowAttackNotify();
@@ -650,6 +680,21 @@ namespace junklite
                         pendingAirHitstunSource = request.Source;
                     }
                 }
+                else if (state is ParriedState && ReactsToHitsWhileStunned)
+                {
+                    // The parry lock keeps its own timer: no hitstun (the status would cut the
+                    // lock short and could extend it) and no launch, but the hit still shows.
+                    if (IsStaggeringHit(request))
+                    {
+                        if (request.HitReaction.IsSpike || request.HitReaction.IsLaunch)
+                            request.KnockbackForce = new Vector2(request.KnockbackForce.x, 0f);
+
+                        if (request.HitReaction.HasKnockback)
+                            ApplyKnockback(request);
+
+                        animationPresenter?.PlayHitReaction();
+                    }
+                }
                 else if (state == null || state.CanBeInterrupted)
                 {
                     if (request.HitReaction.IsLaunch && canBeLaunched && movement != null && movement.CanBeLaunched)
@@ -673,6 +718,10 @@ namespace junklite
                     if (request.HitReaction.IsSpike || request.HitReaction.IsLaunch)
                         request.KnockbackForce = new Vector2(request.KnockbackForce.x, 0f);
 
+                    // Already in the stun: the hitstun below only refreshes it and no state
+                    // change fires, so the presenter would not replay the hurt clip by itself.
+                    bool alreadyStunned = state is StunnedState;
+
                     // 1. Knockback FIRST — starts the push immediately
                     if (request.HitReaction.HasKnockback)
                         ApplyKnockback(request);
@@ -680,11 +729,25 @@ namespace junklite
                     // 2. Stagger SECOND — enters StunnedState (which preserves active knockback)
                     if (request.HitReaction.HasHitstun)
                         ApplyHitstun(request.Source, request.HitReaction);
+
+                    if (alreadyStunned && ReactsToHitsWhileStunned && IsStaggeringHit(request))
+                        animationPresenter?.PlayHitReaction();
                 }
             }
 
             return result;
         }
+
+        /// <summary>
+        /// Every real hit on this enemy while it is stunned or parried restarts the hurt clip
+        /// and pushes it back, like a hit on a free enemy. Off for types whose stun should
+        /// not read that way (the Brute).
+        /// </summary>
+        protected virtual bool ReactsToHitsWhileStunned => false;
+
+        /// <summary>A hit the body shows: damage-over-time ticks and reaction-less hits do not stagger.</summary>
+        public static bool IsStaggeringHit(in DamageRequest request) =>
+            !request.IsTickDamage && request.HitReaction.HasAnyReaction;
 
         /// <summary>
         /// Launch velocity for a hit: x along the movement axis away from the source,
@@ -877,6 +940,8 @@ namespace junklite
         private void HandleKnockbackEnd()
         {
             if (stateMachine.CurrentState is StunnedState) return;
+            // A hit during a parry stun: the lock ends on its own timer, not when the push does.
+            if (stateMachine.CurrentState is ParriedState) return;
             // A spiked body skids along the floor while lying down: the launch owns
             // what happens next, not the end of that slide.
             if (stateMachine.CurrentState is LaunchedState) return;

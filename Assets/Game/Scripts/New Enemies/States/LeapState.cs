@@ -3,6 +3,15 @@ using UnityEngine;
 namespace junklite
 {
     /// <summary>
+    /// Optional on an <see cref="ILeaper"/>: how the flight looks. True holds the landing
+    /// clip's pose in the air instead of the air clip, and the landing plays that clip.
+    /// </summary>
+    public interface ILeapAirPose
+    {
+        bool LeapAirHoldsLandPose { get; }
+    }
+
+    /// <summary>
     /// Kinematic arc to a destination chosen by the brain (vault over the line to
     /// the player's open side, or hop back behind the line). Three phases:
     /// grounded telegraph (interruptible, a hit cancels), airborne (kinematic,
@@ -136,7 +145,11 @@ namespace junklite
 
             phase = Phase.Air;
             timer = airDuration;
-            enemy.AnimationPresenter?.PlayLeapAir();
+
+            if (leaper is ILeapAirPose pose && pose.LeapAirHoldsLandPose)
+                enemy.AnimationPresenter?.PlayLeapAirHoldingLandPose();
+            else
+                enemy.AnimationPresenter?.PlayLeapAir();
         }
 
         private void UpdateAir()

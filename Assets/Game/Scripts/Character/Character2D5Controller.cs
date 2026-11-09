@@ -13,6 +13,16 @@ namespace junklite
         [SerializeField] private float jumpForce = 10f;
         [SerializeField] private float groundCheckDistance = 0.1f;
         [SerializeField] private float groundCheckRadius = 0.08f;   // spherecast radius
+        [Tooltip("Seconds lane speed eases to zero after letting go while running on the ground. 0 = stop dead.")]
+        [SerializeField, Min(0f)] private float groundStopSlideDuration = 0.15f;
+        [Tooltip("Reversing a real run carries her on in the old direction for this long, still facing it. 0 = instant turn.")]
+        [SerializeField, Min(0f)] private float turnSlideDuration = 0.195f;
+        [Tooltip("Seconds of no input that still count as the same run, so holding both keys for a moment still slides.")]
+        [SerializeField, Min(0f)] private float turnSlideInputGrace = 0.12f;
+        [Tooltip("Seconds of running before a reversal slides.")]
+        [SerializeField, Min(0f)] private float turnSlideMinRunTime = 0.5f;
+        [Tooltip("Lane speed that halves the run needed before a reversal slides. Above the base run speed (10), so it means boosted speed.")]
+        [SerializeField, Min(0f)] private float turnSlideMinSpeed = 12f;
 
         [Header("Weapon Socket Settings")]
         [SerializeField] private Transform TargetParent;
@@ -68,6 +78,8 @@ namespace junklite
         [Header("Wall Slide & Wall Jump")]
         [Tooltip("Walls on these layers can be slid down and jumped off. Walls on other layers only block.")]
         [SerializeField] private LayerMask wallLayer = 1 << 12; // Wall
+        [Tooltip("On: only walls with a WallJumpSurface component can be slid down and jumped off. Other walls only block.")]
+        [SerializeField] private bool requireWallJumpSurface = true;
         [Tooltip("Gap between the capsule side and a wall that still counts as touching it.")]
         [SerializeField, Min(0.01f)] private float wallCheckDistance = 0.1f;
         [Tooltip("Fastest fall (m/s) while holding into a wall.")]
@@ -168,6 +180,16 @@ namespace junklite
         private Vector3 smoothStopAngularVelocity;
         private Vector3 smoothStopInputVelocity;
 
+        // Stop slide: lane speed easing out after the player lets go on the ground.
+        private bool ranOnGroundLastStep;
+        private float groundStopSlideRemaining;
+        private float groundStopSlideStartSpeed;
+        private float groundRunTime;
+        private float shoveHoldEndTime = float.NegativeInfinity;
+        private float noInputTime;
+        private float turnSlideRemaining;
+        private float turnSlideStartSpeed;
+
         private float gravityMultiplierOverride = -1f;
         // Air-hit hang: a timed slow fall after landing a hit in the air. Separate from the
         // attack motion's single gravity override so the two never clear each other.
@@ -229,7 +251,23 @@ namespace junklite
         public float HorizontalInput { get; private set; }
         /// <summary>Accepted move input this frame (x = lane, z = depth in free roam).</summary>
         public Vector3 MoveInput => moveInput;
-        /// <summary>True while airborne, holding into a Wall-layer wall and moving down it.</summary>
+        /// <summary>True while lane speed eases out after letting go on the ground. Not running, even though speed is above zero.</summary>
+        public bool IsGroundStopSliding => groundStopSlideRemaining > 0f;
+        /// <summary>True while a reversed run carries on in the old direction; facing flips when it ends.</summary>
+        public bool IsTurnSliding => turnSlideRemaining > 0f;
+        /// <summary>Seconds of the current unbroken run on the ground.</summary>
+        public float GroundRunTime => groundRunTime;
+        /// <summary>True while move input points against her lane speed: a reversal about to be handled.</summary>
+        public bool IsInputAgainstLaneSpeed
+        {
+            get
+            {
+                float laneSpeed = Vector3.Dot(rb.linearVelocity, transform.right);
+                return Mathf.Abs(HorizontalInput) >= 0.1f && Mathf.Abs(laneSpeed) > 0.1f &&
+                       Mathf.Sign(HorizontalInput) != Mathf.Sign(laneSpeed);
+            }
+        }
+        /// <summary>True while airborne, holding into a wall-jump wall and moving down it.</summary>
         public bool IsWallSliding => isWallSliding;
         /// <summary>True during a wall jump's push-off, while it keeps its outward speed.</summary>
         public bool IsWallJumping => wallJumpTimeRemaining > 0f;
@@ -309,7 +347,7 @@ namespace junklite
         public bool IsDashing => isDashing;
         public bool CanDash => isActiveAndEnabled && !isDashing && rb != null &&
                                !rb.isKinematic && !IsPhysicsOverridden && dashDuration > 0f &&
-                               dashCooldownTimer <= 0f && (isGrounded || canDashInAir) && CanMove;
+                               dashCooldownTimer <= 0f && (isGrounded || canDashInAir) && CanMove && !IsTurnSliding;
         public bool IsFacingLocked => facingLocked;
 
         /// <summary>
@@ -872,6 +910,7 @@ namespace junklite
             if (!CanDash) return;
 
             isDashing = true;
+            ClearGroundStopSlide();
 
             //////// vfx /sfx trigger could go here ////////
 
@@ -925,7 +964,7 @@ namespace junklite
         /// Sets the lane speed to force.x along direction (replaced, not added, so moving
         /// into the source can't cancel it) and the upward speed to at least force.y.
         /// </summary>
-        public void ApplyExternalShove(Vector3 direction, Vector2 force)
+        public void ApplyExternalShove(Vector3 direction, Vector2 force, float holdSeconds = 0f)
         {
             if (rb == null || rb.isKinematic)
                 return;
@@ -940,6 +979,7 @@ namespace junklite
 
             float up = Mathf.Max(rb.linearVelocity.y, force.y);
             SetVelocity(axis * (sign * Mathf.Abs(force.x)) + Vector3.up * up);
+            shoveHoldEndTime = Time.time + holdSeconds;
         }
 
         // Compatibility entry point. New combat code should use ApplyExternalImpulse.
@@ -958,6 +998,7 @@ namespace junklite
             ClearWallState();
             EndDash();
             CancelSmoothStop();
+            ClearGroundStopSlide();
             isDoubleJumpStalling = false;
 
             jumpBufferTimer = 0f;
@@ -1025,6 +1066,7 @@ namespace junklite
         public void StopAllVelocity()
         {
             CancelSmoothStop();
+            ClearGroundStopSlide();
             if (rb != null && !rb.isKinematic)
             {
                 rb.linearVelocity = Vector3.zero;
@@ -1135,7 +1177,10 @@ namespace junklite
 
             // --- Input locked (attacks, parry, etc.) - allow smooth stop to control velocity ---
             if (playerState != null && (playerState.IsInputLocked || playerState.IsAttacking || playerState.IsParrying))
+            {
+                ClearGroundStopSlide();
                 return;
+            }
 
             // --- Ground Jump via Buffer + Coyote ---
             if (jumpBufferTimer > 0f && CanMove && !isDashing)
@@ -1151,7 +1196,11 @@ namespace junklite
                 }
             }
 
-            if (!CanMove) return;
+            if (!CanMove)
+            {
+                ClearGroundStopSlide();
+                return;
+            }
 
             // Decompose current velocity into local axes
             Vector3 right = transform.right;
@@ -1162,9 +1211,16 @@ namespace junklite
 
             float targetRightVel;
 
-            // --- Air movement ---
-            if (!isGrounded)
+            // A body push owns the lane speed for its hold: input can't cancel it.
+            if (Time.time < shoveHoldEndTime)
             {
+                targetRightVel = currentRightVel;
+            }
+            // --- Air movement ---
+            else if (!isGrounded)
+            {
+                // Keeps the run time: a brief step off the ground does not end the run.
+                ClearGroundStopSlide(keepRunTime: true);
                 if (Mathf.Abs(moveInput.x) < 0.1f)
                 {
                     // Strong air drag toward zero LOCAL horizontal velocity
@@ -1177,7 +1233,7 @@ namespace junklite
             }
             else
             {
-                targetRightVel = moveInput.x * EffectiveMoveSpeed;
+                targetRightVel = GroundLaneTarget(currentRightVel);
             }
 
             // Rebuild velocity in local space (preserve vertical)
@@ -1191,8 +1247,112 @@ namespace junklite
             rb.linearVelocity = vel;
 
             // Facing direction
-            if (faceMovementDirection && Mathf.Abs(moveInput.x) > 0.1f)
+            if (faceMovementDirection && Mathf.Abs(moveInput.x) > 0.1f && !IsTurnSliding)
                 HandleFacingDirectionFixed(moveInput.x);
+        }
+
+        /// <summary>
+        /// Lane speed on the ground. Letting go while running eases out over groundStopSlideDuration;
+        /// any input (including the other direction) ends the slide at once. It reads the live speed, so
+        /// a wall or door blocker that stopped her (StopPushingIntoWallsFixed runs after this) stays stopped.
+        /// </summary>
+        private float GroundLaneTarget(float currentRightVel)
+        {
+            bool hasInput = Mathf.Abs(moveInput.x) >= 0.1f;
+            if (TryTurnSlide(hasInput, currentRightVel, out float turnSpeed))
+                return turnSpeed;
+
+            if (hasInput || groundStopSlideDuration <= 0f)
+            {
+                groundStopSlideRemaining = 0f;
+                ranOnGroundLastStep = hasInput;
+                return moveInput.x * EffectiveMoveSpeed;
+            }
+
+            if (ranOnGroundLastStep && Mathf.Abs(currentRightVel) > 0.1f)
+            {
+                groundStopSlideStartSpeed = Mathf.Abs(currentRightVel);
+                groundStopSlideRemaining = groundStopSlideDuration;
+            }
+            ranOnGroundLastStep = false;
+
+            if (groundStopSlideRemaining <= 0f)
+                return moveInput.x * EffectiveMoveSpeed;
+
+            groundStopSlideRemaining = Mathf.Max(0f, groundStopSlideRemaining - Time.fixedDeltaTime);
+            return EaseStopSlide(currentRightVel, groundStopSlideStartSpeed, groundStopSlideRemaining / groundStopSlideDuration);
+        }
+
+        // Reversal: keep the old direction and facing, eased to a stop, then the normal target takes over.
+        // Pressing the old direction again cancels it. Letting go lets it finish.
+        private bool TryTurnSlide(bool hasInput, float currentRightVel, out float speed)
+        {
+            speed = 0f;
+            bool reversing = hasInput && Mathf.Abs(currentRightVel) > 0.1f &&
+                             Mathf.Sign(moveInput.x) != Mathf.Sign(currentRightVel);
+
+            if (turnSlideRemaining > 0f)
+            {
+                if (hasInput && !reversing)
+                {
+                    turnSlideRemaining = 0f;
+                    return false;
+                }
+
+                turnSlideRemaining = Mathf.Max(0f, turnSlideRemaining - Time.fixedDeltaTime);
+                if (turnSlideRemaining <= 0f)
+                    return false;
+
+                speed = EaseStopSlide(currentRightVel, turnSlideStartSpeed, turnSlideRemaining / turnSlideDuration);
+                return true;
+            }
+
+            if (reversing && turnSlideDuration > 0f &&
+                ShouldTurnSlide(groundRunTime, Mathf.Abs(currentRightVel), turnSlideMinRunTime, turnSlideMinSpeed))
+            {
+                // Both keys held: the stop slide has begun easing, so start from the speed before it.
+                turnSlideStartSpeed = groundStopSlideRemaining > 0f
+                    ? Mathf.Max(groundStopSlideStartSpeed, Mathf.Abs(currentRightVel))
+                    : Mathf.Abs(currentRightVel);
+                groundStopSlideRemaining = 0f;
+                groundRunTime = 0f;
+                noInputTime = 0f;
+                turnSlideRemaining = turnSlideDuration;
+                speed = Mathf.Sign(currentRightVel) * turnSlideStartSpeed;
+                return true;
+            }
+
+            if (hasInput)
+            {
+                // Only one unbroken hold counts: taps never add up to a run, and neither does a reversal.
+                groundRunTime = reversing || noInputTime > 0f ? 0f : groundRunTime + Time.fixedDeltaTime;
+                noInputTime = 0f;
+            }
+            else
+            {
+                noInputTime += Time.fixedDeltaTime;
+                if (noInputTime > turnSlideInputGrace) groundRunTime = 0f;
+            }
+            return false;
+        }
+
+        /// <summary>A reversal slides after a long enough run, or after half of one at high speed, so spam never slides.</summary>
+        public static bool ShouldTurnSlide(float runTime, float speed, float minRunTime, float minSpeed) =>
+            runTime >= minRunTime || (speed >= minSpeed && runTime >= minRunTime * 0.5f);
+
+        /// <summary>Eased lane speed during a stop slide: remaining 1 = full start speed, 0 = stopped. Never faster than the live speed.</summary>
+        public static float EaseStopSlide(float currentSpeed, float startSpeed, float remaining)
+        {
+            float eased = startSpeed * Mathf.SmoothStep(0f, 1f, remaining);
+            return Mathf.Sign(currentSpeed) * Mathf.Min(Mathf.Abs(currentSpeed), eased);
+        }
+
+        private void ClearGroundStopSlide(bool keepRunTime = false)
+        {
+            ranOnGroundLastStep = false;
+            groundStopSlideRemaining = 0f;
+            if (!keepRunTime) groundRunTime = 0f;
+            turnSlideRemaining = 0f;
         }
 
 
@@ -1349,9 +1509,9 @@ namespace junklite
         }
 
         // ===== Wall slide & wall jump =====
-        // Airborne and holding toward a Wall-layer wall: falling is capped at wallSlideSpeed and
-        // jump pushes off it. The probe follows input along the lane axis, not a child transform,
-        // so it works on both sides whatever the facing mode (SkeletonSwap never flips the root).
+        // Airborne and holding toward a wall-jump wall (Wall layer + WallJumpSurface): falling is capped
+        // at wallSlideSpeed and jump pushes off it. The probe follows input along the lane axis, not a child
+        // transform, so it works on both sides whatever the facing mode (SkeletonSwap never flips the root).
 
         private bool CanWallJump => !isGrounded && !isDashing && wallJumpTimeRemaining <= 0f &&
                                     (playerState == null || playerState.CanJump) &&
@@ -1380,7 +1540,7 @@ namespace junklite
             SetWallSliding(sliding);
         }
 
-        /// <summary>Wall-layer wall within wallCheckDistance on <paramref name="side"/> (+1/-1 along the lane)?</summary>
+        /// <summary>Wall-jump wall within wallCheckDistance on <paramref name="side"/> (+1/-1 along the lane)?</summary>
         private bool ProbeWall(float side, out float normalSign)
         {
             normalSign = 0f;
@@ -1405,6 +1565,8 @@ namespace junklite
                 return false;
             if (hit.collider.attachedRigidbody == rb || Mathf.Abs(hit.normal.y) >= WallNormalMaxY ||
                 Vector3.Dot(hit.normal, -direction) < 0.7f)
+                return false;
+            if (requireWallJumpSurface && !hit.collider.TryGetComponent<WallJumpSurface>(out _))
                 return false;
 
             normalSign = -side;

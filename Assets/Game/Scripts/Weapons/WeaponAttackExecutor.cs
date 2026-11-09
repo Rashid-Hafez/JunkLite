@@ -5,6 +5,30 @@ using UnityEngine;
 
 namespace junklite
 {
+    /// <summary>
+    /// Attack clips can carry Spine 'Hold' and 'Release' events: the clip pauses at Hold, then runs
+    /// faster from Release to its end. Combat timing is authored against the plain clip, so this says
+    /// when that moment really arrives once the clip is warped. Pure maths, no Spine or Unity state.
+    /// </summary>
+    public static class AttackHoldTiming
+    {
+        /// <param name="authoredDelay">Real seconds to that moment on the plain clip (hitDelay, or clip length / baseScale).</param>
+        /// <param name="baseScale">The swing's normal track entry time scale.</param>
+        /// <param name="holdAt">Clip seconds of the Hold event, negative when the clip has none.</param>
+        /// <param name="releaseAt">Clip seconds of the Release event, negative when the clip has none.</param>
+        public static float WarpDelay(float authoredDelay, float baseScale, float holdAt, float releaseAt,
+            float holdDuration, float releaseSpeed)
+        {
+            float clipTime = authoredDelay * baseScale;
+            float delay = authoredDelay;
+            if (holdAt >= 0f && holdAt <= clipTime)
+                delay += holdDuration;
+            if (releaseAt >= 0f && releaseAt < clipTime && baseScale > 0f && releaseSpeed > 0f)
+                delay -= (clipTime - releaseAt) / baseScale * (1f - 1f / releaseSpeed);
+            return delay;
+        }
+    }
+
     internal readonly struct WeaponAttackExecutionSettings
     {
         public float DelayBeforeAttack { get; }
@@ -60,6 +84,10 @@ namespace junklite
         public Collider FocusCollider { get; }
         /// <summary>Polled during the lunge; true ends it (reached the focus, or the focus is gone).</summary>
         public Func<bool> StopLunge { get; }
+        /// <summary>Real seconds from the clip start until its wind-up pause ends; the lunge waits for it. 0 = none.</summary>
+        public float WindupRelease { get; }
+        /// <summary>Real seconds the swing clip runs (with its hold and release). 0 = unknown.</summary>
+        public float ClipDuration { get; }
 
         public WeaponAttackExecutionRequest(
             int executionId,
@@ -76,8 +104,12 @@ namespace junklite
             float lungeDistance = -1f,
             float gapCloseMaxSpeed = 0f,
             Collider focusCollider = null,
-            Func<bool> stopLunge = null)
+            Func<bool> stopLunge = null,
+            float windupRelease = 0f,
+            float clipDuration = 0f)
         {
+            WindupRelease = windupRelease;
+            ClipDuration = clipDuration;
             LungeDistance = lungeDistance;
             GapCloseMaxSpeed = gapCloseMaxSpeed;
             FocusCollider = focusCollider;
@@ -114,6 +146,7 @@ namespace junklite
         private readonly Action<EnemyCharacter, float> enemyHitApplied;
         private readonly Action environmentHit;
         private readonly Action playHitFeedback;
+        private readonly Func<string, float, float> warpHitDelay;
         private readonly HashSet<int> processedReceivers = new();
 
         public WeaponAttackExecutor(
@@ -127,7 +160,8 @@ namespace junklite
             Action<int> completeWithoutAnimation,
             Action<EnemyCharacter, float> enemyHitApplied,
             Action environmentHit,
-            Action playHitFeedback)
+            Action playHitFeedback,
+            Func<string, float, float> warpHitDelay = null)
         {
             this.coroutineHost = coroutineHost;
             this.motion = motion;
@@ -140,6 +174,7 @@ namespace junklite
             this.enemyHitApplied = enemyHitApplied;
             this.environmentHit = environmentHit;
             this.playHitFeedback = playHitFeedback;
+            this.warpHitDelay = warpHitDelay;
         }
 
         public Execution Prepare(WeaponAttackExecutionRequest request)
@@ -164,6 +199,9 @@ namespace junklite
                 execution => RunMelee(execution, request, meleeStep));
         }
 
+        private const float LungeEndMargin = 0.02f;
+        private const float MinLungeTime = 0.04f;
+
         private IEnumerator RunMelee(
             Execution execution,
             WeaponAttackExecutionRequest request,
@@ -171,14 +209,30 @@ namespace junklite
         {
             float forwardPeak = step.forwardImpulse;
             float forwardDuration = step.forwardImpulseDuration;
-            if (request.Direction == AttackDirection.Side && request.LungeDistance >= 0f)
+
+            // A step with a wind-up: planted through the pause, the lunge fires on the release.
+            float pushDelay = request.WindupRelease > 0f ? request.Settings.AnimationLeadTime + request.WindupRelease : 0f;
+
+            if (request.LungeDistance >= 0f)
             {
                 // Combat focus: travel exactly the chosen distance (0 = stand still). A gap close may
                 // run longer than authored, but must arrive while the hit window is still open.
                 float arriveBy = request.Settings.AnimationLeadTime + ResolveHitDelay(request, step) +
-                                 request.Settings.AttackOpenWindow * 0.5f;
+                                 request.Settings.AttackOpenWindow * 0.5f - pushDelay;
                 LungeWarp.Solve(step.forwardImpulse, step.forwardImpulseDuration, step.lungeCurve,
                     request.LungeDistance, request.GapCloseMaxSpeed, arriveBy, out forwardPeak, out forwardDuration);
+            }
+
+            // The swing ending cancels the lunge: a lunge that would outlast it runs faster
+            // over the time left, so the whole distance still lands (wind-ups start it late).
+            if (request.ClipDuration > 0f)
+            {
+                float timeLeft = request.Settings.AnimationLeadTime + request.ClipDuration - pushDelay - LungeEndMargin;
+                if (timeLeft > MinLungeTime && forwardDuration > timeLeft)
+                {
+                    forwardPeak *= forwardDuration / timeLeft;
+                    forwardDuration = timeLeft;
+                }
             }
 
             execution.StartOwned(motion.ApplyPush(
@@ -190,7 +244,8 @@ namespace junklite
                 forwardDuration,
                 step.lungeCurve,
                 request.StopLunge,
-                ownHorizontalAtZero: request.LungeDistance >= 0f));
+                ownHorizontalAtZero: request.LungeDistance >= 0f,
+                startDelay: pushDelay));
 
             // Air attacks stall the fall for part of the swing, then gravity resumes.
             float floatNormalized = request.Direction == AttackDirection.Down
@@ -198,13 +253,8 @@ namespace junklite
                 : request.Settings.AirAttackFloatNormalized;
             if (!request.WasGrounded && floatNormalized > 0f)
             {
-                float hitDelay = step.hitDelay > 0f
-                    ? step.hitDelay
-                    : Mathf.Max(
-                        0f,
-                        request.Settings.DelayBeforeAttack - request.Settings.AnimationLeadTime);
                 float totalDuration = request.Settings.AnimationLeadTime +
-                                      hitDelay +
+                                      ResolveHitDelay(request, step) +
                                       request.Settings.AttackOpenWindow;
                 execution.StartOwned(motion.HoldAirAttackFloat(
                     request.ExecutionId,
@@ -301,10 +351,14 @@ namespace junklite
             }
         }
 
-        private static float ResolveHitDelay(WeaponAttackExecutionRequest request, MeleeWeaponData.MeleeComboStep step) =>
-            step.hitDelay > 0f
+        // Authored against the plain clip; the warp moves it with the clip's Hold and Release so the hit stays on the visual hit.
+        private float ResolveHitDelay(WeaponAttackExecutionRequest request, MeleeWeaponData.MeleeComboStep step)
+        {
+            float authored = step.hitDelay > 0f
                 ? step.hitDelay
                 : Mathf.Max(0f, request.Settings.DelayBeforeAttack - request.Settings.AnimationLeadTime);
+            return warpHitDelay != null ? warpHitDelay(request.AnimationName, authored) : authored;
+        }
 
         private void RequestAnimation(WeaponAttackExecutionRequest request)
         {
@@ -403,7 +457,7 @@ namespace junklite
                 AttackDirection.Up => new Vector3(
                     anchorPosition.x,
                     playerTransform.position.y + range,
-                    playerTransform.position.z),
+                    anchorPosition.z),
                 AttackDirection.Down => new Vector3(
                     anchorPosition.x,
                     playerTransform.position.y - range,

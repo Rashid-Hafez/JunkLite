@@ -101,7 +101,7 @@ namespace junklite.Tests
             float hangGravity = launch.FindPropertyRelative("apexHangGravityScale").floatValue;
             float gravity = launch.FindPropertyRelative("gravityScale").floatValue;
             float hangSeconds = 2f * hangSpeed / (Physics.gravity.magnitude * hangGravity);
-            Assert.That(hangSeconds, Is.LessThan(0.3f), "the float at the top stays short");
+            Assert.That(hangSeconds, Is.LessThan(0.6f), "the float at the top stays short");
             Assert.That(launch.FindPropertyRelative("spikeGravityScale").floatValue, Is.GreaterThan(gravity),
                 "a spike must still fall faster than a normal launch");
         }

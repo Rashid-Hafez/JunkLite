@@ -1325,7 +1325,7 @@ Transform:
   m_GameObject: {fileID: 6942188552916789910}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.21477658, y: 2.895, z: 0}
+  m_LocalPosition: {x: 0.603, y: 1.6116002, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -1377,6 +1377,7 @@ GameObject:
   - component: {fileID: 2597051752003655520}
   - component: {fileID: 7657212087601501397}
   - component: {fileID: 84758414691987946}
+  - component: {fileID: 167318553382373853}
   m_Layer: 16
   m_Name: Player_Cass
   m_TagString: Player
@@ -1424,9 +1425,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 5
-  jumpForce: 12.5
+  jumpForce: 12
   groundCheckDistance: 0.1
   groundCheckRadius: 0.08
+  groundStopSlideDuration: 0.15
+  turnSlideDuration: 0.195
+  turnSlideInputGrace: 0.12
+  turnSlideMinRunTime: 0.5
+  turnSlideMinSpeed: 12
   TargetParent: {fileID: 0}
   weaponSocket: {fileID: 4764703469501611834}
   weaponSocketSortingLayerName: 11
@@ -1439,9 +1445,9 @@ MonoBehaviour:
   heldJumpGravityRamp: 1
   JumpHeldExternally: 1
   maxAirJumps: 1
-  doubleJumpForce: 13.4
+  doubleJumpForce: 11.34
   doubleJumpStallTime: 0.05
-  doubleJumpRiseGravity: 2.1
+  doubleJumpRiseGravity: 3
   doubleJumpFallGravity: 1.5
   minAirtimeForDoubleJump: 0.25
   coyoteTime: 0.2
@@ -1480,6 +1486,7 @@ MonoBehaviour:
   wallLayer:
     serializedVersion: 2
     m_Bits: 4096
+  requireWallJumpSurface: 1
   wallCheckDistance: 0.1
   wallSlideSpeed: 2
   wallJumpForce: 12
@@ -1591,9 +1598,10 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 6144
   impulseSource: {fileID: 0}
-  enemyHitHitstopDuration: 0.11
-  launchHitstopDuration: 0.12
+  enemyHitHitstopDuration: 0.16
+  launchHitstopDuration: 0.18
   enemyHitShakeForce: 1
+  upAttackCooldown: 1
   attackCooldown: 0.1
   comboWindow: 0.6
   bufferDuration: 0.2
@@ -1923,7 +1931,7 @@ MonoBehaviour:
   overlayTrack: 1
   idle: Idle
   run: Run
-  runStop: 
+  runStop: RunToIdle
   jumpStart: Jump_1_Start
   jumpAir: Jump_2_Air
   landing: Jump_3_Land
@@ -1932,6 +1940,8 @@ MonoBehaviour:
   dash: Dash
   stun: Hurt
   death: Death
+  grabbed: Grabbed
+  interact: Interact
   idleLoop: 1
   runLoop: 1
   jumpStartLoop: 0
@@ -1945,7 +1955,15 @@ MonoBehaviour:
   idleTimeScale: 1
   runTimeScale: 0.77
   depthRunTimeScale: 0.7
-  runStopTimeScale: 1
+  runStopTimeScale: 1.6
+  runStopToIdleBlend: 0.3
+  runStopFadeStart: 0.6
+  turnSlideClipTimeScale: 1.2
+  jumpAirApexSpeed: 1.05
+  turnStopPortion: 0.35
+  turnStopBlend: 0.1
+  turnStopMinRunTime: 0.5
+  turnStopCooldown: 0.35
   jumpStartTimeScale: 1
   jumpAirTimeScale: 1
   landingTimeScale: 1
@@ -1954,6 +1972,7 @@ MonoBehaviour:
   doubleJumpTimeScale: 1
   wallSlideTimeScale: 1
   dashTimeScale: 1
+  dashExitBlend: 0.1
   stunTimeScale: 1
   deathTimeScale: 1
   speedThreshold: 0.1
@@ -1965,11 +1984,14 @@ MonoBehaviour:
   doubleJumpBlend: 0
   attackOverwrite: 1
   attackMix: 0.15
+  attackToAttackBlend: 0.067
   attackMixOut: 0.2
   attackMixOutDelay: 0
   fistAttackTimeScale: 1.62
   weaponAttackTimeScale: 1.22
   downAttackTimeScale: 2
+  attackHoldDuration: 0.12
+  attackReleaseSpeed: 1.6
   forceOverrideGroundedHoldDuration: 0.4
   modCombatEntryAnim: Attack_WolverinePose
   modEntryVFXPrefab: {fileID: 2057006026388923700}
@@ -2008,17 +2030,27 @@ MonoBehaviour:
   parryDuration: 0.25
   parryCooldown: 0.2
   parryLockDuration: 0.3
+  parryStartClip: Parry_1
+  parryHitClip: Parry_2
   parryRadius: 4
   enemyLayer:
     serializedVersion: 2
     m_Bits: 16384
   parryVFXPrefab: {fileID: 5528457295246127328}
   VisualEffectParry: {fileID: 2057006026388923700}
-  pushForce: 10
-  pushDuration: 0.3
+  pushForce: 16
+  pushDuration: 0.4
   stunDuration: 0.3
   parryStunDuration: 1.5
   hitstopDuration: 0.1
+  impactDelay: 0.05
+  parryImpactBurstPrefab: {fileID: 7219941767042139074, guid: 50662c84211634883aa5e213ff1f05bd, type: 3}
+  parryImpactBurstLifetime: 0.8
+  parryShakeForce: 1.6
+  slowMoScale: 0.4
+  slowMoHoldRealtime: 0.35
+  slowMoStartDelayRealtime: 0.02
+  zoomTarget: 26
 --- !u!114 &2356093748291057341
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2135,6 +2167,27 @@ MonoBehaviour:
   holdTime: 1.5
   gapCloseMaxSpeed: 24
   markerPrefab: {fileID: 913381325525332217, guid: 8add5512f9aaac141843bc1a10e1c701, type: 3}
+--- !u!114 &167318553382373853
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7038683931279381878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f5c8ccb66d232494281a4f1bcab08408, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PlayerPush
+  pushRange: 2.5
+  pushRadius: 1.5
+  pushForce: 14
+  pushDuration: 0.2
+  pushCooldown: 1.5
+  pushAnimation: Attack_Punch_Combo_1
+  enemyLayer:
+    serializedVersion: 2
+    m_Bits: 0
 --- !u!1 &7404579367925327084
 GameObject:
   m_ObjectHideFlags: 0

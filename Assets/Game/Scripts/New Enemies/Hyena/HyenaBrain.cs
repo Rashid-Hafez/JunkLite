@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace junklite
@@ -31,9 +32,13 @@ namespace junklite
     /// - Vault (ILeaper, LeapState): squared up to a planted player who faces her, she
     ///   sometimes jumps clean over them and lands just behind, then bites before they
     ///   turn. Same leap as the Grunt's vault (telegraph crouch, kinematic arc, landing),
-    ///   aimed at the player's far side instead of the far front slot.
+    ///   aimed at the player's far side instead of the far front slot. Stuck behind another
+    ///   enemy she also vaults instead of waiting (HyenaTactics.QueuedVaultOpen).
+    /// - Queue spacing (ILaneSpacing): same rule as the Grunt, so she keeps a gap from the
+    ///   real bodies ahead and behind instead of aiming at a slot that assumes they stand
+    ///   in theirs.
     /// </summary>
-    public sealed class HyenaBrain : MeleeChaserBrain, IDodgeAim, IChargeArmor, ILeaper
+    public sealed class HyenaBrain : MeleeChaserBrain, IDodgeAim, IChargeArmor, ILeaper, ILaneSpacing
     {
         private enum DodgePurpose { None, Reactive, Retreat }
 
@@ -111,6 +116,18 @@ namespace junklite
         [SerializeField, Min(0f)] private float groupLeapCooldown = 1f;
         [Tooltip("After landing behind the player, chance to bite at once.")]
         [SerializeField, Range(0f, 1f)] private float vaultBiteChance = 0.9f;
+        [Tooltip("Stuck behind another enemy: chance per roll (every vaultRetry seconds) to vault to the player's far side instead of waiting. Same gates as the vault above, except the player need not face her. 0 = never.")]
+        [SerializeField, Range(0f, 1f)] private float queuedVaultChance = 0.6f;
+        [Tooltip("Furthest axis distance a queued vault starts from. Vault Min Range is the near limit.")]
+        [SerializeField, Min(0f)] private float queuedVaultMaxRange = 7f;
+
+        [Header("Hyena - Queue Spacing")]
+        [Tooltip("Comfortable edge-to-edge gap kept behind the enemy in front.")]
+        [SerializeField, Min(0f)] private float queueGap = 0.5f;
+        [Tooltip("Smallest edge-to-edge gap ever allowed to the enemy ahead or behind.")]
+        [SerializeField, Min(0f)] private float contactGap = 0.1f;
+        [Tooltip("How sharply she slows as she nears the enemy ahead. Higher = later, harder braking.")]
+        [SerializeField, Min(0.5f)] private float spacingGain = 6f;
 
         [Header("Hyena - Debug")]
         [Tooltip("Log stagger breaks and what each dodge ended in (counter, lease refused, chase).")]
@@ -118,6 +135,7 @@ namespace junklite
 
         private const float ObstacleRayHeight = 0.5f;
         private const float ObstacleBuffer = 0.3f;
+        private const float LaneBodyTolerance = 1.5f;
 
         // Runtime
         private readonly HitPressureWindow pressure = new(8);
@@ -145,6 +163,12 @@ namespace junklite
         private float nextVaultAllowed;
         private float nextVaultRoll;
 
+        // Lane spacing (cached once per frame)
+        private float bodyHalfWidth = 0.5f;
+        private int neighborsFrame = -1;
+        private bool neighborsValid;
+        private EnemyLaneNeighbors neighbors;
+
         // Target cache (refreshed when the target transform changes)
         private Transform cachedTarget;
         private PlayerState targetState;
@@ -171,6 +195,22 @@ namespace junklite
         /// <summary>0-1 how tired its legs are; 1 = will not dodge.</summary>
         public float DodgeFatigue => CurrentFatigue();
 
+        /// <summary>The queue gap is this archetype's: the director reads it whenever she joins a group.</summary>
+        public override float LaneQueueGap => queueGap;
+
+        /// <summary>ILaneSpacing: every chase move keeps its gap from the real bodies ahead and behind.</summary>
+        public void ApplySpacing(ref Vector3 destination, ref float speed)
+        {
+            if (neighborsFrame != Time.frameCount)
+            {
+                neighborsFrame = Time.frameCount;
+                neighborsValid = EnemyEngagementDirector.TryGetLaneNeighbors(Actor, contactGap, out neighbors);
+            }
+
+            if (neighborsValid)
+                LaneSpacingSolver.Apply(neighbors, ref destination, ref speed, spacingGain);
+        }
+
         protected override void Awake()
         {
             base.Awake();
@@ -178,6 +218,7 @@ namespace junklite
             resolvedObstacleLayers = dodgeObstacleLayers.value != 0
                 ? dodgeObstacleLayers
                 : (LayerMask)LayerMask.GetMask("Default", "Ground", "Wall", "Enemies");
+            bodyHalfWidth = BodyContact.CapsuleHalfWidth(this, bodyHalfWidth);
             EnsureHyenaBehaviors();
             InitializeHyenaCapabilities();
         }
@@ -568,8 +609,9 @@ namespace junklite
         // =============================================================
 
         /// <summary>
-        /// Closing in or waiting on a planted player who faces her: roll to jump clean
-        /// over them and land behind. Only from Chase or the queue, never mid-action.
+        /// Closing in or waiting on a planted player who faces her, or stuck behind another
+        /// enemy: roll to jump clean over them and land behind. Only from Chase or the queue,
+        /// never mid-action.
         /// </summary>
         private bool TryVault()
         {
@@ -587,7 +629,9 @@ namespace junklite
             float axisDistance = AxisDistanceToTarget();
             bool grounded = targetState == null || targetState.IsGrounded;
             bool rolling = targetState != null && targetState.IsRolling;
-            if (!HyenaTactics.VaultOpen(axisDistance, vaultMinRange, vaultMaxRange, IsPlayerFacingMe(), grounded, rolling))
+            bool open = HyenaTactics.VaultOpen(axisDistance, vaultMinRange, vaultMaxRange, IsPlayerFacingMe(), grounded, rolling);
+            bool queued = IsQueuedVaultOpen(axisDistance, grounded, rolling);
+            if (!open && !queued)
                 return false;
 
             float signed = Movement.GetSignedAxisDistance(transform.position, Actor.Target.position);
@@ -596,7 +640,8 @@ namespace junklite
             if (!TryComputeVaultLanding(out Vector3 destination) || !IsLeapLandingValid(destination))
                 return false;
 
-            if (Random.value > vaultChance)
+            float chance = queued ? Mathf.Max(vaultChance, queuedVaultChance) : vaultChance;
+            if (Random.value > chance)
                 return false;
             if (!EnemyEngagementDirector.TryReserveLeap(Actor, groupLeapCooldown))
                 return false;
@@ -605,9 +650,55 @@ namespace junklite
             vaultAnchor = Actor.Target.position;
             leapDestination = destination;
             ReleaseAttackPermission();
-            Log($"vault over the player (axis {axisDistance:0.0})");
+            Log($"vault over the player (axis {axisDistance:0.0}, queued {queued})");
             ChangeState<LeapState>();
             return StateMachine.CurrentState is LeapState;
+        }
+
+        private bool IsQueuedVaultOpen(float axisDistance, bool grounded, bool rolling)
+        {
+            if (queuedVaultChance <= 0f
+                || !EnemyEngagementDirector.TryGetLaneSnapshot(Actor, out EnemyLaneSnapshot lane))
+                return false;
+
+            return HyenaTactics.QueuedVaultOpen(
+                axisDistance, vaultMinRange, queuedVaultMaxRange,
+                CountEnemiesAhead(), lane.CountFarSide, grounded, rolling);
+        }
+
+        /// <summary>
+        /// Fighting enemies standing between her and the player on this lane. Any type counts,
+        /// including a Brute or Robot the director does not line up, and whoever the player is
+        /// swinging at. Airborne and downed bodies do not: there is nothing to wait behind.
+        /// </summary>
+        private int CountEnemiesAhead()
+        {
+            Vector3 target = Actor.Target.position;
+            float mine = Movement.GetSignedAxisDistance(transform.position, target);
+            Vector3 depthAxis = Vector3.Cross(Vector3.up, Movement.MovementAxis);
+
+            int count = 0;
+            IReadOnlyList<EnemyCharacter> enemies = EnemyCharacter.ActiveEnemies;
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                EnemyCharacter other = enemies[i];
+                if (other == null || other == Actor || !other.IsAlive || !other.IsInCombat || other.IsLaunched)
+                    continue;
+
+                IState state = other.StateMachine != null ? other.StateMachine.CurrentState : null;
+                if (state is LeapState || state is GapJumpState)
+                    continue;
+
+                Vector3 delta = other.transform.position - transform.position;
+                if (Mathf.Abs(delta.y) > LaneBodyTolerance
+                    || Mathf.Abs(Vector3.Dot(delta, depthAxis)) > LaneBodyTolerance)
+                    continue;
+
+                if (HyenaTactics.StandsBetween(mine, Movement.GetSignedAxisDistance(other.transform.position, target)))
+                    count++;
+            }
+
+            return count;
         }
 
         /// <summary>Landing point just behind the player (her far side), at take-off ground height and this lane depth.</summary>
@@ -661,10 +752,10 @@ namespace junklite
             if (!IsSegmentClear(transform.position, destination) || !HasGroundAt(destination))
                 return false;
 
-            // Another enemy body already standing there.
+            // Another enemy body already standing there: her body must fit beside it.
             int count = Physics.OverlapSphereNonAlloc(
                 destination + Vector3.up * 1f,
-                0.45f,
+                bodyHalfWidth + contactGap,
                 overlapBuffer,
                 LayerMask.GetMask("Enemies"),
                 QueryTriggerInteraction.Ignore);
