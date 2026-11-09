@@ -1,6 +1,5 @@
 ﻿using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using System;
 using System.Collections.Generic;
 using UnityEngine.UI;
@@ -45,8 +44,6 @@ namespace junklite
         [SerializeField] private TMP_FontAsset headingFont;
         [SerializeField] private TMP_FontAsset bodyFont;
         [SerializeField] private Font headingSourceFont;
-        [Tooltip("Authored chip shown at both ends of the tab row while a pad is in use (LB / RB, L1 / R1). An inactive object outside the panel with a TMP label in its children; the hints stay hidden when empty.")]
-        [SerializeField] private GameObject tabHintTemplate;
 
         private static readonly Color Backdrop = new(0.012f, 0.018f, 0.042f, 0.78f);
         private static readonly Color Frame = new(0.032f, 0.045f, 0.087f, 0.985f);
@@ -94,12 +91,6 @@ namespace junklite
         private RectTransform frameTransform;
         private TMP_Text frameTitle;
         private TMP_Text inputHintsText;
-        // Controller badges at both ends of the tab row (previous / next tab bumper): copies of tabHintTemplate.
-        private GameObject previousTabHint;
-        private GameObject nextTabHint;
-        private TMP_Text previousTabHintText;
-        private TMP_Text nextTabHintText;
-        private int lastTabSwitchFrame = -1;
         private PlayerUpgrades upgrades;
         private TMP_FontAsset generatedHeadingFont;
 
@@ -122,11 +113,6 @@ namespace junklite
                 headingFont = UIFonts.HudTitle;
 
             BuildInterface();
-        }
-
-        private void Update()
-        {
-            PollTabBumpers();
         }
 
         private void LateUpdate()
@@ -352,27 +338,9 @@ namespace junklite
         private void HandlePreviousTab() => CycleTab(-1);
         private void HandleNextTab() => CycleTab(1);
 
-        /// <summary>
-        /// Direct read of the shoulder buttons while the menu is open. The UI action map's
-        /// PreviousTab/NextTab events are the normal path; this catches a pad whose events
-        /// never arrive (map not enabled, scheme mask) so the tabs always answer the bumpers.
-        /// A frame guard keeps the two paths from switching twice on one press.
-        /// </summary>
-        private void PollTabBumpers()
-        {
-            if (panel == null || !panel.activeInHierarchy) return;
-            Gamepad pad = Gamepad.current;
-            if (pad == null) return;
-
-            if (pad.leftShoulder.wasPressedThisFrame) CycleTab(-1);
-            else if (pad.rightShoulder.wasPressedThisFrame) CycleTab(1);
-        }
-
         private void CycleTab(int step)
         {
             if (panel == null || !panel.activeInHierarchy) return;
-            if (Time.frameCount == lastTabSwitchFrame) return;
-            lastTabSwitchFrame = Time.frameCount;
             const int tabCount = (int)Tab.Upgrades + 1;
             switch ((Tab)(((int)activeTab + step + tabCount) % tabCount))
             {
@@ -465,16 +433,9 @@ namespace junklite
 
         private void HandleUINavigate(Vector2 move)
         {
+            if (activeTab != Tab.Inventory) return;
             if (EventSystem.current == null) return;
             if (move.sqrMagnitude < NavigateDeadZone * NavigateDeadZone) return;
-
-            // The authored pages navigate through the EventSystem (automatic Button navigation).
-            // It only moves from a selected object, so a page with nothing focused gets its default.
-            if (activeTab != Tab.Inventory)
-            {
-                if (activeTab == Tab.Upgrades) EnsureUpgradesFocus();
-                return;
-            }
             if (Time.unscaledTime < nextNavigateTime) return;
 
             nextNavigateTime = Time.unscaledTime + NavigateRepeatDelay;
@@ -667,37 +628,13 @@ namespace junklite
             frameTitle = TextAt("Title", frameTransform, "INVENTORY",
                 48f, Paper, 38f, 52f, 650f, 64f, true, FontStyles.Bold);
 
-            // Tabs sit between two controller badges (LB / RB on Xbox, L1 / R1 on PlayStation),
-            // shown only while a pad is in use. The badge itself is authored (tabHintTemplate).
-            previousTabHint = PlaceTabHint("Previous Tab Hint", 664f, 76f, out previousTabHintText);
-            inventoryTabButton = CreateTab("INVENTORY", 712f, 76f, 148f);
-            infoTabButton = CreateTab("CODEX", 872f, 76f, 118f);
-            missionsTabButton = CreateTab("MISSIONS", 1002f, 76f, 148f);
-            upgradesTabButton = CreateTab("UPGRADES", 1162f, 76f, 180f);
-            nextTabHint = PlaceTabHint("Next Tab Hint", 1354f, 76f, out nextTabHintText);
+            inventoryTabButton = CreateTab("INVENTORY", 760f, 76f, 148f);
+            infoTabButton = CreateTab("CODEX", 920f, 76f, 118f);
+            missionsTabButton = CreateTab("MISSIONS", 1050f, 76f, 148f);
+            upgradesTabButton = CreateTab("UPGRADES", 1210f, 76f, 180f);
 
             RectImage("Header Rule", frameTransform, Line, 40f, 146f, 1360f, 1f);
             RectImage("Header Signal", frameTransform, Magenta, 40f, 146f, 96f, 3f);
-        }
-
-        /// <summary>
-        /// A copy of the authored bumper chip at one end of the tab row, hidden until a pad is in
-        /// use. Its look (size, colours, font) is the template's; only the slot is set here, like
-        /// the tabs beside it. No template, no hint.
-        /// </summary>
-        private GameObject PlaceTabHint(string name, float x, float y, out TMP_Text label)
-        {
-            label = null;
-            if (tabHintTemplate == null)
-                return null;
-
-            GameObject chip = Instantiate(tabHintTemplate, frameTransform, false);
-            chip.name = name;
-            if (chip.transform is RectTransform rect)
-                Place(rect, x, y, rect.sizeDelta.x, rect.sizeDelta.y);
-            label = chip.GetComponentInChildren<TMP_Text>(true);
-            chip.SetActive(false);
-            return chip;
         }
 
         private MenuButton CreateTab(string label, float x, float y, float width)
@@ -982,26 +919,12 @@ namespace junklite
             RefreshInputHints();
         }
 
-        private void HandleInputDeviceChanged(bool usingGamepad)
-        {
-            RefreshInputHints();
-            if (usingGamepad && activeTab == Tab.Upgrades) EnsureUpgradesFocus();
-        }
-
-        /// <summary>Upgrades tab on a pad with nothing selected: focus the page's default node.</summary>
-        private void EnsureUpgradesFocus()
-        {
-            if (upgradesScreen == null || !upgradesScreen.activeInHierarchy || EventSystem.current == null) return;
-            GameObject selected = EventSystem.current.currentSelectedGameObject;
-            if (selected != null && selected.activeInHierarchy && selected.transform.IsChildOf(upgradesScreen.transform)) return;
-            upgradesScreen.GetComponent<UpgradesPageView>()?.SelectDefault();
-        }
+        private void HandleInputDeviceChanged(bool _) => RefreshInputHints();
 
         private void RefreshInputHints()
         {
-            GameInputManager input = GameInputManager.Instance;
-            RefreshTabHints(input);
             if (inputHintsText == null) return;
+            GameInputManager input = GameInputManager.Instance;
             if (input == null || !input.IsUsingGamepad)
             {
                 string tabs = input != null
@@ -1018,20 +941,6 @@ namespace junklite
             string close = input.GetBindingHint("Player/Inventory").ToUpperInvariant();
             inputHintsText.text =
                 $"{previous} / {next}  TABS     D-PAD / STICK  NAVIGATE     {submit}  SELECT     {close}  CLOSE";
-        }
-
-        /// <summary>The bumper badges beside the tabs: visible on a pad, named after its bindings.</summary>
-        private void RefreshTabHints(GameInputManager input)
-        {
-            bool show = input != null && input.IsUsingGamepad;
-            if (previousTabHint != null) previousTabHint.SetActive(show);
-            if (nextTabHint != null) nextTabHint.SetActive(show);
-            if (!show) return;
-
-            if (previousTabHintText != null)
-                previousTabHintText.text = input.GetBindingHint("UI/PreviousTab").ToUpperInvariant();
-            if (nextTabHintText != null)
-                nextTabHintText.text = input.GetBindingHint("UI/NextTab").ToUpperInvariant();
         }
 
         private void FitFrame()

@@ -9,6 +9,13 @@
 >
 > After architecture changes, run `graphify update .` again so the next developer and agent get accurate answers. Details are in `GRAPHIFY_WORKFLOW.md`. The graph covers C# and `.md` files only and does not replace this document.
 
+### UI reverted to the 2026-11-08 state (2026-11-09)
+
+- **Decision (Rashid):** the HUD and I-menu changes pushed after `76d3bfe7` are dropped. Five files are back to that commit: `New Player UI 2.prefab`, `Objective Tracker HUD.prefab`, `CombatModSlotUI.cs`, `InventoryUI.cs`, `ModCombatUI.cs`.
+- **Removed:** `Editor/ActiveModsBarUISetup.cs` (the Build Active Mods Bar tool) and `Tests/Editor/ActiveModsBarTests.cs`.
+- **Effect:** the notes below on the authored Active Mods Bar, the bumper tab hints (including the `tabHintTemplate` item in the 2026-11-09 review fixes) and the shrunk objective tracker no longer describe the game. `ModCombatUI` builds its bar in code again, as legacy UI. Do not extend it.
+- **Not reverted:** older UI edits that came with the combat focus, brute and checkpoint work (before `76d3bfe7`).
+
 ### Review fixes: gap jump cut mid-air, Hyena armor flag, code-built tab hints (2026-11-09)
 
 - **Gap jump cut by a status stun (was: enemy dropped into the pit).** `ApplyStatusEffectSnapshot` only deferred the stun for `LaunchedState`; a shock/stun status tick over the gap entered `StunnedState` directly, `GapJumpState.Exit` restored the dynamic body over the hole and the fall kill removed the enemy. Now `GapJumpState.CanBeInterrupted` is false only while airborne (`finished || phase == Land`: the body is dynamic again at `BeginLand`), and both the status path and `ReceiveDamage` treat an airborne `GapJumpState` like a launch: the status stun waits, knockback is dropped (it would bend the kinematic arc), and a hit stagger is stored (`hasPendingAirHitstun`, latest hit wins). `EnemyCharacter.ApplyDeferredAirReactions()` applies the stored stagger (`ApplyHitstun`, through the status handler when there is one) and enters `StunnedState` for a deferred crowd-control status; it returns true when the enemy is stunned. `OnLaunchFinished` uses it too (same behaviour as before for launches). `EnemyBrain.OnGapJumpFinished(true)` calls it after `DropLastKnownPositionBehind` and skips `EvaluateNextAction` when stunned (StunnedState's end hands back); `OnGapJumpFinished(false)` discards the stored hit. Hits during the 0.1 s Land phase react normally.

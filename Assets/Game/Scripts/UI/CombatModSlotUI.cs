@@ -6,11 +6,7 @@ namespace junklite
 {
     public class CombatModSlotUI : MonoBehaviour
     {
-        [Header("Unlock Flash")]
-        [Tooltip("Authored full-slot image faded in and out when a bought upgrade adds this slot. Empty = a plain overlay is created (legacy slots).")]
-        [SerializeField] private Image unlockFlash;
-
-        private GameObject createdUnlockFlash;
+        private GameObject unlockFlash;
         private Coroutine unlockFlashRoutine;
 
         public void FlashUnlock(Color color)
@@ -22,39 +18,33 @@ namespace junklite
 
         private System.Collections.IEnumerator UnlockFlash(Color color)
         {
-            Image image = unlockFlash;
-            if (image == null)
-            {
-                // Legacy slot with no authored flash: a plain overlay, removed afterwards.
-                var go = new GameObject("Slot Unlocked", typeof(RectTransform), typeof(Image));
-                createdUnlockFlash = go;
-                go.layer = gameObject.layer;
-                go.transform.SetParent(transform, false);
-                var rect = go.GetComponent<RectTransform>();
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.one;
-                rect.offsetMin = rect.offsetMax = Vector2.zero;
-                image = go.GetComponent<Image>();
-                image.raycastTarget = false;
-            }
-
-            image.gameObject.SetActive(true);
+            var go = new GameObject("Slot Unlocked", typeof(RectTransform), typeof(Image));
+            unlockFlash = go;
+            go.layer = gameObject.layer;
+            go.transform.SetParent(transform, false);
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            var image = go.GetComponent<Image>();
+            image.raycastTarget = false;
             for (float time = 0; time < 1.2f; time += Time.unscaledDeltaTime)
             {
                 color.a = 0.35f * (1f - time / 1.2f);
                 image.color = color;
                 yield return null;
             }
-            ClearUnlockFlash();
+            Destroy(go);
+            unlockFlash = null;
+            unlockFlashRoutine = null;
         }
 
         private void ClearUnlockFlash()
         {
             if (unlockFlashRoutine != null) StopCoroutine(unlockFlashRoutine);
             unlockFlashRoutine = null;
-            if (createdUnlockFlash != null) Destroy(createdUnlockFlash);
-            createdUnlockFlash = null;
-            if (unlockFlash != null) unlockFlash.gameObject.SetActive(false);
+            if (unlockFlash != null) Destroy(unlockFlash);
+            unlockFlash = null;
         }
         [Header("References")]
         [SerializeField] private Image iconImage;
