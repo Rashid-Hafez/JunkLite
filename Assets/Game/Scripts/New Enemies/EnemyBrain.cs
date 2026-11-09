@@ -280,10 +280,19 @@ namespace junklite
             // Landed: the state is still GapJumpState until this decision leaves it.
             // Cut short (death, forced state): the new state already owns the body.
             if (!landed)
+            {
+                Actor.DiscardDeferredAirReactions();
                 return;
+            }
 
             if (!Actor.HasTarget)
                 DropLastKnownPositionBehind();
+
+            // A hit or a status stun that landed over the gap staggers now; StunnedState's
+            // end hands the decision back.
+            if (Actor.ApplyDeferredAirReactions())
+                return;
+
             EvaluateNextAction(true);
         }
 

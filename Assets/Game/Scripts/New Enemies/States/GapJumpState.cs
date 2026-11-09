@@ -6,8 +6,10 @@ namespace junklite
     /// Kinematic arc over a gap in the floor, to the landing point the brain took from
     /// <see cref="EnemyMovement.ProbeGap"/>. Shared by every ground enemy (registered by
     /// <see cref="EnemyBrain"/>). Airborne the body is kinematic and not interruptible:
-    /// damage still applies, a stun waits for the landing. Reports back through
-    /// <see cref="IGapJumper.OnGapJumpFinished"/>.
+    /// damage still applies, knockback is dropped and a stun (hit or status) waits for the
+    /// landing (<see cref="EnemyCharacter.ApplyDeferredAirReactions"/>). Once the feet are
+    /// down (Land phase, dynamic body again) it is interruptible like any state. Reports
+    /// back through <see cref="IGapJumper.OnGapJumpFinished"/>.
     /// </summary>
     public sealed class GapJumpState : EnemyStateBase
     {
@@ -36,7 +38,8 @@ namespace junklite
 
         public GapJumpState(EnemyCharacter enemy) : base(enemy) { }
 
-        public override bool CanBeInterrupted => false;
+        /// <summary>Over the gap the arc must finish or the body drops into the hole; on the floor it can be cut.</summary>
+        public override bool CanBeInterrupted => finished || phase == Phase.Land;
 
         public override void Enter()
         {

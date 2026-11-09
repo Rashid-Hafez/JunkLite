@@ -461,8 +461,20 @@ namespace junklite
         private void StartDash()
         {
             nextDashAllowed = Time.time + dashCooldown;
+            counterCharging = false;
             dash.ResetHitResult();
             ChangeState<ChargeState>();
+        }
+
+        /// <summary>
+        /// The armor flag lives only while the counter's ChargeState runs into its DashState. Any
+        /// other way out of the charge (a status stun or a forced state ignores CanBeInterrupted,
+        /// a target loss, death) drops it, or the next opener charge would run armored.
+        /// </summary>
+        protected override void OnStateChanged(IState from, IState to)
+        {
+            if (counterCharging && from is ChargeState && to is not DashState)
+                counterCharging = false;
         }
 
         /// <summary>

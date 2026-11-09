@@ -370,12 +370,17 @@ namespace junklite
 
         private void HandleStateChanged(IState from, IState to)
         {
+            OnStateChanged(from, to);
+
             if (!EnemyEngagementDirector.HoldsAttack(Actor))
                 return;
 
             if (IsAttackCommitment(from) && !IsAttackCommitment(to))
                 ReleaseAttackPermission();
         }
+
+        /// <summary>Every state change of this enemy, for a brain's own bookkeeping (flags tied to a state).</summary>
+        protected virtual void OnStateChanged(IState from, IState to) { }
 
         private static bool IsAttackCommitment(IState state)
         {

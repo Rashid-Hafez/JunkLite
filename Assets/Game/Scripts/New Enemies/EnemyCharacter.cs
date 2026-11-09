@@ -118,6 +118,11 @@ namespace junklite
         private Vector3 pendingLaunchVelocity;
         private GameObject pendingLaunchSource;
 
+        // Gap jump handoff: a hit over the gap stores its stagger, the landing applies it.
+        private bool hasPendingAirHitstun;
+        private HitReactionRequest pendingAirHitstun;
+        private GameObject pendingAirHitstunSource;
+
         public bool IsParryStunned => isParryStunned;
 
         // Combat state - prevents detection events from interrupting combat
@@ -633,6 +638,18 @@ namespace junklite
                     if (!request.IsTickDamage && request.HitReaction.HasAnyReaction)
                         launched.OnHitWhileLaunched(request, ResolveLaunchVelocity(request));
                 }
+                else if (state is GapJumpState && !state.CanBeInterrupted)
+                {
+                    // Over a gap: the kinematic arc must finish or the body drops into the hole.
+                    // Knockback would bend the arc, so it is dropped; the stagger is kept and
+                    // applied on landing (ApplyDeferredAirReactions). Latest hit wins.
+                    if (!request.IsTickDamage && request.HitReaction.HasHitstun)
+                    {
+                        hasPendingAirHitstun = true;
+                        pendingAirHitstun = request.HitReaction;
+                        pendingAirHitstunSource = request.Source;
+                    }
+                }
                 else if (state == null || state.CanBeInterrupted)
                 {
                     if (request.HitReaction.IsLaunch && canBeLaunched && movement != null && movement.CanBeLaunched)
@@ -735,17 +752,53 @@ namespace junklite
                 return;
 
             // A stun that landed while airborne was deferred; apply it now.
-            if (statusCrowdControlled && stateMachine.HasState<StunnedState>() && GetCapability<IStunnable>() != null)
-            {
-                stateMachine.ChangeState<StunnedState>();
+            if (ApplyDeferredAirReactions())
                 return;
-            }
 
             IStunnable stunnable = GetCapability<IStunnable>();
             if (stunnable != null)
                 stunnable.OnStunComplete();
             else
                 OnStunComplete();
+        }
+
+        /// <summary>
+        /// The feet are back on the floor after a launch or a gap jump: a hit stagger stored
+        /// over the gap is applied now, and a crowd-control status that started in the air
+        /// enters StunnedState now. Returns true when the enemy is stunned as a result, so the
+        /// caller leaves the next decision to StunnedState's end.
+        /// </summary>
+        public bool ApplyDeferredAirReactions()
+        {
+            if (!IsAlive || stateMachine == null)
+            {
+                DiscardDeferredAirReactions();
+                return false;
+            }
+
+            if (hasPendingAirHitstun)
+            {
+                HitReactionRequest reaction = pendingAirHitstun;
+                GameObject source = pendingAirHitstunSource;
+                DiscardDeferredAirReactions();
+                // Through the status handler this raises a snapshot that enters StunnedState
+                // itself (the state is interruptible again); without one it enters directly.
+                ApplyHitstun(source, reaction);
+            }
+
+            if (statusCrowdControlled && stateMachine.CurrentState is not StunnedState
+                && stateMachine.HasState<StunnedState>() && GetCapability<IStunnable>() != null)
+                stateMachine.ChangeState<StunnedState>();
+
+            return stateMachine.CurrentState is StunnedState;
+        }
+
+        /// <summary>The arc was cut short (death, forced state): nothing stored over the gap survives.</summary>
+        public void DiscardDeferredAirReactions()
+        {
+            hasPendingAirHitstun = false;
+            pendingAirHitstun = default;
+            pendingAirHitstunSource = null;
         }
 
         public virtual void ApplyStun(float duration)
@@ -805,8 +858,10 @@ namespace junklite
             if (!crowdControlStarted || !IsAlive || stateMachine == null)
                 return;
 
-            // Airborne or downed: the launch finishes first, then OnLaunchFinished applies the stun.
-            if (state is LaunchedState launched && !launched.CanBeInterrupted)
+            // Airborne or downed: the launch or the gap jump finishes first, then OnLaunchFinished /
+            // the gap landing applies the stun (ApplyDeferredAirReactions). Cutting the gap arc here
+            // would restore the dynamic body over the hole.
+            if ((state is LaunchedState || state is GapJumpState) && !state.CanBeInterrupted)
                 return;
 
             movement?.Stop();

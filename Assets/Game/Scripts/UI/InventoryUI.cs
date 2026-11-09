@@ -45,6 +45,8 @@ namespace junklite
         [SerializeField] private TMP_FontAsset headingFont;
         [SerializeField] private TMP_FontAsset bodyFont;
         [SerializeField] private Font headingSourceFont;
+        [Tooltip("Authored chip shown at both ends of the tab row while a pad is in use (LB / RB, L1 / R1). An inactive object outside the panel with a TMP label in its children; the hints stay hidden when empty.")]
+        [SerializeField] private GameObject tabHintTemplate;
 
         private static readonly Color Backdrop = new(0.012f, 0.018f, 0.042f, 0.78f);
         private static readonly Color Frame = new(0.032f, 0.045f, 0.087f, 0.985f);
@@ -92,7 +94,7 @@ namespace junklite
         private RectTransform frameTransform;
         private TMP_Text frameTitle;
         private TMP_Text inputHintsText;
-        // Controller badges at both ends of the tab row (previous / next tab bumper).
+        // Controller badges at both ends of the tab row (previous / next tab bumper): copies of tabHintTemplate.
         private GameObject previousTabHint;
         private GameObject nextTabHint;
         private TMP_Text previousTabHintText;
@@ -666,30 +668,36 @@ namespace junklite
                 48f, Paper, 38f, 52f, 650f, 64f, true, FontStyles.Bold);
 
             // Tabs sit between two controller badges (LB / RB on Xbox, L1 / R1 on PlayStation),
-            // shown only while a pad is in use.
-            previousTabHint = CreateTabHint("Previous Tab Hint", 664f, 76f, out previousTabHintText);
+            // shown only while a pad is in use. The badge itself is authored (tabHintTemplate).
+            previousTabHint = PlaceTabHint("Previous Tab Hint", 664f, 76f, out previousTabHintText);
             inventoryTabButton = CreateTab("INVENTORY", 712f, 76f, 148f);
             infoTabButton = CreateTab("CODEX", 872f, 76f, 118f);
             missionsTabButton = CreateTab("MISSIONS", 1002f, 76f, 148f);
             upgradesTabButton = CreateTab("UPGRADES", 1162f, 76f, 180f);
-            nextTabHint = CreateTabHint("Next Tab Hint", 1354f, 76f, out nextTabHintText);
+            nextTabHint = PlaceTabHint("Next Tab Hint", 1354f, 76f, out nextTabHintText);
 
             RectImage("Header Rule", frameTransform, Line, 40f, 146f, 1360f, 1f);
             RectImage("Header Signal", frameTransform, Magenta, 40f, 146f, 96f, 3f);
         }
 
-        /// <summary>A small chip with the bumper's name, the same height as the tabs.</summary>
-        private GameObject CreateTabHint(string name, float x, float y, out TMP_Text label)
+        /// <summary>
+        /// A copy of the authored bumper chip at one end of the tab row, hidden until a pad is in
+        /// use. Its look (size, colours, font) is the template's; only the slot is set here, like
+        /// the tabs beside it. No template, no hint.
+        /// </summary>
+        private GameObject PlaceTabHint(string name, float x, float y, out TMP_Text label)
         {
-            Image chip = RectImage(name, frameTransform, Well, x, y, 40f, 46f);
-            AddBorder(chip.rectTransform, new Color(Cyan.r, Cyan.g, Cyan.b, 0.6f));
-            label = TextAt("Label", chip.transform, "", 13f, Cyan, 2f, 0f, 36f, 46f, false, FontStyles.Bold);
-            label.horizontalAlignment = HorizontalAlignmentOptions.Center;
-            label.enableAutoSizing = true;
-            label.fontSizeMin = 8f;
-            label.fontSizeMax = 13f;
-            chip.gameObject.SetActive(false);
-            return chip.gameObject;
+            label = null;
+            if (tabHintTemplate == null)
+                return null;
+
+            GameObject chip = Instantiate(tabHintTemplate, frameTransform, false);
+            chip.name = name;
+            if (chip.transform is RectTransform rect)
+                Place(rect, x, y, rect.sizeDelta.x, rect.sizeDelta.y);
+            label = chip.GetComponentInChildren<TMP_Text>(true);
+            chip.SetActive(false);
+            return chip;
         }
 
         private MenuButton CreateTab(string label, float x, float y, float width)
