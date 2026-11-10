@@ -1,0 +1,142 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+  <ui:Template name="Crt" src="../../Shared/UI/Crt.uxml" />
+  <Style src="Inventory.uss" />
+  <ui:VisualElement class="frame">
+    <ui:VisualElement name="inventory" class="stage inventory inventory--hidden">
+      <ui:VisualElement class="inventory__background" picking-mode="Ignore" />
+      <ui:VisualElement name="glitch" class="glitch" picking-mode="Ignore" />
+
+      <ui:VisualElement name="tabs" class="tabs">
+        <ui:Button name="tab-inventory" class="plain-button tab tab--active" text="INVENTORY" />
+        <ui:Button name="tab-missions" class="plain-button tab" text="MISSIONS" />
+        <ui:VisualElement name="tab-line" class="tab-line" picking-mode="Ignore" />
+      </ui:VisualElement>
+
+      <ui:VisualElement class="vitals" picking-mode="Ignore">
+        <ui:VisualElement class="vital vital--health">
+          <ui:VisualElement class="vital__row">
+            <ui:Label class="vital__label" text="HEALTH" />
+            <ui:Label name="health-value" class="vital__value" text="—" />
+          </ui:VisualElement>
+          <ui:VisualElement class="health-bar">
+            <ui:VisualElement name="health-fill" class="health-bar__fill" />
+            <ui:VisualElement class="health-bar__ticks" />
+          </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="vital vital--armor">
+          <ui:Label class="vital__label" text="ARMOR" />
+          <ui:Label name="armor-value" class="vital__big" text="—" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+
+      <ui:VisualElement name="callout-row" class="callout-row" picking-mode="Ignore">
+        <ui:VisualElement name="callout" class="callout">
+          <ui:Label class="callout__source" text="// C.M.A. OPTIC" />
+          <ui:Label name="callout-message" class="callout__message" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+
+      <ui:VisualElement name="cas-hit" class="cas-hit" focusable="true" />
+      <ui:VisualElement name="cas-stats" class="cas-stats" picking-mode="Ignore">
+        <ui:Label class="cas-stats__kicker" text="CAS" />
+        <ui:Label class="cas-stats__title" text="STATS" />
+        <ui:VisualElement class="cas-stats__list">
+          <ui:VisualElement class="cas-stats__row">
+            <ui:Label class="cas-stats__key" text="HEALTH" />
+            <ui:Label name="stats-health" class="cas-stats__value" text="—" />
+          </ui:VisualElement>
+          <ui:VisualElement class="cas-stats__row">
+            <ui:Label class="cas-stats__key" text="ARMOR" />
+            <ui:Label name="stats-armor" class="cas-stats__value" text="—" />
+          </ui:VisualElement>
+          <ui:VisualElement class="cas-stats__row">
+            <ui:VisualElement class="cas-stats__blank cas-stats__blank--key" />
+            <ui:VisualElement class="cas-stats__blank" />
+          </ui:VisualElement>
+          <ui:VisualElement class="cas-stats__row">
+            <ui:VisualElement class="cas-stats__blank cas-stats__blank--key" />
+            <ui:VisualElement class="cas-stats__blank" />
+          </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:Label class="cas-stats__note" text="STATS PENDING" />
+      </ui:VisualElement>
+
+      <ui:VisualElement name="sockets" class="sockets" picking-mode="Ignore" />
+
+      <ui:VisualElement name="storage-head" class="storage-head" picking-mode="Ignore">
+        <ui:Label class="storage-head__label" text="STORED MODS" />
+        <ui:Label name="storage-count" class="storage-head__count" />
+      </ui:VisualElement>
+      <ui:VisualElement name="filter" class="filter">
+        <ui:VisualElement name="filter-glide" class="filter__glide" picking-mode="Ignore" />
+        <ui:Button name="filter-all" class="plain-button filter__button filter__button--active" text="ALL" />
+        <ui:Button name="filter-active" class="plain-button filter__button" text="ACTIVE" />
+        <ui:Button name="filter-passive" class="plain-button filter__button" text="PASSIVE" />
+      </ui:VisualElement>
+      <ui:VisualElement name="grid" class="grid" />
+      <ui:VisualElement name="legend" class="legend" picking-mode="Ignore">
+        <ui:VisualElement class="legend__dot legend__dot--junk" />
+        <ui:Label class="legend__label" text="JUNK" />
+        <ui:VisualElement class="legend__dot legend__dot--standard" />
+        <ui:Label class="legend__label" text="STANDARD" />
+        <ui:VisualElement class="legend__dot legend__dot--classified" />
+        <ui:Label class="legend__label" text="CLASSIFIED" />
+        <ui:VisualElement class="legend__dot legend__dot--elite" />
+        <ui:Label class="legend__label" text="ELITE" />
+      </ui:VisualElement>
+
+      <ui:VisualElement name="page" class="page hidden" picking-mode="Ignore" />
+
+      <ui:VisualElement name="detail" class="detail" picking-mode="Ignore">
+        <ui:VisualElement name="detail-mod" class="detail__mod">
+          <ui:VisualElement class="detail__art">
+            <ui:VisualElement name="detail-image" class="detail__image" />
+            <ui:VisualElement name="detail-tint" class="detail__tint" />
+            <ui:VisualElement class="detail__fade" />
+          </ui:VisualElement>
+          <ui:VisualElement class="detail__body">
+            <ui:VisualElement class="detail__rarity">
+              <ui:VisualElement name="detail-dot" class="detail__dot" />
+              <ui:Label name="detail-rarity" class="detail__rarity-label" />
+            </ui:VisualElement>
+            <ui:Label name="detail-name" class="detail__name" />
+            <ui:Label name="detail-type" class="detail__type" />
+            <ui:VisualElement class="detail__stats">
+              <ui:VisualElement class="detail__stat">
+                <ui:Label name="detail-cooldown" class="detail__stat-value" />
+                <ui:Label class="detail__stat-label" text="COOLDOWN" />
+              </ui:VisualElement>
+              <ui:VisualElement class="detail__stat detail__stat--divided">
+                <ui:Label name="detail-damage" class="detail__stat-value" />
+                <ui:Label name="detail-damage-label" class="detail__stat-label" text="DAMAGE" />
+              </ui:VisualElement>
+              <ui:VisualElement class="detail__stat detail__stat--divided">
+                <ui:Label name="detail-tier" class="detail__stat-value" />
+                <ui:Label class="detail__stat-label" text="TIER" />
+              </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:Label name="detail-description" class="detail__description" />
+            <ui:VisualElement name="detail-status" class="detail__status">
+              <ui:VisualElement class="detail__status-dot" />
+              <ui:Label name="detail-status-label" class="detail__status-label" />
+            </ui:VisualElement>
+          </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="detail-empty" class="detail__empty hidden">
+          <ui:VisualElement class="detail__empty-ring" />
+          <ui:Label name="detail-empty-title" class="detail__empty-title" text="SELECT A MOD" />
+          <ui:Label name="detail-empty-hint" class="detail__empty-hint" text="HOVER OR USE THE ARROW KEYS" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+
+      <ui:VisualElement name="reticle" class="reticle" picking-mode="Ignore">
+        <ui:VisualElement class="reticle__corner reticle__corner--tl" />
+        <ui:VisualElement class="reticle__corner reticle__corner--tr" />
+        <ui:VisualElement class="reticle__corner reticle__corner--bl" />
+        <ui:VisualElement class="reticle__corner reticle__corner--br" />
+      </ui:VisualElement>
+
+      <ui:Instance template="Crt" class="crt" picking-mode="Ignore" />
+    </ui:VisualElement>
+  </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,58 @@
+/* Shared by every Junklite screen. Import it at the top of a screen's stylesheet. */
+
+/* The glitch layer sits in each screen, outside the CRT template, so its rules have to reach the whole screen. */
+@import url("Crt.uss");
+
+:root {
+  --font-mono: url("../Fonts/AzeretMono-Regular.ttf");
+  --font-mono-bold: url("../Fonts/AzeretMono-SemiBold.ttf");
+  --font-button: url("../Fonts/JetBrainsMono-Medium.ttf");
+  --font-number: url("../Fonts/Bender-Regular.otf");
+  --font-display: url("../Fonts/Anton-Regular.ttf");
+}
+
+/* The default theme adds padding to every label. */
+.unity-label {
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+  -unity-text-align: middle-left;
+}
+
+/* Buttons are restyled per screen, so clear the theme's look in every state. */
+.plain-button,
+.plain-button:hover,
+.plain-button:active,
+.plain-button:focus,
+.plain-button:hover:active {
+  margin: 0;
+  padding: 0;
+  border-width: 0;
+  border-radius: 0;
+  background-color: rgba(0, 0, 0, 0);
+}
+
+.hidden {
+  display: none;
+}
+
+/* Centres a fixed 1920x1080 screen and letterboxes everything else. */
+.frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.stage {
+  width: 1920px;
+  height: 1080px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* Note: on 6000.6 letter-spacing acts as a percentage of the font size, so 14px here means 0.14em. */

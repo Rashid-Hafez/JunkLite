@@ -1,0 +1,241 @@
+@import url("../../Shared/UI/Common.uss");
+
+:root {
+  --color-bg: #07090C;
+  --color-text-dim: #A7B0B7;
+  --color-text-faint: #56606B;
+  --color-text-off: #343C46;
+  --color-action: #5DEFE2;
+  --color-action-idle: #34817B;
+  --color-action-wash: rgba(93, 239, 226, 0.011);
+
+  --fade: 150ms ease-out-cubic;
+}
+
+.title-frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  align-items: center;
+  justify-content: center;
+  background-color: #000;
+}
+
+.title-screen {
+  width: 1920px;
+  height: 1080px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background-color: var(--color-bg);
+  transform-origin: center;
+  transition: opacity 280ms ease-out-cubic;
+}
+
+.title-screen--hidden {
+  opacity: 0;
+  transition-duration: 0s;
+}
+
+.title-screen--power-collapse {
+  scale: 1 0.004;
+  transition: scale 231ms ease-in-out-cubic;
+}
+
+.title-screen--power-out {
+  scale: 0 0.004;
+  transition: scale 189ms ease-in-out-cubic;
+}
+
+.title-screen__background {
+  position: absolute;
+  width: 1920px;
+  height: 1080px;
+  background-image: url("../Art/title-background.png");
+}
+
+/* ---------- portrait ---------- */
+
+.portrait-cover {
+  position: absolute;
+  left: 1086px;
+  top: 188px;
+  width: 586px;
+  height: 598px;
+  background-color: var(--color-bg);
+}
+
+/* ---------- live text ---------- */
+
+.payload {
+  position: absolute;
+  left: 1222px;
+  top: 946px;
+  -unity-font-definition: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 8px;
+  color: var(--color-text-dim);
+}
+
+/* ---------- menu ---------- */
+
+.menu {
+  position: absolute;
+  left: 168px;
+  top: 579px;
+  width: 620px;
+}
+
+.menu-item,
+.menu-item:hover,
+.menu-item:active,
+.menu-item:focus,
+.menu-item:hover:active {
+  margin: 0;
+  padding: 0;
+  border-width: 0;
+  border-radius: 0;
+  background-color: rgba(0, 0, 0, 0);
+}
+
+.menu-item {
+  flex-direction: row;
+  align-items: center;
+  width: 620px;
+  height: 62px;
+  -unity-font-definition: var(--font-button);
+  font-size: 24px;
+  letter-spacing: 14px;
+  color: var(--color-action-idle);
+  transition: color var(--fade), scale 110ms ease-out-cubic;
+}
+
+.menu-item:active {
+  scale: 0.985 0.985;
+}
+
+.menu-item--selected {
+  color: var(--color-action);
+}
+
+.menu-item__highlight {
+  position: absolute;
+  left: 40px;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background-color: var(--color-action-wash);
+  opacity: 0;
+  transition: opacity var(--fade);
+}
+
+.menu-item__index {
+  width: 48px;
+  -unity-font-definition: var(--font-number);
+  font-size: 14px;
+  letter-spacing: 10px;
+  color: var(--color-text-off);
+  transition: color var(--fade);
+}
+
+.menu-item__caret {
+  width: 30px;
+  padding-left: 12px;
+  opacity: 0;
+  translate: -6px 0;
+  transition: opacity var(--fade), translate var(--fade);
+}
+
+.menu-item__label {
+  padding-left: 6px;
+}
+
+.menu-item__hint {
+  margin-left: auto;
+  padding-right: 18px;
+  -unity-font-definition: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 26px;
+  color: var(--color-text-faint);
+  opacity: 0;
+  transition: opacity var(--fade);
+}
+
+.menu-item__underline {
+  position: absolute;
+  left: 40px;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background-color: var(--color-action);
+  opacity: 0.23;
+  scale: 0 1;
+  transform-origin: left;
+  transition: scale 220ms ease-out-cubic;
+}
+
+.menu-item--selected .menu-item__highlight,
+.menu-item--selected .menu-item__hint {
+  opacity: 1;
+}
+
+.menu-item--selected .menu-item__caret {
+  opacity: 1;
+  translate: 0 0;
+}
+
+.menu-item--selected .menu-item__caret--off {
+  opacity: 0;
+  transition-duration: 0s;
+}
+
+.menu-item--selected .menu-item__index {
+  color: var(--color-action-idle);
+}
+
+.menu-item--selected .menu-item__underline {
+  scale: 1 1;
+}
+
+/* ---------- CRT flash on power-off (the layer itself is in Shared/UI/Crt.uss) ---------- */
+
+.title-screen--power-collapse .fx--flash,
+.title-screen--power-out .fx--flash {
+  opacity: 0.05;
+  transition: opacity 231ms ease-in-out-cubic;
+}
+
+/* ---------- reconnect screen ---------- */
+
+.reconnect,
+.reconnect:hover,
+.reconnect:active,
+.reconnect:focus,
+.reconnect:hover:active {
+  margin: 0;
+  padding: 0;
+  border-width: 0;
+  border-radius: 0;
+  background-color: #000;
+}
+
+.reconnect {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  -unity-font-definition: var(--font-button);
+  font-size: 13px;
+  letter-spacing: 30px;
+  color: var(--color-text-faint);
+}
+
+.reconnect__action {
+  margin-left: 16px;
+  color: var(--color-action);
+}

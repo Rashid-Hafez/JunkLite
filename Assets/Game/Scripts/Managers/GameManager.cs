@@ -26,6 +26,23 @@ namespace junklite
         [SerializeField, HideInInspector] private GameObject pauseMenuUIPrefab;
         [SerializeField, HideInInspector] private GameObject loadingScreenUIPrefab;
 
+        [Header("Loading Screen")]
+        [Tooltip("Optional shader variant collections (record one in Project Settings > Graphics > Shader Loading > " +
+                 "Save to asset after playing the levels). Warmed up behind the first loading screen so the first " +
+                 "frames of a level don't hitch while the GPU compiles shaders.")]
+        [SerializeField] private ShaderVariantCollection[] shaderWarmup;
+        [Tooltip("Variants warmed per frame while the loading screen is up. Higher = faster warm-up, choppier loading video.")]
+        [SerializeField, Min(1)] private int shaderVariantsPerFrame = 8;
+        [Tooltip("After the scene and player are ready, the scene renders behind the loading screen for at least this long " +
+                 "(first-render cost: GPU uploads, shader programs, Spine meshes, late Start work).")]
+        [SerializeField, Min(0f)] private float minSettleSeconds = 0.35f;
+        [Tooltip("The loading screen never waits longer than this for frames to settle.")]
+        [SerializeField, Min(0f)] private float maxSettleSeconds = 3f;
+        [Tooltip("A frame counts as settled when it takes less than this.")]
+        [SerializeField, Min(1f)] private float settledFrameMilliseconds = 40f;
+        [Tooltip("Consecutive settled frames needed before the level is revealed.")]
+        [SerializeField, Min(1)] private int settledFramesRequired = 8;
+
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
         [SerializeField] private GameObject gameInputManagerPrefab;
@@ -35,7 +52,12 @@ namespace junklite
         private Coroutine sceneInitializationRoutine;
         private bool gameInitialized = false;
         private bool isLoadingScene = false;
+        private bool revealPending;
+        private bool settleFrozeTime;
         private AsyncOperation preloadOperation;
+
+        // Share of the loading bar for each stage: streaming the scene in, then activation + settle.
+        private const float LoadStageShare = 0.85f;
         private PlayerLifecycle playerLifecycle;
         private GameUIManager gameUIManager;
 
@@ -53,6 +75,15 @@ namespace junklite
 
         public GameState CurrentState => currentState;
         public bool IsPlaying => currentState == GameState.Playing;
+
+        /// <summary>
+        /// True from the start of a loading-screen level change until the new level is shown. Scene intros
+        /// (glitch-ins, opening dialogue) wait for this to clear so they don't play behind the loading screen.
+        /// </summary>
+        public bool IsRevealPending => revealPending;
+
+        /// <summary>Raised when the loading screen hides and the new level is visible.</summary>
+        public event Action LevelRevealed;
 
         #endregion
 
@@ -212,8 +243,76 @@ namespace junklite
             // Keep the loading screen up for one more frame so cameras and the HUD
             // rebind to the spawned player before the first visible frame.
             yield return null;
+
+            if (revealPending)
+                yield return SettleBehindLoadingScreen();
+
             gameUIManager?.EndSceneTransition();
             sceneInitializationRoutine = null;
+
+            if (revealPending)
+            {
+                revealPending = false;
+                LevelRevealed?.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// The new scene renders behind the loading screen until its frame time settles, so the one-off
+        /// first-frame work (GPU texture uploads, shader programs, Spine mesh generation, late Start()
+        /// work, the asset unload after a Single load) happens while it is covered. Gameplay time is
+        /// frozen and gameplay input stays locked meanwhile, so nothing can hurt the player unseen.
+        /// </summary>
+        private IEnumerator SettleBehindLoadingScreen()
+        {
+            settleFrozeTime = Mathf.Approximately(Time.timeScale, 1f);
+            if (settleFrozeTime) Time.timeScale = 0f;
+            GameInputManager.Instance?.SetGameplayInputEnabled(false);
+
+            float elapsed = 0f;
+            int settledFrames = 0;
+            float settledSeconds = settledFrameMilliseconds / 1000f;
+
+            while (elapsed < maxSettleSeconds)
+            {
+                gameUIManager?.SetLoadingProgress(LoadStageShare +
+                    (1f - LoadStageShare) * Mathf.Clamp01(elapsed / Mathf.Max(minSettleSeconds, 0.01f)));
+                yield return null;
+
+                float frame = Time.unscaledDeltaTime;
+                elapsed += frame;
+                settledFrames = frame < settledSeconds ? settledFrames + 1 : 0;
+                if (elapsed >= minSettleSeconds && settledFrames >= settledFramesRequired)
+                    break;
+            }
+
+            gameUIManager?.SetLoadingProgress(1f);
+            RestoreSettleTimeScale();
+            GameInputManager.Instance?.SetGameplayInputEnabled(true);
+        }
+
+        // Restores only what the settle changed; a pause or result screen opened meanwhile keeps its time scale.
+        // Also called when a new level change interrupts a settle.
+        private void RestoreSettleTimeScale()
+        {
+            if (!settleFrozeTime) return;
+            settleFrozeTime = false;
+            if (Mathf.Approximately(Time.timeScale, 0f) && currentState == GameState.Playing)
+                Time.timeScale = 1f;
+        }
+
+        /// <summary>Warms a few shader variants per call; true once every collection is warm.</summary>
+        private bool WarmUpShadersStep()
+        {
+            if (shaderWarmup == null) return true;
+            bool done = true;
+            foreach (ShaderVariantCollection collection in shaderWarmup)
+            {
+                if (collection == null || collection.isWarmedUp) continue;
+                collection.WarmUpProgressively(shaderVariantsPerFrame);
+                done &= collection.isWarmedUp;
+            }
+            return done;
         }
 
         private void RefreshSceneReferences()
@@ -400,6 +499,7 @@ namespace junklite
         private IEnumerator ActivatePreloadedLevelRoutine()
         {
             isLoadingScene = true;
+            revealPending = false; // no loading screen on this path: the level shows as soon as it activates
             PrepareForLevelChange();
             playerLifecycle?.PrepareForSceneChange();
 
@@ -423,6 +523,7 @@ namespace junklite
             // Input is restored in InitializeForNewScene() once the new scene is ready.
             GameInputManager.Instance?.SetGameplayInputEnabled(false);
 
+            RestoreSettleTimeScale();
             if (currentState != GameState.Playing) SetGameState(GameState.Playing);
             // Persistent HUD/combat state would otherwise carry into the reloaded level.
             if (gameUIManager != null && gameUIManager.PlayerHUD != null && gameUIManager.PlayerHUD.IsInventoryOpen)
@@ -438,6 +539,7 @@ namespace junklite
 
             PrepareForLevelChange();
             gameUIManager?.BeginSceneTransition();
+            revealPending = gameUIManager != null;
 
             // Start loading immediately so disk/scene work overlaps the transition video.
             // Activation waits for both, rather than adding video time and load time together.
@@ -450,6 +552,7 @@ namespace junklite
                 Debug.LogError($"[GameManager] Failed to load scene — is it added to Build Settings?");
                 gameUIManager?.CancelSceneTransition();
                 isLoadingScene = false;
+                revealPending = false;
                 // Restore input on the abort path so the player isn't permanently locked.
                 GameInputManager.Instance?.SetGameplayInputEnabled(true);
                 RebindPauseInputSubscription();
@@ -461,15 +564,25 @@ namespace junklite
             playerLifecycle?.PrepareForSceneChange();
             asyncOp.allowSceneActivation = false;
 
-            // With activation held, Unity stops loading at 0.9; map that to 0-1.
-            while (asyncOp.progress < 0.9f ||
-                   (gameUIManager != null && !gameUIManager.IsLoadingPresentationFinished))
+            // With activation held, Unity stops loading at 0.9. The bar follows the slower of the
+            // scene stream and the loading video (activation waits for both), then shader warm-up,
+            // and fills its last share during activation + settle, so it only reads 100% at the reveal.
+            bool shadersWarm = false;
+            while (true)
             {
-                gameUIManager?.SetLoadingProgress(asyncOp.progress / 0.9f);
+                if (!shadersWarm) shadersWarm = WarmUpShadersStep();
+
+                float sceneProgress = asyncOp.progress / 0.9f;
+                float presentation = gameUIManager != null ? gameUIManager.LoadingPresentationProgress : 1f;
+                gameUIManager?.SetLoadingProgress(LoadStageShare * Mathf.Min(sceneProgress, presentation));
+
+                bool presentationDone = gameUIManager == null || gameUIManager.IsLoadingPresentationFinished;
+                if (asyncOp.progress >= 0.9f && presentationDone && shadersWarm)
+                    break;
                 yield return null;
             }
 
-            gameUIManager?.SetLoadingProgress(1f);
+            gameUIManager?.SetLoadingProgress(LoadStageShare);
             asyncOp.allowSceneActivation = true;
         }
 

@@ -1,0 +1,72 @@
+/* The CRT layer drawn over every screen. CrtOverlay moves the grain and the band and places the glitch. */
+
+.crt {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+.fx {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.fx--scan {
+  background-image: url("../Art/fx-scan.png");
+}
+
+.fx--vignette {
+  background-image: url("../Art/fx-vignette.png");
+}
+
+.fx--grain {
+  left: -384px;
+  top: -216px;
+  right: -384px;
+  bottom: -216px;
+  background-image: url("../Art/fx-grain.png");
+  background-repeat: repeat repeat;
+  background-size: 256px 256px;
+  opacity: 0.0085;
+}
+
+.fx--roll {
+  top: -238px;
+  bottom: auto;
+  height: 238px;
+  background-image: url("../Art/fx-roll.png");
+  opacity: 0.031;
+}
+
+.fx--roll-moving {
+  translate: 0 1333px;
+  transition: translate 9s linear;
+}
+
+.fx--flash {
+  background-color: #E7ECED;
+  opacity: 0;
+}
+
+.glitch {
+  position: absolute;
+  overflow: hidden;
+}
+
+.glitch__slice {
+  position: absolute;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.glitch__art {
+  position: absolute;
+}

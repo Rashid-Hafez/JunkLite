@@ -825,6 +825,7 @@ RectTransform:
   - {fileID: 7048030084652165557}
   - {fileID: 1539634877269823609}
   - {fileID: 3511801739656281873}
+  - {fileID: 6362207168075070631}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -852,6 +853,7 @@ MonoBehaviour:
   healthIconFeedback: {fileID: 8462336898480373002}
   modCombatUI: {fileID: 8615370108159043596}
   bodyFont: {fileID: 11400000, guid: d420ec421400c4761b6423d19266a147, type: 2}
+  inventoryScreen: {fileID: 2625500632771474614}
   inventoryPanel: {fileID: 6949096089251354401}
   inventoryUI: {fileID: 3942245547236276918}
 --- !u!1 &2337217296962645839
@@ -1447,8 +1449,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.ModCombatUI
   panel: {fileID: 366461357389748095}
   activeModParent: {fileID: 8314804045858316532}
+  slotTemplate: {fileID: 0}
   modSlotPrefab: {fileID: 4882513819511076147, guid: 9515f829429e93a49870d1bfa95a1840, type: 3}
-  bodyFont: {fileID: 11400000, guid: d420ec421400c4761b6423d19266a147, type: 2}
 --- !u!1 &3620941906573541157
 GameObject:
   m_ObjectHideFlags: 0
@@ -3293,6 +3295,7 @@ MonoBehaviour:
   headingFont: {fileID: 0}
   bodyFont: {fileID: 11400000, guid: d420ec421400c4761b6423d19266a147, type: 2}
   headingSourceFont: {fileID: 12800000, guid: 3259a038809934b37b220a603b5b5d04, type: 3}
+  tabHintTemplate: {fileID: 0}
 --- !u!222 &5641767889167318056
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -6652,6 +6655,79 @@ PrefabInstance:
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 7729384413980221394, guid: e8b3080e17bd9f143bbb9ebe4b15a826, type: 3}
   m_PrefabInstance: {fileID: 3115437333798997328}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &3373434762918773748
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 8666793544143661696}
+    m_Modifications:
+    - target: {fileID: 7136681152813096362, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+      propertyPath: m_Name
+      value: Inventory Screen
+      objectReference: {fileID: 0}
+    - target: {fileID: 8546636636588654419, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8546636636588654419, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8546636636588654419, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8546636636588654419, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8546636636588654419, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8546636636588654419, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8546636636588654419, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8546636636588654419, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8546636636588654419, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8546636636588654419, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+--- !u!114 &2625500632771474614 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 774478265566000962, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+  m_PrefabInstance: {fileID: 3373434762918773748}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb3e9c2cee050bd4fba81b0bf19d1e9c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.InventoryScreenBridge
+--- !u!4 &6362207168075070631 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8546636636588654419, guid: e2cead08d01b45b4a81389adf60243c4, type: 3}
+  m_PrefabInstance: {fileID: 3373434762918773748}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &3865220323845749920
 PrefabInstance:

@@ -33,7 +33,12 @@ namespace junklite
         private static readonly Color Muted = new(0.51f, 0.61f, 0.74f, 1f);
         private static readonly Color Line = new(0.18f, 0.27f, 0.38f, 0.75f);
 
-        [Header("Inventory Panel")]
+        [Header("Inventory Screen (UI Toolkit)")]
+        [Tooltip("The Junklite inventory screen (Prefabs/UI/Inventory Screen), nested inactive in this HUD. " +
+                 "When set, the Inventory input opens it instead of the legacy panel below.")]
+        [SerializeField] private InventoryScreenBridge inventoryScreen;
+
+        [Header("Legacy Inventory Panel (still hosts the UPGRADES tab)")]
         [SerializeField] private GameObject inventoryPanel;
         [SerializeField] private InventoryUI inventoryUI;
 
@@ -245,20 +250,41 @@ namespace junklite
         private void HandleUICancel()
         {
             if (!isInventoryOpen) return;
-            CloseInventory();
+            CloseInventoryOrBack();
         }
 
-        public void OpenInventory()
+        /// <summary>
+        /// Back / Esc while the inventory is open: the screen gets first use of the press (drop a picked-up
+        /// mod, leave Missions), otherwise the inventory closes. Returns true if the press was used.
+        /// </summary>
+        public bool CloseInventoryOrBack()
+        {
+            if (!isInventoryOpen) return false;
+            if (inventoryScreen != null && inventoryScreen.HandleBack()) return true;
+            CloseInventory();
+            return true;
+        }
+
+        public void OpenInventory() => OpenInventory(useLegacyPanel: inventoryScreen == null);
+
+        private void OpenInventory(bool useLegacyPanel)
         {
             if (isInventoryOpen) return;
 
             isInventoryOpen = true;
 
-            if (inventoryPanel != null)
-                inventoryPanel.SetActive(true);
+            if (useLegacyPanel)
+            {
+                if (inventoryPanel != null)
+                    inventoryPanel.SetActive(true);
 
-            if (inventoryUI != null && player != null)
-                inventoryUI.Bind(inventory, _weaponManager);
+                if (inventoryUI != null && player != null)
+                    inventoryUI.Bind(inventory, _weaponManager);
+            }
+            else if (player != null)
+            {
+                inventoryScreen.Open(player);
+            }
 
             if (GameInputManager.Instance != null)
             {
@@ -267,23 +293,30 @@ namespace junklite
             }
         }
 
-        /// <summary>Opens the inventory menu on the UPGRADES tab (scripted level beats).</summary>
+        /// <summary>
+        /// Opens the legacy inventory menu on its UPGRADES tab (level-up toast, scripted level beats, dev tools).
+        /// The UI Toolkit inventory screen has no upgrades page yet.
+        /// </summary>
         public void OpenUpgrades()
         {
-            OpenInventory();
+            if (isInventoryOpen && inventoryPanel != null && !inventoryPanel.activeSelf)
+                CloseInventory();
+
+            OpenInventory(useLegacyPanel: true);
             if (inventoryUI != null) inventoryUI.OpenUpgradesTab();
         }
 
         public void CloseInventory()
         {
+            if (!isInventoryOpen && inventoryScreen != null && inventoryScreen.IsOpen)
+                inventoryScreen.Close();
+
             if (!isInventoryOpen && inventoryPanel != null && !inventoryPanel.activeSelf)
-            {
-                inventoryPanel.SetActive(false);
                 return;
-            }
 
             isInventoryOpen = false;
 
+            if (inventoryScreen != null && inventoryScreen.IsOpen) inventoryScreen.Close();
             if (inventoryUI != null) inventoryUI.Unbind();
             if (inventoryPanel != null) inventoryPanel.SetActive(false);
 

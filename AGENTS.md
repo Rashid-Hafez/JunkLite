@@ -87,7 +87,9 @@ There is no combat mode, no weapon slots and no durability. `PlayerArmament` own
 
 **No UI built in code. Ever (lead's rule).** Every UI element (HUD, prompts, menus, overlays, popups) must be authored as a Canvas prefab or scene object so the lead can edit its look in the Inspector. Code may only bind data and toggle/animate existing objects: set text, swap sprites, show/hide, move. Never `new GameObject` / `AddComponent<Image|TextMeshProUGUI|Canvas>` to build layout, and never hard-code sizes, colours, fonts or positions in scripts. If a UI piece doesn't exist yet, build the prefab in the Editor first, then reference it. Existing code-built UI (e.g. `TutorialPromptHUD`, `ServiceFloorIntro` glitch overlay, `DialogueBubbleView`) is legacy: don't extend it; convert it to prefabs only when asked.
 
-**Stack.** Every HUD screen, menu, card, button, tooltip, and overlay uses **TextMesh Pro UGUI** (`TextMeshProUGUI` / `TMP_Text`) on Unity UI canvases. World-space canvases also use `TextMeshProUGUI`. Use 3D `TextMeshPro` only when there is no canvas, for example damage popups or labels parented to a mesh. Never use legacy `UI.Text`, legacy TextMesh, or UI Toolkit for game UI.
+**Exception: Junklite UI Toolkit screens.** The title screen (`Menu.unity`) and the I-menu inventory come from `Assets/Junklite/` (UXML/USS, own fonts, see `Assets/PIPELINE.md` and the 2026-11-10 entry in `ARCHITECTURE_HANDOFF.md`). Edit their look in the UXML/USS, keep game logic in `Assets/Game/Scripts` (e.g. `InventoryScreenBridge`), and don't convert them back to uGUI.
+
+**Stack.** Every other HUD screen, menu, card, button, tooltip, and overlay uses **TextMesh Pro UGUI** (`TextMeshProUGUI` / `TMP_Text`) on Unity UI canvases. World-space canvases also use `TextMeshProUGUI`. Use 3D `TextMeshPro` only when there is no canvas, for example damage popups or labels parented to a mesh. Never use legacy `UI.Text`, legacy TextMesh, or UI Toolkit for game UI.
 
 **Fonts.** Only these three, all in `Assets/Game/New UI/Fonts/`:
 
@@ -116,4 +118,4 @@ Don't use Lekton, Clash Display, Bebas Neue, LiberationSans, or the TMP example 
 - Don't add service locators, global event buses, empty interfaces, ECS, or multiplayer/replication patterns.
 - Don't make broad scene edits or modify third-party/plugin code. `Tools > JunkLite > Systems > Rebuild` rewrites V2.5, so run it only when the user explicitly asks.
 - Don't hand-write `.meta` files. Let Unity generate them.
-- Don't use legacy `UI.Text`, UI Toolkit, or unapproved fonts for game UI (see **UI rules** above).
+- Don't use legacy `UI.Text`, UI Toolkit, or unapproved fonts for game UI, apart from the Junklite UI Toolkit screens (see **UI rules** above).

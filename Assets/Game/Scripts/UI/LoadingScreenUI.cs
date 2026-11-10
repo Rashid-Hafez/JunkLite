@@ -28,6 +28,17 @@ namespace junklite
         // Exposed through GameUIManager so scene activation can wait for presentation.
         public bool IsVideoFinished => videoFinished || videoPlayer == null;
 
+        /// <summary>0-1 through the loading video; 1 when there is none or it has finished.</summary>
+        public float PresentationProgress
+        {
+            get
+            {
+                if (IsVideoFinished) return 1f;
+                double length = videoPlayer.length;
+                return length > 0.0 ? Mathf.Clamp01((float)(videoPlayer.time / length)) : 0f;
+            }
+        }
+
         #endregion
 
         #region Lifecycle

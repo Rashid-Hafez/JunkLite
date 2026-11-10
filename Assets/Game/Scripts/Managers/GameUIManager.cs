@@ -38,6 +38,10 @@ namespace junklite
         public bool IsLoadingPresentationFinished =>
             loadingScreenUIInstance == null || loadingScreenUIInstance.IsVideoFinished;
 
+        /// <summary>0-1 through the loading video (1 when there is none), so the bar never outruns it.</summary>
+        public float LoadingPresentationProgress =>
+            loadingScreenUIInstance == null ? 1f : loadingScreenUIInstance.PresentationProgress;
+
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -171,8 +175,8 @@ namespace junklite
             if (playerUIInstance == null || !playerUIInstance.IsInventoryOpen)
                 return false;
 
-            playerUIInstance.CloseInventory();
-            return true;
+            // The inventory screen may use the press itself (drop a picked-up mod) before closing.
+            return playerUIInstance.CloseInventoryOrBack();
         }
 
         private void RebindGameManager()

@@ -1,3 +1,4 @@
+using Junklite.TitleScreen;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -6,14 +7,19 @@ using UnityEngine.UI;
 namespace junklite
 {
     /// <summary>
-    /// Title screen. Binds the Menu scene's authored buttons to scene loads; layout and look
-    /// live on the Canvas so they stay editable in the Inspector. Play starts the full run
-    /// (Simulation → Service Floor → End Card); the level buttons jump straight to a level.
+    /// Title screen logic. Drives the Junklite UI Toolkit title (Assets/Junklite/TitleScreen):
+    /// BEGIN PROCEDURE starts a new run (Simulation → Service Floor → End Card), RESUME SUBJECT
+    /// skips the tutorial and loads Service Floor with the current profile, TERMINATE SESSION quits. The legacy uGUI buttons below
+    /// are optional and still work if assigned (level select for testing).
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class MainMenuController : MonoBehaviour
     {
-        [Header("Buttons")]
+        [Header("Title Screen (UI Toolkit)")]
+        [Tooltip("The TitleScreen prefab instance in this scene. Disable its Scene Link so it doesn't load the demo Inventory scene.")]
+        [SerializeField] private TitleScreenController titleScreen;
+
+        [Header("Legacy Buttons (optional)")]
         [SerializeField] private Button playButton;
         [SerializeField] private Button rooftopButton;
         [SerializeField] private Button serviceFloorButton;
@@ -45,10 +51,14 @@ namespace junklite
             Bind(serviceFloorButton, OnServiceFloor);
             Bind(sandboxButton, OnSandbox);
             Bind(quitButton, OnQuit);
+
+            if (titleScreen != null) titleScreen.CommandExecuted += HandleTitleCommand;
         }
 
         private void OnDisable()
         {
+            if (titleScreen != null) titleScreen.CommandExecuted -= HandleTitleCommand;
+
             Unbind(playButton, OnPlay);
             Unbind(rooftopButton, OnRooftop);
             Unbind(serviceFloorButton, OnServiceFloor);
@@ -58,23 +68,38 @@ namespace junklite
 
         private void Start()
         {
-            // Play is the starting focus; UINavigationGroup on Menu Column owns
-            // controller/keyboard navigation and selection recovery.
-            if (playButton != null && EventSystem.current != null)
+            // Legacy menu: Play is the starting focus; UINavigationGroup on Menu Column owns
+            // controller/keyboard navigation and selection recovery. The UI Toolkit title handles its own focus.
+            if (titleScreen == null && playButton != null && EventSystem.current != null)
                 EventSystem.current.SetSelectedGameObject(playButton.gameObject);
         }
 
-        private void OnPlay()
+        private void HandleTitleCommand(TitleCommand command)
+        {
+            switch (command)
+            {
+                case TitleCommand.Begin: OnPlay(); break;
+                case TitleCommand.Resume: OnContinue(); break;
+                case TitleCommand.Terminate: OnQuit(); break;
+                // Calibrate (settings) has no screen yet; the title plays its press feedback only.
+            }
+        }
+
+        public void OnPlay()
         {
             // Play is a new run: no upgrades, weapons or XP carried over from the last one.
             if (!loading) PlayerProgression.Instance?.ResetProfile();
             Load(playScene);
         }
-        private void OnRooftop() => Load(rooftopScene);
-        private void OnServiceFloor() => Load(serviceFloorScene);
-        private void OnSandbox() => Load(sandboxScene);
 
-        private void OnQuit()
+        /// <summary>Continues with the saved profile (upgrades, weapons, XP), skipping the tutorial: starts on Service Floor.</summary>
+        public void OnContinue() => Load(serviceFloorScene);
+
+        public void OnRooftop() => Load(rooftopScene);
+        public void OnServiceFloor() => Load(serviceFloorScene);
+        public void OnSandbox() => Load(sandboxScene);
+
+        public void OnQuit()
         {
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;

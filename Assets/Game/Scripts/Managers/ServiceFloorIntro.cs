@@ -71,6 +71,10 @@ namespace junklite
             while ((player = PlayerLifecycle.Instance != null ? PlayerLifecycle.Instance.Player : null) == null)
                 yield return null;
 
+            // Start when the level is actually on screen, not behind the loading screen.
+            while (GameManager.Instance != null && GameManager.Instance.IsRevealPending)
+                yield return null;
+
             inputLock = player.State != null ? player.State.AcquireInputLock() : null;
             player.Controller?.StopAllVelocity();
             BuildGlitch();

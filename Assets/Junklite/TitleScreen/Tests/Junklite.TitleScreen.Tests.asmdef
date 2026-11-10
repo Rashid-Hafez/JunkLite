@@ -1,0 +1,31 @@
+{
+  "name": "Junklite.TitleScreen.Tests",
+  "rootNamespace": "Junklite.TitleScreen.Tests",
+  "references": [
+    "Junklite.TitleScreen",
+    "Junklite.Shared",
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner",
+    "Unity.UI.TestFramework.Runtime"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS",
+    "JUNKLITE_UI_TESTS"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.unity.ui.test-framework",
+      "expression": "1.0.0",
+      "define": "JUNKLITE_UI_TESTS"
+    }
+  ],
+  "noEngineReferences": false
+}
