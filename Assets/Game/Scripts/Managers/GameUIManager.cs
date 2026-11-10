@@ -21,7 +21,8 @@ namespace junklite
 
         private Transform gameplayCanvasTransform;
         private PlayerUI playerUIInstance;
-        private PauseMenuUI pauseMenuUIInstance;
+        // Legacy uGUI PauseMenuUI or the UI Toolkit pause screen (PauseScreenBridge); either one listens to the game state.
+        private GameObject pauseMenuUIInstance;
         private LoadingScreenUI loadingScreenUIInstance;
         private GameManager subscribedGameManager;
         private PlayerLifecycle subscribedPlayerLifecycle;
@@ -341,13 +342,14 @@ namespace junklite
 
             GameObject instance = Instantiate(pauseMenuUIPrefab, gameplayCanvasTransform);
             instance.name = "Pause Menu UI";
-            pauseMenuUIInstance = instance.GetComponent<PauseMenuUI>();
 
-            if (pauseMenuUIInstance == null)
+            if (instance.GetComponent<PauseMenuUI>() == null && instance.GetComponent<PauseScreenBridge>() == null)
             {
-                Debug.LogError("[GameUIManager] Pause menu prefab is missing PauseMenuUI.");
+                Debug.LogError("[GameUIManager] Pause menu prefab has neither PauseMenuUI nor PauseScreenBridge.");
                 Destroy(instance);
+                return;
             }
+            pauseMenuUIInstance = instance;
         }
 
         private void EnsureLoadingScreenUI()

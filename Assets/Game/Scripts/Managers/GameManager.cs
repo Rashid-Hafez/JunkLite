@@ -251,6 +251,11 @@ namespace junklite
             gameUIManager?.EndSceneTransition();
             sceneInitializationRoutine = null;
 
+            // A story video (Simulation outro) hides the cursor and hands over to the next level before
+            // it can restore it; every revealed scene starts with a usable mouse.
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+
             if (revealPending)
             {
                 revealPending = false;

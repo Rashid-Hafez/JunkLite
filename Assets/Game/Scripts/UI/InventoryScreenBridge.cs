@@ -100,6 +100,21 @@ namespace junklite
             gameObject.SetActive(false);
         }
 
+        /// <summary>
+        /// Fills the screen's model from the player without opening it (the pause screen's build strip).
+        /// While the inventory is open the model is already live.
+        /// </summary>
+        public ModInventory SyncForDisplay(PlayerCharacter player)
+        {
+            if (IsOpen || player == null || mods == null) return mods;
+            storage = player.GetComponent<InventoryComponent>();
+            modManager = player.GetComponent<ModManager>();
+            if (storage != null && modManager != null) Pull();
+            storage = null;
+            modManager = null;
+            return mods;
+        }
+
         /// <summary>Esc / back: lets the screen drop a picked-up mod or leave Missions first. True if it used the press.</summary>
         public bool HandleBack() => IsOpen && screen != null && screen.HandleBack();
 

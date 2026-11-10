@@ -87,6 +87,7 @@ namespace junklite
         (RectTransform rt, CanvasGroup cg, TMP_Text val) _totalRow;
 
         CanvasGroup _buttonsCG;
+        Button _continueButton;
         RectTransform _buttonsRT;
 
         // background beam objects (so we can skip rebuilding them on re-show)
@@ -155,6 +156,7 @@ namespace junklite
             Time.timeScale = 0f;
             Populate(fakeStats);
             Animate(fakeStats);
+            EnterMenuInput();
         }
 
         #endregion
@@ -174,6 +176,24 @@ namespace junklite
             cGO.SetActive(true);
             Populate(_pendingStats);
             Animate(_pendingStats);
+            EnterMenuInput();
+        }
+
+        // The screen is a menu: UI input map (blocks pause and gameplay), visible cursor, and a selected
+        // button so the controller can Submit and move between Retry and Continue.
+        void EnterMenuInput()
+        {
+            GameInputManager.Instance?.SwitchToUIActionMap();
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+            if (UnityEngine.EventSystems.EventSystem.current != null && _continueButton != null)
+                UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(_continueButton.gameObject);
+        }
+
+        static void LeaveMenuInput()
+        {
+            UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
+            GameInputManager.Instance?.SwitchToPlayerActionMap();
         }
 
         #endregion
@@ -506,10 +526,12 @@ namespace junklite
 
             var retry = MakeButton(b, "Retry", "Retry", new Vector2(-120f, 0f), secondary: true);
             var cont = MakeButton(b, "Continue", "Continue", new Vector2(120f, 0f), secondary: false);
+            _continueButton = cont;
 
             retry.onClick.AddListener(() =>
             {
                 Time.timeScale = 1f;
+                LeaveMenuInput();
                 // Get out of the way of the loading screen (order 20).
                 cGO.SetActive(false);
                 GameManager.Instance?.RestartCurrentScene();
@@ -518,6 +540,7 @@ namespace junklite
             cont.onClick.AddListener(() =>
             {
                 Time.timeScale = 1f;
+                LeaveMenuInput();
                 cGO.SetActive(false);
                 if (!string.IsNullOrWhiteSpace(continueSceneName))
                 {
@@ -568,6 +591,7 @@ namespace junklite
                 ? new Color(1f, 1f, 1f, 0.72f)
                 : new Color(0.88f, 1f, 0.93f);
             colors.pressedColor = new Color(0.72f, 0.72f, 0.72f);
+            colors.selectedColor = colors.highlightedColor; // controller selection shows like hover
             btn.colors = colors;
 
             var txt = MakeTMP(rt, "Lbl", label.ToUpper(), 12f,

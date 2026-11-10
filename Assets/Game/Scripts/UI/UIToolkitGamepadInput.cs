@@ -1,4 +1,5 @@
 using Junklite.Inventory;
+using Junklite.Pause;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
@@ -6,23 +7,27 @@ using UnityEngine.UIElements;
 namespace junklite
 {
     /// <summary>
-    /// Controller support for the UI Toolkit inventory (Assets/Junklite/Inventory). The screen only reacts to
-    /// UI Toolkit navigation events, which a gamepad never produces here, so this reads the gamepad while the
-    /// screen is open and sends the same events the keyboard does: D-pad / left stick = NavigationMoveEvent
-    /// (with key-repeat), A = NavigationSubmitEvent, LB / RB = previous / next tab. B (back/close) is already
-    /// handled by PlayerUI through the UI Cancel action. Keyboard and mouse are untouched.
-    /// Lives on the inventory screen prefab next to <see cref="InventoryScreen"/>.
+    /// Controller support for the UI Toolkit screens (Assets/Junklite): they only react to UI Toolkit
+    /// navigation events, which a gamepad never produces here. While the screen is live this reads the
+    /// gamepad and sends the focused element the same events the keyboard does: D-pad / left stick =
+    /// NavigationMoveEvent (with a hold delay and repeat, so the stick doesn't race), A = NavigationSubmitEvent.
+    /// Inventory: LB / RB = previous / next tab, B = back / close. The pause screen's B and Start are
+    /// handled by <see cref="PauseScreenBridge"/>. Keyboard and mouse are untouched.
+    /// Lives on the screen's prefab next to its UIDocument.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class InventoryScreenGamepad : MonoBehaviour
+    public sealed class UIToolkitGamepadInput : MonoBehaviour
     {
         private static readonly InventoryTab[] TabOrder = { InventoryTab.Inventory, InventoryTab.Upgrades, InventoryTab.Missions };
 
+        [Tooltip("Set on the inventory screen: enables LB/RB tabs and B to close, and pauses input while the pause menu dims it.")]
         [SerializeField] private InventoryScreen screen;
+        [Tooltip("Set on the pause screen: input only runs while it is open.")]
+        [SerializeField] private PauseMenu pause;
         [SerializeField, Range(0.2f, 0.9f)] private float stickThreshold = 0.5f;
         [Tooltip("Hold time before a held direction starts repeating.")]
         [SerializeField, Min(0.05f)] private float repeatDelay = 0.35f;
-        [SerializeField, Min(0.03f)] private float repeatInterval = 0.11f;
+        [SerializeField, Min(0.03f)] private float repeatInterval = 0.14f;
 
         private VisualElement root;
         private NavigationMoveEvent.Direction heldDirection = NavigationMoveEvent.Direction.None;
@@ -33,6 +38,7 @@ namespace junklite
         private void Awake()
         {
             if (screen == null) screen = GetComponent<InventoryScreen>();
+            if (pause == null) pause = GetComponent<PauseMenu>();
         }
 
         private void OnEnable()
@@ -55,10 +61,14 @@ namespace junklite
         private void Update()
         {
             Gamepad pad = Gamepad.current;
-            if (pad == null || screen == null || root == null || root.panel == null) return;
+            if (pad == null || root == null || root.panel == null || !IsLive) return;
 
-            if (pad.leftShoulder.wasPressedThisFrame) CycleTab(-1);
-            else if (pad.rightShoulder.wasPressedThisFrame) CycleTab(1);
+            if (screen != null)
+            {
+                if (pad.leftShoulder.wasPressedThisFrame) CycleTab(-1);
+                else if (pad.rightShoulder.wasPressedThisFrame) CycleTab(1);
+                if (pad.buttonEast.wasPressedThisFrame) GameUIManager.Instance?.TryClosePlayerInventory();
+            }
 
             UpdateMove(pad);
 
@@ -68,6 +78,9 @@ namespace junklite
                 Send(submit);
             }
         }
+
+        // The inventory hands control to the pause menu while it is dimmed under it.
+        private bool IsLive => (screen == null || !screen.Dimmed) && (pause == null || pause.IsOpen);
 
         private void UpdateMove(Gamepad pad)
         {
@@ -101,7 +114,7 @@ namespace junklite
 
         private void Send(EventBase evt)
         {
-            // Sent to the focused element, like the keyboard; the screen's handlers trickle down from its root.
+            // Sent to the focused element, like the keyboard; the screens' handlers trickle down from their roots.
             var target = root.panel.focusController.focusedElement as VisualElement ?? root;
             sending = true;
             sentFrame = Time.frameCount;

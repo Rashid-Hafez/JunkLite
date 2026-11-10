@@ -146,6 +146,16 @@ namespace Junklite.Pause
             Open();
         }
 
+        /// <summary>JunkLite: shows this inventory in the "Current build" strip (the game fills it from the player).</summary>
+        public void SetInventory(ModInventory value)
+        {
+            if (inventory == value) return;
+            if (inventory != null) inventory.Changed -= RenderBuild;
+            inventory = value;
+            if (inventory != null && isActiveAndEnabled) inventory.Changed += RenderBuild;
+            RenderBuild();
+        }
+
         public void Open()
         {
             if (_pause == null || IsOpen) return;
