@@ -1,5 +1,5 @@
 {
-"skeleton": { "hash": "wtD9haxwhws", "spine": "4.2.36", "x": -39.48, "y": -2.14, "width": 135.28, "height": 114.9 },
+"skeleton": { "hash": "Ob105Rn3W6w", "spine": "4.2.36", "x": -24.51, "y": -2.94, "width": 45.9, "height": 123.99 },
 "bones": [
 	{ "name": "root", "scaleX": -1 },
 	{ "name": "Cas", "parent": "root", "y": 52.58 },
@@ -54,7 +54,7 @@
 	{ "name": "RightThigh", "bone": "RightThigh", "attachment": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_R" },
 	{ "name": "RightCalf", "bone": "RightCalf", "attachment": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_L" },
 	{ "name": "LeftThigh", "bone": "LeftThigh", "attachment": "Left/CasOctober52026-Left-Thigh_L" },
-	{ "name": "LeftCalf", "bone": "LeftCalf", "attachment": "Left/CasOctober52026-Left-Calf_L" },
+	{ "name": "LeftCalf", "bone": "LeftCalf", "attachment": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" },
 	{ "name": "RightToes", "bone": "RightToes", "attachment": "QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_L" },
 	{ "name": "LeftToes", "bone": "LeftToes", "attachment": "QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_L" },
 	{ "name": "TasselRoot", "bone": "TasselRoot" },
@@ -279,11 +279,6 @@
 "animations": {
 	"Attack_Air_Combo_1": {
 		"slots": {
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftThigh": {
 				"attachment": [
 					{ "name": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L" }
@@ -332,17 +327,17 @@
 					{
 						"time": 0.05,
 						"value": -4.39,
-						"curve": [ 0.05, -4.39, 0.058, 50.63 ]
+						"curve": [ 0.05, -4.39, 0.058, 76.73 ]
 					},
 					{
 						"time": 0.1,
-						"value": 50.63,
-						"curve": [ 0.123, 50.63, 0.117, 51.41 ]
+						"value": 76.73,
+						"curve": [ 0.123, 76.73, 0.117, 75.93 ]
 					},
 					{
 						"time": 0.1667,
-						"value": 51.41,
-						"curve": [ 0.183, 51.41, 0.217, -10.15 ]
+						"value": 75.93,
+						"curve": [ 0.183, 75.93, 0.217, -10.15 ]
 					},
 					{
 						"time": 0.2333,
@@ -635,11 +630,6 @@
 	},
 	"Attack_Air_Combo_2": {
 		"slots": {
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftThigh": {
 				"attachment": [
 					{ "name": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L" }
@@ -745,14 +735,11 @@
 			},
 			"RightHand": {
 				"rotate": [
-					{
-						"value": 268.28,
-						"curve": [ 0.022, 268.28, 0.027, 2.37 ]
-					},
+					{ "value": 268.28 },
 					{
 						"time": 0.0667,
-						"value": 2.37,
-						"curve": [ 0.067, 2.37, 0.077, 156.01 ]
+						"value": 322.73,
+						"curve": [ 0.089, 322.73, 0.077, 156.01 ]
 					},
 					{
 						"time": 0.1333,
@@ -775,13 +762,13 @@
 					{
 						"x": 28.09,
 						"y": -0.48,
-						"curve": [ 0, 28.09, 0.027, 34.35, 0, -0.48, 0.027, 3.28 ]
+						"curve": [ 0, 28.09, 0.027, 44.27, 0, -0.48, 0.027, -2.78 ]
 					},
 					{
 						"time": 0.0667,
-						"x": 34.35,
-						"y": 3.28,
-						"curve": [ 0.067, 34.35, 0.077, 7.8, 0.067, 3.28, 0.077, -16.09 ]
+						"x": 44.27,
+						"y": -2.78,
+						"curve": [ 0.067, 44.27, 0.077, 7.8, 0.067, -2.78, 0.077, -16.09 ]
 					},
 					{
 						"time": 0.1333,
@@ -904,17 +891,13 @@
 					{
 						"time": 0.0667,
 						"value": 13.19,
-						"curve": [ 0.067, 13.19, 0.077, 79.64 ]
+						"curve": [ 0.067, 13.19, 0.077, 101.92 ]
 					},
-					{
-						"time": 0.1333,
-						"value": 79.64,
-						"curve": [ 0.163, 79.64, 0.154, 78.74 ]
-					},
+					{ "time": 0.1333, "value": 101.92, "curve": "stepped" },
 					{
 						"time": 0.2167,
-						"value": 78.74,
-						"curve": [ 0.233, 78.74, 0.267, 5.87 ]
+						"value": 101.92,
+						"curve": [ 0.246, 101.92, 0.267, 5.87 ]
 					},
 					{
 						"time": 0.2833,
@@ -933,19 +916,14 @@
 						"time": 0.0667,
 						"x": 29.35,
 						"y": 43.25,
-						"curve": [ 0.067, 29.35, 0.077, 71.35, 0.067, 43.25, 0.077, 63.25 ]
+						"curve": [ 0.067, 29.35, 0.077, 69.28, 0.067, 43.25, 0.077, 63.25 ]
 					},
-					{
-						"time": 0.1333,
-						"x": 71.35,
-						"y": 63.25,
-						"curve": [ 0.163, 71.35, 0.154, 73.35, 0.163, 63.25, 0.154, 62.25 ]
-					},
+					{ "time": 0.1333, "x": 69.28, "y": 63.25, "curve": "stepped" },
 					{
 						"time": 0.2167,
-						"x": 73.35,
-						"y": 62.25,
-						"curve": [ 0.233, 73.35, 0.267, 33.35, 0.233, 62.25, 0.267, 37.25 ]
+						"x": 69.28,
+						"y": 63.25,
+						"curve": [ 0.246, 69.28, 0.267, 33.35, 0.246, 63.25, 0.267, 37.25 ]
 					},
 					{
 						"time": 0.2833,
@@ -1020,21 +998,16 @@
 					{ "slot": "LeftHand", "offset": 11 },
 					{ "slot": "LeftUpperArm", "offset": 8 },
 					{ "slot": "LeftForearm", "offset": 8 },
-					{ "slot": "Waist", "offset": 0 },
-					{ "slot": "RightUpperArm", "offset": -8 },
-					{ "slot": "RightForearm", "offset": -8 },
-					{ "slot": "RightThigh", "offset": -4 }
+					{ "slot": "RightUpperArm", "offset": -5 },
+					{ "slot": "RightForearm", "offset": -5 },
+					{ "slot": "RightThigh", "offset": -9 },
+					{ "slot": "RightCalf", "offset": -11 }
 				]
 			}
 		]
 	},
 	"Attack_Air_Combo_3": {
 		"slots": {
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftThigh": {
 				"attachment": [
 					{ "name": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L" }
@@ -1106,7 +1079,7 @@
 					{
 						"time": 0.45,
 						"value": -34.23,
-						"curve": [ 0.483, -34.23, 0.55, -3.58 ]
+						"curve": [ 0.483, -34.23, 0.539, -3.58 ]
 					},
 					{ "time": 0.5833, "value": -3.58 }
 				],
@@ -1144,9 +1117,9 @@
 						"time": 0.45,
 						"x": 7.86,
 						"y": 22.48,
-						"curve": [ 0.483, 7.86, 0.55, 22.27, 0.483, 22.48, 0.55, 16.51 ]
+						"curve": [ 0.483, 7.86, 0.539, 29.22, 0.483, 22.48, 0.539, 16.51 ]
 					},
-					{ "time": 0.5833, "x": 22.27, "y": 16.51 }
+					{ "time": 0.5833, "x": 29.22, "y": 16.51 }
 				]
 			},
 			"RightHand": {
@@ -1165,22 +1138,14 @@
 						"value": -71.26,
 						"curve": [ 0.15, -71.26, 0.16, -173.93 ]
 					},
-					{
-						"time": 0.2167,
-						"value": -173.93,
-						"curve": [ 0.258, -173.93, 0.246, -172.42 ]
-					},
+					{ "time": 0.2167, "value": -173.93, "curve": "stepped" },
 					{
 						"time": 0.3333,
-						"value": -172.42,
-						"curve": [ 0.363, -172.42, 0.421, -78.72 ]
+						"value": -173.93,
+						"curve": [ 0.375, -173.93, 0.421, -78.72 ]
 					},
-					{
-						"time": 0.45,
-						"value": -78.72,
-						"curve": [ 0.483, -78.72, 0.55, -78.35 ]
-					},
-					{ "time": 0.5833, "value": -78.35 }
+					{ "time": 0.45, "value": -78.72 },
+					{ "time": 0.5833, "value": -175.7 }
 				],
 				"translate": [
 					{
@@ -1198,27 +1163,22 @@
 						"time": 0.15,
 						"x": 60.65,
 						"y": 2.62,
-						"curve": [ 0.15, 60.65, 0.16, 15.43, 0.15, 2.62, 0.16, -26.42 ]
+						"curve": [ 0.15, 60.65, 0.16, 19.16, 0.15, 2.62, 0.16, -11.79 ]
 					},
-					{
-						"time": 0.2167,
-						"x": 15.43,
-						"y": -26.41,
-						"curve": [ 0.258, 15.43, 0.246, 15.87, 0.258, -26.42, 0.246, -28.03 ]
-					},
+					{ "time": 0.2167, "x": 19.16, "y": -11.78, "curve": "stepped" },
 					{
 						"time": 0.3333,
-						"x": 15.87,
-						"y": -28.03,
-						"curve": [ 0.363, 15.87, 0.421, 24.79, 0.363, -28.03, 0.421, 0.38 ]
+						"x": 19.16,
+						"y": -11.78,
+						"curve": [ 0.375, 19.16, 0.421, 24.79, 0.375, -11.79, 0.421, 0.38 ]
 					},
 					{
 						"time": 0.45,
 						"x": 24.79,
 						"y": 0.37,
-						"curve": [ 0.483, 24.79, 0.55, 52.95, 0.483, 0.38, 0.55, -4.38 ]
+						"curve": [ 0.483, 24.79, 0.539, 23.14, 0.483, 0.38, 0.539, -12.63 ]
 					},
-					{ "time": 0.5833, "x": 52.95, "y": -4.38 }
+					{ "time": 0.5833, "x": 23.14, "y": -12.63 }
 				],
 				"scale": [
 					{ "x": -1 }
@@ -1227,6 +1187,12 @@
 			"RightThigh": {
 				"translate": [
 					{ "x": -4.02, "y": -0.71 }
+				]
+			},
+			"RightUpperArm": {
+				"translate": [
+					{},
+					{ "time": 0.2167, "x": -0.53, "y": 10.97 }
 				]
 			},
 			"Torso": {
@@ -1258,9 +1224,9 @@
 					{
 						"time": 0.45,
 						"value": -8,
-						"curve": [ 0.483, -8, 0.55, 0.5 ]
+						"curve": [ 0.483, -8, 0.539, 29.15 ]
 					},
-					{ "time": 0.5833, "value": 0.5 }
+					{ "time": 0.5833, "value": 29.15 }
 				]
 			},
 			"Pelvis": {
@@ -1292,7 +1258,7 @@
 					{
 						"time": 0.45,
 						"value": -12,
-						"curve": [ 0.483, -12, 0.55, -20.06 ]
+						"curve": [ 0.483, -12, 0.539, -20.06 ]
 					},
 					{ "time": 0.5833, "value": -20.06 }
 				]
@@ -1356,7 +1322,7 @@
 					{
 						"time": 0.45,
 						"value": -47.3,
-						"curve": [ 0.483, -47.3, 0.55, -29.01 ]
+						"curve": [ 0.483, -47.3, 0.539, -29.01 ]
 					},
 					{ "time": 0.5833, "value": -29.01 }
 				],
@@ -1394,9 +1360,9 @@
 						"time": 0.45,
 						"x": 1.35,
 						"y": 19.25,
-						"curve": [ 0.483, 1.35, 0.55, 0.67, 0.483, 19.25, 0.55, 10 ]
+						"curve": [ 0.483, 1.35, 0.539, 11.01, 0.483, 19.25, 0.539, 10 ]
 					},
-					{ "time": 0.5833, "x": 0.67, "y": 10 }
+					{ "time": 0.5833, "x": 11.01, "y": 10 }
 				]
 			},
 			"LeftHand": {
@@ -1415,18 +1381,14 @@
 						"value": 167.61,
 						"curve": [ 0.15, 167.61, 0.16, 94.06 ]
 					},
-					{
-						"time": 0.2167,
-						"value": 94.06,
-						"curve": [ 0.258, 94.06, 0.246, 94.78 ]
-					},
+					{ "time": 0.2167, "value": 94.06, "curve": "stepped" },
 					{
 						"time": 0.3333,
-						"value": 94.78,
-						"curve": [ 0.363, 94.78, 0.421, 138.37 ]
+						"value": 94.06,
+						"curve": [ 0.375, 94.06, 0.421, 138.37 ]
 					},
 					{ "time": 0.45, "value": 138.37 },
-					{ "time": 0.5833, "value": 210.48 }
+					{ "time": 0.5833, "value": -54.15 }
 				],
 				"translate": [
 					{
@@ -1444,32 +1406,29 @@
 						"time": 0.15,
 						"x": 60.68,
 						"y": -29.66,
-						"curve": [ 0.15, 60.68, 0.16, 15.13, 0.15, -29.66, 0.16, -60.35 ]
+						"curve": [ 0.15, 60.68, 0.16, 17.9, 0.15, -29.66, 0.16, -45.32 ]
 					},
-					{
-						"time": 0.2167,
-						"x": 15.13,
-						"y": -60.35,
-						"curve": [ 0.258, 15.13, 0.246, 15.42, 0.258, -60.35, 0.246, -61.99 ]
-					},
+					{ "time": 0.2167, "x": 17.9, "y": -45.32, "curve": "stepped" },
 					{
 						"time": 0.3333,
-						"x": 15.42,
-						"y": -61.99,
-						"curve": [ 0.363, 15.42, 0.421, 16.87, 0.363, -61.99, 0.421, -24.15 ]
+						"x": 17.9,
+						"y": -45.32,
+						"curve": [ 0.375, 17.9, 0.421, 16.87, 0.375, -45.32, 0.421, -24.15 ]
 					},
 					{
 						"time": 0.45,
 						"x": 16.87,
 						"y": -24.15,
-						"curve": [ 0.483, 16.87, 0.55, 56.54, 0.483, -24.15, 0.55, 4.4 ]
+						"curve": [ 0.483, 16.87, 0.539, 20.19, 0.483, -24.15, 0.539, 20.71 ]
 					},
-					{ "time": 0.5833, "x": 56.54, "y": 4.4 }
+					{ "time": 0.5833, "x": 20.19, "y": 20.71 }
 				]
 			},
 			"LeftUpperArm": {
 				"translate": [
-					{ "x": -3.03, "y": -0.9 }
+					{ "x": -3.03, "y": -0.9 },
+					{ "time": 0.1, "x": -2.5, "y": -3.07 },
+					{ "time": 0.5833, "x": -3.03, "y": -0.9 }
 				]
 			},
 			"root": {
@@ -1477,6 +1436,11 @@
 					{ "time": 0.5833, "value": 0.04 }
 				]
 			}
+		},
+		"ik": {
+			"Hand_1": [
+				{ "time": 0.5833, "bendPositive": false }
+			]
 		},
 		"attachments": {
 			"default": {
@@ -1504,6 +1468,10 @@
 							{
 								"time": 0.4667,
 								"vertices": [ -2.50371, -1.61265, -2.14384, 2.06733, 2.50443, 1.61284, 2.14462, -2.06705 ]
+							},
+							{
+								"time": 0.5833,
+								"vertices": [ 4.69751, 6.28329, 7.19348, -3.13042, -4.69752, -6.28325, -7.1935, 3.13045 ]
 							}
 						]
 					}
@@ -1512,6 +1480,19 @@
 		},
 		"drawOrder": [
 			{
+				"offsets": [
+					{ "slot": "F_UpperBody", "offset": 5 },
+					{ "slot": "LeftHand", "offset": 11 },
+					{ "slot": "LeftUpperArm", "offset": 8 },
+					{ "slot": "LeftForearm", "offset": 8 },
+					{ "slot": "RightUpperArm", "offset": -5 },
+					{ "slot": "RightForearm", "offset": -5 },
+					{ "slot": "RightThigh", "offset": -9 },
+					{ "slot": "RightCalf", "offset": -11 }
+				]
+			},
+			{
+				"time": 0.5833,
 				"offsets": [
 					{ "slot": "F_UpperBody", "offset": 5 },
 					{ "slot": "LeftHand", "offset": 11 },
@@ -2258,54 +2239,19 @@
 			},
 			"RightHand": {
 				"rotate": [
-					{
-						"value": -32.54,
-						"curve": [ 0.006, -15, 0.011, -30.74 ]
-					},
-					{
-						"time": 0.0167,
-						"value": 20.07,
-						"curve": [ 0.022, 70.87, 0.028, 272.3 ]
-					},
-					{
-						"time": 0.0333,
-						"value": 272.3,
-						"curve": [ 0.067, 272.3, 0.1, 272.3 ]
-					},
-					{
-						"time": 0.1333,
-						"value": 265.37,
-						"curve": [ 0.139, 264.22, 0.144, 65.4 ]
-					},
-					{
-						"time": 0.15,
-						"value": 65.4,
-						"curve": [ 0.154, 65.96, 0.158, 66.79 ]
-					},
-					{
-						"time": 0.1667,
-						"value": 67.08,
-						"curve": [ 0.178, 67.46, 0.192, 66.81 ]
-					},
-					{
-						"time": 0.2,
-						"value": 65.85,
-						"curve": [ 0.204, 65.34, 0.211, 63.36 ]
-					},
-					{ "time": 0.2167, "value": 63.36, "curve": "stepped" },
-					{
-						"time": 0.2833,
-						"value": 63.36,
-						"curve": [ 0.286, 77.82, 0.357, 177.35 ]
-					},
-					{ "time": 0.3667, "value": 158.98 },
-					{ "time": 0.4833, "value": 198.35 },
+					{ "value": -28.04 },
+					{ "time": 0.0167, "value": 62.24 },
+					{ "time": 0.1333, "value": 138.46 },
+					{ "time": 0.2167, "value": 107.11, "curve": "stepped" },
+					{ "time": 0.2833, "value": 107.11 },
+					{ "time": 0.3667, "value": 201.31 },
+					{ "time": 0.4833, "value": 249.36 },
 					{
 						"time": 0.5667,
 						"value": 79.78,
-						"curve": [ 0.571, 70.87, 0.611, 5.21 ]
+						"curve": [ 0.571, 70.87, 0.611, 26.81 ]
 					},
-					{ "time": 0.6333, "value": 5.21 }
+					{ "time": 0.6333, "value": 26.81 }
 				],
 				"translate": [
 					{
@@ -2323,9 +2269,9 @@
 						"time": 0.0333,
 						"x": 11.6,
 						"y": 4.77,
-						"curve": [ 0.067, 11.6, 0.2, 39.67, 0.067, 8.43, 0.2, -14.21 ]
+						"curve": [ 0.067, 11.6, 0.2, 39.71, 0.067, 8.43, 0.2, -14.38 ]
 					},
-					{ "time": 0.2167, "x": 39.67, "y": -14.63, "curve": "stepped" },
+					{ "time": 0.2167, "x": 39.71, "y": -14.8, "curve": "stepped" },
 					{
 						"time": 0.2833,
 						"x": 39.67,
@@ -2576,11 +2522,6 @@
 					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Head" }
 				]
 			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftFoot": {
 				"attachment": [
 					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Foot_R" }
@@ -2789,11 +2730,6 @@
 			"F_UpperBody": {
 				"attachment": [
 					{ "time": 0.2333, "name": "Right/CasOctober52026-Right-Torso" }
-				]
-			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
 				]
 			},
 			"LeftFoot": {
@@ -3122,11 +3058,6 @@
 					{ "time": 0.2, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Torso" }
 				]
 			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftThigh": {
 				"attachment": [
 					{ "name": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L" }
@@ -3256,7 +3187,7 @@
 				"rotate": [
 					{ "value": 141.95, "curve": "stepped" },
 					{ "time": 0.2, "value": 141.95 },
-					{ "time": 0.2667, "value": 71.75 }
+					{ "time": 0.2667, "value": 105.08 }
 				],
 				"translate": [
 					{ "x": 13.85, "y": 21.44 },
@@ -3442,11 +3373,6 @@
 			"F_Head": {
 				"attachment": [
 					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Head" }
-				]
-			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
 				]
 			},
 			"LeftFoot": {
@@ -3675,11 +3601,6 @@
 					{ "time": 0.2333, "name": "Right/CasOctober52026-Right-Torso" }
 				]
 			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftFoot": {
 				"attachment": [
 					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Foot_R" },
@@ -3693,7 +3614,7 @@
 			},
 			"LeftHand": {
 				"attachment": [
-					{ "time": 0.15 }
+					{ "time": 0.1667 }
 				]
 			},
 			"LeftThigh": {
@@ -3888,8 +3809,8 @@
 					{ "time": 0.2333, "value": 25.2 }
 				],
 				"translate": [
-					{},
-					{ "time": 0.2333, "x": 1.77, "y": -1.26 }
+					{ "curve": "stepped" },
+					{ "time": 0.2333, "x": 1.67, "y": -0.53 }
 				]
 			},
 			"Pelvis": {
@@ -4016,6 +3937,10 @@
 					{ "slot": "RightThigh", "offset": -4 }
 				]
 			}
+		],
+		"events": [
+			{ "time": 0.1333, "name": "Hold" },
+			{ "time": 0.1667, "name": "Release" }
 		]
 	},
 	"Attack_Punch_Mantis_3": {
@@ -4029,11 +3954,6 @@
 				"attachment": [
 					{ "name": "Right/CasOctober52026-Right-Torso" },
 					{ "time": 0.2, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Torso" }
-				]
-			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
 				]
 			},
 			"LeftFoot": {
@@ -4083,7 +4003,7 @@
 					{ "time": 0.2167, "color": "ffffffff" }
 				],
 				"attachment": [
-					{ "time": 0.2667, "name": "Right/CasOctober52026-Right-Forearm_R_Mantis" }
+					{ "name": "Right/CasOctober52026-Right-Forearm_R_Mantis" }
 				]
 			},
 			"RightHand": {
@@ -4303,7 +4223,8 @@
 					{ "time": 0.2, "value": 40.72 }
 				],
 				"translate": [
-					{ "x": 1.77, "y": -1.26 }
+					{ "x": 1.67, "y": -0.53 },
+					{ "time": 0.4333, "x": 1.77, "y": -1.26 }
 				]
 			},
 			"Cas": {
@@ -4336,7 +4257,7 @@
 					"Right/CasOctober52026-Right-Torso": {
 						"deform": [
 							{
-								"vertices": [ 0.176, 3.41231, 0.176, 3.41231, 0.176, 3.41231, 0.176, 3.41231, 0.176, 3.41231, 0.176, 3.41231, 0.176, 3.41231, 0.176, 3.41231 ]
+								"vertices": [ -0.46617, 2.04022, -0.46617, 2.04022, -0.46617, 2.04022, -0.46617, 2.04022, -0.46617, 2.04022, -0.46617, 2.04022, -0.46617, 2.04022, -0.46617, 2.04022 ]
 							}
 						]
 					}
@@ -4393,11 +4314,6 @@
 				"attachment": [
 					{ "time": 0.6, "name": "Right/CasOctober52026-Right-Torso" },
 					{ "time": 0.95, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Torso" }
-				]
-			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
 				]
 			},
 			"LeftFoot": {
@@ -4892,24 +4808,9 @@
 					{ "time": 0.1667, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Torso" }
 				]
 			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
-			"LeftFoot": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Foot_R" }
-				]
-			},
 			"LeftThigh": {
 				"attachment": [
 					{ "name": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L" }
-				]
-			},
-			"LeftToes": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_R" }
 				]
 			},
 			"RightCalf": {
@@ -5009,11 +4910,9 @@
 				],
 				"translate": [
 					{ "x": -21, "y": 3.88 },
-					{ "time": 0.1, "x": -21, "y": 1.81, "curve": "stepped" },
-					{ "time": 0.1667, "x": -21, "y": 1.81 },
-					{ "time": 0.2333, "x": -6.28, "y": 1.81, "curve": "stepped" },
-					{ "time": 0.3167, "x": -6.28, "y": 1.81 },
-					{ "time": 0.4333, "x": -11.38, "y": 1.81 }
+					{ "time": 0.1, "x": -21, "y": 4.15, "curve": "stepped" },
+					{ "time": 0.1667, "x": -21, "y": 4.15 },
+					{ "time": 0.2333, "x": -6.28, "y": 4.62 }
 				]
 			},
 			"LeftThigh": {
@@ -5198,14 +5097,15 @@
 		"drawOrder": [
 			{
 				"offsets": [
-					{ "slot": "F_UpperBody", "offset": 5 },
+					{ "slot": "RightFoot", "offset": 2 },
+					{ "slot": "LeftFoot", "offset": 9 },
+					{ "slot": "F_Head", "offset": 1 },
+					{ "slot": "F_UpperBody", "offset": 4 },
 					{ "slot": "LeftHand", "offset": 11 },
 					{ "slot": "LeftUpperArm", "offset": 8 },
 					{ "slot": "LeftForearm", "offset": 8 },
-					{ "slot": "Waist", "offset": 0 },
-					{ "slot": "RightUpperArm", "offset": -8 },
-					{ "slot": "RightForearm", "offset": -8 },
-					{ "slot": "RightThigh", "offset": -4 }
+					{ "slot": "Waist", "offset": -1 },
+					{ "slot": "RightThigh", "offset": -5 }
 				]
 			}
 		],
@@ -5457,14 +5357,10 @@
 	},
 	"Dash": {
 		"slots": {
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftFoot": {
 				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Foot_R" }
+					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Foot_R" },
+					{ "time": 0.0167, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Foot_L" }
 				]
 			},
 			"LeftThigh": {
@@ -5474,7 +5370,8 @@
 			},
 			"LeftToes": {
 				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_R" }
+					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_R" },
+					{ "time": 0.0167, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_L" }
 				]
 			},
 			"RightCalf": {
@@ -5565,32 +5462,10 @@
 						"value": -32.54,
 						"curve": [ 0.006, -49.68, 0.011, -219.4 ]
 					},
-					{
-						"time": 0.0167,
-						"value": -219.4,
-						"curve": [ 0.06, -219.4, 0.131, -36.65 ]
-					},
-					{
-						"time": 0.1667,
-						"value": 0.86,
-						"curve": [ 0.173, 7.14, 0.195, -48.22 ]
-					},
-					{
-						"time": 0.2,
-						"value": -46.53,
-						"curve": [ 0.221, -39.07, 0.223, 108.42 ]
-					},
-					{
-						"time": 0.2333,
-						"value": 113.57,
-						"curve": [ 0.257, 125.92, 0.29, 77.95 ]
-					},
-					{
-						"time": 0.3167,
-						"value": 61.32,
-						"curve": [ 0.358, 35.09, 0.417, -1.25 ]
-					},
-					{ "time": 0.4667, "value": -32.54 }
+					{ "time": 0.0167, "value": -219.4, "curve": "stepped" },
+					{ "time": 0.2333, "value": -219.4 },
+					{ "time": 0.3167, "value": -279.85 },
+					{ "time": 0.4667, "value": -375.81 }
 				],
 				"translate": [
 					{
@@ -5602,21 +5477,9 @@
 						"time": 0.0167,
 						"x": 8.44,
 						"y": 5.53,
-						"curve": [ 0.048, 6.3, 0.117, 11.7, 0.053, 3.21, 0.117, 32.81 ]
+						"curve": [ 0.048, 6.3, 0.117, 19.91, 0.053, 3.21, 0.117, -12.03 ]
 					},
-					{ "time": 0.1667, "x": 11.7, "y": 32.81, "curve": "stepped" },
-					{
-						"time": 0.2,
-						"x": 13.31,
-						"y": 34.96,
-						"curve": [ 0.211, 13.31, 0.222, 17.6, 0.211, 34.96, 0.223, -1.86 ]
-					},
-					{
-						"time": 0.2333,
-						"x": 18.29,
-						"y": -3.04,
-						"curve": [ 0.266, 20.36, 0.287, 19.07, 0.252, -5.19, 0.294, -6.22 ]
-					},
+					{ "time": 0.1667, "x": 19.91, "y": -12.03 },
 					{
 						"time": 0.3167,
 						"x": 10.98,
@@ -5768,11 +5631,6 @@
 			"F_Head": {
 				"attachment": [
 					{ "time": 0.0167, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Tense" }
-				]
-			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
 				]
 			},
 			"LeftFoot": {
@@ -6165,11 +6023,6 @@
 					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Tense" },
 					{ "time": 0.1667, "name": "Right/CasOctober52026-Right-Tense" },
 					{ "time": 0.3333, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Tense" }
-				]
-			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
 				]
 			},
 			"LeftFoot": {
@@ -6941,11 +6794,6 @@
 					{ "time": 0.3, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Torso" }
 				]
 			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftFoot": {
 				"attachment": [
 					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Foot_R" }
@@ -7301,7 +7149,7 @@
 						"deform": [
 							{
 								"time": 0.1833,
-								"vertices": [ -2.21172, -2.45618, -2.21172, -2.45618, -2.21172, -2.45618, -2.21172, -2.45618, -2.21172, -2.45618, -2.21172, -2.45618, -2.21172, -2.45618, -2.21172, -2.45618 ]
+								"vertices": [ -3.05622, 4.57436, -3.05622, 4.57436, -3.05623, 4.57436, -3.05623, 4.57436, -3.05622, 4.57436, -3.05622, 4.57436, -3.05622, 4.57436, -3.05622, 4.57436 ]
 							}
 						]
 					}
@@ -7336,11 +7184,6 @@
 					{ "time": 4.4833, "name": "Right/CasOctober52026-Right-Blink" },
 					{ "time": 4.5833, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Blink" },
 					{ "time": 4.6333, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Head" }
-				]
-			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
 				]
 			},
 			"LeftFoot": {
@@ -7703,11 +7546,6 @@
 					{ "time": 0.3333, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Head" }
 				]
 			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftFoot": {
 				"attachment": [
 					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Foot_R" }
@@ -7816,8 +7654,8 @@
 			"RightHand": {
 				"rotate": [
 					{ "value": 5.21 },
-					{ "time": 0.1, "value": 33.34, "curve": "stepped" },
-					{ "time": 0.2833, "value": 33.34 },
+					{ "time": 0.1, "value": 88.6, "curve": "stepped" },
+					{ "time": 0.2833, "value": 88.6, "curve": "stepped" },
 					{ "time": 0.3333, "value": 5.21 }
 				],
 				"translate": [
@@ -7911,11 +7749,6 @@
 	},
 	"Jump_1_Start": {
 		"slots": {
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftFoot": {
 				"attachment": [
 					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Foot_R" }
@@ -8057,7 +7890,7 @@
 						"curve": [ 0.061, -0.85, 0.063, 13.82 ]
 					},
 					{ "time": 0.0667, "value": 13.84 },
-					{ "time": 0.1333, "value": 151.7 }
+					{ "time": 0.1333, "value": 194.76 }
 				],
 				"translate": [
 					{ "x": -4.22, "y": 8.35 },
@@ -8187,11 +8020,6 @@
 	},
 	"Jump_2_Air": {
 		"slots": {
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftThigh": {
 				"attachment": [
 					{ "name": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L" }
@@ -8249,7 +8077,7 @@
 			"RightHand": {
 				"rotate": [
 					{ "value": 278.15 },
-					{ "time": 0.25, "value": 201.85 }
+					{ "time": 0.25, "value": 172.73 }
 				],
 				"translate": [
 					{ "x": 38.26, "y": -12.88 },
@@ -8327,25 +8155,21 @@
 		"drawOrder": [
 			{
 				"offsets": [
-					{ "slot": "F_UpperBody", "offset": 5 },
+					{ "slot": "RightFoot", "offset": 2 },
+					{ "slot": "LeftFoot", "offset": 9 },
+					{ "slot": "F_Head", "offset": 1 },
+					{ "slot": "F_UpperBody", "offset": 4 },
 					{ "slot": "LeftHand", "offset": 11 },
 					{ "slot": "LeftUpperArm", "offset": 8 },
 					{ "slot": "LeftForearm", "offset": 8 },
-					{ "slot": "Waist", "offset": 0 },
-					{ "slot": "RightUpperArm", "offset": -8 },
-					{ "slot": "RightForearm", "offset": -8 },
-					{ "slot": "RightThigh", "offset": -4 }
+					{ "slot": "Waist", "offset": -1 },
+					{ "slot": "RightThigh", "offset": -5 }
 				]
 			}
 		]
 	},
 	"Jump_2_Air_Double": {
 		"slots": {
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftThigh": {
 				"attachment": [
 					{ "name": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L" }
@@ -8369,9 +8193,6 @@
 			"RightHand": {
 				"rgba": [
 					{ "color": "747474ff" }
-				],
-				"attachment": [
-					{ "name": "Left/CasFullLimbBreakdown-Left-Hand_L_Open" }
 				]
 			},
 			"RightThigh": {
@@ -8419,10 +8240,11 @@
 				"rotate": [
 					{ "value": 189.54 },
 					{ "time": 0.0167, "value": -59.93 },
+					{ "time": 0.05, "value": -73.66 },
 					{ "time": 0.0833, "value": -255.13 },
 					{ "time": 0.3, "value": -163.52 },
 					{ "time": 0.4167, "value": -81.85 },
-					{ "time": 0.5, "value": 236.61 }
+					{ "time": 0.5, "value": -161.27 }
 				],
 				"translate": [
 					{ "x": 8.66, "y": -3.04 },
@@ -8796,11 +8618,6 @@
 					{ "time": 0.3667, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Head" }
 				]
 			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftFoot": {
 				"attachment": [
 					{ "time": 0.4333, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Foot_R" }
@@ -8890,14 +8707,11 @@
 			"LeftToes": {
 				"rotate": [
 					{},
-					{ "time": 0.4333, "value": -46.96 }
+					{ "time": 0.4333, "value": 1.85 }
 				],
 				"translate": [
 					{},
 					{ "time": 0.4333, "x": 0.41, "y": 0.37 }
-				],
-				"inherit": [
-					{ "time": 0.4333, "inherit": "noRotationOrReflection" }
 				]
 			},
 			"LeftUpperArm": {
@@ -8932,13 +8746,15 @@
 			},
 			"RightHand": {
 				"rotate": [
-					{ "value": 196.77 },
-					{ "time": 0.1333, "value": 168.48 }
+					{ "value": 153.42 },
+					{ "time": 0.1333, "value": 168.48, "curve": "stepped" },
+					{ "time": 0.2333, "value": 168.48 },
+					{ "time": 0.4333, "value": 117.41 }
 				],
 				"translate": [
-					{ "x": 13.14, "y": -21.13 },
+					{ "x": 13.63, "y": -20.21 },
 					{ "time": 0.0667, "x": 5.29, "y": -18.52 },
-					{ "time": 0.1333, "x": 20.98, "y": -23.74 },
+					{ "time": 0.1333, "x": 22.05, "y": -22.01 },
 					{ "time": 0.25, "x": 19.36, "y": -16.63 },
 					{ "time": 0.3, "x": -0.44, "y": 2.82 },
 					{ "time": 0.3667, "x": 1.45, "y": 4.76 },
@@ -9015,14 +8831,15 @@
 		"drawOrder": [
 			{
 				"offsets": [
-					{ "slot": "F_UpperBody", "offset": 5 },
+					{ "slot": "RightFoot", "offset": 2 },
+					{ "slot": "LeftFoot", "offset": 9 },
+					{ "slot": "F_Head", "offset": 1 },
+					{ "slot": "F_UpperBody", "offset": 4 },
 					{ "slot": "LeftHand", "offset": 11 },
 					{ "slot": "LeftUpperArm", "offset": 8 },
 					{ "slot": "LeftForearm", "offset": 8 },
-					{ "slot": "Waist", "offset": 0 },
-					{ "slot": "RightUpperArm", "offset": -8 },
-					{ "slot": "RightForearm", "offset": -8 },
-					{ "slot": "RightThigh", "offset": -4 }
+					{ "slot": "Waist", "offset": -1 },
+					{ "slot": "RightThigh", "offset": -5 }
 				]
 			},
 			{
@@ -9043,11 +8860,6 @@
 	},
 	"Jump_Wall": {
 		"slots": {
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftThigh": {
 				"attachment": [
 					{ "name": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L" }
@@ -9100,16 +8912,7 @@
 			},
 			"RightHand": {
 				"rotate": [
-					{
-						"value": 70.14,
-						"curve": [ 0.022, 66.56, 0.044, 61.26 ]
-					},
-					{
-						"time": 0.0667,
-						"value": 59.4,
-						"curve": [ 0.106, 56.16, 0.144, 54.86 ]
-					},
-					{ "time": 0.1833, "value": 54.86 }
+					{ "value": 129.41 }
 				],
 				"translate": [
 					{
@@ -9259,11 +9062,6 @@
 	},
 	"Parry_1": {
 		"slots": {
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
 			"LeftThigh": {
 				"attachment": [
 					{ "name": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L" }
@@ -9312,6 +9110,11 @@
 					{ "time": 0.0167, "x": 7.06 }
 				]
 			},
+			"RightForearm": {
+				"translate": [
+					{ "time": 0.1, "x": 0.19 }
+				]
+			},
 			"RightHand": {
 				"rotate": [
 					{ "value": 5.26, "curve": "stepped" },
@@ -9321,7 +9124,13 @@
 				"translate": [
 					{ "x": 1.33, "y": 1.58, "curve": "stepped" },
 					{ "time": 0.0167, "x": 39.66, "y": 3.55 },
-					{ "time": 0.1, "x": 44.51, "y": 7.13 }
+					{ "time": 0.1, "x": 44.7, "y": 7.13 }
+				]
+			},
+			"RightUpperArm": {
+				"translate": [
+					{},
+					{ "time": 0.1, "x": 3.95, "y": 8.13 }
 				]
 			},
 			"Torso": {
@@ -9334,12 +9143,12 @@
 				"rotate": [
 					{ "value": 11.38, "curve": "stepped" },
 					{ "time": 0.0167, "value": 188.77 },
-					{ "time": 0.1, "value": 241.68 }
+					{ "time": 0.1, "value": 165.85 }
 				],
 				"translate": [
 					{ "x": -2.6, "y": -4.63, "curve": "stepped" },
 					{ "time": 0.0167, "x": 35.03, "y": -24.24 },
-					{ "time": 0.1, "x": 42.15, "y": -16.59 }
+					{ "time": 0.1, "x": 48.16, "y": -33.98 }
 				]
 			},
 			"Pelvis": {
@@ -9391,6 +9200,19 @@
 					{ "slot": "RightForearm", "offset": -8 },
 					{ "slot": "RightThigh", "offset": -4 }
 				]
+			},
+			{
+				"time": 0.0167,
+				"offsets": [
+					{ "slot": "RightHand", "offset": 4 },
+					{ "slot": "F_UpperBody", "offset": 5 },
+					{ "slot": "LeftHand", "offset": 11 },
+					{ "slot": "LeftUpperArm", "offset": 9 },
+					{ "slot": "LeftForearm", "offset": 7 },
+					{ "slot": "Waist", "offset": 0 },
+					{ "slot": "RightUpperArm", "offset": -9 },
+					{ "slot": "RightThigh", "offset": -4 }
+				]
 			}
 		]
 	},
@@ -9399,11 +9221,6 @@
 			"F_UpperBody": {
 				"attachment": [
 					{ "time": 0.0833, "name": "Right/CasOctober52026-Right-Torso" }
-				]
-			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
 				]
 			},
 			"LeftThigh": {
@@ -9473,6 +9290,11 @@
 					{ "time": 0.1167, "x": 19.49, "y": -1.95 }
 				]
 			},
+			"RightForearm": {
+				"translate": [
+					{ "x": 0.19 }
+				]
+			},
 			"RightHand": {
 				"rotate": [
 					{ "value": 227.82 },
@@ -9481,7 +9303,7 @@
 					{ "time": 0.2333, "value": -89.24 }
 				],
 				"translate": [
-					{ "x": 44.51, "y": 7.13 },
+					{ "x": 44.7, "y": 7.13 },
 					{ "time": 0.1167, "x": 19.75, "y": -6.95 },
 					{ "time": 0.2, "x": 21.19, "y": -8.59 },
 					{ "time": 0.2333, "x": 11.98, "y": 12.52 }
@@ -9501,19 +9323,19 @@
 			},
 			"RightUpperArm": {
 				"translate": [
-					{},
+					{ "x": 3.95, "y": 8.13 },
 					{ "time": 0.25, "y": 7.64 }
 				]
 			},
 			"LeftHand": {
 				"rotate": [
-					{ "value": 241.68 },
+					{ "value": 165.85, "curve": "stepped" },
 					{ "time": 0.1167, "value": 95.43, "curve": "stepped" },
 					{ "time": 0.2, "value": 95.43 },
 					{ "time": 0.2333, "value": -1.32 }
 				],
 				"translate": [
-					{ "x": 42.15, "y": -16.59 },
+					{ "x": 48.16, "y": -33.98 },
 					{ "time": 0.1167, "x": 25.62, "y": -41.73 },
 					{ "time": 0.2, "x": 27.49, "y": -43.13 },
 					{ "time": 0.2333, "x": 7.13, "y": 1.34 },
@@ -9586,7 +9408,7 @@
 			},
 			"LeftToes": {
 				"rotate": [
-					{ "value": 23.66 },
+					{ "value": 28.97 },
 					{ "time": 0.2, "value": 33.88 }
 				]
 			},
@@ -9604,7 +9426,7 @@
 						"deform": [
 							{
 								"time": 0.0833,
-								"vertices": [ -1.5459, -5.58497, -1.5459, -5.58497, -1.5459, -5.58497, -1.5459, -5.58497, -1.5459, -5.58497, -1.5459, -5.58497, -1.5459, -5.58497, -1.5459, -5.58497 ]
+								"vertices": [ -1.05846, 2.13688, -1.05847, 2.13688, -1.05847, 2.13688, -1.05847, 2.13688, -1.05847, 2.13688, -1.05847, 2.13688, -1.05847, 2.13688, -1.05846, 2.13688 ]
 							}
 						]
 					}
@@ -9614,31 +9436,31 @@
 		"drawOrder": [
 			{
 				"offsets": [
+					{ "slot": "RightHand", "offset": 4 },
 					{ "slot": "F_UpperBody", "offset": 5 },
 					{ "slot": "LeftHand", "offset": 11 },
 					{ "slot": "LeftUpperArm", "offset": 9 },
 					{ "slot": "LeftForearm", "offset": 7 },
 					{ "slot": "Waist", "offset": 0 },
-					{ "slot": "RightUpperArm", "offset": -8 },
-					{ "slot": "RightForearm", "offset": -8 },
+					{ "slot": "RightUpperArm", "offset": -9 },
 					{ "slot": "RightThigh", "offset": -4 }
 				]
 			}
+		],
+		"events": [
+			{ "time": 0.25, "name": "Hold" },
+			{ "time": 0.3, "name": "Release" }
 		]
 	},
 	"Run": {
 		"slots": {
 			"F_UpperBody": {
 				"attachment": [
+					{ "name": "QuarterRightBack/CasOctober52026-QuarterRightBack-Torso" },
 					{ "time": 0.1833, "name": "Right/CasOctober52026-Right-Torso" },
 					{ "time": 0.2667, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Torso" },
 					{ "time": 0.45, "name": "Right/CasOctober52026-Right-Torso" },
 					{ "time": 0.4833, "name": "QuarterRightBack/CasOctober52026-QuarterRightBack-Torso" }
-				]
-			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
 				]
 			},
 			"LeftHand": {
@@ -10155,8 +9977,7 @@
 						"deform": [
 							{
 								"time": 0.1833,
-								"offset": 1,
-								"vertices": [ -7.32323, 0, -7.32323, 0, -7.32323, 0, -7.32323, 0, -7.32323, 0, -7.32323, 0, -7.32323, 0, -7.32323 ]
+								"vertices": [ 0.95466, -1.7149, 0.95466, -1.7149, 0.95466, -1.7149, 0.95466, -1.7149, 0.95466, -1.7149, 0.95466, -1.7149, 0.95466, -1.7149, 0.95466, -1.7149 ]
 							},
 							{
 								"time": 0.45,
@@ -10338,16 +10159,6 @@
 					{ "time": 0.19, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Torso" }
 				]
 			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
-				]
-			},
-			"LeftFoot": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Foot_R" }
-				]
-			},
 			"LeftHand": {
 				"attachment": [
 					{ "name": "Left/CasFullLimbBreakdown-Left-Hand_L_Open" },
@@ -10357,11 +10168,6 @@
 			"LeftThigh": {
 				"attachment": [
 					{ "name": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L" }
-				]
-			},
-			"LeftToes": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_R" }
 				]
 			},
 			"LeftUpperArm": {
@@ -10705,15 +10511,10 @@
 					{
 						"x": 13.66,
 						"y": 8.27,
-						"curve": [ 0, 13.66, 0.027, 19, 0, 8.27, 0.027, -14 ]
+						"curve": [ 0, 13.66, 0.027, 19.7, 0, 8.27, 0.027, -12.75 ]
 					},
-					{ "time": 0.0667, "x": 19, "y": -14, "curve": "stepped" },
-					{
-						"time": 0.15,
-						"x": 19,
-						"y": -14,
-						"curve": [ 0.174, 19, 0.214, 8, 0.174, -14, 0.214, -4 ]
-					},
+					{ "time": 0.0667, "x": 19.7, "y": -12.75, "curve": "stepped" },
+					{ "time": 0.15, "x": 19.7, "y": -12.75, "curve": "stepped" },
 					{
 						"time": 0.23,
 						"x": 8,
@@ -10868,7 +10669,7 @@
 					"Right/CasOctober52026-Right-Torso": {
 						"deform": [
 							{
-								"vertices": [ -2.05391, -3.20363, -2.05391, -3.20363, -2.05391, -3.20363, -2.05391, -3.20363, -2.05391, -3.20363, -2.05391, -3.20363, -2.05391, -3.20363, -2.05391, -3.20363 ]
+								"vertices": [ -0.92733, 2.50897, -0.92733, 2.50897, -0.92733, 2.50897, -0.92733, 2.50897, -0.92733, 2.50897, -0.92733, 2.50897, -0.92733, 2.50897, -0.92733, 2.50897 ]
 							}
 						]
 					},
@@ -10961,11 +10762,6 @@
 			"F_Head": {
 				"attachment": [
 					{ "time": 0.7667, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Head" }
-				]
-			},
-			"LeftCalf": {
-				"attachment": [
-					{ "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Calf_R" }
 				]
 			},
 			"LeftFoot": {

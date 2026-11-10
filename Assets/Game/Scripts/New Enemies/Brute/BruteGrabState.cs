@@ -75,7 +75,7 @@ namespace junklite
                 return;
             }
 
-            enemy.ShowAttackWarningImmediate();
+            enemy.ShowAttackWarningImmediate(grab.WarningTime);
             presenter?.PlayGrabWarning(grab.WarningTime);
             SetPhase(Phase.Warning);
         }

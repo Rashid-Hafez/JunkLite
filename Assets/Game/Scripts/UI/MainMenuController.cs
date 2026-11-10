@@ -112,6 +112,7 @@ namespace junklite
         {
             if (loading || string.IsNullOrEmpty(sceneName)) return;
             loading = true;
+            MenuMusic.FadeOutCurrent();
 
             // Coming back from a run the persistent root already exists. On a cold start
             // the menu creates it, and the level's own root removes itself as a duplicate.

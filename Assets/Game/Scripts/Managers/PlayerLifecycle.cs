@@ -192,6 +192,9 @@ namespace junklite
             currentPlayer.ReviveAt(spawnPosition);
             currentPlayer.Activate();
             ResetPlayerMovementAxis();
+            SpawnedAtCheckpoint = activeCheckpoint != null;
+            if (SpawnedAtCheckpoint)
+                SnapToNearestLane(currentPlayer.Controller, spawnPosition);
 
             if (currentPlayer.Stats != null)
                 currentPlayer.PlayerState.HasDrone = currentPlayer.Stats.HasDrone;
@@ -519,6 +522,40 @@ namespace junklite
             }
 
             currentSpawnIndex = nearestIndex;
+        }
+
+        /// <summary>The last spawn was at a checkpoint: she starts on the lane, and a ZMovementZone she spawned inside waits for her to walk out and back in.</summary>
+        public bool SpawnedAtCheckpoint { get; private set; }
+
+        // Furthest a checkpoint may sit from its lane and still be pulled onto it (m).
+        private const float CheckpointLaneSnapRange = 4f;
+
+        /// <summary>A checkpoint spawn lands on the closest lane path, locked to it.</summary>
+        private void SnapToNearestLane(Character2D5Controller controller, Vector3 spawnPosition)
+        {
+            if (controller == null) return;
+
+            float bestSqr = CheckpointLaneSnapRange * CheckpointLaneSnapRange;
+            Vector3 bestPoint = spawnPosition;
+            float bestYaw = 0f;
+            bool found = false;
+            foreach (LanePath path in FindObjectsByType<LanePath>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (!path.TryGetClosestPoint(spawnPosition, out Vector3 point, out float pathYaw)) continue;
+                Vector3 d = point - spawnPosition;
+                d.y = 0f;
+                if (d.sqrMagnitude >= bestSqr) continue;
+                bestSqr = d.sqrMagnitude;
+                bestPoint = point;
+                bestYaw = pathYaw;
+                found = true;
+            }
+            if (!found) return;
+
+            // Keep the checkpoint's facing when it runs along the same lane axis (it may face either way).
+            float spawnYaw = GetSpawnRotation();
+            float yaw = Mathf.Abs(Mathf.DeltaAngle(spawnYaw, bestYaw)) % 180f < 1f ? spawnYaw : bestYaw;
+            controller.SnapToLane(bestPoint, yaw);
         }
 
         private void ResetPlayerMovementAxis()

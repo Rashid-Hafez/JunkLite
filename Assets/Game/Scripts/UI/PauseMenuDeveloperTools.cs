@@ -178,6 +178,7 @@ namespace junklite
             roomActions.Add(new ToolAction("NEXT CHECKPOINT", () => JumpToCheckpoint(+1)));
             roomActions.Add(new ToolAction("PREVIOUS CHECKPOINT", () => JumpToCheckpoint(-1)));
             roomActions.Add(new ToolAction("SPAWN NEAR ROOM 10", () => TeleportToAnchor("room10 spawn")));
+            roomActions.Add(new ToolAction("SPAWN NEAR BRUTE ROOM", () => TeleportToAnchor("brute room spawn")));
         }
 
         /// <summary>

@@ -2963,7 +2963,7 @@ MonoBehaviour:
   version: 2
   globalVolume: 0
   mode: 1
-  size: {x: 125.274574, y: 48.98328, z: 1065.0903}
+  size: {x: 125.27457, y: 48.98328, z: 1065.0903}
   overrideRendererFilters: 0
   minRendererVolumeSize: 0.1
   objectLayerMask:
@@ -5302,6 +5302,7 @@ MonoBehaviour:
   tutorialModPickupSpawnPoint: {fileID: 1888561153}
   nextSceneName: Service Floor
   nextSceneBuildIndex: -1
+  preloadNextSceneDuringOutro: 1
   endSequenceVolumeSettings: {fileID: 4869428690134821267}
   endGlitchRampInSeconds: 2
   endGlitchHoldSeconds: 0.35
@@ -10901,6 +10902,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.SceneSettings
   spawnPlayer: 1
   playerChoice: 2
+  levelMusic:
+    music:
+      clip: {fileID: 8300000, guid: 7df6773ffb8a24ed0a9dbf58c3f61607, type: 3}
+      volume: 0.5
+      pitchMin: 1
+      pitchMax: 1
+      effects: []
+    intro: {fileID: 0}
+    playThroughCombat: 1
+  ownsMusic: 0
 --- !u!4 &1775658524
 Transform:
   m_ObjectHideFlags: 0

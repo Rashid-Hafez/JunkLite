@@ -1,11 +1,12 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace junklite
 {
     /// <summary>
-    /// Keeps a SlidingDoor locked until an objective is complete and/or the player carries a key
-    /// (matched by Unity tag, see PlayerKeyring). While the rule is unmet and the player stands in the
+    /// Keeps a SlidingDoor locked until an objective is complete, the player carries a key
+    /// (matched by Unity tag, see PlayerKeyring) and/or the listed enemies are dead. While the rule is unmet and the player stands in the
     /// door's proximity trigger, the interact prompt shows and Interact plays the locked dialogue.
     /// Once met, the rule releases its lock and stays silent.
     /// </summary>
@@ -16,6 +17,8 @@ namespace junklite
         [SerializeField] private ObjectiveDefinition requiredObjective;
         [Tooltip("Optional. Door stays locked until the player carries a key with this tag.")]
         [SerializeField] private string requiredKeyTag;
+        [Tooltip("Optional. Door stays locked until every enemy here is dead (e.g. clear the room first).")]
+        [SerializeField] private List<EnemyCharacter> requiredDefeated = new();
         [Tooltip("Optional. Played on Interact while the door is locked.")]
         [SerializeField] private DialogueSequence lockedDialogue;
         [SerializeField] private string lockedPromptLabel = "Locked";
@@ -29,6 +32,7 @@ namespace junklite
         private int playerContacts;
         private bool promptShown;
         private bool? lastSatisfied;
+        private bool enemiesBound;
 
         /// <summary>Raised when the rule flips between met and unmet (e.g. a LaneEntryTrigger gating the same door).</summary>
         public event Action SatisfiedChanged;
@@ -67,6 +71,8 @@ namespace junklite
             if (requiredObjective != null &&
                 (ObjectiveTracker.Instance == null || !ObjectiveTracker.Instance.IsComplete(requiredObjective)))
                 return false;
+            foreach (EnemyCharacter enemy in requiredDefeated)
+                if (enemy != null && enemy.IsAlive) return false;
             return string.IsNullOrEmpty(requiredKeyTag) || (keyring != null && keyring.Has(requiredKeyTag));
         }
 
@@ -112,6 +118,7 @@ namespace junklite
         }
 
         private void HandleKeyringChanged(string _) => Refresh();
+        private void HandleEnemyDied(EnemyCharacter _) => Refresh();
         private void HandleObjectivesChanged() => Refresh();
 
         private void SetKeyring(PlayerKeyring value)
@@ -155,6 +162,13 @@ namespace junklite
                 subscribedInput = input;
                 if (subscribedInput != null) subscribedInput.OnInteract += HandleInteract;
             }
+
+            if (!enemiesBound)
+            {
+                enemiesBound = true;
+                foreach (EnemyCharacter enemy in requiredDefeated)
+                    if (enemy != null) enemy.Died += HandleEnemyDied;
+            }
         }
 
         private void Unbind()
@@ -169,6 +183,13 @@ namespace junklite
             {
                 subscribedInput.OnInteract -= HandleInteract;
                 subscribedInput = null;
+            }
+
+            if (enemiesBound)
+            {
+                enemiesBound = false;
+                foreach (EnemyCharacter enemy in requiredDefeated)
+                    if (enemy != null) enemy.Died -= HandleEnemyDied;
             }
         }
 

@@ -28,6 +28,8 @@ namespace junklite
         [Tooltip("Point past the door, outside the room's zones. After Interact the player walks here (snapped onto the lane), so she always leaves the room.")]
         [SerializeField] private Transform walkThrough;
         [SerializeField, Min(0.1f)] private float walkSpeed = 3f;
+        [Tooltip("Optional. Plays once on Interact, before the door unlocks and the player walks.")]
+        [SerializeField] private DialogueSequence proceedDialogue;
 
         [Header("Cinematic (optional)")]
         [Tooltip("Shot to play on Interact. Set its Start On to Script. The player walks only after the shot settles.")]
@@ -43,6 +45,7 @@ namespace junklite
         private GameInputManager subscribedInput;
         private PlayerLifecycle subscribedLifecycle;
         private bool playerSnapped;
+        private bool proceedDialoguePlayed;
         private Coroutine entryRoutine;
         private IDisposable entryInputLock;
 
@@ -119,6 +122,16 @@ namespace junklite
             if (transition != null && transition.Play(controller.transform))
                 yield return WaitUntilOrTimeout(() => transition.IsSettled || !transition.IsActive);
 
+            DialogueManager dialogue = DialogueManager.instance;
+            if (proceedDialogue != null && !proceedDialoguePlayed && dialogue != null)
+            {
+                // Never cut into (or get dropped by) another conversation.
+                while (dialogue != null && dialogue.IsInDialogue) yield return null;
+                proceedDialoguePlayed = true;
+                dialogue.StartDialogue(proceedDialogue);
+                while (dialogue != null && dialogue.IsInDialogue) yield return null;
+            }
+
             SetGateLocked(false);
             controller.StepToLane(point, yRotation, stepSpeed);
             if (laneCamera != null)
@@ -182,9 +195,7 @@ namespace junklite
             CancelEntry();
             playerSnapped = false;
             SetGateLocked(true);
-            // The player (re)spawns inside the free-move room; SnapToLane ends free roam.
-            if (player != null && player.Controller != null)
-                player.Controller.SetFreeRoam(true);
+            // Free roam is the ZMovementZone's job only: a checkpoint spawn on the lane must stay locked.
         }
 
         private void SetGateLocked(bool locked)

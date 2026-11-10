@@ -9,6 +9,8 @@ using UnityEngine;
 public class HealPickUp : MonoBehaviour
 {
     [SerializeField] private float healAmount = 20f;
+    [Tooltip("On: restores all health and ignores Heal Amount.")]
+    [SerializeField] private bool healToFull;
     [Tooltip("Off: heal on touch. On: show a prompt and heal on Interact.")]
     [SerializeField] private bool requiresInteract;
     [SerializeField] private string promptLabel = "Take Health";
@@ -44,7 +46,7 @@ public class HealPickUp : MonoBehaviour
 
         if (!requiresInteract)
         {
-            player.Heal(healAmount);
+            player.Heal(Amount);
             Destroy(gameObject);
             return;
         }
@@ -66,12 +68,15 @@ public class HealPickUp : MonoBehaviour
     {
         if (playerInside == null || (objectiveLink != null && objectiveLink.IsComplete)) return;
 
-        playerInside.Heal(healAmount);
+        playerInside.Heal(Amount);
         if (objectiveLink != null) objectiveLink.TryComplete();
         TutorialPromptHUD.HideInteract(this, completed: true);
         playerInside = null;
         Destroy(gameObject);
     }
+
+    // Healing clamps at max health, so a huge amount is a full heal.
+    private float Amount => healToFull ? float.MaxValue : healAmount;
 
     private static PlayerCharacter FindPlayer(Collider other)
     {

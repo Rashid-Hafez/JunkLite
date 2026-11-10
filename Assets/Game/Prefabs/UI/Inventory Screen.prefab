@@ -78,6 +78,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 1867546076371204315, guid: b7143a828102d4d479e8e7d02d55e7d1, type: 3}
       insertIndex: -1
       addedObject: {fileID: 774478265566000962}
+    - targetCorrespondingSourceObject: {fileID: 1867546076371204315, guid: b7143a828102d4d479e8e7d02d55e7d1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2273618526572037663}
+    - targetCorrespondingSourceObject: {fileID: 1867546076371204315, guid: b7143a828102d4d479e8e7d02d55e7d1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 204872763114332436}
   m_SourcePrefab: {fileID: 100100000, guid: b7143a828102d4d479e8e7d02d55e7d1, type: 3}
 --- !u!114 &2894804003264141142 stripped
 MonoBehaviour:
@@ -151,3 +157,32 @@ MonoBehaviour:
     icon: {fileID: 2800000, guid: 5afcc3d87fb267d4b9f5057e1246c6b1, type: 3}
   - mod: {fileID: 11400000, guid: 4e8d41a0f6c36ce4484e57741e7df73f, type: 2}
     icon: {fileID: 2800000, guid: 759b1b8fbc6118444a91a01276f9a03f, type: 3}
+--- !u!114 &2273618526572037663
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7136681152813096362}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dfa26e9126746408d9bc29d7c7fa5b35, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.UpgradesScreenView
+  screen: {fileID: 2894804003264141142}
+--- !u!114 &204872763114332436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7136681152813096362}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cae67e39135f1469da9485d7110564d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.InventoryScreenGamepad
+  screen: {fileID: 2894804003264141142}
+  stickThreshold: 0.5
+  repeatDelay: 0.35
+  repeatInterval: 0.11

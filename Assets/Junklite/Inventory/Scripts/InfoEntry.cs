@@ -8,6 +8,8 @@ namespace Junklite.Inventory
     {
         Inventory,
         Missions,
+        // JunkLite: drawn by the game (UpgradesScreenView) into the "upgrades" element.
+        Upgrades,
     }
 
     /// <summary>One card on the Missions tab.</summary>

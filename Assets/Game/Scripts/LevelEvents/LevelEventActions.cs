@@ -329,6 +329,60 @@ namespace junklite
         public override string Validate() => camera == null ? "No camera set." : null;
     }
 
+    [Serializable, LevelEventActionMenu("World/Cinematic Shot")]
+    public sealed class CinematicShotAction : LevelEventAction
+    {
+        [Tooltip("Authored Cinemachine camera. Stays on top of the lane/room camera until the next Unlock Player step or the event ends.")]
+        public CinemachineCamera shot;
+        [Min(0f)] public float blendIn = 1f;
+        [Min(0f)] public float blendOut = 1f;
+
+        public override IEnumerator Run(LevelEvent context)
+        {
+            if (shot == null || CameraManager.Instance == null) yield break;
+            var ease = CinemachineBlendDefinition.Styles.EaseInOut;
+            // The event owns the shot like a player lock, so it can never be left on screen.
+            context.AddLease(CameraManager.Instance.PushCinematic(shot,
+                new CinemachineBlendDefinition(ease, blendIn), new CinemachineBlendDefinition(ease, blendOut)));
+        }
+
+        public override string Summary => $"Cinematic shot: {(shot != null ? shot.name : "(none)")}";
+        public override string Validate() => shot == null ? "No camera set." : null;
+    }
+
+    [Serializable, LevelEventActionMenu("Audio/Play Story Music")]
+    public sealed class PlayStoryMusicAction : LevelEventAction
+    {
+        [Tooltip("Replaces level and combat music (e.g. a boss theme) until Restore Level Music runs.")]
+        public SoundEntry music = new();
+        [Tooltip("Crossfade from the current music, in seconds.")]
+        [Min(0f)] public float fadeSeconds = 2.5f;
+
+        public override IEnumerator Run(LevelEvent context)
+        {
+            if (GameManager.Instance != null) GameManager.Instance.SetMusicOverride(music, fadeSeconds);
+            yield break;
+        }
+
+        public override string Summary => $"Story music: {(music != null && music.clip != null ? music.clip.name : "(none)")}";
+        public override string Validate() => music == null || music.clip == null ? "No music clip set." : null;
+    }
+
+    [Serializable, LevelEventActionMenu("Audio/Restore Level Music")]
+    public sealed class RestoreLevelMusicAction : LevelEventAction
+    {
+        [Tooltip("Crossfade back to the level music, in seconds.")]
+        [Min(0f)] public float fadeSeconds = 4f;
+
+        public override IEnumerator Run(LevelEvent context)
+        {
+            if (GameManager.Instance != null) GameManager.Instance.ClearMusicOverride(fadeSeconds);
+            yield break;
+        }
+
+        public override string Summary => "Restore level music";
+    }
+
     [Serializable, LevelEventActionMenu("Flow/Wait")]
     public sealed class WaitAction : LevelEventAction
     {

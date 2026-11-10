@@ -25,6 +25,12 @@ namespace junklite
         [SerializeField] private TMP_Text emptyLabel;
         [SerializeField] private TMP_Text lockedLabel;
 
+        [Header("Broken")]
+        [Tooltip("Icon colour while the mod is BROKEN (out of durability). Stays in its slot until moved to inventory.")]
+        [SerializeField] private Color brokenTint = new Color(0.35f, 0.35f, 0.35f, 1f);
+        [Tooltip("Optional. Shown while the mod is BROKEN (e.g. a BROKEN label authored in the slot prefab).")]
+        [SerializeField] private GameObject brokenBadge;
+
         [Header("Cooldown")]
         [Tooltip("Optional override. All slots otherwise use the shared ModCooldownStyle resource.")]
         [SerializeField] private ModCooldownStyle cooldownStyle;
@@ -38,6 +44,7 @@ namespace junklite
         private SlotType slotType;
         private bool isLocked;
         private float nextDurabilityRefresh;
+        private bool shownBroken;
         private GameInputManager subscribedInputManager;
         private const float DurabilityRefreshInterval = 0.1f;
 
@@ -226,12 +233,15 @@ namespace junklite
             }
 
             UpdateDurabilityBar();
+            shownBroken = false;
+            ApplyBrokenState();
             RefreshCooldown();
         }
 
         private void Update()
         {
             RefreshCooldown();
+            ApplyBrokenState();
             if (Time.unscaledTime >= nextDurabilityRefresh &&
                 modInstance != null && durabilityFill != null && modInstance.Data != null)
             {
@@ -309,6 +319,18 @@ namespace junklite
             }
 
             return true;
+        }
+
+        private void ApplyBrokenState()
+        {
+            bool broken = modInstance != null && modInstance.IsBroken;
+            if (broken == shownBroken) return;
+            shownBroken = broken;
+
+            if (iconImage != null && iconImage.enabled)
+                iconImage.color = broken ? brokenTint : Color.white;
+            if (brokenBadge != null)
+                brokenBadge.SetActive(broken);
         }
 
         private void UpdateDurabilityBar()

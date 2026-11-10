@@ -300,6 +300,29 @@ namespace junklite
                 duration));
         }
 
+        /// <summary>Fades all music to silence over <paramref name="seconds"/> (unscaled), then stops it.</summary>
+        public void FadeOutMusic(float seconds)
+        {
+            if (!IsMusicPlaying) return;
+            CancelMusicFade();
+            musicFadeRoutine = StartCoroutine(FadeOutRoutine(Mathf.Max(0.01f, seconds)));
+        }
+
+        private IEnumerator FadeOutRoutine(float seconds)
+        {
+            float a = musicSource != null ? musicSource.volume : 0f;
+            float b = musicTransitionSource != null ? musicTransitionSource.volume : 0f;
+            for (float t = 0f; t < seconds; t += Time.unscaledDeltaTime)
+            {
+                float k = 1f - t / seconds;
+                if (musicSource != null) musicSource.volume = a * k;
+                if (musicTransitionSource != null) musicTransitionSource.volume = b * k;
+                yield return null;
+            }
+            musicFadeRoutine = null;
+            StopMusic();
+        }
+
         public void StopMusic()
         {
             CancelMusicFade();

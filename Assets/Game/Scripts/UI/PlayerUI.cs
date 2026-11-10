@@ -294,11 +294,20 @@ namespace junklite
         }
 
         /// <summary>
-        /// Opens the legacy inventory menu on its UPGRADES tab (level-up toast, scripted level beats, dev tools).
-        /// The UI Toolkit inventory screen has no upgrades page yet.
+        /// Opens the inventory on its UPGRADES tab (level-up toast, scripted level beats, dev tools).
+        /// Uses the UI Toolkit screen's Upgrades tab; the legacy menu only when no screen is assigned.
         /// </summary>
         public void OpenUpgrades()
         {
+            if (inventoryScreen != null)
+            {
+                // A legacy panel left open would keep isInventoryOpen set; close it first.
+                if (isInventoryOpen && !inventoryScreen.IsOpen) CloseInventory();
+                OpenInventory(useLegacyPanel: false);
+                inventoryScreen.ShowTab(Junklite.Inventory.InventoryTab.Upgrades);
+                return;
+            }
+
             if (isInventoryOpen && inventoryPanel != null && !inventoryPanel.activeSelf)
                 CloseInventory();
 

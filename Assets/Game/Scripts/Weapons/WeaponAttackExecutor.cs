@@ -314,11 +314,14 @@ namespace junklite
                             step.reactionKind != HitReactionKind.Flinch
                                 ? request.Settings.LaunchHitstopDuration
                                 : request.Settings.EnemyHitHitstopDuration));
-                        motion.ApplyImmediateRecoil(
-                            request.ExecutionId,
-                            request.Direction,
-                            request.Facing,
-                            step.hitRecoil);
+                        // A focused slide follows the knockback: no recoil to cut it short.
+                        bool followsTarget = request.FocusCollider != null && step.focusedSlide > 0f;
+                        if (!followsTarget)
+                            motion.ApplyImmediateRecoil(
+                                request.ExecutionId,
+                                request.Direction,
+                                request.Facing,
+                                step.hitRecoil);
                     }
 
                     yield break;

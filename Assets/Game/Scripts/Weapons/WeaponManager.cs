@@ -44,7 +44,12 @@ namespace junklite
         [Header("Up Attack")]
         [Tooltip("Seconds after an up attack starts before the next one. Up + attack inside it is a side swing.")]
         [SerializeField, Min(0f)] private float upAttackCooldown = 1f;
+        [Tooltip("Hit-stop on the up launch. Short, so she can jump after the enemy right away.")]
+        [SerializeField, Min(0f)] private float upLaunchHitstop = 0.05f;
         private float lastUpAttackTime = float.NegativeInfinity;
+
+        /// <summary>The launcher is running: a jump pressed during it waits for it instead of being dropped.</summary>
+        public bool IsUpAttacking => isAttacking && currentAttackDir == AttackDirection.Up;
 
         [Header("Attack Timing & Combo Windows")]
         [Tooltip("Delay after attack animation ends before player can attack again.")]
@@ -300,6 +305,7 @@ namespace junklite
                 var modManager = GetComponent<ModManager>();
                 if (modPickup.autoEquip && modManager != null && modManager.TryEquipMod(modInstance))
                 {
+                    modPickup.NotifyCollected();
                     Destroy(modPickup.gameObject);
                     return;
                 }
@@ -308,6 +314,7 @@ namespace junklite
                 if (inventory != null)
                 {
                     inventory.AddMod(modInstance);
+                    modPickup.NotifyCollected();
                     Destroy(modPickup.gameObject);
                     return;
                 }
@@ -479,8 +486,8 @@ namespace junklite
                     attackOpenWindow,
                     downAttackFloatNormalized,
                     airAttackFloatNormalized,
-                    enemyHitHitstopDuration,
-                    launchHitstopDuration,
+                    dir == AttackDirection.Up ? upLaunchHitstop : enemyHitHitstopDuration,
+                    dir == AttackDirection.Up ? upLaunchHitstop : launchHitstopDuration,
                     finisherForceMultiplier),
                 lungeDistance,
                 combatFocus != null ? combatFocus.GapCloseMaxSpeed : 0f,
@@ -705,13 +712,25 @@ namespace junklite
             float sphereRadius = step.hitRadius + GetFallbackRadius(dir);
             float stopGap = sphereCentre + sphereRadius * (1f - melee.focusSpacing);
 
-            // A step that slides further closes in past the usual stop (never through the body).
-            float scaled = Mathf.Max(0f, gap - stopGap) * step.LungeScale;
-            stopGap = Mathf.Max(Mathf.Min(stopGap, gap - scaled), MinLungeStopGap);
-            lungeDistance = Mathf.Max(0f, gap - stopGap);
+            float close = Mathf.Max(0f, gap - stopGap);
+            float liveStop;
+            if (step.focusedSlide > 0f)
+            {
+                // Focused slide: always drive in at least this far, even when already in reach, and
+                // keep going while the hit knocks the enemy back. Only the body itself stops it.
+                lungeDistance = Mathf.Max(close, step.focusedSlide) * step.LungeScale;
+                liveStop = MinLungeStopGap;
+            }
+            else
+            {
+                // A step that slides further closes in past the usual stop (never through the body).
+                float scaled = close * step.LungeScale;
+                liveStop = Mathf.Max(Mathf.Min(stopGap, gap - scaled), MinLungeStopGap);
+                lungeDistance = Mathf.Max(0f, gap - liveStop);
+            }
             focusCollider = combatFocus.CurrentCollider;
             PlayerCombatFocus focus = combatFocus;
-            stopLunge = () => !focus.TryGetCurrentGap(side, out float liveGap) || liveGap <= stopGap;
+            stopLunge = () => !focus.TryGetCurrentGap(side, out float liveGap) || liveGap <= liveStop;
         }
 
         // Closest a focus lunge may stop to the enemy's near side (m).
@@ -742,7 +761,7 @@ namespace junklite
             {
                 FeedbackManager.Instance.DoHitFeedback(
                     impulseSource,
-                    enemyHitHitstopDuration,
+                    currentAttackDir == AttackDirection.Up ? upLaunchHitstop : enemyHitHitstopDuration,
                     enemyHitShakeForce);
             }
         }

@@ -412,6 +412,12 @@ namespace junklite
             // reads to decide which world axis to lock, so order matters here.
             RotatePLayer(spawnYRotation);
 
+            // Every spawn starts on the lane: depth movement only comes back from a ZMovementZone.
+            allowZMovement = false;
+            snapToZPosition = true;
+            fixedZPosition = transform.position.z;
+            moveInput.z = 0f;
+
             // Re-derive and apply the correct constraint for the new rotation
             FreezePerpendicularAxis();
         }

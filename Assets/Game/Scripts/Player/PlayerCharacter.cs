@@ -682,6 +682,7 @@ namespace junklite
         // Jump / dash pressed during an attack's startup or hit window waits here and
         // fires the moment the swing reaches recovery (see WeaponManager.TryCancelAttackForMovement).
         private const float AttackCancelBufferTime = 0.25f;
+        private const float UpAttackJumpBufferTime = 0.7f;
         private float bufferedJumpUntil = -1f;
         private float bufferedDashUntil = -1f;
         private bool jumpButtonHeld;
@@ -701,7 +702,8 @@ namespace junklite
                 return true;
             }
 
-            bufferedUntil = Time.time + AttackCancelBufferTime;
+            // A jump pressed during the launcher's wind-up or dash waits for the launch, so it is never lost.
+            bufferedUntil = Time.time + (_weaponManager.IsUpAttacking ? UpAttackJumpBufferTime : AttackCancelBufferTime);
             return false;
         }
 
@@ -753,7 +755,7 @@ namespace junklite
             {
                 // Pressed during an attack's hit-stop: keep it for when time resumes.
                 if (_weaponManager != null && _weaponManager.IsAttacking)
-                    bufferedJumpUntil = Time.time + AttackCancelBufferTime;
+                    bufferedJumpUntil = Time.time + (_weaponManager.IsUpAttacking ? UpAttackJumpBufferTime : AttackCancelBufferTime);
                 return;
             }
             if (!TryClearAttackFor(ref bufferedJumpUntil)) return;

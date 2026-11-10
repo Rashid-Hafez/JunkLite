@@ -355,16 +355,11 @@ namespace junklite
             if (startDelayRealtime > 0f)
                 yield return new WaitForSecondsRealtime(startDelayRealtime);
 
-            float origTime = Time.timeScale;
-            float origFixed = Time.fixedDeltaTime;
-            Time.timeScale = Mathf.Clamp01(slowScale);
-            Time.fixedDeltaTime = origFixed * Time.timeScale;
+            // FeedbackManager owns the time scale: it combines this with any hit-stop safely.
+            FeedbackManager.Instance?.DoSlowMotion(slowScale, holdRealtime);
 
             if (holdRealtime > 0f)
                 yield return new WaitForSecondsRealtime(holdRealtime);
-
-            Time.timeScale = origTime;
-            Time.fixedDeltaTime = origFixed;
 
             if (zoomCoroutine != null) StopCoroutine(zoomCoroutine);
             zoomCoroutine = StartCoroutine(CoZoom(defaultZoomValue, parryZoomReturnDuration, true));

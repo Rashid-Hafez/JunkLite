@@ -8,6 +8,7 @@
 
       <ui:VisualElement name="tabs" class="tabs">
         <ui:Button name="tab-inventory" class="plain-button tab tab--active" text="INVENTORY" />
+        <ui:Button name="tab-upgrades" class="plain-button tab" text="UPGRADES" />
         <ui:Button name="tab-missions" class="plain-button tab" text="MISSIONS" />
         <ui:VisualElement name="tab-line" class="tab-line" picking-mode="Ignore" />
       </ui:VisualElement>
@@ -86,6 +87,7 @@
       </ui:VisualElement>
 
       <ui:VisualElement name="page" class="page hidden" picking-mode="Ignore" />
+      <ui:VisualElement name="upgrades" class="upgrades hidden" />
 
       <ui:VisualElement name="detail" class="detail" picking-mode="Ignore">
         <ui:VisualElement name="detail-mod" class="detail__mod">

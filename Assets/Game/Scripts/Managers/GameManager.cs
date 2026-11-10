@@ -224,6 +224,7 @@ namespace junklite
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            musicOverride = null; // A story track never follows the player into the next scene.
             if (!gameInitialized) return;
 
             if (sceneInitializationRoutine != null)
@@ -616,8 +617,29 @@ namespace junklite
             PlayerCombatTracker.Instance.OnCombatEnded -= OnCombatEnded;
         }
 
+        // Story track (e.g. a boss theme). While set, it replaces level and combat music.
+        private SoundEntry musicOverride;
+
+        /// <summary>Plays a story track until <see cref="ClearMusicOverride"/> or the next scene load.</summary>
+        /// <param name="fadeSeconds">Crossfade length; negative uses the AudioManager default.</param>
+        public void SetMusicOverride(SoundEntry entry, float fadeSeconds = -1f)
+        {
+            if (entry == null || !entry.IsValid) return;
+            musicOverride = entry;
+            AudioManager.Instance?.CrossfadeToMusic(entry, fadeSeconds);
+        }
+
+        /// <summary>Ends the story track and crossfades back to the level music.</summary>
+        public void ClearMusicOverride(float fadeSeconds = -1f)
+        {
+            if (musicOverride == null) return;
+            musicOverride = null;
+            PlayLevelMusic(fadeSeconds);
+        }
+
         private void OnCombatStarted()
         {
+            if (musicOverride != null) return;
             LevelMusicSettings levelMusic = GetLevelMusicOverride();
             if (levelMusic != null && levelMusic.playThroughCombat) return;
 
@@ -628,15 +650,23 @@ namespace junklite
 
         private void OnCombatEnded() => PlayLevelMusic();
 
-        private void PlayLevelMusic()
+        private void PlayLevelMusic() => PlayLevelMusic(-1f);
+
+        private void PlayLevelMusic(float fadeSeconds)
         {
+            if (musicOverride != null) return;
+            if (currentLevelContext == null && currentSceneSettings != null && currentSceneSettings.OwnsMusic)
+            {
+                AudioManager.Instance?.FadeOutMusic(1.5f);
+                return;
+            }
             LevelMusicSettings levelMusic = GetLevelMusicOverride();
             if (levelMusic != null)
             {
                 AudioManager audio = AudioManager.Instance;
                 if (audio == null) return;
                 // From silence (e.g. after a story video) the track starts at full volume so its opening is heard.
-                if (audio.IsMusicPlaying) audio.CrossfadeToMusic(levelMusic.music, -1f, levelMusic.intro);
+                if (audio.IsMusicPlaying) audio.CrossfadeToMusic(levelMusic.music, fadeSeconds, levelMusic.intro);
                 else audio.PlayMusic(levelMusic.music, levelMusic.intro);
                 return;
             }
@@ -650,7 +680,7 @@ namespace junklite
 
             var entry = GetLevelMusicEntry();
             if (entry != null && entry.IsValid)
-                AudioManager.Instance?.CrossfadeToMusic(entry);
+                AudioManager.Instance?.CrossfadeToMusic(entry, fadeSeconds);
         }
 
         /// <summary>The active level's own music (LevelContext, else legacy SceneSettings), or null.</summary>

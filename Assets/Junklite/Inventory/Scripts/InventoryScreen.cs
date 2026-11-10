@@ -86,6 +86,7 @@ namespace Junklite.Inventory
         VisualElement _detail;
         VisualElement _reticle;
         VisualElement _page;
+        VisualElement _upgrades;
         readonly List<VisualElement> _modViews = new List<VisualElement>();
         readonly Dictionary<InventoryTab, Button> _tabButtons = new Dictionary<InventoryTab, Button>();
         Label _storageCount;
@@ -124,6 +125,12 @@ namespace Junklite.Inventory
         bool Ignoring => !isActiveAndEnabled || _dimmed;
 
         public ModInventory Inventory => inventory;
+
+        /// <summary>JunkLite: raised every time a tab is shown, so game code can draw the Upgrades page.</summary>
+        public event System.Action<InventoryTab> TabShown;
+
+        /// <summary>JunkLite: empty container for the Upgrades tab (null if the UXML has none).</summary>
+        public VisualElement UpgradesRoot => _upgrades;
         public ModFilter Filter { get; private set; }
         public InventoryTab Tab { get; private set; }
         public ModDefinition PickedMod => _picked;
@@ -211,6 +218,7 @@ namespace Junklite.Inventory
             _grid.Clear();
             for (int i = 0; i < 4; i++) _corners[i] = _reticle[i];
             _page = _screen.Q("page");
+            _upgrades = _screen.Q("upgrades");
             _modViews.Clear();
             foreach (var name in new[] { "sockets", "storage-head", "filter", "grid", "detail", "callout-row", "legend" })
                 _modViews.Add(_screen.Q(name));
@@ -318,8 +326,11 @@ namespace Junklite.Inventory
             MoveGlide(_tabLine, _activeTab, true);
             MoveGlide(_filterGlide, _filterButtons[Filter], true);
 
-            var start = TileFor(tutorialMod) ?? FirstTile();
-            start?.Focus();
+            if (Tab == InventoryTab.Inventory)
+            {
+                var start = TileFor(tutorialMod) ?? FirstTile();
+                start?.Focus();
+            }
         }
 
         // ---------- drawing ----------
@@ -708,6 +719,8 @@ namespace Junklite.Inventory
             _tabButtons.Clear();
             _tabButtons[InventoryTab.Inventory] = _screen.Q<Button>("tab-inventory");
             _tabButtons[InventoryTab.Missions] = _screen.Q<Button>("tab-missions");
+            var upgradesTab = _screen.Q<Button>("tab-upgrades");
+            if (upgradesTab != null && _upgrades != null) _tabButtons[InventoryTab.Upgrades] = upgradesTab;
             _activeTab = _tabButtons[InventoryTab.Inventory];
             Tab = InventoryTab.Inventory;
 
@@ -724,7 +737,7 @@ namespace Junklite.Inventory
         /// <summary>Switches between the mods and the Missions text.</summary>
         public void ShowTab(InventoryTab tab)
         {
-            if (_screen == null) return;
+            if (_screen == null || !_tabButtons.ContainsKey(tab)) return;
             bool changed = Tab != tab;
             Tab = tab;
             _activeTab = _tabButtons[tab];
@@ -733,16 +746,20 @@ namespace Junklite.Inventory
 
             bool page = tab != InventoryTab.Inventory;
             foreach (var view in _modViews) view?.EnableInClassList("hidden", page);
-            _page.EnableInClassList("hidden", !page);
+            _page.EnableInClassList("hidden", tab != InventoryTab.Missions);
+            _upgrades?.EnableInClassList("hidden", tab != InventoryTab.Upgrades);
             _casStats.RemoveFromClassList("cas-stats--open");
 
             if (page)
             {
                 _picked = null;
                 MarkPicked();
-                RenderPage();
+                if (tab == InventoryTab.Missions) RenderPage();
                 ShowReticle(false);
-                _activeTab.Focus();
+                TabShown?.Invoke(tab);
+                // Focus the page's first button (Upgrades nodes) so keys and gamepad work at once.
+                Focusable first = tab == InventoryTab.Upgrades ? _upgrades.Query(className: "upgrade-node").First() : null;
+                (first ?? _activeTab).Focus();
             }
             else
             {

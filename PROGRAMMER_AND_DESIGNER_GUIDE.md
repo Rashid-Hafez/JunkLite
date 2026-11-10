@@ -254,7 +254,7 @@ Animation: the grunt skeleton has no Roll, Walk, Backstep, Alert, Knockdown or G
 - A **mod** is a ScriptableObject (`ModData`) plus a runtime `ModInstance` per equipped slot.
 - **Passive mods** run automatically whenever they are installed (mods are always live; there is no combat mode), e.g. Fire, Electric, Lifesteal, Pogo.
 - **Active mods** are triggered by their input. They build **charges** on hits and then go on **cooldown**, e.g. Energy Wave, Pulse Barrier, Phantom Strike.
-- Each successful use consumes **durability**. A mod at 0 durability is **broken** and stops working.
+- Each successful use consumes **durability**. A mod at 0 durability is **BROKEN**: it stops working and its slot icon turns grey (`ModSlotUI` brokenTint, plus an optional **Broken Badge** object). It **stays in its slot** and still takes that slot until the player moves it to inventory. A broken mod can't be equipped again.
 - `ModManager` (on the player) owns the slots. Slots unlock over time (`UnlockActiveSlot` / `UnlockPassiveSlot`).
 - Long abilities (dashes, channels) run through the player's `ModExecutionRunner`. It gives each activation a `ModExecutionContext` that owns cleanup and input, movement and immunity locks, so cancelling, dying, or disabling the player always cleans up.
 

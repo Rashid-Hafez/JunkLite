@@ -121,14 +121,14 @@ namespace junklite
             for (int i = 0; i < unlockedPassiveSlots; i++)
             {
                 var mod = passiveSlots[i];
-                if (mod != null)
+                if (mod != null && !mod.IsBroken)
                     mod.Data.OnCombatModeExited(mod, playerCharacter);
             }
 
             for (int i = 0; i < unlockedActiveSlots; i++)
             {
                 var mod = activeSlots[i];
-                if (mod != null)
+                if (mod != null && !mod.IsBroken)
                     mod.Data.OnCombatModeExited(mod, playerCharacter);
             }
 
@@ -154,9 +154,8 @@ namespace junklite
 
                     if (mod.IsBroken)
                     {
+                        // Stays in the slot as BROKEN until the player moves it to inventory.
                         mod.Data.OnCombatModeExited(mod, playerCharacter);
-                        mod.Data.OnRemoved(mod, playerCharacter);
-                        passiveSlots[i] = null;
                         OnModSlotsChanged?.Invoke();
                     }
                 }
@@ -201,12 +200,9 @@ namespace junklite
                 OnActiveModActivated?.Invoke(activeSlotIndex);
                 if (mod.IsBroken)
                 {
-                    // The final use is allowed to finish even though the broken mod
-                    // immediately leaves its slot. Mode exit/removal hooks must not
-                    // hold per-execution state; the runner owns that cleanup.
+                    // Stays in the slot as BROKEN until the player moves it to inventory.
+                    // The final use still finishes: the execution runner owns its cleanup.
                     mod.Data.OnCombatModeExited(mod, playerCharacter);
-                    mod.Data.OnRemoved(mod, playerCharacter);
-                    activeSlots[activeSlotIndex] = null;
                 }
                 OnModSlotsChanged?.Invoke();
             }
@@ -222,7 +218,7 @@ namespace junklite
         /// </summary>
         public bool EquipModAt(ModInstance mod, bool isActiveSlot, int slotIndex)
         {
-            if (mod == null) return false;
+            if (mod == null || mod.IsBroken) return false;
 
             // Type restriction: active mods → active slots, passive mods → passive slots
             if (isActiveSlot && !mod.IsActive) return false;
@@ -247,7 +243,7 @@ namespace junklite
 
         public bool EquipModAny(ModInstance mod)
         {
-            if (mod == null) return false;
+            if (mod == null || mod.IsBroken) return false;
 
             if (FindEquippedMod(mod.Data, out _, out _)) return false;
 
@@ -288,7 +284,7 @@ namespace junklite
 
             executionRunner?.Cancel(mod);
 
-            if (isActive)
+            if (isActive && !mod.IsBroken)
                 mod.Data.OnCombatModeExited(mod, playerCharacter);
 
             mod.Data.OnRemoved(mod, playerCharacter);
@@ -371,7 +367,7 @@ namespace junklite
                 var mod = slots[i];
                 if (mod == null) continue;
                 executionRunner?.Cancel(mod);
-                if (isActive) mod.Data.OnCombatModeExited(mod, playerCharacter);
+                if (isActive && !mod.IsBroken) mod.Data.OnCombatModeExited(mod, playerCharacter);
             }
             if (isActive)
                 for (int i = unlocked; i < count; i++)

@@ -76,7 +76,7 @@ namespace junklite
         [Tooltip("Delay in seconds after entering melee attack before showing the notification. 0 = show immediately.")]
         [SerializeField] protected float attackNotifyDelay = 0f;
         [Tooltip("Show the warning this many seconds before the hit opens (wind-up + attack start), so every attack gives the same parry read. 0 = use Attack Notify Delay.")]
-        [SerializeField, Min(0f)] protected float attackNotifyLead = 0f;
+        [SerializeField, Min(0f)] protected float attackNotifyLead = 0.45f;
         [Tooltip("One-shot burst at the warning sign when it shows (e.g. red sparks). Optional.")]
         [SerializeField] protected GameObject attackTellBurstPrefab;
         [SerializeField, Min(0f)] protected float attackTellBurstLifetime = 0.6f;
@@ -278,10 +278,17 @@ namespace junklite
             return attackNotifyLead > 0f && toHit >= 0f ? Mathf.Max(0f, toHit - attackNotifyLead) : attackNotifyDelay;
         }
 
-        private void ShowAttackNotify()
+        // secondsToHit: how long until the hit lands, so the closing ring meets it. Negative = the melee timing.
+        private void ShowAttackNotify(float secondsToHit = -1f)
         {
-            float toHit = SecondsToMeleeHit();
-            float leftToHit = toHit >= 0f ? Mathf.Max(0.05f, toHit - ResolveAttackNotifyDelay()) : 0.4f;
+            float leftToHit;
+            if (secondsToHit > 0f)
+                leftToHit = secondsToHit;
+            else
+            {
+                float toHit = SecondsToMeleeHit();
+                leftToHit = toHit >= 0f ? Mathf.Max(0.05f, toHit - ResolveAttackNotifyDelay()) : 0.4f;
+            }
             if (attackWarningVfx != null)
             {
                 attackWarningVfx.SetActive(true);
@@ -339,14 +346,15 @@ namespace junklite
             }
         }
 
-        public void ShowAttackWarningImmediate()
+        /// <summary>Show the warning now (charge, grab). The ring closes over <paramref name="secondsToHit"/> (negative = melee timing).</summary>
+        public void ShowAttackWarningImmediate(float secondsToHit = -1f)
         {
             if (attackNotifyCoroutine != null)
             {
                 StopCoroutine(attackNotifyCoroutine);
                 attackNotifyCoroutine = null;
             }
-            ShowAttackNotify();
+            ShowAttackNotify(secondsToHit);
         }
 
         public void HideAttackWarning()

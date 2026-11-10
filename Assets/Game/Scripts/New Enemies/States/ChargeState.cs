@@ -35,7 +35,8 @@ namespace junklite
             if (HasTarget)
                 movement?.FaceTarget(Target.position);
 
-            enemy.ShowAttackWarningImmediate();
+            // The dash hits as the charge ends: the ring closes then.
+            enemy.ShowAttackWarningImmediate(charger.ChargeTime);
             if (vfx != null) vfx.SetActive(true);
         }
 

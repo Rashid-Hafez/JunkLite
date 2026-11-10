@@ -4943,7 +4943,7 @@ Transform:
   m_LocalScale: {x: 1.62, y: 1.62, z: 1.62}
   m_ConstrainProportionsScale: 1
   m_Children:
-  - {fileID: 8998682652948778776}
+  - {fileID: 5540599005287362107}
   - {fileID: 226326733055247895}
   - {fileID: 4128760603921460450}
   - {fileID: 9177027714488569753}
@@ -5065,7 +5065,11 @@ MonoBehaviour:
     spikeSkidKeep: 1.5
     maxJuggleHits: 3
     juggleLift: 8
+    juggleApexHeadroom: 0.5
+    juggleLiftBlendSeconds: 0.06
     juggleHorizontalScale: 0.15
+    airHitHangDuration: 0.5
+    airHitFallGravityScale: 1.5
     airTilt: 75
     downedTilt: 90
     tiltBlendSeconds: 0.12
@@ -5073,8 +5077,11 @@ MonoBehaviour:
   passThroughEnemies: 0
   showGizmos: 1
   damageFlashUniversal: {fileID: 6196954721436485074}
-  attackWarningVfx: {fileID: 1756581471811012559}
+  attackWarningVfx: {fileID: 2910792966922987244}
   attackNotifyDelay: 0.1
+  attackNotifyLead: 0.45
+  attackTellBurstPrefab: {fileID: 3448460951101581916, guid: 1b58f3bbf54124c0bb7c58810b224cf0, type: 3}
+  attackTellBurstLifetime: 0.6
   animationPresenter: {fileID: 7175537524496898637}
   deathParticlePrefab: {fileID: 0}
   deathParticleLifetime: 2
@@ -5096,6 +5103,10 @@ MonoBehaviour:
   parrySlideParticles:
   - {fileID: 7823939741899040117}
   - {fileID: 9031470983731547642}
+  knockdownDamage: 200
+  knockdownDuration: 3
+  downedDamageMultiplier: 1.5
+  knockdownShakeForce: 1
 --- !u!114 &2618858191006285992
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5121,6 +5132,19 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 6145
   settledGroundCheckInterval: 3
+  ledgeGuard: 1
+  ledgeProbeDistance: 0.7
+  ledgeDropTolerance: 0.8
+  maxGapWidth: 9
+  gapLandingMaxRise: 1
+  gapLandingMaxDrop: 2
+  gapJumpSpeed: 9
+  gapJumpHeight: 1.2
+  gapObstacleLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  fallKillDepth: 12
+  fallKillWorldY: -40
 --- !u!114 &3043498055550172741
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5311,6 +5335,7 @@ MonoBehaviour:
   attack: 7_Attack_Melee
   grab: 8_Grab
   throwClip: 9_Throw
+  knockedDown: 5_StandUp
   fitClipsToGameplay: 1
   mixDuration: 0.08
 --- !u!114 &7469832150642187350
@@ -5325,6 +5350,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e70d2342f0d864dd79aa9d22dffc8ec9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.MeleeChaserBrain
+  jumpGaps: 1
+  ledgeGiveUpDelay: 0.8
+  ledgeIgnoreTargetSeconds: 3
   tauntAttack:
     weight: 1.2
     cooldown: 3.5
@@ -5333,7 +5361,19 @@ MonoBehaviour:
     cooldown: 5
   chargeDashMinDistance: 1.5
   grabWeight: 1.5
+  avoidRepeatingMove: 1
   idleBetweenMoves: 0.4
+  breather:
+    afterPunch: 1
+    afterGrab: 1.2
+    afterMissedGrab: 1
+    afterBlast: 1.5
+    afterDash: 2
+    afterDashIntoWall: 2.5
+    afterGetUp: 1
+    cutPerHit: 0.3
+    minRemaining: 0.3
+    touchGrabDelay: 0.25
   chase:
     chaseSpeed: 7
     chaseStopDistance: 2
@@ -5350,6 +5390,7 @@ MonoBehaviour:
     hitEndNormalized: 0.6
   lungeSpeed: 4
   lungeDuration: 0.25
+  lungeStopDistance: 1.5
   charge:
     chargeTime: 1.6
     chargeVFXPrefab: {fileID: 6280176902693646097}
@@ -5364,6 +5405,8 @@ MonoBehaviour:
     attackStartNormalized: 0
     attackActiveDuration: 2
     whiffResolveDelay: 0.05
+  aimLockNormalized: 0.5
+  lockedDashDistance: 12
   blastRange: 2.5
   blastDamage: 30
   blastForce: {x: 14, y: 9}
@@ -5376,10 +5419,13 @@ MonoBehaviour:
     cooldown: 4
     warningTime: 0.4
     reachActiveTime: 0.3
+    reachLungeSpeed: 9
+    reachLungeStopDistance: 1
     holdTime: 0.9
+    escapeJumpPresses: 3
+    escapeStunDuration: 0.4
     throwDuration: 0.7
     throwReleaseNormalized: 0.42
-    postSlamIdleTime: 1
     missRecoveryTime: 0.6
     grabHitbox: {fileID: 1624337157859359872}
     grabAnchor: {fileID: 3278081193624053108}
@@ -5387,19 +5433,33 @@ MonoBehaviour:
     grabDamage: 5
     throwForce: {x: 22, y: 9}
     throwDamage: 20
+    grabOnTouch: 1
+    touchCooldown: 1.5
+    touchMinOverlap: 0.05
+    touchHoldTime: 0
     touchThrowDelay: 0.55
+  grabAfterHits: 3
+  punishGrabCooldown: 6
   recovery:
     recoveryTime: 0.6
     recoveryVFXPrefab: {fileID: 0}
   stun:
     staggerDuration: 0
     stunVFXObject: {fileID: 2068128790961816558}
+  roarRadius: 4
+  roarPush: {x: 12, y: 4}
+  roarLockSeconds: 0.3
+  roarShakeForce: 1
+  roarBurst: {fileID: 0}
   phaseTwo:
     healthThreshold: 0.5
     chargeTimeMultiplier: 0.6
     tauntMultiplier: 0.5
     cooldownMultiplier: 0.7
     dashSpeedMultiplier: 1.25
+    minTauntDuration: 0.45
+    breatherMultiplier: 0.75
+    breatherCutPerHit: 0.4
 --- !u!114 &1068086657905541087
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -74029,63 +74089,63 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 4272900859774575797}
     m_Modifications:
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.16499206
       objectReference: {fileID: 0}
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalScale.y
       value: 0.19499205
       objectReference: {fileID: 0}
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalScale.z
       value: 0.16499206
       objectReference: {fileID: 0}
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.17
       objectReference: {fileID: 0}
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalPosition.y
       value: 2.6
       objectReference: {fileID: 0}
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalPosition.z
       value: -0.05
       objectReference: {fileID: 0}
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalRotation.w
       value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalRotation.x
       value: -0
       objectReference: {fileID: 0}
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalRotation.y
       value: -0
       objectReference: {fileID: 0}
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalRotation.z
       value: -0
       objectReference: {fileID: 0}
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 6643973781719843076, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 7796212226365972519, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_Name
-      value: Warning Sign
+      value: Attack Tell
       objectReference: {fileID: 0}
-    - target: {fileID: 6643973781719843076, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+    - target: {fileID: 7796212226365972519, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
@@ -74093,14 +74153,14 @@ PrefabInstance:
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
---- !u!1 &1756581471811012559 stripped
+  m_SourcePrefab: {fileID: 100100000, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
+--- !u!1 &2910792966922987244 stripped
 GameObject:
-  m_CorrespondingSourceObject: {fileID: 6643973781719843076, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+  m_CorrespondingSourceObject: {fileID: 7796212226365972519, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
   m_PrefabInstance: {fileID: 4923704872802420427}
   m_PrefabAsset: {fileID: 0}
---- !u!4 &8998682652948778776 stripped
+--- !u!4 &5540599005287362107 stripped
 Transform:
-  m_CorrespondingSourceObject: {fileID: 4086239636442368467, guid: 6ee613a0018d947c993e9b0e0b8304b4, type: 3}
+  m_CorrespondingSourceObject: {fileID: 626187325633112304, guid: 4d509c59a26ec499bb13dc90b6ecb73e, type: 3}
   m_PrefabInstance: {fileID: 4923704872802420427}
   m_PrefabAsset: {fileID: 0}

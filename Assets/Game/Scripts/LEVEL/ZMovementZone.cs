@@ -21,6 +21,8 @@ namespace junklite
         private PlayerLifecycle subscribedLifecycle;
         private float entryDepth;
         private bool depthIsWorldX;
+        // Spawned at a checkpoint inside this box: stays on the lane until she walks out and back in.
+        private bool waitForExit;
 
         private void Awake()
         {
@@ -42,6 +44,7 @@ namespace junklite
             Unbind();
             playerInside = null;
             playerContacts = 0;
+            waitForExit = false;
         }
 
         private void OnTriggerEnter(Collider other)
@@ -49,6 +52,11 @@ namespace junklite
             if (!other.CompareTag("Player")) return;
             var controller = other.GetComponent<Character2D5Controller>();
             if (controller == null) return;
+            if (waitForExit)
+            {
+                playerContacts++;
+                return;
+            }
             if (controller != playerInside) playerContacts = 0;
             playerContacts++;
             if (controller != playerInside) Enter(controller);
@@ -56,6 +64,15 @@ namespace junklite
 
         private void OnTriggerExit(Collider other)
         {
+            if (waitForExit)
+            {
+                if (other.CompareTag("Player") && --playerContacts <= 0)
+                {
+                    playerContacts = 0;
+                    waitForExit = false;
+                }
+                return;
+            }
             if (playerInside == null || other.gameObject != playerInside.gameObject) return;
             if (--playerContacts > 0) return;
 
@@ -92,6 +109,7 @@ namespace junklite
         {
             playerInside = null;
             playerContacts = 0;
+            waitForExit = false;
             if (player == null || player.Controller == null || boxes == null) return;
             Vector3 position = player.Controller.transform.position;
             foreach (BoxCollider box in boxes)
@@ -99,6 +117,12 @@ namespace junklite
                 if (box == null || !box.bounds.Contains(position)) continue;
                 // Physics still sends OnTriggerEnter for this overlap and counts it; starting at 1 would double it.
                 playerContacts = 0;
+                // A checkpoint puts her on the lane: no free roam until she leaves this box and comes back.
+                if (subscribedLifecycle != null && subscribedLifecycle.SpawnedAtCheckpoint)
+                {
+                    waitForExit = true;
+                    return;
+                }
                 Enter(player.Controller);
                 return;
             }

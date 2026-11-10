@@ -83,7 +83,15 @@ namespace junklite
             // uGUI may still hold a selection; UI Toolkit owns focus while this is open.
             if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
             gameObject.SetActive(true);
+            // Always open on the mods; Upgrades is opened on purpose with ShowTab.
+            if (screen != null && screen.Tab != InventoryTab.Inventory) screen.ShowTab(InventoryTab.Inventory);
             RefreshVitals();
+        }
+
+        /// <summary>Switches the open screen to a tab (e.g. Upgrades after a level-up or a story beat).</summary>
+        public void ShowTab(InventoryTab tab)
+        {
+            if (IsOpen && screen != null) screen.ShowTab(tab);
         }
 
         public void Close()

@@ -44,6 +44,12 @@ namespace junklite
             }
         }
 
+        /// <summary>Called by the collector once the mod is in a slot or the inventory.</summary>
+        public void NotifyCollected()
+        {
+            if (TryGetComponent(out ObjectiveLink link)) link.TryComplete();
+        }
+
         private void OnDestroy()
         {
             if (spawnedVisual != null)

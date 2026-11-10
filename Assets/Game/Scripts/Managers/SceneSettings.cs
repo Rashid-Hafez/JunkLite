@@ -13,9 +13,12 @@ namespace junklite
 
         [Header("Music")]
         [SerializeField] private LevelMusicSettings levelMusic = new();
+        [Tooltip("The scene plays its own music (e.g. the title screen's MenuMusic): the game's music fades out here.")]
+        [SerializeField] private bool ownsMusic;
 
         public bool SpawnPlayer => spawnPlayer;
         public LevelPlayerChoice PlayerChoice => playerChoice;
         public LevelMusicSettings LevelMusic => levelMusic;
+        public bool OwnsMusic => ownsMusic;
     }
 }

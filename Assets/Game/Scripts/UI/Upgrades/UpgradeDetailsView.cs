@@ -76,7 +76,7 @@ namespace junklite
             _ => branch.ToString().ToUpperInvariant(),
         };
 
-        private static string DescribeEffects(UpgradeNode node)
+        internal static string DescribeEffects(UpgradeNode node)
         {
             if (node.effects == null || node.effects.Length == 0) return "";
             var builder = new StringBuilder();
@@ -127,7 +127,7 @@ namespace junklite
             }
         }
 
-        private static string StatusText(UpgradeNode node, UpgradeNodeState state, UpgradeLockReason reason, int availablePoints)
+        internal static string StatusText(UpgradeNode node, UpgradeNodeState state, UpgradeLockReason reason, int availablePoints)
         {
             switch (state)
             {

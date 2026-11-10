@@ -952,3 +952,218 @@
 .reticle__corner--tr { border-top-width: 2px; border-right-width: 2px; }
 .reticle__corner--bl { border-bottom-width: 2px; border-left-width: 2px; }
 .reticle__corner--br { border-bottom-width: 2px; border-right-width: 2px; }
+
+/* ---------- Upgrades (JunkLite: drawn by the game's UpgradesScreenView) ---------- */
+
+.upgrades {
+  position: absolute;
+  left: 840px;
+  top: 190px;
+  width: 1020px;
+  height: 850px;
+}
+
+.upgrades__head {
+  flex-direction: row;
+  align-items: flex-end;
+  margin-bottom: 22px;
+}
+
+.upgrades__head-label {
+  -unity-font-definition: var(--font-mono-bold);
+  font-size: 13px;
+  letter-spacing: 22px;
+  color: var(--muted);
+  margin-right: 18px;
+  margin-bottom: 6px;
+}
+
+.upgrades__points {
+  -unity-font-definition: var(--font-display);
+  font-size: 40px;
+  color: var(--pop);
+}
+
+.upgrades__points--zero {
+  color: var(--muted);
+}
+
+.upgrades__tree {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.upgrades__column {
+  width: 192px;
+  margin-right: 12px;
+}
+
+.upgrades__column-title {
+  -unity-font-definition: var(--font-button);
+  font-size: 13px;
+  letter-spacing: 20px;
+  color: var(--text);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom-width: 2px;
+  border-bottom-color: var(--pop-line);
+}
+
+.upgrade-node {
+  height: 70px;
+  margin-bottom: 10px;
+  padding: 10px 12px 10px 14px;
+  justify-content: center;
+  align-items: flex-start;
+  background-color: var(--glass);
+  border-width: 1px 1px 1px 2px;
+  border-color: var(--line-2);
+  border-left-color: var(--pop-muted);
+  transition: border-color var(--focus), background-color var(--focus), opacity var(--focus);
+}
+
+.upgrade-node__title {
+  -unity-font-definition: var(--font-display);
+  font-size: 17px;
+  color: var(--text);
+  white-space: normal;
+}
+
+.upgrade-node__meta {
+  margin-top: 4px;
+  -unity-font-definition: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 14px;
+  color: var(--muted);
+}
+
+.upgrade-node--available {
+  border-left-color: var(--pop);
+}
+
+.upgrade-node--available .upgrade-node__meta {
+  color: var(--ember);
+}
+
+.upgrade-node--owned {
+  border-left-color: var(--ion);
+  background-color: rgba(93, 239, 226, 0.05);
+}
+
+.upgrade-node--owned .upgrade-node__meta {
+  color: var(--ion);
+}
+
+.upgrade-node--unaffordable .upgrade-node__title {
+  color: var(--muted);
+}
+
+.upgrade-node--locked {
+  opacity: 0.45;
+}
+
+.upgrade-node--unavailable {
+  opacity: 0.28;
+}
+
+.upgrade-node--selected,
+.upgrade-node:focus {
+  border-color: var(--pop);
+  background-color: rgba(232, 92, 25, 0.08);
+}
+
+.upgrades__detail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 230px;
+  padding: 22px 28px 22px 26px;
+  background-color: var(--glass);
+  border-width: 1px 1px 1px 2px;
+  border-color: var(--line);
+  border-left-color: var(--pop);
+}
+
+.upgrades__detail-kicker {
+  -unity-font-definition: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 26px;
+  color: var(--pop);
+}
+
+.upgrades__detail-title {
+  margin-top: 6px;
+  -unity-font-definition: var(--font-display);
+  font-size: 30px;
+  color: var(--text);
+}
+
+.upgrades__detail-description {
+  margin-top: 8px;
+  width: 640px;
+  white-space: normal;
+  -unity-font-definition: var(--font-mono);
+  font-size: 14px;
+  color: #B7C0C8;
+}
+
+.upgrades__detail-effects {
+  margin-top: 10px;
+  white-space: normal;
+  -unity-font-definition: var(--font-button);
+  font-size: 13px;
+  letter-spacing: 12px;
+  color: var(--ion);
+}
+
+.upgrades__detail-status {
+  position: absolute;
+  right: 28px;
+  top: 26px;
+  -unity-font-definition: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 16px;
+  color: var(--muted);
+}
+
+.upgrade-buy {
+  position: absolute;
+  right: 28px;
+  bottom: 24px;
+  height: 48px;
+  padding: 0 26px;
+  justify-content: center;
+  background-color: var(--pop);
+  transition: background-color var(--focus), opacity var(--focus);
+}
+
+.upgrade-buy__label {
+  -unity-font-definition: var(--font-button);
+  font-size: 14px;
+  letter-spacing: 18px;
+  color: var(--void);
+  -unity-text-align: middle-center;
+}
+
+.upgrade-buy:hover,
+.upgrade-buy:focus {
+  background-color: var(--ember);
+}
+
+.upgrade-buy--disabled,
+.upgrade-buy--disabled:hover,
+.upgrade-buy--disabled:focus {
+  background-color: var(--pop-muted);
+}
+
+.upgrade-buy--disabled .upgrade-buy__label {
+  color: var(--muted);
+}
+
+.upgrades__empty {
+  -unity-font-definition: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 22px;
+  color: var(--muted);
+}

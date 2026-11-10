@@ -162,6 +162,9 @@ Goal: player walks into a room → screen shakes → cutscene → Crow talks →
 | World/Set Active | Turns objects on/off. | Targets, Active |
 | World/Camera Shake | Shakes the screen. | Source (empty = player shake), Force |
 | World/Switch Camera | Uses another Cinemachine camera (follows the player). Switch back to `PosZCam` later. | Camera |
+| World/Cinematic Shot | Puts an authored camera on top (e.g. a wide shot of two characters). Ends at the next Unlock Player step or when the event ends. | Shot, Blend In, Blend Out |
+| Audio/Play Story Music | Plays a track over level and combat music (e.g. a boss theme). | Music (clip, volume) |
+| Audio/Restore Level Music | Ends the story track. | — |
 | Flow/Wait | Waits some seconds. | Seconds |
 | Flow/Play Level Event | Starts another event. | Target, Wait Until Done |
 | Flow/Invoke UnityEvent | Calls any method. Escape hatch. | On Run |
@@ -176,6 +179,10 @@ Goal: player walks into a room → screen shakes → cutscene → Crow talks →
 | Signal Receiver (on Director) | Reaction | Shake from Timeline: `CinemachineImpulseSource.GenerateImpulseWithForce` + force |
 | Objective Link (on item) | Objective Based + Objective | The goal this pickup finishes |
 | Door Access Rule (on door) | Required Objective / Key Tag | Door opens only after this |
+| Door Access Rule (on door) | Required Defeated | Door opens only after every listed enemy is dead |
+| Lane Entry Trigger | Proceed Dialogue | Plays once on E, before the door unlocks and the player walks through |
+| Heal Pick Up | Heal To Full | Restores all health |
+| World Mod Pickup + Objective Link | Objective | Taking the mod completes the objective |
 | Tutorial Prompt HUD | — | Add to any object. Use it in Show/Hide Hint steps. |
 
 ### Menus and tools

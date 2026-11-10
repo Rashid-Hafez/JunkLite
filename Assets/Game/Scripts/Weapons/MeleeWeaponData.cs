@@ -46,6 +46,9 @@ namespace junklite
             [Min(0f)] public float windupAt;
             [Tooltip("How far the combat-focus slide goes, times the usual (no target: noTargetLungeDistance; focused: up to hitting range). 0 or 1 = usual. 1.1 = 10% further.")]
             [Min(0f)] public float lungeDistanceScale;
+            [Tooltip("Focused only: she slides at least this far (m) on this hit, even when already in reach, and keeps " +
+                     "following the enemy as the hit knocks it back, stopping 0.3 m from its body. 0 = plain focus lunge.")]
+            [Min(0f)] public float focusedSlide;
 
             /// <summary>lungeDistanceScale, with 0 (unset) read as 1.</summary>
             public float LungeScale => lungeDistanceScale > 0f ? lungeDistanceScale : 1f;

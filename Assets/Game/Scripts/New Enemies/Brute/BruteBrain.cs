@@ -174,6 +174,26 @@ namespace junklite
                 EvaluateNextAction();
         }
 
+        /// <summary>
+        /// Story hook (boss intro): the Brute finds the player at pursuit range and opens with his charge.
+        /// </summary>
+        public void OpenWithCharge()
+        {
+            if (!Actor.IsAlive) return;
+            pendingMove = Move.ChargeDash;
+            nextDecisionTime = Time.time;
+            if (!Actor.HasTarget)
+            {
+                // Acquiring the target evaluates the pending move (OnTargetChanged).
+                Perception?.SetRadius(pursuitRadius);
+                Perception?.RefreshOverlap();
+            }
+            else if (!IsDecisionLocked())
+            {
+                EvaluateNextAction();
+            }
+        }
+
         protected override void TickBrain()
         {
             UpdatePhase();
