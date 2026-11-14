@@ -64,7 +64,7 @@ namespace junklite
         /// </summary>
         protected T GetCapability<T>() where T : class
         {
-            return enemy as T;
+            return enemy.GetCapability<T>();
         }
 
         /// <summary>
@@ -73,7 +73,7 @@ namespace junklite
         /// </summary>
         protected bool HasCapability<T>() where T : class
         {
-            return enemy is T;
+            return GetCapability<T>() != null;
         }
 
         /// <summary>
@@ -82,7 +82,7 @@ namespace junklite
         /// </summary>
         protected bool TryGetCapability<T>(out T capability) where T : class
         {
-            capability = enemy as T;
+            capability = GetCapability<T>();
             return capability != null;
         }
     }

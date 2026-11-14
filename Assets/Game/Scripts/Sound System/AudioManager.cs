@@ -36,6 +36,10 @@ namespace junklite
         private AudioSource[] sfxPool;
         private int poolIndex;
         private AudioSource musicSource;
+        private AudioSource musicTransitionSource;
+        // Plays a track's one-shot intro; the owning music source is scheduled to start when it ends.
+        private AudioSource musicIntroSource;
+        private AudioSource musicIntroOwner;
         private AudioSource ambienceSource;
         private Coroutine musicFadeRoutine;
         private readonly Dictionary<AudioClip, float> musicResumePositions = new();
@@ -65,10 +69,28 @@ namespace junklite
             InitAmbienceSource();
         }
 
+        void Update()
+        {
+            // The intro follows its owner's volume, so crossfades and stops apply to both.
+            if (musicIntroOwner != null && musicIntroSource.isPlaying)
+                musicIntroSource.volume = musicIntroOwner.volume;
+        }
+
         void Start()
         {
             //PlayAmbienceIfAvailable();
         }
+
+        void OnDestroy()
+        {
+            if (Instance == this)
+                Instance = null;
+        }
+
+        // Domain reload is disabled, so a destroyed manager from the previous Play
+        // session would otherwise survive as a stale Instance.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics() => Instance = null;
 
         #region Init
 
@@ -101,12 +123,23 @@ namespace junklite
 
         private void InitMusicSource()
         {
-            var go = new GameObject("Music");
+            musicSource = CreateMusicSource("Music");
+            musicTransitionSource = CreateMusicSource("Music Transition");
+            musicIntroSource = CreateMusicSource("Music Intro");
+            musicIntroSource.loop = false;
+        }
+
+        private AudioSource CreateMusicSource(string sourceName)
+        {
+            var go = new GameObject(sourceName);
             go.transform.SetParent(transform);
-            musicSource = go.AddComponent<AudioSource>();
-            musicSource.loop = true;
-            musicSource.playOnAwake = true;
-            musicSource.outputAudioMixerGroup = musicGroup;
+
+            var source = go.AddComponent<AudioSource>();
+            source.loop = true;
+            source.playOnAwake = false;
+            source.spatialBlend = 0f;
+            source.outputAudioMixerGroup = musicGroup;
+            return source;
         }
 
         private void InitAmbienceSource()
@@ -212,81 +245,217 @@ namespace junklite
 
         #region Music
 
-        public void PlayMusic(SoundEntry entry)
+        public bool IsMusicPlaying =>
+            (musicSource != null && musicSource.isPlaying) ||
+            (musicTransitionSource != null && musicTransitionSource.isPlaying);
+
+        /// <param name="intro">Optional one-shot clip played first; the entry's clip then loops from its first sample.</param>
+        public void PlayMusic(SoundEntry entry, AudioClip intro = null)
         {
             if (entry == null || !entry.IsValid) return;
 
-            if (musicFadeRoutine != null)
-            {
-                StopCoroutine(musicFadeRoutine);
-                musicFadeRoutine = null;
-            }
+            CancelMusicFade();
 
-            if (musicSource.isPlaying && musicSource.clip != null)
-                musicResumePositions[musicSource.clip] = musicSource.time;
-
-            musicSource.clip = entry.clip;
-            musicSource.volume = entry.volume;
-            if (musicResumePositions.TryGetValue(entry.clip, out float resumeTime))
+            AudioSource targetSource = FindPlayingMusicSource(entry.clip);
+            if (targetSource == null)
             {
-                musicSource.time = Mathf.Clamp(resumeTime, 0f, entry.clip.length - 0.01f);
-                musicResumePositions.Remove(entry.clip);
+                StopMusicSource(musicSource, true);
+                StopMusicSource(musicTransitionSource, true);
+                targetSource = musicSource;
+                StartMusicSource(targetSource, entry, entry.volume, intro);
             }
-            musicSource.Play();
+            else
+            {
+                StopMusicSource(GetOtherMusicSource(targetSource), true);
+                targetSource.volume = entry.volume;
+            }
         }
 
-        public void CrossfadeToMusic(SoundEntry entry, float fadeDuration = -1f)
+        public void CrossfadeToMusic(SoundEntry entry, float fadeDuration = -1f, AudioClip intro = null)
         {
             if (entry == null || !entry.IsValid) return;
 
             float duration = fadeDuration >= 0f ? fadeDuration : defaultMusicFadeDuration;
-            if (musicFadeRoutine != null)
-                StopCoroutine(musicFadeRoutine);
-            musicFadeRoutine = StartCoroutine(CrossfadeRoutine(entry, duration));
+            if (duration <= 0f)
+            {
+                PlayMusic(entry, intro);
+                return;
+            }
+
+            CancelMusicFade();
+
+            AudioSource incomingSource = FindPlayingMusicSource(entry.clip);
+            if (incomingSource == null)
+            {
+                incomingSource = SelectIncomingMusicSource();
+                StopMusicSource(incomingSource, true);
+                StartMusicSource(incomingSource, entry, 0f, intro);
+            }
+
+            AudioSource outgoingSource = GetOtherMusicSource(incomingSource);
+            musicFadeRoutine = StartCoroutine(CrossfadeRoutine(
+                incomingSource,
+                outgoingSource,
+                entry.volume,
+                duration));
+        }
+
+        /// <summary>Fades all music to silence over <paramref name="seconds"/> (unscaled), then stops it.</summary>
+        public void FadeOutMusic(float seconds)
+        {
+            if (!IsMusicPlaying) return;
+            CancelMusicFade();
+            musicFadeRoutine = StartCoroutine(FadeOutRoutine(Mathf.Max(0.01f, seconds)));
+        }
+
+        private IEnumerator FadeOutRoutine(float seconds)
+        {
+            float a = musicSource != null ? musicSource.volume : 0f;
+            float b = musicTransitionSource != null ? musicTransitionSource.volume : 0f;
+            for (float t = 0f; t < seconds; t += Time.unscaledDeltaTime)
+            {
+                float k = 1f - t / seconds;
+                if (musicSource != null) musicSource.volume = a * k;
+                if (musicTransitionSource != null) musicTransitionSource.volume = b * k;
+                yield return null;
+            }
+            musicFadeRoutine = null;
+            StopMusic();
         }
 
         public void StopMusic()
         {
-            if (musicFadeRoutine != null)
-            {
-                StopCoroutine(musicFadeRoutine);
-                musicFadeRoutine = null;
-            }
-            musicSource.Stop();
+            CancelMusicFade();
+            StopMusicSource(musicSource, false);
+            StopMusicSource(musicTransitionSource, false);
         }
 
-        private IEnumerator CrossfadeRoutine(SoundEntry entry, float fadeDuration)
+        private IEnumerator CrossfadeRoutine(
+            AudioSource incomingSource,
+            AudioSource outgoingSource,
+            float targetVolume,
+            float fadeDuration)
         {
-            float half = Mathf.Max(0.01f, fadeDuration * 0.5f);
-            float startVol = musicSource.volume;
+            float incomingStartVolume = incomingSource.volume;
+            float outgoingStartVolume = outgoingSource != null && outgoingSource.isPlaying
+                ? outgoingSource.volume
+                : 0f;
+            float elapsed = 0f;
 
-            if (musicSource.isPlaying && musicSource.clip != null)
-                musicResumePositions[musicSource.clip] = musicSource.time;
-
-            for (float t = 0f; t < half; t += Time.deltaTime)
+            while (elapsed < fadeDuration)
             {
-                musicSource.volume = Mathf.Lerp(startVol, 0f, t / half);
+                elapsed += Time.unscaledDeltaTime;
+                float progress = Mathf.Clamp01(elapsed / fadeDuration);
+
+                // Equal-power curves avoid the audible dip produced by a linear
+                // crossfade when both tracks are at roughly the same level.
+                float fadeIn = Mathf.Sin(progress * Mathf.PI * 0.5f);
+                float fadeOut = Mathf.Cos(progress * Mathf.PI * 0.5f);
+
+                incomingSource.volume = Mathf.Lerp(incomingStartVolume, targetVolume, fadeIn);
+                if (outgoingSource != null && outgoingSource != incomingSource)
+                    outgoingSource.volume = outgoingStartVolume * fadeOut;
+
                 yield return null;
             }
-            musicSource.volume = 0f;
-            musicSource.Stop();
 
-            musicSource.clip = entry.clip;
-            musicSource.volume = 0f;
+            incomingSource.volume = targetVolume;
+            StopMusicSource(outgoingSource, true);
+            musicFadeRoutine = null;
+        }
+
+        private void CancelMusicFade()
+        {
+            if (musicFadeRoutine == null) return;
+
+            StopCoroutine(musicFadeRoutine);
+            musicFadeRoutine = null;
+        }
+
+        private AudioSource FindPlayingMusicSource(AudioClip clip)
+        {
+            if (clip == null) return null;
+            if (musicSource != null && musicSource.isPlaying && musicSource.clip == clip)
+                return musicSource;
+            if (musicTransitionSource != null && musicTransitionSource.isPlaying &&
+                musicTransitionSource.clip == clip)
+            {
+                return musicTransitionSource;
+            }
+
+            return null;
+        }
+
+        private AudioSource SelectIncomingMusicSource()
+        {
+            if (musicSource == null) return musicTransitionSource;
+            if (musicTransitionSource == null) return musicSource;
+            if (!musicSource.isPlaying) return musicSource;
+            if (!musicTransitionSource.isPlaying) return musicTransitionSource;
+
+            // A third request can arrive while two tracks are crossing. Reuse the
+            // quieter source so the dominant track remains the audible outgoing bed.
+            return musicSource.volume <= musicTransitionSource.volume
+                ? musicSource
+                : musicTransitionSource;
+        }
+
+        private AudioSource GetOtherMusicSource(AudioSource source)
+        {
+            if (source == musicSource) return musicTransitionSource;
+            if (source == musicTransitionSource) return musicSource;
+            return null;
+        }
+
+        private void StartMusicSource(AudioSource source, SoundEntry entry, float volume, AudioClip intro = null)
+        {
+            if (source == null || entry == null || !entry.IsValid) return;
+
+            source.clip = entry.clip;
+            source.volume = volume;
+            source.pitch = 1f;
+
             if (musicResumePositions.TryGetValue(entry.clip, out float resumeTime))
             {
-                musicSource.time = Mathf.Clamp(resumeTime, 0f, entry.clip.length - 0.01f);
+                source.time = Mathf.Clamp(resumeTime, 0f, entry.clip.length - 0.01f);
                 musicResumePositions.Remove(entry.clip);
+                intro = null; // Returning to a track resumes its loop, never the intro.
             }
-            musicSource.Play();
 
-            for (float t = 0f; t < half; t += Time.deltaTime)
+            if (intro == null)
             {
-                musicSource.volume = Mathf.Lerp(0f, entry.volume, t / half);
-                yield return null;
+                source.Play();
+                return;
             }
-            musicSource.volume = entry.volume;
-            musicFadeRoutine = null;
+
+            // Sample-accurate hand-off: both clips are scheduled on the audio clock.
+            StopIntro();
+            double start = AudioSettings.dspTime + 0.1;
+            musicIntroOwner = source;
+            musicIntroSource.clip = intro;
+            musicIntroSource.volume = volume;
+            musicIntroSource.pitch = 1f;
+            musicIntroSource.PlayScheduled(start);
+            source.time = 0f;
+            source.PlayScheduled(start + (double)intro.samples / intro.frequency);
+        }
+
+        private void StopIntro()
+        {
+            if (musicIntroSource != null) musicIntroSource.Stop();
+            musicIntroOwner = null;
+        }
+
+        private void StopMusicSource(AudioSource source, bool rememberPosition)
+        {
+            if (source == null) return;
+            if (source == musicIntroOwner) StopIntro();
+
+            if (rememberPosition && source.isPlaying && source.clip != null)
+                musicResumePositions[source.clip] = source.time;
+
+            source.Stop();
+            source.volume = 0f;
         }
 
         #endregion

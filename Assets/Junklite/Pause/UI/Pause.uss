@@ -1,0 +1,348 @@
+@import url("../../Shared/UI/Common.uss");
+
+/* Same palette as the inventory. Translucent colours are set for Unity's linear colour space. */
+:root {
+  --text: #E7ECED;
+  --muted: #8D97A5;
+  --ink: #1C2434;
+  --deep: #1C2434;
+  --ion: #5DEFE2;
+  --ember: #FF9313;
+  --pop: #E85C19;
+  --line: rgba(255, 255, 255, 0.022);
+  --line-2: rgba(255, 255, 255, 0.056);
+  --glass: rgba(28, 36, 52, 0.54);
+  --elite: #FF5F74;
+  --classified: #6FD0FF;
+
+  /* P04 asks for Bender here, but the browser never loaded it, so the approved screens show JetBrains Mono. */
+  --font-digits: var(--font-button);
+
+  --focus: 160ms ease-out-cubic;
+}
+
+.pause {
+  transition: opacity 240ms ease-out-cubic;
+}
+
+.pause--closed {
+  display: none;
+}
+
+.pause--fading {
+  opacity: 0;
+}
+
+.pause__dim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.93);
+}
+
+.pause__backdrop {
+  position: absolute;
+  width: 1920px;
+  height: 1080px;
+  background-image: url("../Art/light-field.png");
+}
+
+.pause__showcase {
+  position: absolute;
+  width: 1920px;
+  height: 1080px;
+  background-image: url("../Art/pause-showcase.png");
+  transition: opacity 360ms ease-out-cubic;
+}
+
+.pause--entering .pause__showcase {
+  opacity: 0;
+  transition-duration: 0s;
+}
+
+/* ---------- sidebar ---------- */
+
+.sidebar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 640px;
+  padding: 118px 90px 70px 100px;
+  background-image: url("../Art/sidebar.png");
+  border-right-width: 1px;
+  border-color: var(--line-2);
+  transition: translate 460ms ease-out-cubic;
+}
+
+.pause--entering .sidebar,
+.pause--leaving .sidebar {
+  translate: -640px 0;
+}
+
+.pause--entering .sidebar {
+  transition-duration: 0s;
+}
+
+.pause--leaving .sidebar {
+  transition-duration: 260ms;
+}
+
+.sidebar__kicker {
+  -unity-font-definition: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 32px;
+  color: var(--ember);
+}
+
+.sidebar__title {
+  margin-top: 16px;
+  -unity-font-definition: var(--font-display);
+  font-size: 64px;
+  color: var(--text);
+}
+
+.sidebar__meta {
+  margin-top: 14px;
+  -unity-font-definition: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 18px;
+  color: var(--muted);
+}
+
+/* ---------- menu ---------- */
+
+.pause-menu {
+  width: 450px;
+  margin-top: 56px;
+}
+
+.pause-menu__glide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 62px;
+  background-color: var(--ion);
+  opacity: 0;
+  transition: top 280ms ease-out-cubic, opacity 200ms ease-out-cubic, background-color 200ms;
+}
+
+.pause-menu__glide--on {
+  opacity: 1;
+}
+
+.pause-menu__glide--locked {
+  background-color: var(--deep);
+  border-left-width: 2px;
+  border-color: var(--muted);
+}
+
+.pause-row {
+  height: 62px;
+  margin-bottom: 6px;
+  padding: 0 22px;
+  flex-direction: row;
+  align-items: center;
+  opacity: 0.56;
+  transition: opacity var(--focus), translate 240ms ease-out-cubic;
+}
+
+.pause-row--selected {
+  opacity: 1;
+  translate: 10px 0;
+}
+
+.pause-row:active {
+  translate: 7px 0;
+}
+
+.pause-row__index {
+  width: 56px;
+  -unity-font-definition: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 8px;
+  color: var(--muted);
+  transition: color var(--focus);
+}
+
+.pause-row__label {
+  flex-grow: 1;
+  -unity-font-definition: var(--font-button);
+  font-size: 25px;
+  letter-spacing: 16px;
+  color: var(--text);
+  transition: color var(--focus);
+}
+
+.pause-row__meta {
+  -unity-font-definition: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 16px;
+  color: var(--muted);
+}
+
+.pause-row--selected .pause-row__index,
+.pause-row--selected .pause-row__label,
+.pause-row--selected .pause-row__meta {
+  color: var(--ink);
+}
+
+.pause-row--locked .pause-row__label,
+.pause-row--locked.pause-row--selected .pause-row__label,
+.pause-row--locked.pause-row--selected .pause-row__index,
+.pause-row--locked.pause-row--selected .pause-row__meta {
+  color: var(--muted);
+}
+
+/* ---------- current build ---------- */
+
+.build {
+  position: absolute;
+  left: 100px;
+  right: 90px;
+  bottom: 70px;
+  padding-top: 24px;
+  border-top-width: 1px;
+  border-color: var(--line);
+}
+
+.build__label {
+  -unity-font-definition: var(--font-mono-bold);
+  font-size: 13px;
+  letter-spacing: 22px;
+  color: var(--text);
+}
+
+.build__tiles {
+  flex-direction: row;
+  margin-top: 16px;
+}
+
+.build-tile {
+  width: 62px;
+  height: 62px;
+  margin-right: 12px;
+  background-color: var(--glass);
+  border-width: 1px;
+  border-color: var(--line);
+  overflow: hidden;
+}
+
+.build-tile__image {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  right: 4px;
+  bottom: 4px;
+  -unity-background-scale-mode: scale-and-crop;
+}
+
+.build-tile__bar {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 1px;
+  height: 2px;
+}
+
+.build-tile__dash {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("../../Shared/Art/dash-frame.png");
+  -unity-slice-left: 1;
+  -unity-slice-top: 1;
+  -unity-slice-right: 1;
+  -unity-slice-bottom: 1;
+  -unity-slice-type: tiled;
+  -unity-background-image-tint-color: rgba(255, 255, 255, 0.056);
+  display: none;
+}
+
+.build-tile--empty {
+  background-color: rgba(0, 0, 0, 0);
+  border-color: rgba(0, 0, 0, 0);
+}
+
+.build-tile--empty .build-tile__dash {
+  display: flex;
+}
+
+.build__counts {
+  flex-direction: row;
+  margin-top: 22px;
+}
+
+.count {
+  width: 112px;
+}
+
+.count__value {
+  -unity-font-definition: var(--font-digits);
+  font-size: 28px;
+  color: var(--text);
+}
+
+.count__value--elite {
+  color: var(--elite);
+}
+
+.count__value--classified {
+  color: var(--classified);
+}
+
+.count__label {
+  margin-top: 4px;
+  -unity-font-definition: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 22px;
+  color: var(--muted);
+}
+
+/* ---------- toast ---------- */
+
+.toast-row {
+  position: absolute;
+  top: 48px;
+  left: 0;
+  right: 0;
+  align-items: center;
+}
+
+.toast {
+  flex-direction: row;
+  align-items: center;
+  padding: 12px 24px;
+  background-color: rgba(28, 36, 52, 0.92);
+  border-width: 1px 1px 1px 2px;
+  border-color: var(--line);
+  border-left-color: var(--ember);
+  opacity: 0;
+  translate: 0 -10px;
+  transition: opacity 180ms ease-out-cubic, translate 180ms ease-out-cubic;
+}
+
+.toast--on {
+  opacity: 1;
+  translate: 0 0;
+}
+
+.toast__source {
+  margin-right: 14px;
+  -unity-font-definition: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 26px;
+  color: var(--pop);
+}
+
+.toast__message {
+  -unity-font-definition: var(--font-digits);
+  font-size: 15px;
+  letter-spacing: 10px;
+  color: var(--text);
+}

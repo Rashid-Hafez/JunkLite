@@ -37,7 +37,7 @@ namespace junklite
                 characterSystem.OnAttackingChanged += OnAttackingChanged;
                 characterSystem.OnRollingChanged += OnRollingChanged;
                 characterSystem.OnDeath += OnDeath;
-                characterSystem.OnWallSlideChanged += OnWallSlideChanged;
+                characterSystem.OnWallSlidingChanged += OnWallSlideChanged;
                 characterSystem.OnLedgeDetectedChanged += OnLedgeDetectedChanged;
                 characterSystem.OnParryChanged += OnParryChanged;
                 characterSystem.OnJumpStateChanged += OnJumpStateChanged;
@@ -115,7 +115,7 @@ namespace junklite
         private void OnWallSlideChanged(bool wallSliding)
         {
             // Handled in Update() for consistency, but also respond to events for immediate feedback
-            animator.SetBool("IsWallSliding", wallSliding);
+            animator.SetBool("IsWallSliding", characterSystem.IsWallSliding);
         }
 
         private void OnLedgeDetectedChanged(bool detected)
@@ -174,7 +174,7 @@ namespace junklite
             characterSystem.OnAttackingChanged -= OnAttackingChanged;
             characterSystem.OnRollingChanged -= OnRollingChanged;
             characterSystem.OnDeath -= OnDeath;
-            characterSystem.OnWallSlideChanged -= OnWallSlideChanged;
+            characterSystem.OnWallSlidingChanged -= OnWallSlideChanged;
             characterSystem.OnLedgeDetectedChanged -= OnLedgeDetectedChanged;
             characterSystem.OnParryChanged -= OnParryChanged;
             characterSystem.OnJumpStateChanged -= OnJumpStateChanged;

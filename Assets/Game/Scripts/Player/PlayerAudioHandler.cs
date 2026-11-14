@@ -53,11 +53,11 @@ namespace junklite
                 controller.OnWallJumped += OnWallJump;
                 controller.OnFallEnded += OnLand;
                 controller.OnDashStarted += OnDash;
-                controller.OnWallSlideChanged += OnWallSlide;
             }
 
             if (state != null)
             {
+                state.OnWallSlidingChanged += OnWallSlide;
                 state.OnDeath += OnDeath;
                 state.OnAttackingChanged += OnAttackingChanged;
             }
@@ -78,11 +78,11 @@ namespace junklite
                 controller.OnWallJumped -= OnWallJump;
                 controller.OnFallEnded -= OnLand;
                 controller.OnDashStarted -= OnDash;
-                controller.OnWallSlideChanged -= OnWallSlide;
             }
 
             if (state != null)
             {
+                state.OnWallSlidingChanged -= OnWallSlide;
                 state.OnDeath -= OnDeath;
                 state.OnAttackingChanged -= OnAttackingChanged;
             }

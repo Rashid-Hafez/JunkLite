@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: b965f82ca09623c41afded17f5d27c27
+timeCreated: 1489416181
+licenseType: Store
+ShaderImporter:
+  defaultTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 116719
+  packageName: Sci-fi Chair
+  packageVersion: 1.0
+  assetPath: Assets/Fantasy Village/Shaders/Double Sided Shaders/Double Sided Standard
+    Diffuse Bump.shader
+  uploadId: 240929

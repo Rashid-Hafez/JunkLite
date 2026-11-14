@@ -1,0 +1,63 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+  <ui:Template name="Crt" src="../../Shared/UI/Crt.uxml" />
+  <Style src="TitleScreen.uss" />
+  <ui:VisualElement class="title-frame">
+    <ui:VisualElement name="screen" class="title-screen">
+      <ui:VisualElement class="title-screen__background" picking-mode="Ignore" />
+      <ui:VisualElement name="portrait-cover" class="portrait-cover hidden" picking-mode="Ignore" />
+      <ui:VisualElement name="glitch" class="glitch" picking-mode="Ignore" />
+
+      <ui:Label name="payload" class="payload" text="1 ITEM // ACCESS DENIED - S. KURUCZ" picking-mode="Ignore" />
+
+      <ui:VisualElement class="menu">
+        <ui:Button name="menu-resume" class="menu-item">
+          <ui:VisualElement class="menu-item__highlight" picking-mode="Ignore" />
+          <ui:Label class="menu-item__index" text="01" picking-mode="Ignore" />
+          <ui:Label class="menu-item__caret" text="&gt;" picking-mode="Ignore" />
+          <ui:Label class="menu-item__label" text="RESUME SUBJECT" picking-mode="Ignore" />
+          <ui:Label class="menu-item__hint" text="CONTINUE" picking-mode="Ignore" />
+          <ui:VisualElement class="menu-item__underline" picking-mode="Ignore" />
+        </ui:Button>
+        <ui:Button name="menu-begin" class="menu-item">
+          <ui:VisualElement class="menu-item__highlight" picking-mode="Ignore" />
+          <ui:Label class="menu-item__index" text="02" picking-mode="Ignore" />
+          <ui:Label class="menu-item__caret" text="&gt;" picking-mode="Ignore" />
+          <ui:Label class="menu-item__label" text="BEGIN PROCEDURE" picking-mode="Ignore" />
+          <ui:Label class="menu-item__hint" text="NEW GAME" picking-mode="Ignore" />
+          <ui:VisualElement class="menu-item__underline" picking-mode="Ignore" />
+        </ui:Button>
+        <ui:Button name="menu-rooftop" class="menu-item">
+          <ui:VisualElement class="menu-item__highlight" picking-mode="Ignore" />
+          <ui:Label class="menu-item__index" text="03" picking-mode="Ignore" />
+          <ui:Label class="menu-item__caret" text="&gt;" picking-mode="Ignore" />
+          <ui:Label class="menu-item__label" text="ROOFTOP" picking-mode="Ignore" />
+          <ui:Label class="menu-item__hint" text="LEVEL" picking-mode="Ignore" />
+          <ui:VisualElement class="menu-item__underline" picking-mode="Ignore" />
+        </ui:Button>
+        <ui:Button name="menu-calibrate" class="menu-item">
+          <ui:VisualElement class="menu-item__highlight" picking-mode="Ignore" />
+          <ui:Label class="menu-item__index" text="04" picking-mode="Ignore" />
+          <ui:Label class="menu-item__caret" text="&gt;" picking-mode="Ignore" />
+          <ui:Label class="menu-item__label" text="CALIBRATE" picking-mode="Ignore" />
+          <ui:Label class="menu-item__hint" text="SETTINGS" picking-mode="Ignore" />
+          <ui:VisualElement class="menu-item__underline" picking-mode="Ignore" />
+        </ui:Button>
+        <ui:Button name="menu-terminate" class="menu-item">
+          <ui:VisualElement class="menu-item__highlight" picking-mode="Ignore" />
+          <ui:Label class="menu-item__index" text="05" picking-mode="Ignore" />
+          <ui:Label class="menu-item__caret" text="&gt;" picking-mode="Ignore" />
+          <ui:Label class="menu-item__label" text="TERMINATE SESSION" picking-mode="Ignore" />
+          <ui:Label class="menu-item__hint" text="QUIT" picking-mode="Ignore" />
+          <ui:VisualElement class="menu-item__underline" picking-mode="Ignore" />
+        </ui:Button>
+      </ui:VisualElement>
+
+      <ui:Instance template="Crt" class="crt" picking-mode="Ignore" />
+    </ui:VisualElement>
+
+    <ui:Button name="reconnect" class="reconnect hidden">
+      <ui:Label text="SESSION TERMINATED  ·" picking-mode="Ignore" />
+      <ui:Label class="reconnect__action" text="RECONNECT" picking-mode="Ignore" />
+    </ui:Button>
+  </ui:VisualElement>
+</ui:UXML>

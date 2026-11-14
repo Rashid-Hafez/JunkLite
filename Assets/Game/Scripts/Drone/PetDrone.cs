@@ -96,7 +96,6 @@ public class PetDrone : MonoBehaviour
 
     void Start()
     {
-        //Debug.LogWarning("PetDrone script started.");
         // Ensure player reference is set before starting
         if (player1 != null)
         {
@@ -143,14 +142,10 @@ public class PetDrone : MonoBehaviour
             }
             if(currentState == EnumDroneState.Following)
             {
-                if(player1.transform.localScale.x > 0)
-                {
-                    transform.localScale = new Vector3(1, 1, 1);
-                }
-                else if(player1.transform.localScale.x < 0)
-                {
-                    transform.localScale = new Vector3(-1, 1, 1);
-                }
+                bool playerFacingRight = player1.Controller != null
+                    ? player1.Controller.IsFacingRight
+                    : player1.transform.localScale.x > 0;
+                transform.localScale = new Vector3(playerFacingRight ? 1 : -1, 1, 1);
             }
             // Wait for a short duration before checking again
             yield return new WaitForSeconds(0.4f);
@@ -198,7 +193,6 @@ public class PetDrone : MonoBehaviour
         if (currentState != newState)
         {
             currentState = newState;
-            Debug.Log("Drone state changed to: " + currentState);
         }
     }
 

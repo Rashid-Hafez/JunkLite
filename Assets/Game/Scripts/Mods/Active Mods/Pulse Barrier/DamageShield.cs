@@ -6,7 +6,7 @@ namespace junklite
     /// <summary>
     /// Generic damage shield component. Absorbs incoming damage before it reaches health.
     /// Reusable by any mod or system that needs to provide a temporary shield.
-    /// Place on the player - checked by PlayerCharacter.TakeDamage.
+    /// Place on the player - checked by PlayerCharacter.ReceiveDamage.
     /// </summary>
     public class DamageShield : MonoBehaviour
     {

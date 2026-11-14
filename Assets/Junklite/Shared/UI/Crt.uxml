@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+  <Style src="Crt.uss" />
+  <ui:VisualElement class="fx fx--scan" picking-mode="Ignore" />
+  <ui:VisualElement class="fx fx--vignette" picking-mode="Ignore" />
+  <ui:VisualElement name="fx-grain" class="fx fx--grain" picking-mode="Ignore" />
+  <ui:VisualElement name="fx-roll" class="fx fx--roll" picking-mode="Ignore" />
+  <ui:VisualElement name="fx-flash" class="fx fx--flash" picking-mode="Ignore" />
+</ui:UXML>

@@ -1,0 +1,121 @@
+This project is JunkLite, a single-player 2.5D action platformer developed with Unity 6 and URP. Main project scripts are in Assets/Game/Scripts/.
+
+Act as an experienced Unity developer when designing architecture, gameplay, and physics. Consider efficiency, runtime performance, maintainability, and future expandability in every change. Prefer simple, modular solutions and avoid unnecessary complexity.
+
+Keep changes focused on first-party code, prefabs, ScriptableObject assets, and targeted scene edits needed for the requested task. Scene changes are allowed when the user requests them; preserve authored layout, visuals, gameplay references, and unrelated overrides. Prefer scene-instance overrides over modifying third-party source assets. Leave unrelated regular assets to the user, and let Unity generate .meta files. Avoid modifying third-party scripts and preserve unrelated changes.
+
+Read ARCHITECTURE_HANDOFF.md before changing core systems, and check the current implementation before acting on its notes. Follow the UI instructions in Assets/Game/New UI/ when working on UI.
+
+Do not run full builds for small changes. Build only for major changes or intentional compile checks, and run relevant focused tests when needed. Explain any required Inspector wiring. If a task needs a broad redesign, suggest Plan mode first.
+
+1. Install the CLI (macOS): `curl -fsSL https://public-cdn.cloud.unity3d.com/hub/prod/cli/install.sh | UNITY_CLI_CHANNEL=beta bash`
+2. Put it on PATH for **all** shells (the installer only edits `~/.zshrc`, which agent shells don't load). Add this to `~/.zshenv`:
+   `[ -f "$HOME/.unity/env" ] && . "$HOME/.unity/env"`
+   Then restart your terminal or agent session.
+3. With the JunkLite Editor open, check the connection: `unity status` should show state `ready`. If it won't connect, run `unity pipeline list`. Safe Mode means there are compile errors to fix first.
+
+Agent rules: run `unity status` before editing any scene or asset. Use `unity command` to list what the Editor exposes. Ask the user before saving scenes or making large changes. Only edit scene files directly if no Editor is reachable, and say so.
+
+JunkLite is a **single-player** Unity 6 (6000.3.x) URP game. First-party code lives in `Assets/Game/Scripts/`.
+
+## Read first
+
+| Task | Read |
+| --- | --- |
+| Any architecture, combat, mod, manager, camera, enemy, or encounter work | `ARCHITECTURE_HANDOFF.md` (source of truth: status, known gaps, safe next steps) |
+| Onboarding overview for humans (dev tools, ScriptableObjects, mod system, lane setup) | `PROGRAMMER_AND_DESIGNER_GUIDE.md` (keep it in sync when those systems change) |
+| Any level, scene, collider, camera, lane, or world-rotation work | `MAIN_MECHANICS.md` (how the game plays: 2.5D lanes, world rotation, Camera Switch Triggers, level rules) |
+| Making a new enemy or placing enemies in a level | `ENEMIES.md` (prefab checklist, registration, lane snapping, encounters, automation steps) |
+| UI, fonts, HUD, in-world prompts | The **UI rules** section below (full copy: `Assets/Game/New UI/UI INSTRUCTIONS FOR AI AGENTS.pdf`) |
+
+If you change an architectural boundary, update `ARCHITECTURE_HANDOFF.md` in the same change.
+
+## Key architecture
+
+**Gameplay mechanics come first.** JunkLite is 2.5D: 2D characters on axis-aligned lanes in a 3D world that rotates 90° at Camera Switch Triggers. Read `MAIN_MECHANICS.md` before editing any level so scene changes don't break lanes, cameras, or rotation.
+
+**Lanes and pathing (pressing E to proceed).**
+- **A lane is not a spline.** `LanePath` (`Scripts/LEVEL/LanePath.cs`) is a chain of straight segments. Its waypoints are its child transforms, in hierarchy order, and every segment must run along world X or world Z (non-aligned segments draw red and log a warning).
+- **The path is data, not motion.** It is used to place characters on the lane. The movement itself is the controller's job: `Character2D5Controller` moves along `transform.right` and locks the perpendicular Rigidbody axis (`FreezePerpendicularAxis`). Enemies do the same from their Y rotation.
+- **Free-move room → lane.**
+  - A `LaneEntryTrigger` box sits in front of the room's exit door.
+  - While the player is inside it, an on-screen "E to proceed" prompt shows (the Interact binding).
+  - On Interact, `LanePath.TryGetClosestPoint` finds the nearest lane point and lane Y rotation, and `Character2D5Controller.StepToLane(point, yRotation, stepSpeed)` walks the player there (eased), then `SnapToLane` sets zero velocity and locks the axis.
+  - The trigger's `gateDoor` (a `SlidingDoor`) stays `Locked` until that snap happens, and relocks on every `PlayerSpawned`, so the player can't skip it.
+- **Corners.** At a 90° turn, a `CameraSwitchTrigger` does the rotation (camera swap, teleport to its `A`/`B` point, new yaw, axis relock). The lane continues by adding the next waypoint to the same `LanePath`, and the trigger's `A`/`B` points must sit on the two segments.
+- **Doors.** Use `Prefabs/Environment/Doors/Door4_Sliding.prefab` (`SlidingDoor`):
+  - It opens while the player is inside the root trigger.
+  - Its `Blocker` collider turns off when the door is fully open.
+  - Door4.1 uses the cut mesh `Door4.1_Cut.asset`, which has the walk-through hole.
+- **Tools** (`Tools > JunkLite > Level`, each one Undo step): *Snap Selected / Snap All Enemies To Lane Path*, *Replace Mesh Colliders With Boxes*, *Remove Mesh Colliders*.
+- **Rules.**
+  - Level collision lives under the `Colliders` root. Keep it to a few large boxes: floor strips along the lane path, one square per free-move room, ramps, room perimeters, and lane-end walls. Art meshes get no colliders (doors excepted), and mesh colliders are never used.
+  - Put gameplay objects (spawn, lane paths, entry triggers, camera switch triggers) under `[Gameplay]`, not in the art hierarchy.
+  - Curved paths (arcs, spiral stairs) are not supported. Build them from straight segments and 90° corners, or extend the controller first.
+
+**Damage: one path only.**
+Producers (weapons, hazards, mods, status effects) build a `DamageRequest` and send it to an `IDamageReceiver`. `Damageable` validates, applies armor, changes health through `AttributesManager`, and returns a `DamageResult` with an outcome and the amount actually applied. See `Character/DamageContracts.cs`.
+- Only react to a successful result. Hit VFX, hit-stop, recoil, durability, "hit" events, and lifesteal all depend on the applied result, never on the requested amount.
+- Deduplicate receivers in AOE and piercing attacks, since enemies can have several colliders.
+- Player and enemy code own their own reactions (stun, knockback, VFX). `Damageable` does not.
+
+**Player vs enemy: no shared character base.**
+`PlayerCharacter` derives directly from `MonoBehaviour` and owns input, parry, shields, immunity, death, and respawn. Enemies derive from the small `EnemyBase` (via `EnemyCharacter`), and AI is composed per archetype. Do not add a universal character base class. `CharacterBase` is legacy and is being removed.
+
+**Weapons are permanent arm upgrades, not items.**
+There is no combat mode, no weapon slots and no durability. `PlayerArmament` owns the one current `WeaponData` (fists by default, blades after the `WeaponUpgradePickup`), its authored held visual and the `WeaponChanged` event; ownership persists in `PlayerUpgrades`. `WeaponManager` owns combat rules, attack input, combos, hit detection, and damage requests for `PlayerArmament.Current`. UI subscribes to `PlayerArmament`, never to slots. Mods are always live.
+
+**Mods and abilities.**
+- Mod ScriptableObjects are **read-only config**. Cooldowns, charges, durability, VFX refs, and flags belong on `ModInstance` (one per slot), not on the asset.
+- `ModExecutionRunner` (player-owned) starts each activation with a `ModExecutionContext`. That context owns cancellation callbacks and lock scopes.
+- Lifecycle: `OnInstalled` and `OnRemoved` mean slot ownership. `OnCombatModeEntered` and `OnCombatModeExited` mean temporary availability. Do not mix them up.
+- Input, movement, and immunity locks are disposable leases that compose. Never set or clear them directly. Each long-running ability needs exactly one owner and one cleanup path covering completion, cancel, removal, mode exit, disable, and death.
+
+**Progression and upgrades.**
+`PlayerProgression` owns XP/level and the profile save; `PlayerUpgrades` (same Game Root) owns upgrade points, purchased nodes, owned weapons and one-shot point sources in the same file. The tree is one read-only asset, `Resources/UpgradeTreeConfig.asset` (nodes embedded, effects = StatBonus / UnlockAbility / ModSlot). A level-up grants points only. `PlayerRuntimeStats.Evaluate` is the one stat formula; `PlayerCharacter.ApplyUpgrades` is the one place upgrades reach the controller, `WeaponManager` and `PlayerDashStrike`. Gameplay code never reads the tree asset directly. New stats/abilities get an enum value and exactly one consumer.
+
+**Runtime roots and managers.**
+- **Game Root** (`Prefabs/Manager/Game Root.prefab`) is persistent and duplicate-safe. It holds `GameManager`, `PlayerLifecycle`, `GameUIManager`, `GameInputManager`, `PlayerCombatTracker`, the gameplay canvas, and the EventSystem.
+- **Level Context** is scene-local and standalone (never nested in the Game Root). It holds level identity, the spawn-player flag, and typed spawn points.
+- `PlayerLifecycle` owns spawning, the current player, death, and soft respawn. Listen to `PlayerSpawned` and do not reach through `GameManager` for the player.
+- `GameUIManager` owns the HUD, pause, game-over, and loading screens.
+- `GameManager` is now only global state, pause, scene transitions, and music. Do not add responsibilities back into it.
+- `CameraManager` is scene-local and rebinds every registered camera on `PlayerSpawned`.
+- Duplicate singletons must remove **only their own component**, never `Destroy(gameObject)`. Doing that once destroyed the whole Game Root.
+
+## UI rules
+
+**No UI built in code. Ever (lead's rule).** Every UI element (HUD, prompts, menus, overlays, popups) must be authored as a Canvas prefab or scene object so the lead can edit its look in the Inspector. Code may only bind data and toggle/animate existing objects: set text, swap sprites, show/hide, move. Never `new GameObject` / `AddComponent<Image|TextMeshProUGUI|Canvas>` to build layout, and never hard-code sizes, colours, fonts or positions in scripts. If a UI piece doesn't exist yet, build the prefab in the Editor first, then reference it. Existing code-built UI (e.g. `TutorialPromptHUD`, `ServiceFloorIntro` glitch overlay, `DialogueBubbleView`) is legacy: don't extend it; convert it to prefabs only when asked.
+
+**Exception: Junklite UI Toolkit screens.** The title screen (`Menu.unity`) and the I-menu inventory come from `Assets/Junklite/` (UXML/USS, own fonts, see `Assets/PIPELINE.md` and the 2026-11-10 entry in `ARCHITECTURE_HANDOFF.md`). Edit their look in the UXML/USS, keep game logic in `Assets/Game/Scripts` (e.g. `InventoryScreenBridge`), and don't convert them back to uGUI.
+
+**Stack.** Every other HUD screen, menu, card, button, tooltip, and overlay uses **TextMesh Pro UGUI** (`TextMeshProUGUI` / `TMP_Text`) on Unity UI canvases. World-space canvases also use `TextMeshProUGUI`. Use 3D `TextMeshPro` only when there is no canvas, for example damage popups or labels parented to a mesh. Never use legacy `UI.Text`, legacy TextMesh, or UI Toolkit for game UI.
+
+**Fonts.** Only these three, all in `Assets/Game/New UI/Fonts/`:
+
+| Use | Font | TMP asset |
+| --- | --- | --- |
+| World interactables and any in-world text | Play | `Play-Regular SDF.asset` |
+| Main HUD: titles, cards, submenus | ZuumeEdge | `ZuumeEdge-Regular SDF.asset` |
+| All other HUD text: body, labels, hints, stats | Satoshi | `Satoshi-Variable SDF TMP.asset` |
+
+Don't use Lekton, Clash Display, Bebas Neue, LiberationSans, or the TMP example fonts. `Satoshi-Variable SDF.asset` (without "TMP") is a TextCore font, so ignore it for TMP.
+
+**Material.** The only text style is `Assets/Game/New UI/Default Font Material.mat`: a plain overlay with no glow, outline, underlay, or fog. Don't assign it directly, because its `_MainTex` is empty. Use the helpers in `Assets/Game/Scripts/UI/UIFonts.cs`, which put the right font and material settings on the text for you: `UIFonts.ApplyWorld`, `ApplyHudTitle`, `ApplyHudBody`, and `ApplyWorldTree`. The font list they use is `Assets/Game/New UI/Resources/UIFontCatalog.asset`. Never use `TMP_Settings.defaultFontAsset`, which is LiberationSans with glow and fog. If glyphs are missing in the Editor, run **JunkLite > UI > Rebuild New UI Font Assets**.
+
+## Do
+
+- Prefer composition and small, concrete boundaries. Split a manager only at a real lifecycle or scene boundary.
+- Cache references and reuse buffers in per-frame code. Unsubscribe events in `OnDisable`.
+- Run the EditMode tests in `Assets/Game/Tests/Editor/` (`DamagePipelineTests`, `PlayerLifecycleConfigurationTests`) after touching damage, locks, or lifecycle code.
+- Use the editor tools under **Tools > JunkLite > Systems** (`Validate`, `Validate Enemies`, `Validate Encounters`) to check scene setup.
+- Tell the user which Inspector or prefab wiring they need to do, rather than guessing at scene edits.
+
+## Don't
+
+- Don't reintroduce `IDamageable`, `DamageInfo`, bool `TakeDamage`, or any other path that changes health outside `Damageable`.
+- Don't store runtime state on ScriptableObjects.
+- Don't add service locators, global event buses, empty interfaces, ECS, or multiplayer/replication patterns.
+- Don't make broad scene edits or modify third-party/plugin code. `Tools > JunkLite > Systems > Rebuild` rewrites V2.5, so run it only when the user explicitly asks.
+- Don't hand-write `.meta` files. Let Unity generate them.
+- Don't use legacy `UI.Text`, UI Toolkit, or unapproved fonts for game UI, apart from the Junklite UI Toolkit screens (see **UI rules** above).

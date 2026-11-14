@@ -10,6 +10,9 @@ namespace junklite
     {
         public ModData modData;
 
+        [Tooltip("When off, the pickup goes to the inventory instead of the first free mod slot (used by tutorials that teach slotting).")]
+        public bool autoEquip = true;
+
         [Header("Default Visual")]
         [Tooltip("The default visual to show if modData has no visualPrefab")]
         public GameObject defaultVisual;
@@ -39,6 +42,12 @@ namespace junklite
                 if (defaultVisual != null)
                     defaultVisual.SetActive(true);
             }
+        }
+
+        /// <summary>Called by the collector once the mod is in a slot or the inventory.</summary>
+        public void NotifyCollected()
+        {
+            if (TryGetComponent(out ObjectiveLink link)) link.TryComplete();
         }
 
         private void OnDestroy()

@@ -2,44 +2,21 @@
 
 namespace junklite
 {
-    public interface IDamageable
-    {
-        /// <summary>
-        /// Attempt to deal damage. Returns true if damage was actually dealt.
-        /// </summary>
-        bool TakeDamage(DamageInfo info);
-        bool IsAlive { get; }
-    }
-
     public interface IGrabbable
     {
         void GetGrabbed(GrabInfo info);
         bool CanBeGrabbed { get; }
+
+        /// <summary>
+        /// Ends a HoldUntilReleased grab with a throw. Ignored by timed grabs.
+        /// </summary>
+        void ReleaseGrab(GameObject source, int throwDirection, Vector2 throwForce, float throwDamage);
+
+        /// <summary>Drops an active grab held by source without throwing.</summary>
+        void CancelGrab(GameObject source);
     }
 
     public enum DamageType { Physical, Fire, Magic, Electric }
-
-    /// <summary>
-    /// Damage data - kept lean and focused only on damage.
-    /// </summary>
-    public struct DamageInfo
-    {
-        public float Amount;
-        public UnityEngine.GameObject Source;
-        public DamageType Type;
-        public UnityEngine.Vector2 KnockbackForce;
-        public bool IsTickDamage; // NEW: true for DOT ticks (fire, electric, etc.) — skips hitstun
-
-        public DamageInfo(float amount, UnityEngine.GameObject source = null, DamageType type = DamageType.Physical,
-            UnityEngine.Vector2 knockback = default, bool isTickDamage = false)
-        {
-            Amount = amount;
-            Source = source;
-            Type = type;
-            KnockbackForce = knockback;
-            IsTickDamage = isTickDamage;
-        }
-    }
 
     /// <summary>
     /// Grab data - everything needed for a grab and throw interaction.
@@ -53,6 +30,20 @@ namespace junklite
         public float ThrowDamage;
         public int ThrowDirection; // 1 = right, -1 = left
 
+        /// <summary>Optional follow point (e.g. a hand bone). GrabOffset is applied on top.</summary>
+        public Transform Anchor;
+
+        /// <summary>
+        /// When true the grabber owns the timing: the hold lasts until ReleaseGrab
+        /// or CancelGrab. Duration is then only a safety timeout.
+        /// </summary>
+        public bool HoldUntilReleased;
+
+        /// <summary>Jump presses that break the hold before the throw. 0 = no escape.</summary>
+        public int EscapePresses;
+        /// <summary>Called on the grabber when the target breaks free (after it has been released).</summary>
+        public System.Action OnEscaped;
+
         public GrabInfo(GameObject source, float duration, Vector3 grabOffset, Vector2 throwForce, float throwDamage, int throwDirection)
         {
             Source = source;
@@ -61,13 +52,16 @@ namespace junklite
             ThrowForce = throwForce;
             ThrowDamage = throwDamage;
             ThrowDirection = throwDirection;
+            Anchor = null;
+            HoldUntilReleased = false;
+            EscapePresses = 0;
+            OnEscaped = null;
         }
     }
 
     /// <summary>
-    /// Single entry point for damage. Computes final damage using Stats,
-    /// subtracts from Health via AttributeManager, and can trigger stun via CharacterState.
-    /// Returns true if damage was actually dealt.
+    /// Neutral damage resolver. It validates requests, applies mitigation, asks
+    /// AttributeManager to mutate health, and returns the actual outcome.
     /// </summary>
     public sealed class Damageable : MonoBehaviour
     {
@@ -75,44 +69,86 @@ namespace junklite
         AttributeManager attributes;
         CharacterState state;
         TeamMember myTeam;
+        PlayerRuntimeStats runtimeStats;
 
-        public event System.Action<float, GameObject> OnDamaged;
+        public event System.Action<DamageResult, DamageRequest> OnDamageResolved;
 
         public void Bind(CharacterStats s, AttributeManager a, CharacterState st)
         {
             stats = s; attributes = a; state = st;
             if (myTeam == null) myTeam = GetComponent<TeamMember>();
+            runtimeStats = GetComponent<PlayerRuntimeStats>();
         }
 
-        /// <summary>
-        /// Attempt to deal damage. Returns true if damage was actually dealt.
-        /// </summary>
-        public bool TakeDamage(DamageInfo info)
+        public bool TryValidateRequest(
+            DamageRequest request,
+            out DamageResult rejection,
+            bool checkDefensiveState = true)
         {
-            // 1) must be alive
-            if (attributes == null || attributes.Health == null || !attributes.IsAlive)
+            if (float.IsNaN(request.Amount) || float.IsInfinity(request.Amount) || request.Amount <= 0f)
+            {
+                rejection = DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
                 return false;
+            }
 
-            // 2) no self-hits
-            if (info.Source == gameObject)
+            if (attributes == null || attributes.Health == null)
+            {
+                rejection = DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
                 return false;
+            }
 
-            // 3) team check
-            if (!IsHostile(info.Source))
+            if (!attributes.IsAlive)
+            {
+                rejection = DamageResult.Rejected(DamageOutcome.Dead, request.Amount);
                 return false;
+            }
 
-            // 4) compute final damage
-            float armor = stats != null ? stats.armor : 0f;
-            float finalDamage = Mathf.Max(1f, info.Amount - armor);
+            if (request.Source == gameObject)
+            {
+                rejection = DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
+                return false;
+            }
 
-            // 5) apply
-            attributes.Health.Remove(finalDamage);
-            OnDamaged?.Invoke(finalDamage, info.Source);
+            if (!IsHostile(request.Source))
+            {
+                rejection = DamageResult.Rejected(DamageOutcome.FriendlyFire, request.Amount);
+                return false;
+            }
 
-            // 6) optional brief hit-stun
-            state?.ApplyStun(0.1f);
+            if (!request.BypassesDefenses && checkDefensiveState && state != null && !state.CanTakeDamage)
+            {
+                rejection = DamageResult.Rejected(DamageOutcome.Invulnerable, request.Amount);
+                return false;
+            }
 
-            return true; // Damage was dealt
+            rejection = default;
+            return true;
+        }
+
+        public DamageResult ReceiveDamage(DamageRequest request)
+        {
+            if (!TryValidateRequest(request, out var rejection))
+                return rejection;
+
+            float amount = request.Amount;
+            if (request.Scaling == DamageScaling.SourceStats && request.Source != null)
+            {
+                var sourceStats = request.Source.GetComponentInParent<PlayerRuntimeStats>(true);
+                if (sourceStats != null) amount = sourceStats.ScaleDamage(amount);
+            }
+            float armor = runtimeStats != null ? runtimeStats.Armor : stats != null ? stats.armor : 0f;
+            float finalDamage = request.BypassesMitigation
+                ? amount
+                : Mathf.Max(1f, amount - armor);
+
+            float appliedDamage = attributes.ApplyDamage(finalDamage);
+            if (appliedDamage <= 0f)
+                return DamageResult.Rejected(DamageOutcome.Invalid, request.Amount);
+
+            var result = DamageResult.Applied(request.Amount, appliedDamage);
+            OnDamageResolved?.Invoke(result, request);
+
+            return result;
         }
 
         bool IsHostile(GameObject source)

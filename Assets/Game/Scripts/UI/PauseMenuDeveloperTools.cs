@@ -1,0 +1,727 @@
+#if UNITY_EDITOR
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Unity.Cinemachine;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+namespace junklite
+{
+    /// <summary>
+    /// Editor-only command source for the in-game pause console. Keeping all asset-database
+    /// lookups in this compilation block guarantees that none of the development tooling or
+    /// prefab paths are included in a player build.
+    /// </summary>
+    internal sealed class PauseMenuDeveloperTools
+    {
+        internal readonly struct ToolAction
+        {
+            public ToolAction(string label, Func<string> execute)
+            {
+                Label = label;
+                Execute = execute;
+            }
+
+            public string Label { get; }
+            public Func<string> Execute { get; }
+        }
+
+        private readonly List<ToolAction> enemyActions = new();
+        private readonly List<ToolAction> weaponActions = new();
+        private readonly List<ToolAction> modActions = new();
+        private readonly List<ToolAction> playerActions = new();
+        private readonly List<ToolAction> runActions = new();
+        private readonly List<ToolAction> roomActions = new();
+
+        private static readonly float[] SpawnSearchOffsets = { 0f, -1.5f, 1.5f, -3f, 3f };
+
+        private int spawnSequence;
+        private bool enemyAiPaused;
+        private GameObject modPickupPrefab;
+
+        public IReadOnlyList<ToolAction> EnemyActions => enemyActions;
+        public IReadOnlyList<ToolAction> WeaponActions => weaponActions;
+        public IReadOnlyList<ToolAction> ModActions => modActions;
+        public IReadOnlyList<ToolAction> PlayerActions => playerActions;
+        public IReadOnlyList<ToolAction> RunActions => runActions;
+        public IReadOnlyList<ToolAction> RoomActions => roomActions;
+
+        public PauseMenuDeveloperTools()
+        {
+            BuildEnemyActions();
+            BuildWeaponActions();
+            BuildModActions();
+            BuildPlayerActions();
+            BuildRunActions();
+            BuildRoomActions();
+        }
+
+        private void BuildEnemyActions()
+        {
+            AddEnemy("GRUNT", "Assets/Game/ENEMIES/Grunt/Grunt Enemy.prefab");
+            AddEnemy("HYENA", "Assets/Game/Prefabs/Enemies/Hyena.prefab");
+            AddEnemy("HYENA / EASY", "Assets/Game/Prefabs/Enemies/Hyena EASY.prefab");
+            AddEnemy("HYENA / BLUE", "Assets/Game/Prefabs/Enemies/Hyena Blue.prefab");
+            AddEnemy("HYENA / GREEN", "Assets/Game/Prefabs/Enemies/Hyena Green.prefab");
+            AddEnemy("ROBOT", "Assets/Game/Prefabs/Enemies/Robot Enemy.prefab");
+            AddEnemy("BRUTE (BOSS)", "Assets/Game/ENEMIES/Brute/Brute Boss.prefab");
+            AddEnemy("FLYING DUMMY", "Assets/Game/Prefabs/Enemies/Flying Dummy.prefab");
+            AddEnemy("TRAINING DUMMY", "Assets/Game/Prefabs/Enemies/Dummy.prefab");
+        }
+
+        private void AddEnemy(string label, string assetPath)
+        {
+            // Resolve dependencies while the console is built, not on the spawn click.
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            enemyActions.Add(new ToolAction(label, () => SpawnEnemy(label, prefab)));
+        }
+
+        private void BuildWeaponActions()
+        {
+            // Weapons are permanent arm upgrades, not spawnable items; grant or revoke them directly.
+            var blades = AssetDatabase.LoadAssetAtPath<WeaponData>("Assets/Game/Scripts/Weapons/Sword.asset");
+            weaponActions.Add(new ToolAction("GRANT BLADES", () => GrantWeapon(blades)));
+            weaponActions.Add(new ToolAction("REVERT TO FISTS", RevertWeapons));
+        }
+
+        private static string GrantWeapon(WeaponData weapon)
+        {
+            if (weapon == null)
+                return "Missing weapon asset";
+            PlayerArmament armament = GetPlayer()?.GetComponent<PlayerArmament>();
+            if (armament == null)
+                return "Player armament is unavailable";
+            return armament.TryAcquire(weapon)
+                ? $"Granted {weapon.displayName}"
+                : $"{weapon.displayName} already equipped";
+        }
+
+        private static string RevertWeapons()
+        {
+            PlayerArmament armament = GetPlayer()?.GetComponent<PlayerArmament>();
+            if (armament == null)
+                return "Player armament is unavailable";
+            armament.RevertToDefault();
+            return "Reverted to fists; acquired weapons forgotten";
+        }
+
+        private void BuildModActions()
+        {
+            modPickupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Game/Prefabs/Mods/Mod pick up prefab.prefab");
+            string[] guids = AssetDatabase.FindAssets(
+                "t:ModData",
+                new[] { "Assets/Game/New Prefabs/Mods" });
+
+            var mods = new List<ModData>();
+            var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string path in guids
+                         .Select(AssetDatabase.GUIDToAssetPath)
+                         .Where(path => !path.Contains("tutorial", StringComparison.OrdinalIgnoreCase))
+                         .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+            {
+                ModData mod = AssetDatabase.LoadAssetAtPath<ModData>(path);
+                if (mod == null)
+                    continue;
+
+                string displayName = GetModName(mod);
+                if (seenNames.Add(displayName))
+                    mods.Add(mod);
+            }
+
+            foreach (ModData mod in mods
+                         .OrderBy(data => data is ActiveModData ? 0 : 1)
+                         .ThenBy(GetModName, StringComparer.OrdinalIgnoreCase))
+            {
+                ModData captured = mod;
+                string kind = captured is ActiveModData ? "A" : "P";
+                modActions.Add(new ToolAction(
+                    $"[{kind}] {GetModName(captured)}",
+                    () => SpawnMod(captured)));
+            }
+        }
+
+        private void BuildPlayerActions()
+        {
+            playerActions.Add(new ToolAction("HEAL TO FULL", HealPlayer));
+            playerActions.Add(new ToolAction("TOGGLE INVINCIBLE", ToggleInvincibility));
+            playerActions.Add(new ToolAction("UNLOCK MOD SLOTS", UnlockModSlots));
+            playerActions.Add(new ToolAction("+1 UPGRADE POINT", () => GrantUpgradePoints(1)));
+            playerActions.Add(new ToolAction("+5 UPGRADE POINTS", () => GrantUpgradePoints(5)));
+            playerActions.Add(new ToolAction("RESET UPGRADES", ResetUpgrades));
+            playerActions.Add(new ToolAction("RESET PROGRESS", ResetProgress));
+            playerActions.Add(new ToolAction("PREVIEW +100 XP", PreviewExperience));
+            playerActions.Add(new ToolAction("PREVIEW NEXT LEVEL", PreviewNextLevel));
+            playerActions.Add(new ToolAction("END LEVEL PREVIEW", EndLevelPreview));
+            playerActions.Add(new ToolAction("CLEAR INVENTORY", ClearInventory));
+            playerActions.Add(new ToolAction("DEFEAT PLAYER", DefeatPlayer));
+            playerActions.Add(new ToolAction("RESET / RESPAWN", RespawnPlayer));
+        }
+
+        private void BuildRunActions()
+        {
+            runActions.Add(new ToolAction("TOGGLE ENEMY AI", ToggleEnemyAi));
+            runActions.Add(new ToolAction("DEFEAT ALL ENEMIES", DefeatAllEnemies));
+            runActions.Add(new ToolAction("CLEAR DEV SPAWNS", ClearDeveloperSpawns));
+            runActions.Add(new ToolAction("RESUME / 0.25X", () => ResumeAtSpeed(0.25f)));
+            runActions.Add(new ToolAction("RESUME / 1.00X", () => ResumeAtSpeed(1f)));
+            runActions.Add(new ToolAction("RESTART SECTOR", RestartSector));
+            runActions.Add(new ToolAction("RESET GAME", ResetGame));
+        }
+
+        // Checkpoint jumps work in any scene with Checkpoints. The anchor entries name a scene
+        // object; the button fails with a message in scenes without it.
+        private void BuildRoomActions()
+        {
+            roomActions.Add(new ToolAction("NEXT CHECKPOINT", () => JumpToCheckpoint(+1)));
+            roomActions.Add(new ToolAction("PREVIOUS CHECKPOINT", () => JumpToCheckpoint(-1)));
+            roomActions.Add(new ToolAction("SPAWN NEAR ROOM 10", () => TeleportToAnchor("room10 spawn")));
+            roomActions.Add(new ToolAction("SPAWN NEAR BRUTE ROOM", () => TeleportToAnchor("brute room spawn")));
+        }
+
+        /// <summary>
+        /// Skips through the level one checkpoint at a time. The checkpoint after (or before) the
+        /// active one becomes the respawn point exactly as if the player had walked there: every
+        /// corner is synced to the side of its lane, that lane's camera is live, and each checkpoint
+        /// up to it is reached in order, so its route snapshot is right. The player is then respawned
+        /// through PlayerLifecycle (the same path a death takes), so a later death returns there too.
+        /// Progress is forward-only, so a step back restarts the run and replays it up to the target;
+        /// a step back from the first checkpoint is Restart Level.
+        /// </summary>
+        private static string JumpToCheckpoint(int step)
+        {
+            PlayerLifecycle lifecycle = PlayerLifecycle.Instance;
+            if (lifecycle == null)
+                return "No player lifecycle";
+
+            Scene scene = SceneManager.GetActiveScene();
+            List<Checkpoint> checkpoints = UnityEngine.Object
+                .FindObjectsByType<Checkpoint>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .Where(checkpoint => checkpoint.gameObject.scene == scene)
+                .OrderBy(checkpoint => checkpoint.Order)
+                .ThenBy(checkpoint => checkpoint.name)
+                .ToList();
+            if (checkpoints.Count == 0)
+                return "No checkpoints in this scene";
+
+            int current = checkpoints.IndexOf(lifecycle.ActiveCheckpoint); // -1 = level spawn
+            int target = current + step;
+            if (target >= checkpoints.Count)
+                return "Already at the last checkpoint";
+            if (target < 0)
+            {
+                if (current < 0)
+                    return "Already at the level spawn";
+                lifecycle.RestartAtPrimarySpawn();
+                return "Back to the level spawn";
+            }
+
+            Checkpoint destination = checkpoints[target];
+            if (step < 0)
+                lifecycle.ResetCheckpointProgress();
+
+            // The route as if walked: corners on the side of the destination's lane, and its lane camera.
+            float yaw = destination.SpawnTransform.eulerAngles.y;
+            CinemachineCamera laneCamera = null;
+            foreach (CameraSwitchTrigger corner in UnityEngine.Object.FindObjectsByType<CameraSwitchTrigger>(
+                         FindObjectsSortMode.None))
+                laneCamera = corner.SyncToLaneSide(yaw) ?? laneCamera;
+            if (laneCamera != null && CameraManager.Instance != null)
+                CameraManager.Instance.CutToLaneCamera(laneCamera);
+
+            // Reach every checkpoint up to the destination in order (one-shot, so already-reached
+            // ones are skipped); each snapshots the route set up above.
+            for (int i = 0; i <= target; i++)
+                checkpoints[i].Activate();
+            if (lifecycle.ActiveCheckpoint != destination)
+                return $"Could not activate {destination.name}";
+
+            lifecycle.RespawnAtCurrentSpawn();
+            return $"Respawning at {destination.name} ({target + 1}/{checkpoints.Count})";
+        }
+
+        /// <summary>
+        /// Moves the player to the named object, snapped onto the nearest lane with that lane's yaw.
+        /// Corners and the lane camera are synced as if the player had walked there.
+        /// </summary>
+        private static string TeleportToAnchor(string anchorName)
+        {
+            PlayerCharacter player = GetPlayer();
+            if (player == null || !player.IsAlive)
+                return "No living player";
+            GameObject anchor = GameObject.Find(anchorName);
+            if (anchor == null)
+                return $"No '{anchorName}' in this scene";
+
+            Vector3 target = anchor.transform.position;
+            float bestSqr = float.MaxValue;
+            float yaw = 0f;
+            foreach (LanePath lane in UnityEngine.Object.FindObjectsByType<LanePath>(FindObjectsSortMode.None))
+            {
+                if (!lane.TryGetClosestPoint(anchor.transform.position, out Vector3 point, out float laneYaw))
+                    continue;
+                float sqr = (point - anchor.transform.position).sqrMagnitude;
+                if (sqr >= bestSqr) continue;
+                bestSqr = sqr;
+                target = point;
+                yaw = laneYaw;
+            }
+            if (bestSqr == float.MaxValue)
+                return "No lane path in this scene";
+
+            player.Controller.SnapToLane(target, yaw);
+
+            CinemachineCamera laneCamera = null;
+            foreach (CameraSwitchTrigger corner in UnityEngine.Object.FindObjectsByType<CameraSwitchTrigger>(
+                         FindObjectsSortMode.None))
+                laneCamera = corner.SyncToLaneSide(yaw) ?? laneCamera;
+            if (laneCamera != null && CameraManager.Instance != null)
+                CameraManager.Instance.CutToLaneCamera(laneCamera);
+
+            return $"Moved to {anchorName}";
+        }
+
+        private string SpawnEnemy(string label, GameObject prefab)
+        {
+            if (prefab == null)
+                return $"Missing prefab: {label}";
+
+            if (!TryGetSpawnPlacement(out SpawnPlacement placement))
+                return "No ground found near the player";
+
+            GameObject spawned = InstantiateForCurrentPlane(prefab, placement);
+            spawned.name = $"[DEV] {prefab.name}";
+            if (enemyAiPaused)
+                spawned.GetComponent<EnemyCharacter>()?.StateMachine?.Pause();
+            return $"Spawned {label}";
+        }
+
+        private string SpawnMod(ModData mod)
+        {
+            if (mod == null)
+                return "Mod asset is missing";
+
+            GameObject pickupPrefab = modPickupPrefab;
+            if (pickupPrefab != null)
+            {
+                if (!TryGetSpawnPlacement(out SpawnPlacement placement))
+                    return "No ground found near the player";
+
+                GameObject spawned = InstantiateForCurrentPlane(pickupPrefab, placement);
+                spawned.name = $"[DEV] MOD / {GetModName(mod)}";
+                WorldModPickup pickup = spawned.GetComponent<WorldModPickup>();
+                if (pickup != null)
+                    pickup.modData = mod;
+                return $"Spawned {GetModName(mod)} pickup";
+            }
+
+            PlayerCharacter player = GetPlayer();
+            InventoryComponent inventory = player != null
+                ? player.GetComponent<InventoryComponent>()
+                : null;
+            if (inventory != null && inventory.AddMod(mod))
+                return $"Granted {GetModName(mod)} (no drop manager)";
+
+            return "No drop manager or inventory available";
+        }
+
+        private bool TryGetSpawnPlacement(out SpawnPlacement placement)
+        {
+            PlayerCharacter player = GetPlayer();
+            if (player == null)
+            {
+                placement = default;
+                return false;
+            }
+
+            Character2D5Controller controller = player.Controller;
+            Vector3 movementAxis = controller != null
+                ? controller.MovementAxis
+                : player.transform.right;
+            movementAxis.y = 0f;
+            if (movementAxis.sqrMagnitude < 0.01f)
+                movementAxis = Vector3.right;
+            movementAxis = SnapToHorizontalAxis(movementAxis);
+
+            int groundMask = controller != null && controller.GroundLayerMask.value != 0
+                ? controller.GroundLayerMask.value
+                : LayerMask.GetMask("Default", "Ground", "Wall");
+
+            int lane = spawnSequence % 3;
+            float side = (spawnSequence / 3) % 2 == 0 ? 1f : -1f;
+            spawnSequence++;
+
+            float preferredDistance = 4f + lane * 1.75f;
+            for (int sidePass = 0; sidePass < 2; sidePass++)
+            {
+                float searchSide = sidePass == 0 ? side : -side;
+                foreach (float offset in SpawnSearchOffsets)
+                {
+                    float distance = Mathf.Max(1.5f, preferredDistance + offset);
+                    Vector3 candidate = player.transform.position +
+                                        movementAxis * (searchSide * distance);
+                    if (!TryFindGround(candidate, player.transform.position.y, groundMask,
+                            out Vector3 groundPoint))
+                    {
+                        continue;
+                    }
+
+                    Quaternion planeRotation = Quaternion.LookRotation(
+                        Vector3.Cross(movementAxis, Vector3.up),
+                        Vector3.up);
+                    placement = new SpawnPlacement(groundPoint, planeRotation);
+                    return true;
+                }
+            }
+
+            placement = default;
+            return false;
+        }
+
+        private static bool TryFindGround(
+            Vector3 candidate,
+            float playerHeight,
+            int groundMask,
+            out Vector3 groundPoint)
+        {
+            Vector3 rayOrigin = candidate + Vector3.up * 10f;
+            RaycastHit[] hits = Physics.RaycastAll(
+                rayOrigin,
+                Vector3.down,
+                40f,
+                groundMask,
+                QueryTriggerInteraction.Ignore);
+
+            bool found = false;
+            float closestHeight = float.PositiveInfinity;
+            groundPoint = default;
+            foreach (RaycastHit hit in hits)
+            {
+                if (hit.normal.y < 0.55f)
+                    continue;
+
+                float heightDifference = Mathf.Abs(hit.point.y - playerHeight);
+                if (heightDifference >= closestHeight)
+                    continue;
+
+                closestHeight = heightDifference;
+                groundPoint = hit.point;
+                found = true;
+            }
+
+            return found;
+        }
+
+        private static GameObject InstantiateForCurrentPlane(
+            GameObject prefab,
+            SpawnPlacement placement)
+        {
+            Vector3 prefabEuler = prefab.transform.eulerAngles;
+            Quaternion rotation = Quaternion.Euler(
+                prefabEuler.x,
+                placement.PlaneRotation.eulerAngles.y,
+                prefabEuler.z);
+
+            // Position and rotation are supplied to Instantiate so axis-sensitive Awake
+            // methods cache the correct XY or ZY movement plane on their first call.
+            GameObject spawned = UnityEngine.Object.Instantiate(
+                prefab,
+                placement.GroundPoint + Vector3.up * 4f,
+                rotation);
+            PlaceOnGround(spawned, placement.GroundPoint.y);
+            return spawned;
+        }
+
+        private static void PlaceOnGround(GameObject spawned, float groundHeight)
+        {
+            float lowestSolidPoint = float.PositiveInfinity;
+            foreach (Collider collider in spawned.GetComponentsInChildren<Collider>(true))
+            {
+                if (!collider.enabled || collider.isTrigger || !collider.gameObject.activeInHierarchy)
+                    continue;
+
+                lowestSolidPoint = Mathf.Min(lowestSolidPoint, collider.bounds.min.y);
+            }
+
+            const float surfaceClearance = 0.08f;
+            if (float.IsPositiveInfinity(lowestSolidPoint))
+            {
+                MoveSpawned(spawned, Vector3.up * (groundHeight + surfaceClearance - spawned.transform.position.y));
+                return;
+            }
+
+            float verticalAdjustment = groundHeight + surfaceClearance - lowestSolidPoint;
+            MoveSpawned(spawned, Vector3.up * verticalAdjustment);
+        }
+
+        /// <summary>
+        /// Moves a fresh spawn and every Rigidbody on it. Enemy bodies are interpolated, so moving only
+        /// the Transform was overwritten by the body's spawn pose and the enemy fell from the spawn height.
+        /// </summary>
+        private static void MoveSpawned(GameObject spawned, Vector3 offset)
+        {
+            spawned.transform.position += offset;
+            foreach (Rigidbody body in spawned.GetComponentsInChildren<Rigidbody>(true))
+            {
+                body.position += offset;
+                if (!body.isKinematic)
+                    body.linearVelocity = Vector3.zero;
+            }
+            Physics.SyncTransforms();
+        }
+
+        private static Vector3 SnapToHorizontalAxis(Vector3 direction)
+        {
+            return Mathf.Abs(direction.x) >= Mathf.Abs(direction.z)
+                ? new Vector3(Mathf.Sign(direction.x), 0f, 0f)
+                : new Vector3(0f, 0f, Mathf.Sign(direction.z));
+        }
+
+        private readonly struct SpawnPlacement
+        {
+            public SpawnPlacement(Vector3 groundPoint, Quaternion planeRotation)
+            {
+                GroundPoint = groundPoint;
+                PlaneRotation = planeRotation;
+            }
+
+            public Vector3 GroundPoint { get; }
+            public Quaternion PlaneRotation { get; }
+        }
+
+        private static string HealPlayer()
+        {
+            PlayerCharacter player = GetPlayer();
+            if (player?.Health == null)
+                return "Player health is unavailable";
+
+            player.Health.SetToMax();
+            return "Player health restored";
+        }
+
+        private static string ToggleInvincibility()
+        {
+            PlayerState state = GetPlayer()?.PlayerState;
+            if (state == null)
+                return "Player state is unavailable";
+
+            state.SetInvincible(!state.IsInvincible);
+            return state.IsInvincible ? "Invincibility enabled" : "Invincibility disabled";
+        }
+
+        private static string UnlockModSlots()
+        {
+            ModManager manager = GetPlayer()?.GetComponent<ModManager>();
+            if (manager == null)
+                return "Mod manager is unavailable";
+
+            while (manager.UnlockedActiveSlots < manager.MaxActiveSlots)
+                manager.UnlockActiveSlot();
+            while (manager.UnlockedPassiveSlots < manager.MaxPassiveSlots)
+                manager.UnlockPassiveSlot();
+
+            return "All mod slots unlocked";
+        }
+
+        private static string GrantUpgradePoints(int amount)
+        {
+            PlayerUpgrades upgrades = PlayerUpgrades.Instance;
+            if (upgrades == null) return "Upgrades service is unavailable";
+            upgrades.AddBonusPoints(amount);
+            return $"Upgrade points available: {upgrades.AvailablePoints}";
+        }
+
+        private static string ResetProgress()
+        {
+            PlayerProgression progression = PlayerProgression.Instance;
+            if (progression == null) return "Progression service is unavailable";
+            progression.ResetProfile();
+            GetPlayer()?.GetComponent<PlayerArmament>()?.RevertToDefault();
+            return $"Progress reset: level {progression.Level}, {PlayerUpgrades.Instance?.AvailablePoints ?? 0} upgrade points";
+        }
+
+        private static string ResetUpgrades()
+        {
+            PlayerUpgrades upgrades = PlayerUpgrades.Instance;
+            if (upgrades == null) return "Upgrades service is unavailable";
+            upgrades.ResetUpgrades();
+            return $"Purchases refunded; {upgrades.AvailablePoints} points available";
+        }
+
+        private static string PreviewExperience()
+        {
+            var progression = PlayerProgression.Instance;
+            if (progression == null) return "Progression is unavailable";
+            if (!progression.IsPreviewing) progression.PreviewLevel(progression.Level);
+            progression.AddExperience(100);
+            return $"Temporary XP preview: level {progression.Level} (not saved)";
+        }
+
+        private static string PreviewNextLevel()
+        {
+            var progression = PlayerProgression.Instance;
+            if (progression == null) return "Progression is unavailable";
+            if (!progression.IsPreviewing) progression.PreviewLevel(progression.Level);
+            progression.AddExperience((int)progression.ExperienceForNextLevel);
+            return $"Temporary level {progression.Level} (not saved)";
+        }
+
+        private static string EndLevelPreview()
+        {
+            PlayerProgression.Instance?.EndPreview();
+            GetPlayer()?.GetComponent<ModManager>()?.ClearDeveloperSlotOverride();
+            return "Saved progression restored; active slot override cleared";
+        }
+
+        private static string ClearInventory()
+        {
+            InventoryComponent inventory = GetPlayer()?.GetComponent<InventoryComponent>();
+            if (inventory == null)
+                return "Inventory is unavailable";
+
+            int removed = 0;
+            for (int i = inventory.SlotCount - 1; i >= 0; i--)
+            {
+                if (inventory.RemoveModAt(i) != null)
+                    removed++;
+            }
+
+            return $"Removed {removed} inventory mods";
+        }
+
+        private static string DefeatPlayer()
+        {
+            PlayerCharacter player = GetPlayer();
+            if (player == null)
+                return "Player is unavailable";
+
+            player.Kill();
+            return "Player defeated";
+        }
+
+        private static string RespawnPlayer()
+        {
+            if (GameManager.Instance == null)
+                return "Game manager is unavailable";
+
+            // A soft respawn can't rewind a scripted tutorial; reload it instead.
+            if (UnityEngine.Object.FindFirstObjectByType<Level0SequenceManager>() != null)
+            {
+                GameManager.Instance.RestartCurrentScene();
+                return "Tutorial reset";
+            }
+
+            GameManager.Instance.RestartLevel();
+            return "Player reset to entry";
+        }
+
+        private string ToggleEnemyAi()
+        {
+            enemyAiPaused = !enemyAiPaused;
+            EnemyCharacter[] enemies = UnityEngine.Object.FindObjectsByType<EnemyCharacter>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None);
+
+            int changed = 0;
+            foreach (EnemyCharacter enemy in enemies)
+            {
+                if (enemy == null || enemy.StateMachine == null)
+                    continue;
+
+                if (enemyAiPaused)
+                    enemy.StateMachine.Pause();
+                else
+                    enemy.StateMachine.Resume();
+                changed++;
+            }
+
+            return enemyAiPaused
+                ? $"Paused AI on {changed} enemies"
+                : $"Resumed AI on {changed} enemies";
+        }
+
+        private static string DefeatAllEnemies()
+        {
+            EnemyCharacter[] enemies = UnityEngine.Object.FindObjectsByType<EnemyCharacter>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None);
+
+            int defeated = 0;
+            foreach (EnemyCharacter enemy in enemies)
+            {
+                if (enemy == null || !enemy.IsAlive || enemy.Health == null)
+                    continue;
+
+                enemy.ReceiveDamage(DamageRequest.Forced(enemy.Health.Current));
+                defeated++;
+            }
+
+            return $"Defeated {defeated} enemies";
+        }
+
+        private static string ClearDeveloperSpawns()
+        {
+            GameObject[] sceneObjects = UnityEngine.Object.FindObjectsByType<GameObject>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+
+            int removed = 0;
+            foreach (GameObject sceneObject in sceneObjects)
+            {
+                if (sceneObject == null || !sceneObject.name.StartsWith("[DEV] ", StringComparison.Ordinal))
+                    continue;
+
+                UnityEngine.Object.Destroy(sceneObject);
+                removed++;
+            }
+
+            return $"Cleared {removed} developer spawns";
+        }
+
+        private static string ResumeAtSpeed(float speed)
+        {
+            if (GameManager.Instance == null)
+                return "Game manager is unavailable";
+
+            GameManager.Instance.ResumeGame();
+            Time.timeScale = Mathf.Clamp(speed, 0.01f, 4f);
+            return $"Simulation resumed at {speed:0.00}x";
+        }
+
+        private static string RestartSector()
+        {
+            if (GameManager.Instance == null)
+                return "Game manager is unavailable";
+
+            GameManager.Instance.RestartCurrentScene();
+            return "Restarting sector";
+        }
+
+        private static string ResetGame()
+        {
+            if (GameManager.Instance == null)
+                return "Game manager is unavailable";
+
+            GameManager.Instance.RestartGame();
+            return "Resetting game";
+        }
+
+        private static PlayerCharacter GetPlayer()
+        {
+            if (PlayerLifecycle.Instance != null && PlayerLifecycle.Instance.Player != null)
+                return PlayerLifecycle.Instance.Player;
+
+            return UnityEngine.Object.FindFirstObjectByType<PlayerCharacter>();
+        }
+
+        private static string GetModName(ModData mod)
+        {
+            if (mod == null)
+                return "UNKNOWN MOD";
+            return string.IsNullOrWhiteSpace(mod.modName) ? mod.name : mod.modName;
+        }
+    }
+}
+#endif

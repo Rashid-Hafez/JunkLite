@@ -1,0 +1,18 @@
+# Scope: first-party C# + root docs only. Everything else is Unity/third-party noise.
+/*
+!/Assets/
+!/*.md
+/GEMINI.md
+/LINEAR_PLAN.md
+/Assets/*
+!/Assets/Game/
+/Assets/Game/*
+!/Assets/Game/Scripts/
+!/Assets/Game/Editor/
+!/Assets/Game/Tests/
+*.json
+*.meta
+*.png
+*.jpg
+*.pdf
+graphify-out/

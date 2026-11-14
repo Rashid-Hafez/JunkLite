@@ -545,4 +545,5 @@ MonoBehaviour:
   readyIndicator: {fileID: 95202637233264353}
   inputHintText: {fileID: 0}
   cooldownFill: {fileID: 82623108491480367}
+  cooldownStyle: {fileID: 11400000, guid: 91a0987bf1b447f4937c50d1901d55bc, type: 2}
   modUIContainer: {fileID: 8382777887954912477}

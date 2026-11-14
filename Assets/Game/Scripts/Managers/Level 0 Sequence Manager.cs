@@ -1,7 +1,10 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.Playables;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.Video;
 
@@ -10,145 +13,160 @@ namespace junklite
     [DefaultExecutionOrder(2)]
     public class Level0SequenceManager : MonoBehaviour
     {
-        // ====================================================================
-        // INSPECTOR
-        // ====================================================================
+        #region Inspector
 
         [Header("Reposition")]
-        [Tooltip("Where the player is moved after objective 1 (center of room).")]
         [SerializeField] private Transform centerRoomSpawn;
 
         [Header("Lighting")]
-        [Tooltip("Scene spotlight (e.g. overhead) — enabled after intro dialogue, disabled after director finishes.")]
         [SerializeField] private Light overheadSpotlight;
-        [Tooltip("Optional god-ray particle system that starts after intro dialogue and fades by stopping emission after the director finishes.")]
         [SerializeField] private ParticleSystem godRayParticles;
-        [Tooltip("How long it takes for the god-ray particles to fade out after the director starts.")]
         [SerializeField] private float godRayFadeDuration = 1f;
-        [Tooltip("How long it takes to ramp the environment reflection intensity to full during the reveal.")]
         [SerializeField] private float reflectionRevealDuration = 1f;
+        [Tooltip("Platform the player starts on; dissolves in when the lights come up.")]
+        [SerializeField] private DissolveController startPlatformDissolver;
+        [Tooltip("Flat ambient colour the room fades to when the lights come on. The intro starts in black.")]
+        [SerializeField] private Color revealedAmbientColor = new Color(0.12f, 0.15f, 0.17f, 1f);
+        [SerializeField] private float ambientRevealDuration = 2.5f;
 
         [Header("Director / Timeline")]
         [SerializeField] private PlayableDirector director;
-        [Tooltip("Optional fallback director for the reusable 'platform complete' beat played after each obstacle course.")]
         [SerializeField] private PlayableDirector platformCompleteDirector;
+        [SerializeField] private PlayableDirector endCinematicDirector;
 
-        [Header("Completed Video")]
-        [Tooltip("Optional root object for the completion video overlay. Enabled while the video plays.")]
-        [SerializeField] private GameObject completedVideoRoot;
-        [Tooltip("Optional transparent completion video player. Used after each platform step if assigned.")]
-        [SerializeField] private VideoPlayer completedVideoPlayer;
-        [Tooltip("Maximum time the completion video is allowed to block progression before the sequence continues anyway.")]
-        [SerializeField] private float completedVideoTimeout = 1.5f;
-        [Tooltip("Delay after the completed beat finishes before the player is moved to the room spawn.")]
+        [Header("Completion Animation")]
+        [SerializeField] private PngSequencePlayer completionAnimation;
+        [SerializeField] private GameObject videoScreen;
         [SerializeField] private float completedResetDelay = 0.5f;
 
+        [Header("Cinematic Audio")]
+        [SerializeField] private SoundEntry introSequenceSfx;
+        [SerializeField] private SoundEntry lightRevealSfx;
+        [SerializeField] private SoundEntry platformCompleteSfx;
+        [SerializeField] private SoundEntry platformDissolveSfx;
+        [SerializeField] private Transform introSfxPoint;
+        [SerializeField] private Transform platformStep1DissolveSfxPoint;
+        [SerializeField] private Transform platformStep2DissolveSfxPoint;
+        [SerializeField] private Transform platformStep3DissolveSfxPoint;
+
         [Header("Dialogue")]
-        [Tooltip("Played immediately after the player spawns.")]
         [SerializeField] private DialogueSequence introDialogue;
-        [Tooltip("Played after the cinematic timeline finishes, before platform trial 1.")]
         [SerializeField] private DialogueSequence postCinematicDialogue;
-        [Tooltip("Played after platform trial 1, before platform trial 2 starts.")]
         [SerializeField] private DialogueSequence secondPlatformDialogue;
-        [Tooltip("Played after platform trial 2, before platform trial 3 starts.")]
         [SerializeField] private DialogueSequence thirdPlatformDialogue;
-        [Tooltip("Played after platform trial 3, before the combat wave spawns.")]
         [SerializeField] private DialogueSequence combatIntroDialogue;
-        [Tooltip("Played after the first combat enemy dies and the player is moved back to the room spawn.")]
         [SerializeField] private DialogueSequence postEnemyDialogue;
-        [Tooltip("Played after the player picks up the weapon, before the final enemy spawns.")]
-        [SerializeField] private DialogueSequence postPickupDialogue;
-        [Tooltip("Played after the final objective, before combat/inventory onboarding.")]
+        [SerializeField] private DialogueSequence inventoryPromptDialogue;
         [SerializeField] private DialogueSequence finalDialogue;
 
-        [Header("Platform Steps (Timeline-controlled)")]
-        [Tooltip("First dissolve platform group — activated before objective 1.")]
+        [Header("Tutorial Prompts")]
+        [Tooltip("Optic HUD prompt. Created at runtime when left empty.")]
+        [SerializeField] private TutorialPromptHUD promptHud;
+
+        [Header("Platform Steps")]
         [SerializeField] private GameObject platformStep1;
-        [Tooltip("Second dissolve platform group — activated before objective 2.")]
         [SerializeField] private GameObject platformStep2;
-        [Tooltip("Optional dissolver on the second platform group's parent. Called when step 2 should phase in.")]
         [SerializeField] private TutorialStepDissolver platformStep2Dissolver;
-        [Tooltip("Third dissolve platform group — activated before objective 3.")]
         [SerializeField] private GameObject platformStep3;
-        [Tooltip("Optional dissolver on the third platform group's parent. Called when step 3 should phase in.")]
         [SerializeField] private TutorialStepDissolver platformStep3Dissolver;
 
-        [Header("Objectives (SequenceTrigger colliders)")]
+        [Header("Objectives")]
         [SerializeField] private SequenceTrigger objective1Trigger;
         [SerializeField] private SequenceTrigger objective2Trigger;
         [SerializeField] private SequenceTrigger objective3Trigger;
         [SerializeField] private SequenceTrigger finalObjectiveTrigger;
 
-        [Header("Enemies")]
-        [SerializeField] private GameObject[] enemyPrefabs;
-        [SerializeField] private Transform[] enemySpawnPoints;
-        [Tooltip("Weapon pickup spawned after the first combat enemy dies.")]
+        [Header("Encounter")]
+        [SerializeField] private EncounterController encounter;
         [SerializeField] private GameObject tutorialWeaponPickupPrefab;
         [SerializeField] private Transform tutorialWeaponPickupSpawnPoint;
-        [Tooltip("Follow-up enemy spawned after the player picks up the weapon and enters combat mode.")]
-        [SerializeField] private GameObject postPickupEnemyPrefab;
-        [SerializeField] private Transform postPickupEnemySpawnPoint;
+
+        [Header("Mod pickup (after hyena)")]
+        [Tooltip("Prefab from Project, or an inactive pickup already in the scene.")]
+        [SerializeField] private GameObject tutorialModPickup;
+        [SerializeField] private Transform tutorialModPickupSpawnPoint;
 
         [Header("Scene Transition")]
         [SerializeField] private string nextSceneName;
+        [SerializeField] private int nextSceneBuildIndex = -1;
+        [Tooltip("Stop the music and load the next scene in the background while the outro video plays, " +
+                 "then switch straight to it (no loading screen).")]
+        [SerializeField] private bool preloadNextSceneDuringOutro = true;
+
+        [Header("End beat — glitch (Cinemachine Volume Settings)")]
+        [Tooltip("Cinematic vcam extension that holds the Volume Profile with Analog/Digital Glitch.")]
+        [SerializeField] private CinemachineVolumeSettings endSequenceVolumeSettings;
+        [SerializeField] private float endGlitchRampInSeconds = 2f;
+        [SerializeField] private float endGlitchHoldSeconds = 0.35f;
+        [SerializeField] private float endGlitchRampOutSeconds = 1.25f;
+        [Range(0f, 1f)] [SerializeField] private float endGlitchAnalogPeak = 0.5f;
+        [Range(0f, 1f)] [SerializeField] private float endGlitchDigitalPeak = 0.4f;
+
+        [Header("End beat — outro video (then load next scene)")]
+        [SerializeField] private GameObject playerUI;
+        [SerializeField] private VideoPlayer endOutroVideoPlayer;
+        [SerializeField] private VideoClip endOutroVideoClip;
+        [Tooltip("Optional UI root shown while the outro clip plays (e.g. full-screen RawImage parent).")]
+        [SerializeField] private GameObject endOutroVideoScreenRoot;
 
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
+        [SerializeField] private float postParryRespawnDelay = 0.6f;
+        [SerializeField] private int objectiveRepositionPasses = 3;
 
-        // ====================================================================
-        // RUNTIME STATE
-        // ====================================================================
+        #endregion
+
+        #region Runtime State
 
         private enum Stage
         {
-            WaitingForPlayer,
-            IntroDialogue,
-            PlayTimeline,
-            TutorialDialogue,
-            ObjectiveOne,
-            PlatformOneComplete,
-            ResetForPlatformTwo,
-            SecondPlatformDialogue,
-            ObjectiveTwo,
-            PlatformTwoComplete,
-            ResetForPlatformThree,
-            ThirdPlatformDialogue,
-            ObjectiveThree,
-            PlatformThreeComplete,
-            ResetForCombat,
-            CombatIntroDialogue,
-            EnemyWave,
-            PostEnemyDialogue,
-            WeaponPickup,
-            PostPickupDialogue,
-            FinalEnemyWave,
-            FinalDialogue,
-            WaitCombatMode,
-            LoadNextScene,
-            Done
+            WaitingForPlayer, IntroDialogue, PlayTimeline, TutorialDialogue,
+            ObjectiveOne, PlatformOneComplete, SecondPlatformDialogue,
+            ObjectiveTwo, PlatformTwoComplete, ThirdPlatformDialogue,
+            ObjectiveThree, PlatformThreeComplete, CombatIntroDialogue,
+            EnemyWave, WaitModPickup, PostEnemyDialogue, WeaponPickup,
+            InventoryPrompt, WaitModSlotted, WaitModActivation,
+            FinalGlitchRamp, FinalDialogue, OutroVideo, LoadNextScene, Done
         }
 
         private Stage currentStage;
         private PlayerCharacter currentPlayer;
         private Light playerLight;
         private WeaponManager currentWeaponManager;
-        private Coroutine godRayFadeRoutine;
+        private PlayerArmament currentArmament;
+        private ModManager currentModManager;
+        private SpineAnimationController currentSpineAnimationController;
+        private Coroutine revealFadeRoutine;
         private bool platformCompleteBeatRunning;
 
-        private readonly List<EnemyCharacter> spawnedEnemies = new();
-        private int enemiesAlive;
-        private WorldWeaponPickup activeTutorialPickup;
+        // Held from spawn until the platform timeline ends, and again for the outro video.
+        // Re-taken on every spawn, so a restart or respawn can't free the player early.
+        private readonly List<IDisposable> playerHoldLocks = new();
+        private bool playerHeld;
+        private bool freezePhysicsWhileHeld;
+
+        private readonly HashSet<EnemyCharacter> tutorialEncounterEnemies = new();
+        private WeaponUpgradePickup activeTutorialPickup;
+        private bool tutorialModHyenaSpawnHandled;
 
         private bool dialogueFinished;
         private bool timelineFinished;
         private bool objectiveHit;
-        private bool combatModeToggled;
-        private bool inventoryOpened;
+        private bool modActivated;
         private bool weaponPickedUp;
+        private bool modSlotsChanged;
 
-        // ====================================================================
-        // STARTUP
-        // ====================================================================
+        // Parry gate: the Hyena can't be hurt until the player lands a parry on it.
+        private EnemyCharacter parryGateEnemy;
+        private ParryHandler parryGateHandler;
+        private bool parryGateCleared;
+
+        private GameObject tutorialModPickupInstance;
+        private ModData tutorialModData;
+
+        #endregion
+
+        #region Lifecycle
 
         private void Awake()
         {
@@ -156,232 +174,428 @@ namespace junklite
 
             if (platformStep2 != null) platformStep2.SetActive(false);
             if (platformStep3 != null) platformStep3.SetActive(false);
-
             if (overheadSpotlight != null) overheadSpotlight.enabled = false;
+            SetAmbient(Color.black);
+            ResetEndGlitch();
+            if (startPlatformDissolver != null) startPlatformDissolver.SetImmediate(2f);
+            if (promptHud == null)
+                promptHud = new GameObject("TutorialPromptHUD").AddComponent<TutorialPromptHUD>();
             if (godRayParticles != null)
-            {
                 godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            }
-            if (completedVideoRoot != null)
-                completedVideoRoot.SetActive(false);
-            if (completedVideoPlayer != null)
-                completedVideoPlayer.Stop();
+            DisableVideoScreen();
         }
 
         private void Start()
         {
+            DisableVideoScreen();
             StartCoroutine(RunSequence());
         }
 
-        // ====================================================================
-        // MAIN SEQUENCE COROUTINE
-        // ====================================================================
+        private void OnDestroy()
+        {
+            UnsubscribeEncounterCallbacks();
+            // Stopped/reloaded mid-ramp: the coroutine's finally never runs, and the profile is a shared asset.
+            ResetEndGlitch();
+            if (currentPlayer != null) currentPlayer.CannotDie = false;
+
+            if (DialogueManager.instance != null)
+            {
+                DialogueManager.instance.OnDialogueEnded -= OnDialogueEnded;
+                DialogueManager.instance.IsContinueInputSuppressed = false;
+            }
+
+            if (director != null) director.stopped -= OnTimelineStopped;
+            if (platformCompleteDirector != null) platformCompleteDirector.stopped -= OnTimelineStopped;
+            if (endCinematicDirector != null) endCinematicDirector.stopped -= OnTimelineStopped;
+            if (completionAnimation != null) completionAnimation.Stop();
+            if (currentArmament != null) currentArmament.WeaponChanged -= OnWeaponPickedUp;
+            if (currentModManager != null)
+            {
+                currentModManager.OnActiveModActivated -= OnActiveModActivated;
+                currentModManager.OnModSlotsChanged -= OnModSlotsChanged;
+            }
+            if (activeTutorialPickup != null) Destroy(activeTutorialPickup.gameObject);
+            ReleasePlayer();
+            EndParryGate(cleared: false);
+            if (revealFadeRoutine != null) StopCoroutine(revealFadeRoutine);
+
+        }
+
+        #endregion
+
+        #region Main Sequence
 
         private IEnumerator RunSequence()
         {
-            // 1 — Wait for GameManager to spawn the player
             SetStage(Stage.WaitingForPlayer);
             yield return WaitForPlayer();
+            // No moving (or falling off the platform) until the platform timeline is done.
+            HoldPlayer(freezePhysics: false);
+            // The simulation never kills Cassidy.
+            if (currentPlayer != null) currentPlayer.CannotDie = true;
 
-            // Grab and disable the player's built-in light so they start as a silhouette
             playerLight = currentPlayer != null
                 ? currentPlayer.GetComponentInChildren<Light>(true)
                 : null;
             if (playerLight != null) playerLight.enabled = false;
 
-            // 2 — Intro dialogue (player is a silhouette, scene is dark)
             SetStage(Stage.IntroDialogue);
             if (introDialogue != null)
                 yield return RunDialogue(introDialogue);
 
-            // Reveal: turn on both the player light and overhead spotlight
+            // Crow brings the lights up: volumetric spot, ambient and reflections fade in together.
             if (playerLight != null) playerLight.enabled = true;
             if (overheadSpotlight != null) overheadSpotlight.enabled = true;
+            if (startPlatformDissolver != null) startPlatformDissolver.Undissolve();
+            PlayCinematicSfx(introSequenceSfx, introSfxPoint);
+            PlayCinematicSfx(lightRevealSfx);
             if (godRayParticles != null)
             {
                 godRayParticles.gameObject.SetActive(true);
                 godRayParticles.Play(true);
             }
             StartCoroutine(LerpReflectionIntensity(RenderSettings.reflectionIntensity, 1f, reflectionRevealDuration));
+            StartCoroutine(LerpAmbient(RenderSettings.ambientLight, revealedAmbientColor, ambientRevealDuration));
 
-            // 3 — Play director timeline (dolly zoom corridor)
             SetStage(Stage.PlayTimeline);
-            if (godRayParticles != null)
-            {
-                if (godRayFadeRoutine != null)
-                    StopCoroutine(godRayFadeRoutine);
-                godRayFadeRoutine = StartCoroutine(FadeOutGodRayParticles());
-            }
             if (director != null)
                 yield return RunDirector(director, rewindToStart: true);
+            ReleasePlayer();
 
-            // Director done — any remaining reveal particles have already been faded out.
+            // The spotlight fades once the platform has arrived.
+            if (revealFadeRoutine != null) StopCoroutine(revealFadeRoutine);
+            revealFadeRoutine = StartCoroutine(FadeOutRevealEffects());
 
-            // 4 — Post-cinematic tutorial dialogue
+            PlayCinematicSfx(platformDissolveSfx, platformStep1DissolveSfxPoint);
+
             SetStage(Stage.TutorialDialogue);
             if (postCinematicDialogue != null)
                 yield return RunDialogue(postCinematicDialogue);
 
-            // 5 — Activate first platform step, wait for objective 1
             SetStage(Stage.ObjectiveOne);
-            if (objective1Trigger != null)
-                yield return WaitForTrigger(objective1Trigger);
+            yield return RunObjective(objective1Trigger,
+                new TutorialPromptHUD.Entry("Player/Move", "Move", keyboardOverride: "A / D", gamepadOverride: "L-Stick"),
+                new TutorialPromptHUD.Entry("Player/Jump", "Jump"));
 
-            // 6 — Play completion beat for platform 1
             SetStage(Stage.PlatformOneComplete);
-            yield return PlayPlatformCompleteBeatAndReset(platformStep1);
-            if (platformStep2 != null)
-                platformStep2.SetActive(true);
-            if (platformStep2Dissolver != null)
-                platformStep2Dissolver.UndissolveAll();
+            yield return PlayCompletionBeatAndReset(platformStep1);
+            RevealPlatformStep(platformStep2, platformStep2Dissolver, platformStep2DissolveSfxPoint);
 
-            // 7 — Explain the second platform lesson
             SetStage(Stage.SecondPlatformDialogue);
             if (secondPlatformDialogue != null)
                 yield return RunDialogue(secondPlatformDialogue);
 
-            // 8 — Activate second platform step, wait for objective 2
             SetStage(Stage.ObjectiveTwo);
-            if (objective2Trigger != null)
-                yield return WaitForTrigger(objective2Trigger);
+            yield return RunObjective(objective2Trigger,
+                new TutorialPromptHUD.Entry("Player/Jump", "Double jump", suffix: "x2"));
 
-            // 9 — Play completion beat for platform 2
             SetStage(Stage.PlatformTwoComplete);
-            yield return PlayPlatformCompleteBeatAndReset(platformStep2);
-            if (platformStep3 != null)
-                platformStep3.SetActive(true);
-            if (platformStep3Dissolver != null)
-                platformStep3Dissolver.UndissolveAll();
+            yield return PlayCompletionBeatAndReset(platformStep2);
+            RevealPlatformStep(platformStep3, platformStep3Dissolver, platformStep3DissolveSfxPoint);
 
-            // 10 — Explain the third platform lesson
             SetStage(Stage.ThirdPlatformDialogue);
             if (thirdPlatformDialogue != null)
                 yield return RunDialogue(thirdPlatformDialogue);
 
-            // 11 — Activate third platform step, wait for objective 3
             SetStage(Stage.ObjectiveThree);
-            if (objective3Trigger != null)
-                yield return WaitForTrigger(objective3Trigger);
+            // The gap needs both: double jump for height, dash for distance.
+            yield return RunObjective(objective3Trigger,
+                new TutorialPromptHUD.Entry("Player/Jump", "Double jump", suffix: "x2"),
+                new TutorialPromptHUD.Entry("Player/Dash", "Dash"));
 
-            // 12 — Play completion beat for platform 3
             SetStage(Stage.PlatformThreeComplete);
-            yield return PlayPlatformCompleteBeatAndReset(platformStep3);
+            yield return PlayCompletionBeatAndReset(platformStep3);
 
-            // 13 — Explain the combat tutorial before enemies appear
             SetStage(Stage.CombatIntroDialogue);
             if (combatIntroDialogue != null)
                 yield return RunDialogue(combatIntroDialogue);
 
-            // 14 — Spawn enemy wave, wait until all dead
             SetStage(Stage.EnemyWave);
-            SpawnEnemyWave();
-            yield return WaitForAllEnemiesDead();
+            if (!PrepareEncounter())
+                yield break;
 
-            // 15 — Move the player back to the room spawn, then explain the weapon pickup
+            SubscribeEncounterCallbacks();
+            encounter.StartEncounter();
+            yield return encounter.WaitUntilFinished();
+
+            bool encounterCompleted = encounter.State == EncounterState.Completed;
+            UnsubscribeEncounterCallbacks();
+            if (!encounterCompleted)
+            {
+                Debug.LogWarning(
+                    $"[Level0Sequence] Encounter ended in state {encounter.State}; tutorial progression stopped.",
+                    encounter);
+                yield break;
+            }
+
+            yield return WaitForParryEffectsToSettle();
+
+            SetStage(Stage.WaitModPickup);
+            yield return WaitForTutorialModPickup();
+
             RepositionPlayer(centerRoomSpawn);
             SetStage(Stage.PostEnemyDialogue);
             if (postEnemyDialogue != null)
                 yield return RunDialogue(postEnemyDialogue);
 
-            // 16 — Spawn the tutorial weapon pickup and wait for the player to actually take it
             SetStage(Stage.WeaponPickup);
             SpawnTutorialWeaponPickup();
+            promptHud.Show(new TutorialPromptHUD.Entry("Player/Interact", "Equip the weapon"));
             yield return WaitForWeaponPickup();
+            promptHud.Complete();
 
-            // 17 — Explain the next combat beat after the weapon is picked up
-            SetStage(Stage.PostPickupDialogue);
-            if (postPickupDialogue != null)
-                yield return RunDialogue(postPickupDialogue);
+            SetStage(Stage.InventoryPrompt);
+            if (inventoryPromptDialogue != null)
+                yield return RunDialogue(inventoryPromptDialogue);
 
-            // 18 — Wait for the player to enter combat mode with the new weapon
-            SetStage(Stage.WaitCombatMode);
-            yield return WaitForCombatModeToggle();
+            SetStage(Stage.WaitModSlotted);
+            yield return RunInventoryModTutorial();
 
-            // 19 — Spawn the follow-up enemy and wait until it is dead
-            SetStage(Stage.FinalEnemyWave);
-            SpawnPostPickupEnemy();
-            yield return WaitForAllEnemiesDead();
+            SetStage(Stage.WaitModActivation);
+            yield return RunModActivationPrompt();
 
-            // 20 — Final dialogue
+            SetStage(Stage.FinalGlitchRamp);
+            yield return RunEndGlitchRampIfConfigured();
+
             SetStage(Stage.FinalDialogue);
             if (finalDialogue != null)
                 yield return RunDialogue(finalDialogue);
 
-            // 21 — Load next scene
+            if (endCinematicDirector != null)
+                yield return RunDirector(endCinematicDirector, rewindToStart: true);
+
+            SetStage(Stage.OutroVideo);
+            yield return PlayEndOutroVideoIfConfigured();
+
             SetStage(Stage.LoadNextScene);
             LoadConfiguredScene();
+        }
+
+        private IEnumerator RunObjective(SequenceTrigger trigger, params TutorialPromptHUD.Entry[] prompt)
+        {
+            promptHud.Show(prompt);
+            if (trigger != null)
+                yield return WaitForTrigger(trigger);
+            promptHud.Complete();
+        }
+
+        private void RevealPlatformStep(GameObject step, TutorialStepDissolver dissolver, Transform sfxPoint)
+        {
+            if (step != null) step.SetActive(true);
+            if (dissolver == null) return;
+
+            PlayCinematicSfx(platformDissolveSfx, sfxPoint);
+            dissolver.UndissolveAll();
         }
 
         private void SetStage(Stage s)
         {
             currentStage = s;
-            Debug.Log($"[Level0Sequence] >>> {s}");
         }
 
-        // ====================================================================
-        // PLAYER — obtained from GameManager, not spawned here
-        // ====================================================================
+        #endregion
+
+        private void DisableVideoScreen()
+        {
+            if (videoScreen == null)
+                videoScreen = GameObject.Find("VideoScreen");
+
+            if (videoScreen != null)
+                videoScreen.SetActive(false);
+        }
+
+        #region Player
 
         private IEnumerator WaitForPlayer()
         {
-            if (GameManager.Instance != null && GameManager.Instance.Player != null)
+            while (PlayerLifecycle.Instance == null)
+                yield return null;
+
+            PlayerLifecycle lifecycle = PlayerLifecycle.Instance;
+            if (lifecycle.Player != null)
             {
-                currentPlayer = GameManager.Instance.Player;
-                Debug.Log("[Level0Sequence] Player already exists");
+                currentPlayer = lifecycle.Player;
                 yield break;
             }
 
             bool received = false;
-            void OnSpawned(PlayerCharacter p)
-            {
-                currentPlayer = p;
-                received = true;
-            }
+            void OnSpawned(PlayerCharacter p) { currentPlayer = p; received = true; }
 
-            if (GameManager.Instance != null)
-                GameManager.Instance.OnPlayerSpawned += OnSpawned;
+            lifecycle.PlayerSpawned += OnSpawned;
 
-            while (!received)
+            // Close the subscribe/read race if a spawn happened this frame.
+            if (lifecycle.Player != null)
+                OnSpawned(lifecycle.Player);
+
+            while (!received && PlayerLifecycle.Instance == lifecycle)
                 yield return null;
 
-            if (GameManager.Instance != null)
-                GameManager.Instance.OnPlayerSpawned -= OnSpawned;
-
-            Debug.Log("[Level0Sequence] Player received from GameManager");
+            lifecycle.PlayerSpawned -= OnSpawned;
         }
 
         private void RepositionPlayer(Transform spawnPoint)
         {
             RefreshPlayerRef();
-            if (currentPlayer == null || spawnPoint == null) return;
+            if (currentPlayer == null)
+            {
+                Debug.LogWarning($"[Level0Sequence] Reposition skipped during {currentStage}: currentPlayer is null.");
+                return;
+            }
 
-            Vector3 pos = spawnPoint.position;
-            currentPlayer.ReviveAt(pos);
+            if (spawnPoint == null)
+            {
+                Debug.LogWarning($"[Level0Sequence] Reposition skipped during {currentStage}: spawnPoint is null.");
+                return;
+            }
+
+            Vector3 target = spawnPoint.position;
+
+            currentPlayer.ReviveAt(target);
             currentPlayer.Activate();
 
             if (CameraManager.Instance != null)
+            {
                 CameraManager.Instance.ConnectToPlayer(currentPlayer);
+            }
+        }
 
-            Debug.Log($"[Level0Sequence] Player repositioned to {pos}");
+        private IEnumerator ForceObjectiveReposition(Transform spawnPoint)
+        {
+            int passes = Mathf.Max(1, objectiveRepositionPasses);
+
+            for (int i = 0; i < passes; i++)
+            {
+                RepositionPlayer(spawnPoint);
+
+                if (i == 0)
+                    yield return null;
+                else
+                    yield return new WaitForFixedUpdate();
+            }
+
+        }
+
+        private void HoldPlayer(bool freezePhysics)
+        {
+            freezePhysicsWhileHeld = freezePhysics;
+            if (!playerHeld && PlayerLifecycle.Instance != null)
+                PlayerLifecycle.Instance.PlayerSpawned += OnHeldPlayerSpawned;
+            playerHeld = true;
+            AcquirePlayerHoldLocks(currentPlayer);
+        }
+
+        private void ReleasePlayer()
+        {
+            if (playerHeld && PlayerLifecycle.Instance != null)
+                PlayerLifecycle.Instance.PlayerSpawned -= OnHeldPlayerSpawned;
+            playerHeld = false;
+            DisposePlayerHoldLocks();
+        }
+
+        private void OnHeldPlayerSpawned(PlayerCharacter player)
+        {
+            currentPlayer = player;
+            AcquirePlayerHoldLocks(player);
+        }
+
+        private void AcquirePlayerHoldLocks(PlayerCharacter player)
+        {
+            DisposePlayerHoldLocks();
+            if (player == null) return;
+
+            if (player.State != null) playerHoldLocks.Add(player.State.AcquireInputLock());
+            if (player.Controller != null)
+            {
+                playerHoldLocks.Add(player.Controller.AcquireMovementLock());
+                if (freezePhysicsWhileHeld)
+                    playerHoldLocks.Add(player.Controller.AcquireKinematicLock());
+            }
+        }
+
+        private void DisposePlayerHoldLocks()
+        {
+            foreach (IDisposable hold in playerHoldLocks)
+                hold?.Dispose();
+            playerHoldLocks.Clear();
         }
 
         private void RefreshPlayerRef()
         {
-            if (GameManager.Instance != null && GameManager.Instance.Player != null)
-                currentPlayer = GameManager.Instance.Player;
+            if (PlayerLifecycle.Instance?.Player != null)
+                currentPlayer = PlayerLifecycle.Instance.Player;
 
             if (currentPlayer != null)
+            {
                 currentWeaponManager = currentPlayer.GetComponentInChildren<WeaponManager>(true);
+                currentArmament = currentWeaponManager != null
+                    ? currentWeaponManager.Armament
+                    : currentPlayer.GetComponentInChildren<PlayerArmament>(true);
+                currentModManager = currentPlayer.GetComponentInChildren<ModManager>(true);
+                currentSpineAnimationController = currentPlayer.GetComponentInChildren<SpineAnimationController>(true);
+            }
         }
 
-        // ====================================================================
-        // DIALOGUE HELPERS
-        // ====================================================================
+        private void PlayCinematicSfx(SoundEntry entry, Transform point = null)
+        {
+            if (AudioManager.Instance == null || entry == null || !entry.IsValid)
+                return;
+
+            if (point != null)
+            {
+                AudioManager.Instance.PlaySpatialAtPosition(entry, point.position, spatialBlend: 1f);
+                return;
+            }
+
+            AudioManager.Instance.PlayUI(entry);
+        }
+
+        private IEnumerator WaitForParryEffectsToSettle()
+        {
+            RefreshPlayerRef();
+
+            PlayerState playerState = currentPlayer != null ? currentPlayer.PlayerState : null;
+            bool parryLikelyActive = playerState != null &&
+                                     (playerState.IsParrying || playerState.IsInputLocked || Time.timeScale < 0.999f);
+
+            if (!parryLikelyActive)
+            {
+                yield break;
+            }
+
+            float endTime = Time.realtimeSinceStartup + Mathf.Max(0f, postParryRespawnDelay);
+            while (Time.realtimeSinceStartup < endTime)
+                yield return null;
+
+            while (true)
+            {
+                RefreshPlayerRef();
+                playerState = currentPlayer != null ? currentPlayer.PlayerState : null;
+
+                bool waitingOnParry = playerState != null && (playerState.IsParrying || playerState.IsInputLocked);
+                bool waitingOnTimeScale = Time.timeScale < 0.999f;
+
+                if (!waitingOnParry && !waitingOnTimeScale)
+                    break;
+
+                yield return null;
+            }
+
+            yield return null;
+        }
+
+        #endregion
+
+        #region Dialogue
 
         private IEnumerator RunDialogue(DialogueSequence sequence)
         {
-            dialogueFinished = false;
+            if (sequence == null)
+                yield break;
 
+            while (DialogueManager.instance == null)
+                yield return null;
+
+            dialogueFinished = false;
             DialogueManager.instance.OnDialogueEnded += OnDialogueEnded;
             DialogueManager.instance.StartDialogue(sequence);
 
@@ -391,20 +605,16 @@ namespace junklite
             DialogueManager.instance.OnDialogueEnded -= OnDialogueEnded;
         }
 
-        private void OnDialogueEnded()
-        {
-            dialogueFinished = true;
-        }
+        private void OnDialogueEnded() => dialogueFinished = true;
 
-        // ====================================================================
-        // TIMELINE HELPERS
-        // ====================================================================
+        #endregion
+
+        #region Timeline
 
         private IEnumerator RunDirector(PlayableDirector targetDirector, bool rewindToStart)
         {
             timelineFinished = false;
-            if (targetDirector == null)
-                yield break;
+            if (targetDirector == null) yield break;
 
             if (rewindToStart)
             {
@@ -421,121 +631,55 @@ namespace junklite
             targetDirector.stopped -= OnTimelineStopped;
         }
 
-        private void OnTimelineStopped(PlayableDirector _)
+        private void OnTimelineStopped(PlayableDirector _) => timelineFinished = true;
+
+        #endregion
+
+        #region Completion Beat
+
+        private IEnumerator PlayCompletionBeatAndReset(GameObject completedPlatformStep)
         {
-            timelineFinished = true;
-        }
-
-        private IEnumerator PlayPlatformCompleteBeat()
-        {
-            if (completedVideoPlayer != null)
-            {
-                yield return PlayCompletedVideo();
-                yield break;
-            }
-
-            if (platformCompleteDirector != null)
-                yield return RunDirector(platformCompleteDirector, rewindToStart: true);
-        }
-
-        private IEnumerator PlayPlatformCompleteBeatAndReset(GameObject completedPlatformStep)
-        {
-            if (platformCompleteBeatRunning)
-                yield break;
-
+            if (platformCompleteBeatRunning) yield break;
             platformCompleteBeatRunning = true;
+
             if (DialogueManager.instance != null)
                 DialogueManager.instance.IsContinueInputSuppressed = true;
-            yield return PlayPlatformCompleteBeat();
 
-            if (completedResetDelay > 0f)
-                yield return new WaitForSeconds(completedResetDelay);
+            // Always move the player to safety first so they cannot fall
+            // while the completion beat is playing.
+            yield return ForceObjectiveReposition(centerRoomSpawn);
 
-            RepositionPlayer(centerRoomSpawn);
             if (completedPlatformStep != null)
                 completedPlatformStep.SetActive(false);
-            HideCompletedVideo();
+
+            if (completionAnimation != null)
+            {
+                PlayCinematicSfx(platformCompleteSfx);
+                yield return completionAnimation.Play();
+
+                // Hold on last frame for the reset delay, then fade out
+                if (completedResetDelay > 0f)
+                    yield return new WaitForSeconds(completedResetDelay);
+
+                yield return completionAnimation.FadeOutAndHide();
+            }
+            else if (platformCompleteDirector != null)
+            {
+                yield return RunDirector(platformCompleteDirector, rewindToStart: true);
+
+                if (completedResetDelay > 0f)
+                    yield return new WaitForSeconds(completedResetDelay);
+            }
+
             if (DialogueManager.instance != null)
                 DialogueManager.instance.IsContinueInputSuppressed = false;
+
             platformCompleteBeatRunning = false;
         }
 
-        private IEnumerator PlayCompletedVideo()
-        {
-            if (completedVideoPlayer == null)
-                yield break;
+        #endregion
 
-            completedVideoPlayer.Stop();
-            ClearCompletedVideoRenderTexture();
-
-            if (completedVideoRoot != null)
-                completedVideoRoot.SetActive(true);
-
-            bool complete = false;
-            bool errorReceived = false;
-            void OnLoopPointReached(VideoPlayer _) => complete = true;
-            void OnErrorReceived(VideoPlayer _, string message)
-            {
-                errorReceived = true;
-                Debug.LogWarning($"[Level0Sequence] Completed video failed: {message}");
-            }
-
-            completedVideoPlayer.loopPointReached += OnLoopPointReached;
-            completedVideoPlayer.errorReceived += OnErrorReceived;
-            completedVideoPlayer.isLooping = false;
-            completedVideoPlayer.time = 0d;
-            completedVideoPlayer.frame = 0;
-            completedVideoPlayer.Prepare();
-
-            float timeoutAt = Time.unscaledTime + completedVideoTimeout;
-
-            while (!completedVideoPlayer.isPrepared && !errorReceived && Time.unscaledTime < timeoutAt)
-                yield return null;
-
-            if (completedVideoPlayer.isPrepared && !errorReceived)
-            {
-                completedVideoPlayer.time = 0d;
-                completedVideoPlayer.frame = 0;
-                completedVideoPlayer.Play();
-
-                while (!complete && !errorReceived && Time.unscaledTime < timeoutAt)
-                    yield return null;
-            }
-            else
-            {
-                Debug.LogWarning("[Level0Sequence] Completed video timed out while preparing. Continuing sequence.");
-            }
-
-            completedVideoPlayer.loopPointReached -= OnLoopPointReached;
-            completedVideoPlayer.errorReceived -= OnErrorReceived;
-        }
-
-        private void HideCompletedVideo()
-        {
-            if (completedVideoPlayer != null)
-            {
-                completedVideoPlayer.Stop();
-                ClearCompletedVideoRenderTexture();
-            }
-
-            if (completedVideoRoot != null)
-                completedVideoRoot.SetActive(false);
-        }
-
-        private void ClearCompletedVideoRenderTexture()
-        {
-            if (completedVideoPlayer == null || completedVideoPlayer.targetTexture == null)
-                return;
-
-            RenderTexture previous = RenderTexture.active;
-            RenderTexture.active = completedVideoPlayer.targetTexture;
-            GL.Clear(true, true, Color.clear);
-            RenderTexture.active = previous;
-        }
-
-        // ====================================================================
-        // TRIGGER / OBJECTIVE HELPERS
-        // ====================================================================
+        #region Triggers
 
         private IEnumerator WaitForTrigger(SequenceTrigger trigger)
         {
@@ -552,119 +696,185 @@ namespace junklite
         private void OnObjectiveHit()
         {
             objectiveHit = true;
-            if (GameInputManager.Instance != null)
-                GameInputManager.Instance.SetGameplayInputEnabled(false);
+            GameInputManager.Instance?.SetGameplayInputEnabled(false);
         }
 
-        // ====================================================================
-        // ENEMY WAVE
-        // ====================================================================
+        #endregion
 
-        private void SpawnEnemyWave()
+        #region Enemy Wave
+
+        private bool PrepareEncounter()
         {
-            UnsubscribeEnemyCallbacks();
-            spawnedEnemies.Clear();
-            enemiesAlive = 0;
+            parryGateCleared = false;
+            tutorialModHyenaSpawnHandled = false;
 
-            if (enemyPrefabs == null || enemyPrefabs.Length == 0)
+            if (encounter != null)
+                return true;
+
+            Debug.LogError(
+                "[Level0Sequence] An authored EncounterController is required before combat can start.",
+                this);
+            return false;
+        }
+
+        private void SubscribeEncounterCallbacks()
+        {
+            UnsubscribeEncounterCallbacks();
+            encounter.EnemyRegistered += OnEncounterEnemyRegistered;
+            encounter.EnemyDied += OnEncounterEnemyDied;
+        }
+
+        private void OnEncounterEnemyRegistered(EnemyCharacter enemy)
+        {
+            if (enemy == null || !tutorialEncounterEnemies.Add(enemy))
+                return;
+
+            if (!parryGateCleared && parryGateEnemy == null && enemy.EnemyType == EnemyType.Hyena)
+                BeginParryGate(enemy);
+        }
+
+        // No pause and no input locks: the Hyena just can't be hurt, and the prompt stays,
+        // until the player lands a successful parry on it.
+        private void BeginParryGate(EnemyCharacter enemy)
+        {
+            RefreshPlayerRef();
+            parryGateHandler = currentPlayer != null ? currentPlayer.GetComponentInChildren<ParryHandler>(true) : null;
+            if (parryGateHandler == null)
             {
-                Debug.LogWarning("[Level0Sequence] No enemy prefabs assigned — skipping wave.");
+                Debug.LogWarning("[Level0Sequence] No ParryHandler on the player; parry gate skipped.", this);
                 return;
             }
 
-            int spawnCount = Mathf.Min(enemyPrefabs.Length,
-                enemySpawnPoints != null ? enemySpawnPoints.Length : 1);
-
-            for (int i = 0; i < spawnCount; i++)
-            {
-                Vector3 pos = (enemySpawnPoints != null && i < enemySpawnPoints.Length && enemySpawnPoints[i] != null)
-                    ? enemySpawnPoints[i].position
-                    : Vector3.zero;
-
-                var go = Instantiate(enemyPrefabs[i], pos, Quaternion.identity);
-                var enemy = go.GetComponent<EnemyCharacter>();
-
-                if (enemy == null)
-                {
-                    Debug.LogWarning($"[Level0Sequence] Enemy prefab {i} missing EnemyCharacter!");
-                    continue;
-                }
-
-                spawnedEnemies.Add(enemy);
-                enemiesAlive++;
-
-                var sm = enemy.GetComponent<StateMachine>();
-                if (sm != null)
-                    sm.OnStateChanged += OnWaveEnemyStateChanged;
-            }
-
-            Debug.Log($"[Level0Sequence] Spawned {enemiesAlive} enemies");
+            parryGateEnemy = enemy;
+            enemy.SetTutorialInvulnerable(true);
+            enemy.OnAttackNotifyShown += OnParryGateAttackTelegraphed;
+            parryGateHandler.ParrySucceeded += OnTutorialParrySucceeded;
         }
 
-        private void SpawnPostPickupEnemy()
+        // The prompt appears on the Hyena's first telegraph, so it teaches the timing; it then stays until cleared.
+        private void OnParryGateAttackTelegraphed(EnemyCharacter enemy)
         {
-            UnsubscribeEnemyCallbacks();
-            spawnedEnemies.Clear();
-            enemiesAlive = 0;
+            if (enemy != parryGateEnemy || promptHud.IsShowing)
+                return;
 
-            if (postPickupEnemyPrefab == null)
+            promptHud.Show(new TutorialPromptHUD.Entry("Player/Parry", "Parry"));
+        }
+
+        private void OnTutorialParrySucceeded(GameObject attacker)
+        {
+            if (parryGateEnemy == null)
+                return;
+
+            // Ignore parries against other enemies; accept source-less hits.
+            EnemyCharacter parried = attacker != null ? attacker.GetComponentInParent<EnemyCharacter>() : null;
+            if (attacker != null && parried != parryGateEnemy)
+                return;
+
+            EndParryGate(cleared: true);
+        }
+
+        private void EndParryGate(bool cleared)
+        {
+            if (parryGateHandler != null)
+                parryGateHandler.ParrySucceeded -= OnTutorialParrySucceeded;
+            if (parryGateEnemy != null)
             {
-                Debug.LogWarning("[Level0Sequence] No post-pickup enemy prefab assigned.");
+                parryGateEnemy.SetTutorialInvulnerable(false);
+                parryGateEnemy.OnAttackNotifyShown -= OnParryGateAttackTelegraphed;
+            }
+
+            bool wasActive = parryGateEnemy != null;
+            parryGateHandler = null;
+            parryGateEnemy = null;
+            if (!wasActive)
+                return;
+
+            if (cleared)
+                parryGateCleared = true;
+
+            if (promptHud == null || !promptHud.IsShowing)
+                return;
+
+            if (cleared)
+                promptHud.Complete();
+            else
+                promptHud.Hide(instant: true);
+        }
+
+        private void OnEncounterEnemyDied(EnemyCharacter enemy)
+        {
+            if (enemy != null)
+                tutorialEncounterEnemies.Remove(enemy);
+
+            if (enemy != null && enemy == parryGateEnemy)
+                EndParryGate(cleared: false);
+
+            if (enemy != null && enemy.EnemyType == EnemyType.Hyena)
+                SpawnOrActivateTutorialModAfterHyenaDeath();
+        }
+
+        private void SpawnOrActivateTutorialModAfterHyenaDeath()
+        {
+            if (tutorialModHyenaSpawnHandled)
+                return;
+            if (tutorialModPickup == null)
+                return;
+            if (tutorialModPickupSpawnPoint == null)
+            {
+                Debug.LogWarning("[Level0Sequence] tutorialModPickupSpawnPoint not assigned — cannot place mod pickup.");
                 return;
             }
 
-            Vector3 pos = postPickupEnemySpawnPoint != null ? postPickupEnemySpawnPoint.position : Vector3.zero;
-            SpawnTrackedEnemy(postPickupEnemyPrefab, pos);
-            Debug.Log("[Level0Sequence] Spawned post-pickup enemy.");
-        }
+            tutorialModHyenaSpawnHandled = true;
 
-        private void SpawnTrackedEnemy(GameObject enemyPrefab, Vector3 position)
-        {
-            var go = Instantiate(enemyPrefab, position, Quaternion.identity);
-            var enemy = go.GetComponent<EnemyCharacter>();
-
-            if (enemy == null)
+            if (!tutorialModPickup.scene.IsValid())
             {
-                Debug.LogWarning("[Level0Sequence] Spawned enemy prefab missing EnemyCharacter!");
-                return;
+                tutorialModPickupInstance = Instantiate(tutorialModPickup, tutorialModPickupSpawnPoint.position,
+                    tutorialModPickupSpawnPoint.rotation);
+            }
+            else
+            {
+                tutorialModPickupInstance = tutorialModPickup;
+                tutorialModPickup.transform.SetPositionAndRotation(tutorialModPickupSpawnPoint.position,
+                    tutorialModPickupSpawnPoint.rotation);
+                tutorialModPickup.SetActive(true);
             }
 
-            spawnedEnemies.Add(enemy);
-            enemiesAlive++;
-
-            var sm = enemy.GetComponent<StateMachine>();
-            if (sm != null)
-                sm.OnStateChanged += OnWaveEnemyStateChanged;
-        }
-
-        private void OnWaveEnemyStateChanged(IState from, IState to)
-        {
-            if (to is DeadState)
+            // The tutorial teaches slotting, so this mod goes to the inventory instead of auto-equipping.
+            var pickup = tutorialModPickupInstance.GetComponent<WorldModPickup>();
+            if (pickup != null)
             {
-                enemiesAlive = Mathf.Max(0, enemiesAlive - 1);
-                Debug.Log($"[Level0Sequence] Enemy died — {enemiesAlive} remaining");
+                pickup.autoEquip = false;
+                tutorialModData = pickup.modData;
             }
         }
 
-        private IEnumerator WaitForAllEnemiesDead()
+        private IEnumerator WaitForTutorialModPickup()
         {
-            while (enemiesAlive > 0)
+            if (tutorialModPickupInstance == null || !tutorialModPickupInstance.activeInHierarchy)
+                yield break;
+
+            promptHud.Show(new TutorialPromptHUD.Entry(null, "Collect the mod"));
+            while (tutorialModPickupInstance != null && tutorialModPickupInstance.activeInHierarchy)
                 yield return null;
-
-            UnsubscribeEnemyCallbacks();
-            Debug.Log("[Level0Sequence] All enemies dead");
+            promptHud.Complete();
         }
 
-        private void UnsubscribeEnemyCallbacks()
+        private void UnsubscribeEncounterCallbacks()
         {
-            foreach (var enemy in spawnedEnemies)
+            if (encounter != null)
             {
-                if (enemy == null) continue;
-                var sm = enemy.GetComponent<StateMachine>();
-                if (sm != null)
-                    sm.OnStateChanged -= OnWaveEnemyStateChanged;
+                encounter.EnemyRegistered -= OnEncounterEnemyRegistered;
+                encounter.EnemyDied -= OnEncounterEnemyDied;
             }
+
+            EndParryGate(cleared: false);
+            tutorialEncounterEnemies.Clear();
         }
+
+        #endregion
+
+        #region Weapon Pickup
 
         private void SpawnTutorialWeaponPickup()
         {
@@ -682,69 +892,160 @@ namespace junklite
                 : centerRoomSpawn != null ? centerRoomSpawn.position : Vector3.zero;
 
             var go = Instantiate(tutorialWeaponPickupPrefab, pos, Quaternion.identity);
-            activeTutorialPickup = go.GetComponent<WorldWeaponPickup>();
+            activeTutorialPickup = go.GetComponent<WeaponUpgradePickup>();
         }
 
         private IEnumerator WaitForWeaponPickup()
         {
             RefreshPlayerRef();
 
-            if (currentWeaponManager == null)
+            if (currentArmament == null)
             {
-                Debug.LogWarning("[Level0Sequence] No WeaponManager found on current player.");
+                Debug.LogWarning("[Level0Sequence] No PlayerArmament found on current player.");
                 yield break;
             }
 
-            weaponPickedUp = false;
-            currentWeaponManager.OnWeaponChanged += OnWeaponPickedUp;
+            // Already upgraded on an earlier run: the pickup disables itself, so do not wait.
+            weaponPickedUp = currentArmament.HasUpgradedWeapon;
+            currentArmament.WeaponChanged += OnWeaponPickedUp;
 
             while (!weaponPickedUp)
                 yield return null;
 
-            currentWeaponManager.OnWeaponChanged -= OnWeaponPickedUp;
+            currentArmament.WeaponChanged -= OnWeaponPickedUp;
             activeTutorialPickup = null;
         }
 
-        private void OnWeaponPickedUp()
+        private void OnWeaponPickedUp() => weaponPickedUp = true;
+
+        #endregion
+
+        #region Combat & Inventory Gates
+
+        private static bool IsInventoryOpen =>
+            GameUIManager.Instance != null && GameUIManager.Instance.PlayerHUD != null &&
+            GameUIManager.Instance.PlayerHUD.IsInventoryOpen;
+
+        private bool IsTutorialModSlotted(out bool isActiveSlot, out int slotIndex)
         {
-            weaponPickedUp = true;
+            isActiveSlot = false;
+            slotIndex = -1;
+            return currentModManager != null && tutorialModData != null &&
+                   currentModManager.FindEquippedMod(tutorialModData, out isActiveSlot, out slotIndex);
         }
 
-        // ====================================================================
-        // COMBAT MODE & INVENTORY GATES
-        // ====================================================================
-
-        private IEnumerator WaitForCombatModeToggle()
+        /// <summary>
+        /// Open inventory → slot the Hyena mod → close. Each prompt stays until done, and closing
+        /// the inventory early just asks the player to reopen it.
+        /// </summary>
+        private IEnumerator RunInventoryModTutorial()
         {
-            combatModeToggled = false;
-            GameInputManager.Instance.OnCombatModeToggle += OnCombatModeToggled;
+            RefreshPlayerRef();
+            var openPrompt = new TutorialPromptHUD.Entry("Player/Inventory", "Open inventory");
+            yield return RunInventoryGates(openPrompt);
+        }
 
-            while (!combatModeToggled)
+        private IEnumerator RunInventoryGates(TutorialPromptHUD.Entry openPrompt)
+        {
+            if (currentModManager == null || tutorialModData == null)
+            {
+                // No mod to slot (e.g. no Hyena in the wave): still teach open/close.
+                promptHud.Show(openPrompt);
+                while (!IsInventoryOpen) yield return null;
+                promptHud.Complete();
+            }
+            else
+            {
+                modSlotsChanged = true;
+                currentModManager.OnModSlotsChanged += OnModSlotsChanged;
+
+                while (!IsTutorialModSlotted(out _, out _))
+                {
+                    if (!IsInventoryOpen)
+                    {
+                        promptHud.Show(openPrompt);
+                        while (!IsInventoryOpen) yield return null;
+                        promptHud.Complete();
+                    }
+
+                    promptHud.Show(new TutorialPromptHUD.Entry(null, $"Attach {ModLabel()} to a mod slot"));
+                    promptHud.SetMenuDocked(true);
+                    modSlotsChanged = false;
+                    while (IsInventoryOpen && !(modSlotsChanged && IsTutorialModSlotted(out _, out _)))
+                        yield return null;
+
+                    if (IsTutorialModSlotted(out _, out _))
+                        promptHud.Complete();
+                }
+
+                currentModManager.OnModSlotsChanged -= OnModSlotsChanged;
+            }
+
+            if (IsInventoryOpen)
+            {
+                promptHud.Show(new TutorialPromptHUD.Entry("Player/Inventory", "Close inventory"));
+                promptHud.SetMenuDocked(true);
+                while (IsInventoryOpen) yield return null;
+                promptHud.Complete();
+            }
+        }
+
+        private string ModLabel() =>
+            tutorialModData != null && !string.IsNullOrEmpty(tutorialModData.modName)
+                ? tutorialModData.modName
+                : "the mod";
+
+        private void OnModSlotsChanged() => modSlotsChanged = true;
+
+        private IEnumerator RunModActivationPrompt()
+        {
+            RefreshPlayerRef();
+            if (!IsTutorialModSlotted(out bool isActiveSlot, out int slotIndex) || !isActiveSlot || slotIndex > 3)
+                yield break;
+
+            promptHud.Show(new TutorialPromptHUD.Entry($"Player/ModActivate{slotIndex + 1}", "Activate mod"));
+            yield return WaitForActiveModActivation();
+            promptHud.Complete();
+            yield return WaitForModActivationAnimationComplete();
+        }
+
+        private IEnumerator WaitForActiveModActivation()
+        {
+            RefreshPlayerRef();
+
+            if (currentModManager == null)
+            {
+                Debug.LogWarning("[Level0Sequence] No ModManager found on current player.");
+                yield break;
+            }
+
+            modActivated = false;
+            currentModManager.OnActiveModActivated += OnActiveModActivated;
+
+            while (!modActivated)
                 yield return null;
 
-            GameInputManager.Instance.OnCombatModeToggle -= OnCombatModeToggled;
+            currentModManager.OnActiveModActivated -= OnActiveModActivated;
         }
 
-        private void OnCombatModeToggled()
-        {
-            combatModeToggled = true;
-        }
+        private void OnActiveModActivated(int _) => modActivated = true;
 
-        private IEnumerator WaitForInventoryOpen()
+        private IEnumerator WaitForModActivationAnimationComplete()
         {
-            inventoryOpened = false;
-            GameInputManager.Instance.OnInventoryToggle += OnInventoryToggled;
+            RefreshPlayerRef();
 
-            while (!inventoryOpened)
+            if (currentSpineAnimationController == null)
+                yield break;
+
+            yield return null;
+
+            while (currentSpineAnimationController.IsForceOverrideActive)
                 yield return null;
-
-            GameInputManager.Instance.OnInventoryToggle -= OnInventoryToggled;
         }
 
-        private void OnInventoryToggled()
-        {
-            inventoryOpened = true;
-        }
+        #endregion
+
+        #region Lighting
 
         private IEnumerator LerpReflectionIntensity(float from, float to, float duration)
         {
@@ -759,8 +1060,7 @@ namespace junklite
             while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                RenderSettings.reflectionIntensity = Mathf.Lerp(from, to, t);
+                RenderSettings.reflectionIntensity = Mathf.Lerp(from, to, Mathf.Clamp01(elapsed / duration));
                 yield return null;
             }
 
@@ -768,20 +1068,55 @@ namespace junklite
             DynamicGI.UpdateEnvironment();
         }
 
-        private IEnumerator FadeOutGodRayParticles()
+        private IEnumerator LerpAmbient(Color from, Color to, float duration)
         {
-            if (godRayParticles == null)
-                yield break;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                SetAmbient(Color.Lerp(from, to, Mathf.Clamp01(elapsed / duration)));
+                yield return null;
+            }
+            SetAmbient(to);
+        }
 
-            var emission = godRayParticles.emission;
-            float startRate = emission.rateOverTimeMultiplier;
+        // Shaders read the SH ambient probe, which isn't rebuilt when ambientLight changes at runtime,
+        // so write a flat probe directly (cheap enough to do every frame of the fade).
+        private static void SetAmbient(Color color)
+        {
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = color;
+            var probe = new SphericalHarmonicsL2();
+            probe.AddAmbientLight(color);
+            RenderSettings.ambientProbe = probe;
+        }
+
+        private IEnumerator FadeOutRevealEffects()
+        {
+            Light fadeSpotlight = overheadSpotlight;
+            float startSpotlightIntensity = fadeSpotlight != null ? fadeSpotlight.intensity : 0f;
+            ParticleSystem.EmissionModule emission = default;
+            float startRate = 0f;
+            bool hasGodRayParticles = godRayParticles != null;
+            if (hasGodRayParticles)
+            {
+                emission = godRayParticles.emission;
+                startRate = emission.rateOverTimeMultiplier;
+            }
 
             if (godRayFadeDuration <= 0f)
             {
-                emission.rateOverTimeMultiplier = 0f;
-                godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
-                if (overheadSpotlight != null) overheadSpotlight.enabled = false;
-                godRayFadeRoutine = null;
+                if (fadeSpotlight != null)
+                {
+                    fadeSpotlight.intensity = 0f;
+                    fadeSpotlight.enabled = false;
+                }
+                if (hasGodRayParticles)
+                {
+                    emission.rateOverTimeMultiplier = 0f;
+                    godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                }
+                revealFadeRoutine = null;
                 yield break;
             }
 
@@ -790,86 +1125,377 @@ namespace junklite
             {
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / godRayFadeDuration);
-                emission.rateOverTimeMultiplier = Mathf.Lerp(startRate, 0f, t);
+
+                if (fadeSpotlight != null)
+                    fadeSpotlight.intensity = Mathf.Lerp(startSpotlightIntensity, 0f, t);
+
+                if (hasGodRayParticles)
+                    emission.rateOverTimeMultiplier = Mathf.Lerp(startRate, 0f, t);
+
                 yield return null;
             }
 
-            emission.rateOverTimeMultiplier = 0f;
-            godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
-            if (overheadSpotlight != null) overheadSpotlight.enabled = false;
-            godRayFadeRoutine = null;
+            if (fadeSpotlight != null)
+            {
+                fadeSpotlight.intensity = 0f;
+                fadeSpotlight.enabled = false;
+            }
+
+            if (hasGodRayParticles)
+            {
+                emission.rateOverTimeMultiplier = 0f;
+                godRayParticles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            }
+
+            revealFadeRoutine = null;
         }
 
-        // ====================================================================
-        // SCENE TRANSITION
-        // ====================================================================
+        #endregion
+
+        #region End cinematic (glitch + outro video)
+
+        private struct EndGlitchSnapshot
+        {
+            private readonly bool _hasAnalog;
+            private readonly bool _analogActive;
+            private readonly float _as, _av, _ah, _ac;
+            private readonly bool _osS, _osV, _osH, _osC;
+
+            private readonly bool _hasDigital;
+            private readonly bool _digitalActive;
+            private readonly float _di;
+            private readonly bool _osI;
+
+            public EndGlitchSnapshot(URPGlitch.AnalogGlitchVolume a, URPGlitch.DigitalGlitchVolume d)
+            {
+                _hasAnalog = a != null;
+                _analogActive = false;
+                _as = _av = _ah = _ac = 0f;
+                _osS = _osV = _osH = _osC = false;
+                _hasDigital = d != null;
+                _digitalActive = false;
+                _di = 0f;
+                _osI = false;
+
+                if (_hasAnalog)
+                {
+                    _analogActive = a.active;
+                    _as = a.scanLineJitter.value;
+                    _av = a.verticalJump.value;
+                    _ah = a.horizontalShake.value;
+                    _ac = a.colorDrift.value;
+                    _osS = a.scanLineJitter.overrideState;
+                    _osV = a.verticalJump.overrideState;
+                    _osH = a.horizontalShake.overrideState;
+                    _osC = a.colorDrift.overrideState;
+                }
+
+                if (_hasDigital)
+                {
+                    _digitalActive = d.active;
+                    _di = d.intensity.value;
+                    _osI = d.intensity.overrideState;
+                }
+            }
+
+            public void Restore(URPGlitch.AnalogGlitchVolume a, URPGlitch.DigitalGlitchVolume d)
+            {
+                if (_hasAnalog && a != null)
+                {
+                    a.active = _analogActive;
+                    a.scanLineJitter.value = _as;
+                    a.verticalJump.value = _av;
+                    a.horizontalShake.value = _ah;
+                    a.colorDrift.value = _ac;
+                    a.scanLineJitter.overrideState = _osS;
+                    a.verticalJump.overrideState = _osV;
+                    a.horizontalShake.overrideState = _osH;
+                    a.colorDrift.overrideState = _osC;
+                }
+
+                if (_hasDigital && d != null)
+                {
+                    d.active = _digitalActive;
+                    d.intensity.value = _di;
+                    d.intensity.overrideState = _osI;
+                }
+            }
+        }
+
+        private void ResetEndGlitch()
+        {
+            if (endSequenceVolumeSettings == null || !endSequenceVolumeSettings.IsValid)
+                return;
+            VolumeProfile profile = endSequenceVolumeSettings.Profile;
+            profile.TryGet(out URPGlitch.AnalogGlitchVolume analog);
+            profile.TryGet(out URPGlitch.DigitalGlitchVolume digital);
+            ApplyEndGlitchStrength(analog, digital, 0f);
+        }
+
+        private IEnumerator RunEndGlitchRampIfConfigured()
+        {
+            if (endSequenceVolumeSettings == null || !endSequenceVolumeSettings.IsValid)
+                yield break;
+
+            VolumeProfile profile = endSequenceVolumeSettings.Profile;
+            profile.TryGet(out URPGlitch.AnalogGlitchVolume analog);
+            profile.TryGet(out URPGlitch.DigitalGlitchVolume digital);
+
+            if (analog == null && digital == null)
+            {
+                Debug.LogWarning(
+                    "[Level0Sequence] Volume profile has no AnalogGlitchVolume or DigitalGlitchVolume — skip end glitch ramp.");
+                yield break;
+            }
+
+            var snapshot = new EndGlitchSnapshot(analog, digital);
+
+            try
+            {
+                if (analog != null)
+                {
+                    analog.active = true;
+                    analog.scanLineJitter.overrideState = true;
+                    analog.verticalJump.overrideState = true;
+                    analog.horizontalShake.overrideState = true;
+                    analog.colorDrift.overrideState = true;
+                }
+
+                if (digital != null)
+                {
+                    digital.active = true;
+                    digital.intensity.overrideState = true;
+                }
+
+                float inDur = Mathf.Max(0.01f, endGlitchRampInSeconds);
+                float hold = Mathf.Max(0f, endGlitchHoldSeconds);
+                float outDur = Mathf.Max(0.01f, endGlitchRampOutSeconds);
+
+                float elapsed = 0f;
+                while (elapsed < inDur)
+                {
+                    elapsed += Time.deltaTime;
+                    float k = Mathf.Clamp01(elapsed / inDur);
+                    ApplyEndGlitchStrength(analog, digital, k);
+                    yield return null;
+                }
+
+                ApplyEndGlitchStrength(analog, digital, 1f);
+
+                elapsed = 0f;
+                while (elapsed < hold)
+                {
+                    elapsed += Time.deltaTime;
+                    yield return null;
+                }
+
+                elapsed = 0f;
+                while (elapsed < outDur)
+                {
+                    elapsed += Time.deltaTime;
+                    float k = 1f - Mathf.Clamp01(elapsed / outDur);
+                    ApplyEndGlitchStrength(analog, digital, k);
+                    yield return null;
+                }
+
+                ApplyEndGlitchStrength(analog, digital, 0f);
+            }
+            finally
+            {
+                snapshot.Restore(analog, digital);
+            }
+        }
+
+        private void ApplyEndGlitchStrength(URPGlitch.AnalogGlitchVolume analog, URPGlitch.DigitalGlitchVolume digital, float strength01)
+        {
+            float ap = Mathf.Clamp01(endGlitchAnalogPeak);
+            float dp = Mathf.Clamp01(endGlitchDigitalPeak);
+            strength01 = Mathf.Clamp01(strength01);
+
+            if (analog != null)
+            {
+                float v = strength01 * ap;
+                analog.scanLineJitter.value = v;
+                analog.verticalJump.value = v;
+                analog.horizontalShake.value = v;
+                analog.colorDrift.value = v;
+            }
+
+            if (digital != null)
+                digital.intensity.value = strength01 * dp;
+        }
+
+        private IEnumerator PlayEndOutroVideoIfConfigured()
+        {
+            if (endOutroVideoClip == null || endOutroVideoPlayer == null)
+            {
+                Debug.LogWarning("[Level0Sequence] End outro video clip or VideoPlayer not assigned — skipping outro.");
+                yield break;
+            }
+
+            endOutroVideoScreenRoot?.SetActive(true);
+
+            // The level is over once the story video starts: freeze the player and clear the HUD.
+            // The next scene's spawn turns input and the HUD back on.
+            RefreshPlayerRef();
+            HoldPlayer(freezePhysics: true);
+            GameInputManager.Instance?.SetGameplayInputEnabled(false);
+            GameUIManager.Instance?.HidePlayerHUD();
+            if (playerUI != null) playerUI.SetActive(false);
+            promptHud?.Hide(instant: true);
+
+            if (preloadNextSceneDuringOutro)
+            {
+                AudioManager.Instance?.StopMusic();
+                if (TryResolveNextScene(out string preloadName, out int preloadIndex))
+                    GameManager.Instance?.PreloadLevel(preloadName, preloadIndex);
+            }
+
+            endOutroVideoPlayer.playOnAwake = false;
+            endOutroVideoPlayer.isLooping = false;
+            endOutroVideoPlayer.clip = endOutroVideoClip;
+
+            var audioSource = endOutroVideoPlayer.GetComponent<AudioSource>();
+            if (audioSource == null)
+                audioSource = endOutroVideoPlayer.gameObject.AddComponent<AudioSource>();
+
+            endOutroVideoPlayer.audioOutputMode = VideoAudioOutputMode.AudioSource;
+            endOutroVideoPlayer.EnableAudioTrack(0, true);
+            endOutroVideoPlayer.SetTargetAudioSource(0, audioSource);
+
+            bool finished = false;
+            bool prepared = false;
+            bool failed = false;
+
+            void OnLoopPointReached(VideoPlayer _) => finished = true;
+
+            void OnError(VideoPlayer _, string message)
+            {
+                Debug.LogWarning($"[Level0Sequence] End outro video error: {message}");
+                failed = true;
+                prepared = true;
+                finished = true;
+            }
+
+            void OnPrepared(VideoPlayer _) => prepared = true;
+
+            endOutroVideoPlayer.loopPointReached += OnLoopPointReached;
+            endOutroVideoPlayer.errorReceived += OnError;
+            endOutroVideoPlayer.prepareCompleted += OnPrepared;
+
+            endOutroVideoPlayer.Stop();
+            endOutroVideoPlayer.time = 0;
+            endOutroVideoPlayer.frame = 0;
+            endOutroVideoPlayer.Prepare();
+
+            while (!prepared)
+                yield return null;
+
+            endOutroVideoPlayer.prepareCompleted -= OnPrepared;
+
+            if (!failed)
+            {
+                if (playerUI != null)
+                playerUI.SetActive(false);
+                Cursor.visible = false;
+
+                endOutroVideoPlayer.Play();
+
+                while (!finished && endOutroVideoPlayer.isPlaying)
+                    yield return null;
+            }
+
+            endOutroVideoPlayer.loopPointReached -= OnLoopPointReached;
+            endOutroVideoPlayer.errorReceived -= OnError;
+
+            // The preloaded level replaces this scene next; keep the last video frame up until it does.
+            if (!failed && GameManager.Instance != null && GameManager.Instance.HasPreloadedLevel)
+                yield break;
+
+            endOutroVideoPlayer.Stop();
+            endOutroVideoScreenRoot?.SetActive(false);
+            if (playerUI != null)
+                playerUI.SetActive(true);
+            Cursor.visible = true;
+        }
+
+        #endregion
+
+        #region Scene Transition
 
         private void LoadConfiguredScene()
         {
             SetStage(Stage.Done);
 
-            if (string.IsNullOrEmpty(nextSceneName))
+            if (GameManager.Instance == null)
             {
-                Debug.LogWarning("[Level0Sequence] No next scene configured — tutorial complete but staying.");
+                Debug.LogError("[Level0Sequence] GameManager missing. Cannot load next scene.");
                 return;
             }
 
-            Debug.Log($"[Level0Sequence] Loading next scene: {nextSceneName}");
-            SceneManager.LoadScene(nextSceneName);
+            if (GameManager.Instance.HasPreloadedLevel)
+            {
+                GameManager.Instance.ActivatePreloadedLevel();
+                return;
+            }
+
+            if (!TryResolveNextScene(out string sceneName, out int sceneIndex))
+            {
+                Debug.LogWarning("[Level0Sequence] No next scene configured and no valid fallback index.");
+                return;
+            }
+
+            if (sceneIndex >= 0) GameManager.Instance.LoadLevel(sceneIndex);
+            else GameManager.Instance.LoadLevel(sceneName);
         }
 
-        // ====================================================================
-        // CLEANUP
-        // ====================================================================
-
-        private void OnDestroy()
+        private bool TryResolveNextScene(out string sceneName, out int sceneIndex)
         {
-            UnsubscribeEnemyCallbacks();
+            sceneName = null;
+            sceneIndex = -1;
 
-            if (DialogueManager.instance != null)
+            if (nextSceneBuildIndex >= 0)
             {
-                DialogueManager.instance.OnDialogueEnded -= OnDialogueEnded;
-                DialogueManager.instance.IsContinueInputSuppressed = false;
+                sceneIndex = nextSceneBuildIndex;
+                return true;
             }
 
-            if (director != null)
-                director.stopped -= OnTimelineStopped;
-            if (platformCompleteDirector != null)
-                platformCompleteDirector.stopped -= OnTimelineStopped;
-            if (completedVideoPlayer != null)
-                completedVideoPlayer.Stop();
-            if (currentWeaponManager != null)
-                currentWeaponManager.OnWeaponChanged -= OnWeaponPickedUp;
-            if (activeTutorialPickup != null)
-                Destroy(activeTutorialPickup.gameObject);
-
-            if (godRayFadeRoutine != null)
-                StopCoroutine(godRayFadeRoutine);
-
-            if (GameInputManager.Instance != null)
+            if (!string.IsNullOrEmpty(nextSceneName))
             {
-                GameInputManager.Instance.OnCombatModeToggle -= OnCombatModeToggled;
-                GameInputManager.Instance.OnInventoryToggle -= OnInventoryToggled;
+                sceneName = nextSceneName;
+                return true;
             }
+
+            int fallbackIndex = SceneManager.GetActiveScene().buildIndex + 1;
+            if (fallbackIndex >= 0 && fallbackIndex < SceneManager.sceneCountInBuildSettings)
+            {
+                Debug.LogWarning($"[Level0Sequence] Next scene not configured. Falling back to next build index: {fallbackIndex}");
+                sceneIndex = fallbackIndex;
+                return true;
+            }
+
+            return false;
         }
 
-        // ====================================================================
-        // DEBUG
-        // ====================================================================
+        #endregion
+
+        #region Debug GUI
 
 #if UNITY_EDITOR
         private void OnGUI()
         {
             if (!showDebugInfo) return;
 
-            GUILayout.BeginArea(new Rect(10, 10, 340, 140));
+            GUILayout.BeginArea(new Rect(10, 10, 340, 120));
             GUILayout.Label("=== LEVEL 0 SEQUENCE ===");
-            GUILayout.Label($"Stage: {currentStage}");
-            GUILayout.Label($"Player: {(currentPlayer != null ? (currentPlayer.IsAlive ? "Alive" : "Dead") : "None")}");
-            GUILayout.Label($"Enemies alive: {enemiesAlive}");
-            GUILayout.Label($"Next scene: {(string.IsNullOrEmpty(nextSceneName) ? "(not set)" : nextSceneName)}");
+            GUILayout.Label($"Stage:         {currentStage}");
+            GUILayout.Label($"Player:        {(currentPlayer != null ? (currentPlayer.IsAlive ? "Alive" : "Dead") : "None")}");
+            GUILayout.Label($"Enemies alive: {(encounter != null ? encounter.AliveEnemyCount : 0)}");
+            GUILayout.Label($"Next scene:    {(string.IsNullOrEmpty(nextSceneName) ? "(not set)" : nextSceneName)}");
             GUILayout.EndArea();
         }
 #endif
+
+        #endregion
     }
 }

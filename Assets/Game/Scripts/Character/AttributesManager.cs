@@ -16,6 +16,9 @@ namespace junklite
         [Header("Runtime Attributes (read-only)")]
         [SerializeField] private List<Attribute> allRuntimeAttributes = new List<Attribute>(); // for inspector/UI
         private readonly Dictionary<AttributeType, Attribute> map = new Dictionary<AttributeType, Attribute>();
+        private readonly List<Attribute> regeneratingAttributes = new List<Attribute>();
+        private CharacterStats initializedSource;
+        private bool isInitialized;
 
         // ---- Events ----
         public event Action OnDeath;
@@ -32,6 +35,7 @@ namespace junklite
         }
 
         public Attribute Health => Get(AttributeType.Health);
+        public bool IsInitialized => isInitialized;
 
         private void Start()
         {
@@ -43,9 +47,13 @@ namespace junklite
         /// <summary>Builds runtime attributes from a CharacterStats ScriptableObject.</summary>
         public void Initialize(CharacterStats source)
         {
+            if (isInitialized && initializedSource == source)
+                return;
+
+            UnhookHealthDeath();
             map.Clear();
             allRuntimeAttributes.Clear();
-            UnhookHealthDeath(); // safety in case of re-init
+            regeneratingAttributes.Clear();
 
             if (source?.attributes != null)
             {
@@ -67,18 +75,23 @@ namespace junklite
                     // Track
                     map[s.type] = runtime;
                     allRuntimeAttributes.Add(runtime);
+                    if (runtime.hasRegeneration)
+                        regeneratingAttributes.Add(runtime);
                 }
             }
 
+            initializedSource = source;
+            isInitialized = true;
             HookHealthDeath();
+            enabled = regeneratingAttributes.Count > 0 && IsAlive;
         }
 
         private void Update()
         {
             // Per-frame regeneration tick
             var dt = Time.deltaTime;
-            for (int i = 0; i < allRuntimeAttributes.Count; i++)
-                allRuntimeAttributes[i].UpdateRegen(dt);
+            for (int i = 0; i < regeneratingAttributes.Count; i++)
+                regeneratingAttributes[i].UpdateRegen(dt);
         }
 
         /// <summary>Typed getter. Returns null if the attribute isn't defined in stats.</summary>
@@ -108,13 +121,30 @@ namespace junklite
             Health?.Add(amount);
         }
 
+        /// <summary>Applies clamped health damage and returns the amount actually removed.</summary>
+        public float ApplyDamage(float amount)
+        {
+            var health = Health;
+            if (health == null || amount <= 0f || float.IsNaN(amount) || float.IsInfinity(amount))
+                return 0f;
+
+            float before = health.Current;
+            health.Remove(amount);
+            return Mathf.Max(0f, before - health.Current);
+        }
+
         public void RestoreAllToMax()
         {
             for (int i = 0; i < allRuntimeAttributes.Count; i++)
                 allRuntimeAttributes[i].SetToMax();
+            enabled = regeneratingAttributes.Count > 0 && IsAlive;
         }
 
-        public void RestoreHealthToMax() => Health?.SetToMax();
+        public void RestoreHealthToMax()
+        {
+            Health?.SetToMax();
+            enabled = regeneratingAttributes.Count > 0 && IsAlive;
+        }
 
         #endregion
 
@@ -134,7 +164,11 @@ namespace junklite
                 health.OnDeath -= RaiseDeath;
         }
 
-        private void RaiseDeath() => OnDeath?.Invoke();
+        private void RaiseDeath()
+        {
+            enabled = false;
+            OnDeath?.Invoke();
+        }
 
         private void OnDestroy()
         {

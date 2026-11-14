@@ -8,7 +8,8 @@ namespace junklite
 {
     public class ModSlotUI : MonoBehaviour,
         IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler,
-        IPointerClickHandler
+        IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler,
+        ISubmitHandler, ISelectHandler, IDeselectHandler
     {
         #region Fields
 
@@ -18,7 +19,22 @@ namespace junklite
         [SerializeField] private Image backgroundImage;
         [SerializeField] private Image crossIcon;
         [SerializeField] private Image highlightImage;
+        [SerializeField] private GameObject hoverImage;
         [SerializeField] private TMP_Text inputHintText;
+        [SerializeField] private GameObject durabilityTrack;
+        [SerializeField] private TMP_Text emptyLabel;
+        [SerializeField] private TMP_Text lockedLabel;
+
+        [Header("Broken")]
+        [Tooltip("Icon colour while the mod is BROKEN (out of durability). Stays in its slot until moved to inventory.")]
+        [SerializeField] private Color brokenTint = new Color(0.35f, 0.35f, 0.35f, 1f);
+        [Tooltip("Optional. Shown while the mod is BROKEN (e.g. a BROKEN label authored in the slot prefab).")]
+        [SerializeField] private GameObject brokenBadge;
+
+        [Header("Cooldown")]
+        [Tooltip("Optional override. All slots otherwise use the shared ModCooldownStyle resource.")]
+        [SerializeField] private ModCooldownStyle cooldownStyle;
+        private ModCooldownUI cooldownUI;
 
         // Data
         private ModInstance modInstance;
@@ -27,6 +43,10 @@ namespace junklite
         private int slotIndex;
         private SlotType slotType;
         private bool isLocked;
+        private float nextDurabilityRefresh;
+        private bool shownBroken;
+        private GameInputManager subscribedInputManager;
+        private const float DurabilityRefreshInterval = 0.1f;
 
         // Drag state
         private static ModSlotUI draggedSlot;
@@ -51,11 +71,10 @@ namespace junklite
 
         #region Events
 
-        /// <summary>
-        /// Fired when a mod slot is clicked and a mod is selected (or null when deselected).
-        /// InventoryUI subscribes to this to update the description box.
-        /// </summary>
         public static event Action<ModInstance> OnModSelected;
+        public static event Action<ModInstance> OnModHovered;
+        public static event Action OnModHoverExit;
+        public static event Action<ModSlotUI> OnLockedSlotSelected;
 
         #endregion
 
@@ -65,11 +84,36 @@ namespace junklite
         public ModInstance ModInstance => modInstance;
         public SlotType Type => slotType;
         public int SlotIndex => slotIndex;
+        public bool IsLocked => isLocked;
         public bool IsModSlot => slotType == SlotType.ActiveMod || slotType == SlotType.PassiveMod;
 
         #endregion
 
         #region Binding
+
+        public void Configure(
+            Image icon,
+            Image durability,
+            Image background,
+            Image blockedOverlay,
+            Image validTargetHighlight,
+            GameObject hover,
+            TMP_Text inputHint,
+            GameObject track = null,
+            TMP_Text empty = null,
+            TMP_Text locked = null)
+        {
+            iconImage = icon;
+            durabilityFill = durability;
+            backgroundImage = background;
+            crossIcon = blockedOverlay;
+            highlightImage = validTargetHighlight;
+            hoverImage = hover;
+            inputHintText = inputHint;
+            durabilityTrack = track;
+            emptyLabel = empty;
+            lockedLabel = locked;
+        }
 
         public void Bind(ModInstance mod, InventoryComponent inv, int index)
         {
@@ -78,6 +122,8 @@ namespace junklite
             modManager = null;
             slotIndex = index;
             slotType = SlotType.Inventory;
+            isLocked = false;
+            RefreshInputHint();
             UpdateDisplay();
         }
 
@@ -90,15 +136,49 @@ namespace junklite
             slotType = isActiveMod ? SlotType.ActiveMod : SlotType.PassiveMod;
             isLocked = locked;
 
-            if (inputHintText != null)
-            {
-                if (isActiveMod && GameInputManager.Instance != null)
-                    inputHintText.text = GameInputManager.Instance.GetModActivateHint(index);
-                else
-                    inputHintText.text = "";
-            }
+            RefreshInputHint();
 
             UpdateDisplay();
+        }
+
+        private void OnEnable()
+        {
+            RebindInputManager();
+            RefreshInputHint();
+        }
+
+        private void RebindInputManager()
+        {
+            GameInputManager input = GameInputManager.Instance;
+            if (subscribedInputManager == input)
+                return;
+
+            UnbindInputManager();
+            subscribedInputManager = input;
+            if (subscribedInputManager != null)
+                subscribedInputManager.OnInputDeviceChanged += HandleInputDeviceChanged;
+        }
+
+        private void UnbindInputManager()
+        {
+            if (subscribedInputManager == null)
+                return;
+
+            subscribedInputManager.OnInputDeviceChanged -= HandleInputDeviceChanged;
+            subscribedInputManager = null;
+        }
+
+        private void HandleInputDeviceChanged(bool _) => RefreshInputHint();
+
+        private void RefreshInputHint()
+        {
+            if (inputHintText == null)
+                return;
+
+            GameInputManager input = subscribedInputManager ?? GameInputManager.Instance;
+            inputHintText.text = slotType == SlotType.ActiveMod && input != null
+                ? input.GetModActivateHint(slotIndex)
+                : "";
         }
 
         private void UpdateDisplay()
@@ -111,10 +191,25 @@ namespace junklite
 
             if (crossIcon != null)
             {
-                // Locked slots always show the cross; drag-hover logic handled in UpdateOverlays
                 crossIcon.enabled = isLocked;
                 crossIcon.raycastTarget = false;
             }
+
+
+            if (lockedLabel != null)
+            {
+                lockedLabel.text = "LOCKED";
+                lockedLabel.fontSize = 13f;
+                lockedLabel.gameObject.SetActive(isLocked);
+            }
+
+            if (emptyLabel != null)
+                emptyLabel.gameObject.SetActive(!isLocked && modInstance == null);
+
+            Selectable selectable = GetComponent<Selectable>();
+            if (selectable != null)
+                // Locked slots still accept focus/clicks to explain their unlock requirement.
+                selectable.interactable = true;
 
             if (highlightImage != null)
             {
@@ -138,17 +233,33 @@ namespace junklite
             }
 
             UpdateDurabilityBar();
+            shownBroken = false;
+            ApplyBrokenState();
+            RefreshCooldown();
         }
 
         private void Update()
         {
-            if (modInstance != null && durabilityFill != null && modInstance.Data != null)
+            RefreshCooldown();
+            ApplyBrokenState();
+            if (Time.unscaledTime >= nextDurabilityRefresh &&
+                modInstance != null && durabilityFill != null && modInstance.Data != null)
             {
+                nextDurabilityRefresh = Time.unscaledTime + DurabilityRefreshInterval;
                 float max = modInstance.Data.maxDurability;
-                durabilityFill.fillAmount = max > 0f ? modInstance.CurrentDurability / max : 0f;
+                float fill = max > 0f ? modInstance.CurrentDurability / max : 0f;
+                if (!Mathf.Approximately(durabilityFill.fillAmount, fill))
+                    durabilityFill.fillAmount = fill;
             }
 
             UpdateOverlays();
+        }
+
+        private void RefreshCooldown()
+        {
+            if (cooldownUI == null && iconImage != null)
+                cooldownUI = new ModCooldownUI(iconImage, cooldownStyle);
+            cooldownUI?.Refresh(isLocked ? null : modInstance);
         }
 
         private void UpdateOverlays()
@@ -157,7 +268,7 @@ namespace junklite
 
             if (crossIcon != null)
             {
-                bool showCross = isLocked; // locked slots always show cross
+                bool showCross = isLocked;
                 if (!isLocked && source != null && source != this && IsModSlot)
                 {
                     ModInstance srcMod = source.modInstance;
@@ -169,7 +280,13 @@ namespace junklite
                         showCross = !compatible;
                     }
                 }
-                crossIcon.enabled = showCross;
+                if (crossIcon.enabled != showCross)
+                    crossIcon.enabled = showCross;
+                if (lockedLabel != null)
+                {
+                    if (lockedLabel.gameObject.activeSelf != showCross)
+                        lockedLabel.gameObject.SetActive(showCross);
+                }
             }
 
             if (highlightImage != null)
@@ -177,14 +294,15 @@ namespace junklite
                 bool showHighlight = false;
                 if (!isLocked && selectedSlot != null && selectedSlot != this)
                     showHighlight = IsValidTargetFor(selectedSlot);
-                highlightImage.enabled = showHighlight;
+                if (highlightImage.enabled != showHighlight)
+                    highlightImage.enabled = showHighlight;
             }
         }
 
         private bool IsValidTargetFor(ModSlotUI source)
         {
             if (source == null || source.modInstance == null) return false;
-            if (isLocked) return false; // locked slots never accept drops
+            if (isLocked) return false;
 
             ModInstance srcMod = source.modInstance;
 
@@ -203,6 +321,18 @@ namespace junklite
             return true;
         }
 
+        private void ApplyBrokenState()
+        {
+            bool broken = modInstance != null && modInstance.IsBroken;
+            if (broken == shownBroken) return;
+            shownBroken = broken;
+
+            if (iconImage != null && iconImage.enabled)
+                iconImage.color = broken ? brokenTint : Color.white;
+            if (brokenBadge != null)
+                brokenBadge.SetActive(broken);
+        }
+
         private void UpdateDurabilityBar()
         {
             if (durabilityFill == null) return;
@@ -210,13 +340,32 @@ namespace junklite
             if (modInstance != null)
             {
                 durabilityFill.gameObject.SetActive(true);
+                if (durabilityTrack != null) durabilityTrack.SetActive(true);
                 float max = modInstance.Data.maxDurability;
                 durabilityFill.fillAmount = max > 0f ? modInstance.CurrentDurability / max : 0f;
             }
             else
             {
                 durabilityFill.gameObject.SetActive(false);
+                if (durabilityTrack != null) durabilityTrack.SetActive(false);
             }
+        }
+
+        #endregion
+
+        #region Hover
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (hoverImage != null) hoverImage.SetActive(true);
+            if (modInstance == null) return;
+            OnModHovered?.Invoke(modInstance);
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            if (hoverImage != null) hoverImage.SetActive(false);
+            OnModHoverExit?.Invoke();
         }
 
         #endregion
@@ -225,7 +374,32 @@ namespace junklite
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            HandleSelectionConfirm();
+        }
+
+        public void OnSubmit(BaseEventData eventData)
+        {
+            HandleSelectionConfirm();
+        }
+
+        public void OnSelect(BaseEventData eventData)
+        {
+            if (hoverImage != null) hoverImage.SetActive(true);
+            if (isLocked) { OnLockedSlotSelected?.Invoke(this); return; }
+            if (modInstance == null) return;
+            OnModHovered?.Invoke(modInstance);
+        }
+
+        public void OnDeselect(BaseEventData eventData)
+        {
+            if (hoverImage != null) hoverImage.SetActive(false);
+            OnModHoverExit?.Invoke();
+        }
+
+        private void HandleSelectionConfirm()
+        {
             if (draggedSlot != null) return;
+            if (isLocked) { OnLockedSlotSelected?.Invoke(this); return; }
 
             if (selectedSlot == null)
             {
@@ -252,6 +426,9 @@ namespace junklite
                 ModSlotUI source = selectedSlot;
                 ClearSelection();
                 OnModSelected?.Invoke(null);
+
+                // If this mod is already equipped elsewhere, redirect the swap to that slot
+                if (TryRedirectDuplicate(source)) return;
 
                 ModInstance srcMod = source.modInstance;
                 ModInstance dstMod = this.modInstance;
@@ -288,7 +465,7 @@ namespace junklite
             ClearSelection();
             OnModSelected?.Invoke(null);
 
-            if (IsEmpty)
+            if (IsEmpty || isLocked)
             {
                 eventData.pointerDrag = null;
                 return;
@@ -363,7 +540,7 @@ namespace junklite
             if (draggedSlot == null || draggedSlot == this || draggedSlot.IsEmpty)
                 return;
 
-            if (isLocked) return; // never accept drops on locked slots
+            if (isLocked) return;
 
             ModSlotUI source = draggedSlot;
 
@@ -382,6 +559,9 @@ namespace junklite
             }
 
             source.CleanupDrag();
+
+            // If this mod is already equipped elsewhere, redirect the swap to that slot
+            if (TryRedirectDuplicate(source)) return;
 
             ModInstance srcMod = source.modInstance;
             ModInstance dstMod = this.modInstance;
@@ -419,18 +599,57 @@ namespace junklite
             }
         }
 
+        private bool TryRedirectDuplicate(ModSlotUI source)
+        {
+            if (!this.IsModSlot) return false;
+
+            ModInstance srcMod = source.modInstance;
+            if (srcMod?.Data == null) return false;
+
+            ModManager mgr = modManager ?? source.modManager;
+            if (mgr == null) return false;
+
+            if (!mgr.FindEquippedMod(srcMod.Data, out bool existingIsActive, out int existingIndex))
+                return false;
+
+            // If the source slot IS the existing duplicate, no redirect needed
+            if (source.IsModSlot)
+            {
+                bool sourceIsTheDuplicate =
+                    source.slotType == (existingIsActive ? SlotType.ActiveMod : SlotType.PassiveMod) &&
+                    source.slotIndex == existingIndex;
+
+                if (sourceIsTheDuplicate) return false;
+            }
+
+            // Redirect: move srcMod to the conflicting slot, send the conflict back to source
+            ModInstance conflictMod = existingIsActive
+                ? mgr.GetActiveMod(existingIndex)
+                : mgr.GetPassiveMod(existingIndex);
+
+            RemoveFromSlot(source);
+            mgr.UnequipMod(existingIsActive, existingIndex);
+            mgr.EquipModAt(srcMod, existingIsActive, existingIndex);
+            PlaceInSlot(source, conflictMod);
+
+            return true;
+        }
+
         #endregion
 
         #region Cleanup
 
         private void OnDisable()
         {
+            cooldownUI?.Reset();
+            UnbindInputManager();
             if (draggedSlot == this) CleanupDrag();
             if (selectedSlot == this) ClearSelection();
         }
 
         private void OnDestroy()
         {
+            UnbindInputManager();
             if (draggedSlot == this) CleanupDrag();
             if (selectedSlot == this) ClearSelection();
         }

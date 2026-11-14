@@ -50,10 +50,10 @@ Material:
     - _AlphaCutoff: 0.5
     - _ColorMask: 11.99
     - _ColorMultiplier: 1.17
-    - _DistortionAmount: 7.9
-    - _GlitchAmount: 0.798
-    - _GlitchMinOpacity: 0.457
-    - _GlitchTiling: 0.26
+    - _DistortionAmount: 14.41
+    - _GlitchAmount: 0.368
+    - _GlitchMinOpacity: 0.321
+    - _GlitchTiling: 0.74
     - _MipLevel: 0
     - _MipLevelIntensity: 0
     - _NoiseIntensity: 1

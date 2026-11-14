@@ -250,8 +250,8 @@ namespace junklite
 
         private PlayerCharacter GetPlayer()
         {
-            if (GameManager.Instance != null && GameManager.Instance.Player != null)
-                return GameManager.Instance.Player;
+            if (PlayerLifecycle.Instance?.Player != null)
+                return PlayerLifecycle.Instance.Player;
 
             return FindFirstObjectByType<PlayerCharacter>();
         }

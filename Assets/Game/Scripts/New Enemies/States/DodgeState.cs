@@ -5,6 +5,7 @@ namespace junklite
     public class DodgeState : EnemyStateBase
     {
         private IDodger dodger;
+        private IDodgeAim aim;
         private EnemyMovement movement;
         private Rigidbody rb;
 
@@ -28,6 +29,7 @@ namespace junklite
             }
 
             movement = enemy.Movement;
+            aim = GetCapability<IDodgeAim>();
             rb = enemy.GetComponent<Rigidbody>();
             hasStarted = false;
             dodgeComplete = false;
@@ -50,19 +52,18 @@ namespace junklite
             }
 
             Vector3 dodgeDirection;
-            if (HasTarget)
+            if (HasTarget && movement != null)
             {
-                dodgeDirection = Transform.right * -1f * movement.FacingDirection;
+                // Away from where the target actually is, not from where we face
+                // (a hit from behind can leave us facing the wrong way).
+                float signed = movement.GetSignedAxisDistance(Transform.position, Target.position);
+                float towardSign = Mathf.Abs(signed) > 0.01f ? Mathf.Sign(signed) : movement.FacingDirection;
+                Vector3 away = movement.MovementAxis * -towardSign;
 
-                if (dodgeDirection.sqrMagnitude < 0.01f)
-                {
-                    dodgeDirection = movement != null && movement.FacingDirection > 0
-                        ? -movement.MovementAxis
-                        : movement.MovementAxis;
-                }
-
-                if (Random.value < dodger.DodgeForwardChance)
-                    dodgeDirection = -dodgeDirection;
+                // The brain may choose the side (IDodgeAim); otherwise roll it.
+                int aimSign = aim != null ? aim.DodgeDirectionSign : 0;
+                bool through = aimSign != 0 ? aimSign > 0 : Random.value < dodger.DodgeForwardChance;
+                dodgeDirection = through ? -away : away;
             }
             else
             {
