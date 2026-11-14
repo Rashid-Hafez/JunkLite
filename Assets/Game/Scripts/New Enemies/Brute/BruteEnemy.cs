@@ -44,6 +44,8 @@ namespace junklite
         [SerializeField] private float knockdownShakeForce = 1f;
 
         private bool heavyParried;
+        // World direction back along the parried dash, taken while he is still dashing.
+        private Vector3 parriedDashBackDirection;
         private bool knockedDown;
         private float knockdownMeter;
 
@@ -133,7 +135,13 @@ namespace junklite
         {
             heavyParried = StateMachine != null && StateMachine.CurrentState is DashState;
             if (heavyParried)
+            {
                 duration = Mathf.Max(duration, parriedDashStunDuration);
+                // Read before the parry state turns him: he faces along the dash until now.
+                parriedDashBackDirection = movement != null
+                    ? -movement.MovementAxis * movement.FacingDirection
+                    : Vector3.zero;
+            }
 
             base.OnParryStunned(duration);
         }
@@ -154,6 +162,11 @@ namespace junklite
                 base.ApplyParryPush(direction, force, upwardForce, duration);
                 return;
             }
+
+            // A fast dash can carry his centre past hers before the parry lands, so the
+            // position-based direction would shove him behind her. Send him back the way he came.
+            if (parriedDashBackDirection != Vector3.zero)
+                direction = parriedDashBackDirection;
 
             base.ApplyParryPush(direction, parriedDashPushForce, 0f, parriedDashPushDuration);
             FeedbackManager.Instance?.DoHitstop(parriedDashHitstop);

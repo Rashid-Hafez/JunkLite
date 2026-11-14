@@ -28,7 +28,7 @@ namespace junklite
 
         [Header("Scenes (names as listed in Build Settings)")]
         [SerializeField] private string playScene = "SimulationCinematicDemo";
-        [SerializeField] private string rooftopScene = "Rooftop Scene v2";
+        [SerializeField] private string rooftopScene = "Rooftop Scene v3";
         [SerializeField] private string serviceFloorScene = "Service Floor";
         [SerializeField] private string sandboxScene = "SANDBOX";
 
@@ -80,6 +80,7 @@ namespace junklite
             {
                 case TitleCommand.Begin: OnPlay(); break;
                 case TitleCommand.Resume: OnContinue(); break;
+                case TitleCommand.Rooftop: OnRooftop(); break;
                 case TitleCommand.Terminate: OnQuit(); break;
                 // Calibrate (settings) has no screen yet; the title plays its press feedback only.
             }

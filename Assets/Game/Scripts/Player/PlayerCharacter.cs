@@ -899,8 +899,12 @@ namespace junklite
             if (damageable == null)
                 return DamageResult.Rejected(DamageOutcome.Invalid, originallyRequested);
 
+            // A 0-damage hit (practice enemies) still lands: parry, i-frames and the full hurt
+            // reaction run as usual, but health never changes. Damageable rejects 0, so validate as 1.
+            bool harmless = request.Amount == 0f;
+
             // Validate the target/source/team before player-specific defenses.
-            if (!damageable.TryValidateRequest(request, out var rejection, checkDefensiveState: false))
+            if (!damageable.TryValidateRequest(harmless ? request.WithAmount(1f) : request, out var rejection, checkDefensiveState: false))
                 return rejection;
 
             if (!request.BypassesDefenses)
@@ -926,7 +930,7 @@ namespace junklite
             }
 
             // Simulation levels: hits still land, but never below 1 HP.
-            if (CannotDie && Health != null)
+            if (!harmless && CannotDie && Health != null)
             {
                 float allowed = Health.Current - 1f;
                 if (allowed <= 0f)
@@ -935,9 +939,10 @@ namespace junklite
                     request = request.WithAmount(allowed);
             }
 
-            DamageResult result = damageable.ReceiveDamage(request)
-                .WithRequestedDamage(originallyRequested);
-            if (!result.WasApplied)
+            DamageResult result = harmless
+                ? DamageResult.Applied(0f, 0f)
+                : damageable.ReceiveDamage(request).WithRequestedDamage(originallyRequested);
+            if (!harmless && !result.WasApplied)
                 return result;
 
             if (!IsAlive)
@@ -1069,7 +1074,7 @@ namespace junklite
             if (!IsAlive) yield break;
             controller.StopAllVelocity();
             anim?.PlayKnockdown();
-            float lieDown = anim != null && anim.TryGetDeathAnimationDuration(out float deathTime) ? deathTime : 0f;
+            float lieDown = anim != null && anim.TryGetKnockdownDuration(out float deathTime) ? deathTime : 0f;
             yield return new WaitForSeconds(lieDown + 0.5f);
 
             if (!IsAlive) yield break;

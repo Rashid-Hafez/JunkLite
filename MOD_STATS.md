@@ -5,7 +5,7 @@ Type comes from the mod's script base class: `ActiveModData` = active, `PassiveM
 
 | Mod | Type | Max Durability | Durability per Use | Uses | Damage | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Dont Blink | Active | 9 | 3 | 3 | Strike 30 × 1.5 bonus = **45** | Cooldown 0.5 s |
+| Dont Blink | Active | 10 | 1 | 10 | Strike 30 × 1.5 bonus = **45** | Cooldown 10 s. Teleport VFX out and in, Flash VFX on the strike. VFX destroyed after 2 s. |
 | Electric | Passive | 10 | 2 | 5 | Zap **5** per 0.3 s for 5 s; area zap **2.5** within 1 m | Area damage = 5 × 0.5. The status effect asset can override the zap timing. |
 | Energy Wave | Active | 10 | 5 | 2 | **15** per 0.5 s tick | Cooldown 3 s, pulse lasts 5 s |
 | Fire | Passive | 10 | 2 | 5 | **5** per 0.5 s for 3 s = **30** total | Burn over time |

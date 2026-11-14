@@ -51,6 +51,8 @@ namespace junklite
         [Tooltip("Played on every applied hit, and held for as long as a stun lasts.")]
         [SerializeField] private string stun = "stun";
         [SerializeField] private string death = "death";
+        [Tooltip("Knocked down (grab throw, big hit). A rig without it uses the Death clip.")]
+        [SerializeField] private string knockdown = "Death_New";
         [Tooltip("Looped while a grabber holds her. A rig without the clip keeps the stun pose.")]
         [SerializeField] private string grabbed = "Grabbed";
         [Tooltip("Played once when an interaction happens, standing on the ground. Moving cancels it into Run.")]
@@ -843,17 +845,31 @@ namespace junklite
         }
 
         /// <summary>Knocked down: plays death once and holds the last frame until EndKnockdown.</summary>
+        // The knockdown clip this rig has (Death_New), else the death clip.
+        private string KnockdownClip => !string.IsNullOrEmpty(knockdown) && HasAnimation(knockdown) ? knockdown : death;
+
         public void PlayKnockdown()
         {
-            if (skeletonAnimation == null || !HasAnimation(death))
+            string clip = KnockdownClip;
+            if (skeletonAnimation == null || !HasAnimation(clip))
                 return;
 
             InterruptAttack("knockdown");
             forceOverrideActive = true;
-            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, death, false);
+            var entry = skeletonAnimation.AnimationState.SetAnimation(locomotionTrack, clip, false);
             entry.MixDuration = 0f;
-            entry.TimeScale = GetTimeScaleFor(death, 1f);
-            currentLocomotionAnim = death;
+            entry.TimeScale = GetTimeScaleFor(clip, 1f);
+            currentLocomotionAnim = clip;
+        }
+
+        /// <summary>Real seconds of the knockdown clip on the shown rig.</summary>
+        public bool TryGetKnockdownDuration(out float duration)
+        {
+            duration = 0f;
+            var clip = skeletonAnimation?.Skeleton?.Data?.FindAnimation(KnockdownClip);
+            if (clip == null) return false;
+            duration = clip.Duration / Mathf.Max(0.01f, GetTimeScaleFor(KnockdownClip, 1f));
+            return duration > 0f;
         }
 
         public void EndKnockdown()

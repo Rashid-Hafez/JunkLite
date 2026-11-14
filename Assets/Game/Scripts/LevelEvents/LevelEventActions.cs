@@ -350,6 +350,58 @@ namespace junklite
         public override string Validate() => shot == null ? "No camera set." : null;
     }
 
+    [Serializable, LevelEventActionMenu("UI/Screen Fade")]
+    public sealed class ScreenFadeAction : LevelEventAction
+    {
+        [Tooltip("Authored full-screen graphic (e.g. FaderCanvas/Image). Only its alpha is changed.")]
+        public UnityEngine.UI.Graphic overlay;
+        [Range(0f, 1f)] public float toAlpha = 1f;
+        [Tooltip("0 = hard cut. Real time, so hit-stop or slow-mo never stretch it.")]
+        [Min(0f)] public float seconds = 0.5f;
+
+        public override IEnumerator Run(LevelEvent context)
+        {
+            if (overlay == null) yield break;
+            overlay.gameObject.SetActive(true);
+            Color color = overlay.color;
+            float from = color.a;
+            for (float t = 0f; t < seconds; t += Time.unscaledDeltaTime)
+            {
+                color.a = Mathf.Lerp(from, toAlpha, t / seconds);
+                overlay.color = color;
+                yield return null;
+            }
+            color.a = toAlpha;
+            overlay.color = color;
+        }
+
+        public override string Summary => seconds <= 0f
+            ? $"Cut screen to alpha {toAlpha:0.##}"
+            : $"Fade screen to alpha {toAlpha:0.##} over {seconds:0.##}s";
+        public override string Validate() => overlay == null ? "No overlay graphic set." : null;
+    }
+
+    [Serializable, LevelEventActionMenu("Story/Brute Intro Dash")]
+    public sealed class BruteIntroDashAction : LevelEventAction
+    {
+        public BruteBrain brute;
+        [Tooltip("Seconds he points at the player (taunt clip) before the dash.")]
+        [Min(0f)] public float pointSeconds = 1.2f;
+        [Tooltip("He stops this far short of the player (lane distance). No damage either way.")]
+        [Min(0f)] public float stopDistance = 3.5f;
+
+        public override IEnumerator Run(LevelEvent context)
+        {
+            PlayerCharacter player = context.Player;
+            if (brute == null || player == null) yield break;
+            // Runs in the event's coroutine, so the event never waits on a stopped routine.
+            yield return brute.PlayIntroDash(player.transform, pointSeconds, stopDistance);
+        }
+
+        public override string Summary => $"Brute intro: point {pointSeconds:0.##}s, dash to {stopDistance:0.##}m";
+        public override string Validate() => brute == null ? "No Brute set." : null;
+    }
+
     [Serializable, LevelEventActionMenu("Audio/Play Story Music")]
     public sealed class PlayStoryMusicAction : LevelEventAction
     {

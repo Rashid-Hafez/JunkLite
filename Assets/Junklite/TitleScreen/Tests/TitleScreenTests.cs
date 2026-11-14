@@ -58,6 +58,12 @@ namespace Junklite.TitleScreen.Tests
         }
 
         [UnityTest]
+        public IEnumerator Rooftop_Click_FiresRooftop()
+        {
+            yield return CheckCommand("menu-rooftop", TitleCommand.Rooftop);
+        }
+
+        [UnityTest]
         public IEnumerator Calibrate_Click_FiresCalibrate()
         {
             yield return CheckCommand("menu-calibrate", TitleCommand.Calibrate);
@@ -121,7 +127,7 @@ namespace Junklite.TitleScreen.Tests
         [UnityTest]
         public IEnumerator Hover_MovesSelection()
         {
-            foreach (var command in new[] { TitleCommand.Calibrate, TitleCommand.Terminate, TitleCommand.Begin, TitleCommand.Resume })
+            foreach (var command in new[] { TitleCommand.Calibrate, TitleCommand.Rooftop, TitleCommand.Terminate, TitleCommand.Begin, TitleCommand.Resume })
             {
                 string name = "menu-" + command.ToString().ToLowerInvariant();
                 simulate.MouseMove(Q(name));

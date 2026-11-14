@@ -179,7 +179,7 @@ MonoBehaviour:
   sandboxButton: {fileID: 1095098014}
   quitButton: {fileID: 882122455}
   playScene: SimulationCinematicDemo
-  rooftopScene: Rooftop Scene v2
+  rooftopScene: Rooftop Scene v3
   serviceFloorScene: Service Floor
   sandboxScene: SANDBOX
   gameRootPrefab: {fileID: 8053377969660216567, guid: 2ee95a3fe7f743b98548b03add9e9e2b, type: 3}
@@ -3010,7 +3010,7 @@ MonoBehaviour:
   sandboxButton: {fileID: 0}
   quitButton: {fileID: 0}
   playScene: SimulationCinematicDemo
-  rooftopScene: Rooftop Scene v2
+  rooftopScene: Rooftop Scene v3
   serviceFloorScene: Service Floor
   sandboxScene: SANDBOX
   gameRootPrefab: {fileID: 8053377969660216567, guid: 2ee95a3fe7f743b98548b03add9e9e2b, type: 3}

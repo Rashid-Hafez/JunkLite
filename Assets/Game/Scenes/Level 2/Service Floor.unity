@@ -48006,7 +48006,7 @@ Transform:
   m_GameObject: {fileID: 108466670}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 50, y: 2.5, z: 246}
+  m_LocalPosition: {x: 50, y: 2.5, z: 254}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -48036,7 +48036,12 @@ MonoBehaviour:
   - rid: 259902782927798448
   - rid: 259902782927798449
   - rid: 259902782927798450
+  - rid: 259902867292553402
+  - rid: 259902867292553403
+  - rid: 259902867292553404
   - rid: 259902782927798451
+  - rid: 259902867292553405
+  - rid: 259902867292553406
   - rid: 259902782927798452
   references:
     version: 2
@@ -48050,7 +48055,7 @@ MonoBehaviour:
       data:
         shot: {fileID: 1095614945}
         blendIn: 1.2
-        blendOut: 0.8
+        blendOut: 0
     - rid: 259902782927798448
       type: {class: PlayStoryMusicAction, ns: junklite, asm: Assembly-CSharp}
       data:
@@ -48080,8 +48085,8 @@ MonoBehaviour:
             m_Calls:
             - m_Target: {fileID: 1497487356}
               m_TargetAssemblyTypeName: junklite.BruteBrain, Assembly-CSharp
-              m_MethodName: OpenWithCharge
-              m_Mode: 1
+              m_MethodName: Engage
+              m_Mode: 0
               m_Arguments:
                 m_ObjectArgument: {fileID: 0}
                 m_ObjectArgumentAssemblyTypeName: 
@@ -48090,6 +48095,32 @@ MonoBehaviour:
                 m_StringArgument: 
                 m_BoolArgument: 0
               m_CallState: 2
+    - rid: 259902867292553402
+      type: {class: BruteIntroDashAction, ns: junklite, asm: Assembly-CSharp}
+      data:
+        brute: {fileID: 1497487356}
+        pointSeconds: 1.2
+        stopDistance: 3.5
+    - rid: 259902867292553403
+      type: {class: ScreenFadeAction, ns: junklite, asm: Assembly-CSharp}
+      data:
+        overlay: {fileID: 7392342263132292104}
+        toAlpha: 1
+        seconds: 0
+    - rid: 259902867292553404
+      type: {class: WaitAction, ns: junklite, asm: Assembly-CSharp}
+      data:
+        seconds: 0.5
+    - rid: 259902867292553405
+      type: {class: WaitAction, ns: junklite, asm: Assembly-CSharp}
+      data:
+        seconds: 0.3
+    - rid: 259902867292553406
+      type: {class: ScreenFadeAction, ns: junklite, asm: Assembly-CSharp}
+      data:
+        overlay: {fileID: 7392342263132292104}
+        toAlpha: 0
+        seconds: 0.6
 --- !u!65 &108466673
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -201825,7 +201856,7 @@ Light:
   serializedVersion: 12
   m_Type: 2
   m_Color: {r: 0.08, g: 0.65, b: 1, a: 1}
-  m_Intensity: 1.2
+  m_Intensity: 1.1109912
   m_Range: 4.5
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -213438,7 +213469,7 @@ Transform:
   m_GameObject: {fileID: 499688235}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 7, y: 20, z: 727.64105}
+  m_LocalPosition: {x: 7, y: 20, z: 191.17287}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -213459,7 +213490,7 @@ MonoBehaviour:
   version: 2
   globalVolume: 0
   mode: 0
-  size: {x: 503, y: 223, z: 1527.4907}
+  size: {x: 503, y: 223, z: 454.55432}
   overrideRendererFilters: 0
   minRendererVolumeSize: 0.1
   objectLayerMask:
@@ -347688,8 +347719,8 @@ Transform:
   m_GameObject: {fileID: 839290937}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -18, y: 2, z: 3}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -18, y: 4.01, z: 3}
+  m_LocalScale: {x: 1, y: 1.3485, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 105043309}
@@ -640510,6 +640541,10 @@ PrefabInstance:
       propertyPath: m_ConstrainProportionsScale
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 2618858191006285992, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
+      propertyPath: defaultFacing
+      value: -1
+      objectReference: {fileID: 0}
     - target: {fileID: 2641887078146212746, guid: d6fa73fe4ec04420f9d1165b1b76dc23, type: 3}
       propertyPath: dropChance
       value: 0
@@ -775253,7 +775288,7 @@ Light:
   serializedVersion: 12
   m_Type: 2
   m_Color: {r: 0.12, g: 0.82, b: 1, a: 1}
-  m_Intensity: 1.2
+  m_Intensity: 1.2418116
   m_Range: 6.5
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -936740,14 +936775,14 @@ Canvas:
   m_PlaneDistance: 100
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
-  m_OverrideSorting: 0
+  m_OverrideSorting: 1
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: 0
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 90
   m_TargetDisplay: 0
 --- !u!114 &2113919082549860033
 MonoBehaviour:

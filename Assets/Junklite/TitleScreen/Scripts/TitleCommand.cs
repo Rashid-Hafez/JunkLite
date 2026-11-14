@@ -4,6 +4,7 @@ namespace Junklite.TitleScreen
     {
         Resume,
         Begin,
+        Rooftop,
         Calibrate,
         Terminate,
     }

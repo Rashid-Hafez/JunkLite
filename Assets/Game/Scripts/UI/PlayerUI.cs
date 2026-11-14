@@ -22,6 +22,12 @@ namespace junklite
         [Header("Combat HUD")]
         [SerializeField] private ModCombatUI modCombatUI;
 
+        [Header("Clean Screen")]
+        [Tooltip("Hides the HUD elements below while playing (capture/demo builds). The I-menu still opens.")]
+        [SerializeField] private bool hideGameplayHud;
+        [Tooltip("HUD children hidden by Hide Gameplay Hud: vitals, mod bar, objective tracker.")]
+        [SerializeField] private GameObject[] gameplayHudElements;
+
         [Header("Gameplay HUD Presentation")]
         [SerializeField] private TMP_FontAsset bodyFont;
 
@@ -162,6 +168,14 @@ namespace junklite
             }
 
             CloseInventory();
+            ApplyGameplayHudVisibility();
+        }
+
+        private void ApplyGameplayHudVisibility()
+        {
+            if (gameplayHudElements == null) return;
+            foreach (GameObject element in gameplayHudElements)
+                if (element != null) element.SetActive(!hideGameplayHud);
         }
 
         private void Start()

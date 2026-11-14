@@ -852,6 +852,11 @@ MonoBehaviour:
   playerNameText: {fileID: 0}
   healthIconFeedback: {fileID: 8462336898480373002}
   modCombatUI: {fileID: 8615370108159043596}
+  hideGameplayHud: 1
+  gameplayHudElements:
+  - {fileID: 7183803679292135806}
+  - {fileID: 3615150199312490618}
+  - {fileID: 5036683398769319794}
   bodyFont: {fileID: 11400000, guid: d420ec421400c4761b6423d19266a147, type: 2}
   inventoryScreen: {fileID: 2625500632771474614}
   inventoryPanel: {fileID: 6949096089251354401}
@@ -1449,8 +1454,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::junklite.ModCombatUI
   panel: {fileID: 366461357389748095}
   activeModParent: {fileID: 8314804045858316532}
-  slotTemplate: {fileID: 0}
   modSlotPrefab: {fileID: 4882513819511076147, guid: 9515f829429e93a49870d1bfa95a1840, type: 3}
+  bodyFont: {fileID: 0}
 --- !u!1 &3620941906573541157
 GameObject:
   m_ObjectHideFlags: 0
@@ -3295,7 +3300,6 @@ MonoBehaviour:
   headingFont: {fileID: 0}
   bodyFont: {fileID: 11400000, guid: d420ec421400c4761b6423d19266a147, type: 2}
   headingSourceFont: {fileID: 12800000, guid: 3259a038809934b37b220a603b5b5d04, type: 3}
-  tabHintTemplate: {fileID: 0}
 --- !u!222 &5641767889167318056
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -6829,5 +6833,10 @@ PrefabInstance:
 --- !u!224 &3511801739656281873 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 367158220021400497, guid: 4affe081e90d74ade87cccc201e6d073, type: 3}
+  m_PrefabInstance: {fileID: 3865220323845749920}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &5036683398769319794 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8088994595799737298, guid: 4affe081e90d74ade87cccc201e6d073, type: 3}
   m_PrefabInstance: {fileID: 3865220323845749920}
   m_PrefabAsset: {fileID: 0}

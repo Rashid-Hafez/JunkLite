@@ -78530,7 +78530,7 @@ MonoBehaviour:
   version: 2
   globalVolume: 0
   mode: 1
-  size: {x: 238.63121, y: 155.71474, z: 153.59084}
+  size: {x: 238.63118, y: 155.71475, z: 153.59084}
   overrideRendererFilters: 0
   minRendererVolumeSize: 0.1
   objectLayerMask:
@@ -78568,7 +78568,7 @@ Transform:
   m_GameObject: {fileID: 254298726}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 40.26554, y: 41.17683, z: 4.712265}
+  m_LocalPosition: {x: 40.265526, y: 41.176838, z: 4.712265}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -480717,6 +480717,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.SceneSettings
   spawnPlayer: 1
+  playerChoice: 2
+  levelMusic:
+    music:
+      clip: {fileID: 0}
+      volume: 1
+      pitchMin: 1
+      pitchMax: 1
+      effects: []
+    intro: {fileID: 0}
+    playThroughCombat: 1
+  ownsMusic: 0
 --- !u!4 &1758478124
 Transform:
   m_ObjectHideFlags: 0
@@ -640624,6 +640635,19 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 6144
   settledGroundCheckInterval: 3
+  ledgeGuard: 1
+  ledgeProbeDistance: 0.7
+  ledgeDropTolerance: 0.8
+  maxGapWidth: 9
+  gapLandingMaxRise: 1
+  gapLandingMaxDrop: 2
+  gapJumpSpeed: 9
+  gapJumpHeight: 1.2
+  gapObstacleLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  fallKillDepth: 12
+  fallKillWorldY: -40
 --- !u!114 &2618858191289336075
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -640649,6 +640673,19 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 6144
   settledGroundCheckInterval: 3
+  ledgeGuard: 1
+  ledgeProbeDistance: 0.7
+  ledgeDropTolerance: 0.8
+  maxGapWidth: 9
+  gapLandingMaxRise: 1
+  gapLandingMaxDrop: 2
+  gapJumpSpeed: 9
+  gapJumpHeight: 1.2
+  gapObstacleLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  fallKillDepth: 12
+  fallKillWorldY: -40
 --- !u!114 &2618858191991560525
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -640674,6 +640711,19 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 6144
   settledGroundCheckInterval: 3
+  ledgeGuard: 1
+  ledgeProbeDistance: 0.7
+  ledgeDropTolerance: 0.8
+  maxGapWidth: 9
+  gapLandingMaxRise: 1
+  gapLandingMaxDrop: 2
+  gapJumpSpeed: 9
+  gapJumpHeight: 1.2
+  gapObstacleLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  fallKillDepth: 12
+  fallKillWorldY: -40
 --- !u!114 &2625068855994686835
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -640750,6 +640800,8 @@ MonoBehaviour:
     spikeSkidKeep: 1.5
     maxJuggleHits: 3
     juggleLift: 8
+    juggleApexHeadroom: 0.5
+    juggleLiftBlendSeconds: 0.06
     juggleHorizontalScale: 0.15
     airHitHangDuration: 0.5
     airHitFallGravityScale: 1.5
@@ -640762,6 +640814,9 @@ MonoBehaviour:
   damageFlashUniversal: {fileID: 0}
   attackWarningVfx: {fileID: 1756581472064486409}
   attackNotifyDelay: 0.1
+  attackNotifyLead: 0.45
+  attackTellBurstPrefab: {fileID: 0}
+  attackTellBurstLifetime: 0.6
   animationPresenter: {fileID: 0}
   deathParticlePrefab: {fileID: 0}
   deathParticleLifetime: 2
@@ -640816,6 +640871,8 @@ MonoBehaviour:
     spikeSkidKeep: 1.5
     maxJuggleHits: 3
     juggleLift: 8
+    juggleApexHeadroom: 0.5
+    juggleLiftBlendSeconds: 0.06
     juggleHorizontalScale: 0.15
     airHitHangDuration: 0.5
     airHitFallGravityScale: 1.5
@@ -640828,6 +640885,9 @@ MonoBehaviour:
   damageFlashUniversal: {fileID: 0}
   attackWarningVfx: {fileID: 1756581471548933740}
   attackNotifyDelay: 0.08
+  attackNotifyLead: 0.45
+  attackTellBurstPrefab: {fileID: 0}
+  attackTellBurstLifetime: 0.6
   animationPresenter: {fileID: 0}
   deathParticlePrefab: {fileID: 0}
   deathParticleLifetime: 2
@@ -640882,6 +640942,8 @@ MonoBehaviour:
     spikeSkidKeep: 1.5
     maxJuggleHits: 3
     juggleLift: 8
+    juggleApexHeadroom: 0.5
+    juggleLiftBlendSeconds: 0.06
     juggleHorizontalScale: 0.15
     airHitHangDuration: 0.5
     airHitFallGravityScale: 1.5
@@ -640894,6 +640956,9 @@ MonoBehaviour:
   damageFlashUniversal: {fileID: 0}
   attackWarningVfx: {fileID: 1756581471111224874}
   attackNotifyDelay: 0.7
+  attackNotifyLead: 0.45
+  attackTellBurstPrefab: {fileID: 0}
+  attackTellBurstLifetime: 0.6
   animationPresenter: {fileID: 0}
   deathParticlePrefab: {fileID: 0}
   deathParticleLifetime: 2
@@ -641310,6 +641375,10 @@ PrefabInstance:
       propertyPath: 'spawnPoints.Array.data[0]'
       value: 
       objectReference: {fileID: 321132548}
+    - target: {fileID: 7123456789012345678, guid: 8b89a65709c0ecd40a2644c08718f1bc, type: 3}
+      propertyPath: useNewPlayer
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7724700367755847198, guid: 8b89a65709c0ecd40a2644c08718f1bc, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.69944
@@ -708923,13 +708992,20 @@ MonoBehaviour:
   dodge: JumpBack
   hurt: Hurt
   death: Death
+  tellTintSlots: []
+  tellTintColor: {r: 1, g: 0.12, b: 0.08, a: 1}
+  tellPulseHz: 6
+  windupChargePose: 0
+  windupChargeReach: 0.35
   leapStart: Jump_Start
   leapAir: Float
   leapLand: Jump_End
+  leapAirLandPoseTime: 0
   launchHurtbox: 1
   hurtboxDepth: 1
   overlapDepthStep: 0.01
   launchAir: Hurt
+  launchAirLoop: 
   launchDowned: Hurt
   downedUsesDeathFall: 1
   downedHoldTime: 0.4
@@ -708939,6 +709015,7 @@ MonoBehaviour:
   fitTiltedBodyToFloor: 1
   lyingFloorInset: 0.05
   minLocomotionTimeScale: 0.35
+  locomotionPlaybackSpeed: 1
   walkForward: 
   walkBackward: 
   directionSwitchSpeed: 0.25
@@ -708984,13 +709061,20 @@ MonoBehaviour:
   dodge: JumpBack
   hurt: Hurt
   death: Death
+  tellTintSlots: []
+  tellTintColor: {r: 1, g: 0.12, b: 0.08, a: 1}
+  tellPulseHz: 6
+  windupChargePose: 0
+  windupChargeReach: 0.35
   leapStart: Jump_Start
   leapAir: Float
   leapLand: Jump_End
+  leapAirLandPoseTime: 0
   launchHurtbox: 1
   hurtboxDepth: 1
   overlapDepthStep: 0.01
   launchAir: Hurt
+  launchAirLoop: 
   launchDowned: Hurt
   downedUsesDeathFall: 1
   downedHoldTime: 0.4
@@ -709000,6 +709084,7 @@ MonoBehaviour:
   fitTiltedBodyToFloor: 1
   lyingFloorInset: 0.05
   minLocomotionTimeScale: 0.35
+  locomotionPlaybackSpeed: 1
   walkForward: 
   walkBackward: 
   directionSwitchSpeed: 0.25
@@ -709045,13 +709130,20 @@ MonoBehaviour:
   dodge: JumpBack
   hurt: Hurt
   death: Death
+  tellTintSlots: []
+  tellTintColor: {r: 1, g: 0.12, b: 0.08, a: 1}
+  tellPulseHz: 6
+  windupChargePose: 0
+  windupChargeReach: 0.35
   leapStart: Jump_Start
   leapAir: Float
   leapLand: Jump_End
+  leapAirLandPoseTime: 0
   launchHurtbox: 1
   hurtboxDepth: 1
   overlapDepthStep: 0.01
   launchAir: Hurt
+  launchAirLoop: 
   launchDowned: Hurt
   downedUsesDeathFall: 1
   downedHoldTime: 0.4
@@ -709061,6 +709153,7 @@ MonoBehaviour:
   fitTiltedBodyToFloor: 1
   lyingFloorInset: 0.05
   minLocomotionTimeScale: 0.35
+  locomotionPlaybackSpeed: 1
   walkForward: 
   walkBackward: 
   directionSwitchSpeed: 0.25
@@ -724960,6 +725053,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a80ca370b17e4480aa5b212d56d47db2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.MeleeChaserBrain
+  jumpGaps: 1
+  ledgeGiveUpDelay: 0.8
+  ledgeIgnoreTargetSeconds: 3
   patrolWhenPassive: 0
   patrol:
     patrolDistance: 5
@@ -725026,6 +725122,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a80ca370b17e4480aa5b212d56d47db2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.MeleeChaserBrain
+  jumpGaps: 1
+  ledgeGiveUpDelay: 0.8
+  ledgeIgnoreTargetSeconds: 3
   patrolWhenPassive: 0
   patrol:
     patrolDistance: 5
@@ -725092,6 +725191,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a80ca370b17e4480aa5b212d56d47db2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::junklite.MeleeChaserBrain
+  jumpGaps: 1
+  ledgeGiveUpDelay: 0.8
+  ledgeIgnoreTargetSeconds: 3
   patrolWhenPassive: 0
   patrol:
     patrolDistance: 5

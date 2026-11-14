@@ -114,7 +114,8 @@ namespace junklite
             newCurrent = Mathf.Max(0f, newCurrent);
             newMax = Mathf.Max(1f, newMax);
 
-            if (!animate || duration <= 0f)
+            // Hidden bars (clean-screen HUD) stay bound; a tween needs an active object.
+            if (!animate || duration <= 0f || !isActiveAndEnabled)
             {
                 SetVisualImmediate(newCurrent, newMax);
                 return;

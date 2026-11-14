@@ -137,6 +137,8 @@ namespace junklite
         private void TriggerHitPulse()
         {
             StopPulse();
+            // Still bound while hidden (clean-screen HUD); a pulse needs an active object.
+            if (!isActiveAndEnabled) return;
             pulseRoutine = StartCoroutine(HitPulseRoutine());
         }
 

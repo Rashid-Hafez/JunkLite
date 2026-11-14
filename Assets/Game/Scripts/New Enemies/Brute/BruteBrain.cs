@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 namespace junklite
@@ -106,6 +107,8 @@ namespace junklite
         private float nextPunishGrabAllowed;
         private float touchOverlapSince = -1f;
         private bool roarPending;
+        // Story intro owns him from PlayIntroDash until Engage/OpenWithCharge: no decisions.
+        private bool introScripted;
 
         public bool IsPhaseTwo => phaseTwoActive;
 
@@ -129,6 +132,7 @@ namespace junklite
 
         protected override void OnDisable()
         {
+            introScripted = false;
             UninitializeCapabilities();
             base.OnDisable();
         }
@@ -179,6 +183,7 @@ namespace junklite
         /// </summary>
         public void OpenWithCharge()
         {
+            introScripted = false;
             if (!Actor.IsAlive) return;
             pendingMove = Move.ChargeDash;
             nextDecisionTime = Time.time;
@@ -194,8 +199,67 @@ namespace junklite
             }
         }
 
+        /// <summary>
+        /// Story hook (boss intro cinematic): faces the player, points (taunt clip) for
+        /// <paramref name="pointSeconds"/>, then dashes along the lane at his dash speed playing the
+        /// throw clip, stopping <paramref name="stopDistance"/> short of her. No damage. He stays
+        /// passive afterwards until <see cref="Engage"/> or <see cref="OpenWithCharge"/>.
+        /// </summary>
+        public IEnumerator PlayIntroDash(Transform player, float pointSeconds, float stopDistance)
+        {
+            if (!Actor.IsAlive || player == null || Movement == null)
+                yield break;
+
+            introScripted = true;
+            pendingMove = Move.None;
+            ChangeState<IdleState>();
+            Movement.Stop();
+            Movement.FaceTarget(player.position);
+
+            Actor.AnimationPresenter?.PlayMeleeWindup(pointSeconds);
+            if (pointSeconds > 0f)
+                yield return new WaitForSeconds(pointSeconds);
+
+            Vector3 axis = Movement.MovementAxis;
+            float along = Vector3.Dot(player.position - transform.position, axis);
+            float distance = Mathf.Max(0f, Mathf.Abs(along) - stopDistance);
+            float speed = scaled != null && scaled.DashSpeed > 0f ? scaled.DashSpeed : 12f;
+            if (distance <= 0.05f)
+                yield break;
+
+            float duration = distance / speed;
+            (Actor.AnimationPresenter as IBruteGrabPresenter)?.PlayThrow(duration);
+            Movement.DashTo(transform.position + axis * (Mathf.Sign(along) * distance), speed);
+
+            // A wall or ledge can end the dash early; the timeout covers a dash that never settles.
+            float giveUpAt = Time.time + duration + 0.5f;
+            while (Actor.IsAlive && Movement.IsMoving && !Movement.HasReachedDestination && Time.time < giveUpAt)
+                yield return null;
+            Movement.Stop();
+        }
+
+        /// <summary>Story hook: ends the intro and starts the fight with a normal move roll.</summary>
+        public void Engage()
+        {
+            introScripted = false;
+            if (!Actor.IsAlive) return;
+            nextDecisionTime = Time.time;
+            if (!Actor.HasTarget)
+            {
+                Perception?.SetRadius(pursuitRadius);
+                Perception?.RefreshOverlap();
+            }
+            else if (!IsDecisionLocked())
+            {
+                EvaluateNextAction();
+            }
+        }
+
         protected override void TickBrain()
         {
+            if (introScripted)
+                return;
+
             UpdatePhase();
 
             if (!Actor.HasTarget)
@@ -236,6 +300,8 @@ namespace junklite
             if (!Actor.IsAlive || StateMachine.CurrentState is DeadState)
                 return;
             if (!actionCompleted && IsDecisionLocked())
+                return;
+            if (introScripted)
                 return;
 
             breatherActive = false;

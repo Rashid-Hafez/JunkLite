@@ -1,5 +1,5 @@
 {
-"skeleton": { "hash": "Ob105Rn3W6w", "spine": "4.2.36", "x": -24.51, "y": -2.94, "width": 45.9, "height": 123.99 },
+"skeleton": { "hash": "LQdHd+1/0jc", "spine": "4.2.36", "x": -24.51, "y": -2.94, "width": 45.9, "height": 123.99 },
 "bones": [
 	{ "name": "root", "scaleX": -1 },
 	{ "name": "Cas", "parent": "root", "y": 52.58 },
@@ -58,7 +58,8 @@
 	{ "name": "RightToes", "bone": "RightToes", "attachment": "QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_L" },
 	{ "name": "LeftToes", "bone": "LeftToes", "attachment": "QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_L" },
 	{ "name": "TasselRoot", "bone": "TasselRoot" },
-	{ "name": "TasselRoot2", "bone": "TasselRoot2" }
+	{ "name": "TasselRoot2", "bone": "TasselRoot2" },
+	{ "name": "SlashFX", "bone": "Cas" }
 ],
 "ik": [
 	{
@@ -232,6 +233,22 @@
 				"QuarterRightBack/CasOctober52026-QuarterRightBack-UpperArm_R": { "x": 28.34, "y": 111.88, "rotation": 75.78, "width": 12, "height": 21 },
 				"QuarterRightFront/CasOctober52026-QuarterRightFront-UpperArm_R": { "x": 28.34, "y": 111.88, "rotation": 75.78, "width": 12, "height": 20 },
 				"Right/CasOctober52026-Right-UpperArm_R": { "x": 28.34, "y": 111.88, "rotation": 75.78, "width": 12, "height": 21 }
+			},
+			"SlashFX": {
+				"CasOctober52026-default-SlashFX": {
+					"type": "mesh",
+					"uvs": [ 1, 1, 0, 1, 0, 0, 1, 0 ],
+					"triangles": [ 1, 2, 3, 0, 1, 3 ],
+					"vertices": [ 15, -44.5, -15, -44.5, -15, 44.5, 15, 44.5 ],
+					"hull": 4
+				},
+				"CasOctober52026-default-SlashFX2": {
+					"type": "mesh",
+					"uvs": [ 1, 1, 0, 1, 0, 0, 1, 0 ],
+					"triangles": [ 1, 2, 3, 1, 3, 0 ],
+					"vertices": [ 45.5, -11.5, -45.5, -11.5, -45.5, 11.5, 45.5, 11.5 ],
+					"hull": 4
+				}
 			},
 			"TasselRoot": {
 				"Right/CasOctober52026-Right-Thigh_R": {
@@ -3425,6 +3442,15 @@
 					{ "color": "aeaeaeff" }
 				]
 			},
+			"SlashFX": {
+				"rgba": [
+					{ "time": 0.2333, "color": "ffffffff" },
+					{ "time": 0.3667, "color": "ffffff00" }
+				],
+				"attachment": [
+					{ "time": 0.2333, "name": "CasOctober52026-default-SlashFX" }
+				]
+			},
 			"TasselRoot": {
 				"rgba": [
 					{ "color": "787878ff" }
@@ -3573,6 +3599,20 @@
 				]
 			}
 		},
+		"attachments": {
+			"default": {
+				"SlashFX": {
+					"CasOctober52026-default-SlashFX": {
+						"deform": [
+							{
+								"time": 0.2333,
+								"vertices": [ 43.02019, 23.16471, 43.02019, 23.16471, 43.02019, 23.16471, 43.02019, 23.16471 ]
+							}
+						]
+					}
+				}
+			}
+		},
 		"drawOrder": [
 			{
 				"offsets": [
@@ -3675,6 +3715,15 @@
 				"rgba": [
 					{ "color": "ffffffff" },
 					{ "time": 0.1667, "color": "747474ff" }
+				]
+			},
+			"SlashFX": {
+				"rgba": [
+					{ "time": 0.1667, "color": "ffffffff" },
+					{ "time": 0.3833, "color": "ffffff00" }
+				],
+				"attachment": [
+					{ "time": 0.1667, "name": "CasOctober52026-default-SlashFX2" }
 				]
 			},
 			"TasselRoot": {
@@ -3874,6 +3923,16 @@
 						]
 					}
 				},
+				"SlashFX": {
+					"CasOctober52026-default-SlashFX2": {
+						"deform": [
+							{
+								"time": 0.1667,
+								"vertices": [ 21.34007, 36.35718, 21.34007, 36.35718, 21.34007, 36.35718, 21.34007, 36.35718 ]
+							}
+						]
+					}
+				},
 				"TasselRoot": {
 					"Right/CasOctober52026-Right-Thigh_R": {
 						"deform": [
@@ -3945,20 +4004,10 @@
 	},
 	"Attack_Punch_Mantis_3": {
 		"slots": {
-			"F_Head": {
-				"attachment": [
-					{ "time": 0.4333, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Head" }
-				]
-			},
 			"F_UpperBody": {
 				"attachment": [
 					{ "name": "Right/CasOctober52026-Right-Torso" },
 					{ "time": 0.2, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Torso" }
-				]
-			},
-			"LeftFoot": {
-				"attachment": [
-					{ "time": 0.4333, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Foot_R" }
 				]
 			},
 			"LeftForearm": {
@@ -3974,11 +4023,6 @@
 			"LeftThigh": {
 				"attachment": [
 					{ "name": "QuarterLeftFront/CasOctober52026-QuarterLeftFront-Thigh_L" }
-				]
-			},
-			"LeftToes": {
-				"attachment": [
-					{ "time": 0.4333, "name": "QuarterRightFront/CasOctober52026-QuarterRightFront-Toe_R" }
 				]
 			},
 			"LeftUpperArm": {
@@ -4031,6 +4075,15 @@
 					{ "color": "747474ff", "curve": "stepped" },
 					{ "time": 0.1167, "color": "747474ff" },
 					{ "time": 0.2167, "color": "ffffffff" }
+				]
+			},
+			"SlashFX": {
+				"rgba": [
+					{ "time": 0.25, "color": "ffffffff" },
+					{ "time": 0.3333, "color": "ffffff00" }
+				],
+				"attachment": [
+					{ "time": 0.25, "name": "CasOctober52026-default-SlashFX" }
 				]
 			},
 			"TasselRoot": {
@@ -4258,6 +4311,16 @@
 						"deform": [
 							{
 								"vertices": [ -0.46617, 2.04022, -0.46617, 2.04022, -0.46617, 2.04022, -0.46617, 2.04022, -0.46617, 2.04022, -0.46617, 2.04022, -0.46617, 2.04022, -0.46617, 2.04022 ]
+							}
+						]
+					}
+				},
+				"SlashFX": {
+					"CasOctober52026-default-SlashFX": {
+						"deform": [
+							{
+								"time": 0.25,
+								"vertices": [ 49.26657, 117.18997, 49.26657, 117.18997, 49.26657, -60.81003, 49.26657, -60.81003 ]
 							}
 						]
 					}

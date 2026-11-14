@@ -160,9 +160,6 @@ namespace junklite
                 // immediately switch to the hit animation before anything else
                 playerState?.RequestAttackAnimation(parryHitClip);
 
-                if (parryVFXPrefab != null)
-                    Instantiate(parryVFXPrefab, transform.position, Quaternion.identity);
-
                 if (parryImpactBurstPrefab != null)
                 {
                     Vector3 point = attacker != null
