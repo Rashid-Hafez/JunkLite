@@ -1,6 +1,7 @@
 using System.Collections;
 using Unity.Cinemachine;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace junklite
 {
@@ -16,6 +17,30 @@ namespace junklite
 
         [Header("Camera Shake")]
         [SerializeField] private float defaultShakeForce = 1f;
+        [Tooltip("Scales every camera shake. 0 = off (comfort option).")]
+        [SerializeField, Range(0f, 1f)] private float shakeIntensity = 1f;
+
+        [Header("Haptics")]
+        [Tooltip("Scales every gamepad rumble. 0 = off.")]
+        [SerializeField, Range(0f, 1f)] private float rumbleIntensity = 1f;
+
+        public float ShakeIntensity { get => shakeIntensity; set => shakeIntensity = Mathf.Clamp01(value); }
+        public float RumbleIntensity
+        {
+            get => rumbleIntensity;
+            set
+            {
+                rumbleIntensity = Mathf.Clamp01(value);
+                if (rumbleIntensity <= 0f) StopRumble();
+            }
+        }
+
+        // Rumble is a real-time timer like the time effects: the strongest request wins
+        // while one runs, and the motors always stop (timeout, pause, focus loss, disable).
+        private Gamepad rumblePad;
+        private float rumbleUntil = float.NegativeInfinity;
+        private float rumbleLow;
+        private float rumbleHigh;
 
         // The one owner of gameplay time scale effects. Hit-stop and slow motion are timers
         // (real time); the scale is rebuilt from them every frame, never saved and restored,
@@ -49,6 +74,59 @@ namespace junklite
             }
         }
 
+        private void OnDisable() => StopRumble();
+
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus) StopRumble();
+        }
+
+        /// <summary>
+        /// Short gamepad rumble (motor speeds 0..1, real seconds). Does nothing on keyboard
+        /// and mouse. While one runs, the stronger motors and the later end win.
+        /// </summary>
+        public void DoRumble(float lowFrequency, float highFrequency, float duration)
+        {
+            if (duration <= 0f || rumbleIntensity <= 0f) return;
+            if (IsPaused) return;
+
+            GameInputManager input = GameInputManager.Instance;
+            if (input == null || !input.IsUsingGamepad) return;
+
+            Gamepad pad = Gamepad.current;
+            if (pad == null) return;
+
+            float now = Time.realtimeSinceStartup;
+            if (rumblePad != pad) StopRumble();
+            bool running = rumblePad != null && now < rumbleUntil;
+
+            float low = Mathf.Clamp01(lowFrequency) * rumbleIntensity;
+            float high = Mathf.Clamp01(highFrequency) * rumbleIntensity;
+            rumbleLow = running ? Mathf.Max(rumbleLow, low) : low;
+            rumbleHigh = running ? Mathf.Max(rumbleHigh, high) : high;
+            rumbleUntil = running ? Mathf.Max(rumbleUntil, now + duration) : now + duration;
+            rumblePad = pad;
+            pad.SetMotorSpeeds(rumbleLow, rumbleHigh);
+        }
+
+        private void UpdateRumble()
+        {
+            if (rumblePad == null) return;
+            if (Time.realtimeSinceStartup >= rumbleUntil || IsPaused || !rumblePad.added)
+                StopRumble();
+        }
+
+        private void StopRumble()
+        {
+            if (rumblePad == null) return;
+            if (rumblePad.added) rumblePad.SetMotorSpeeds(0f, 0f);
+            rumblePad = null;
+            rumbleUntil = float.NegativeInfinity;
+        }
+
+        private static bool IsPaused =>
+            GameManager.Instance != null && GameManager.Instance.CurrentState == GameManager.GameState.Paused;
+
         /// <summary>
         /// Triggers a brief hitstop effect by freezing time.
         /// </summary>
@@ -75,7 +153,11 @@ namespace junklite
 
         public bool IsHitstopping => Time.realtimeSinceStartup < hitstopUntil;
 
-        private void Update() => ApplyTimeScale();
+        private void Update()
+        {
+            UpdateRumble();
+            ApplyTimeScale();
+        }
 
         private void ApplyTimeScale()
         {
@@ -118,7 +200,29 @@ namespace junklite
             if (force < 0f)
                 force = defaultShakeForce;
 
-            impulseSource.GenerateImpulse(force);
+            impulseSource.GenerateImpulse(force * shakeIntensity);
+        }
+
+        /// <summary>
+        /// Camera kick along a world direction (the swing), at the source's authored strength
+        /// times <paramref name="force"/>. A zero direction falls back to the plain shake.
+        /// </summary>
+        public void DoCameraShake(CinemachineImpulseSource impulseSource, Vector3 direction, float force = -1f)
+        {
+            if (impulseSource == null)
+                return;
+
+            float strength = impulseSource.DefaultVelocity.magnitude;
+            if (direction.sqrMagnitude < 0.0001f || strength <= 0f)
+            {
+                DoCameraShake(impulseSource, force);
+                return;
+            }
+
+            if (force < 0f)
+                force = defaultShakeForce;
+
+            impulseSource.GenerateImpulseWithVelocity(direction.normalized * (strength * force * shakeIntensity));
         }
 
         /// <summary>

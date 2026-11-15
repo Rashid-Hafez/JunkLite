@@ -47,6 +47,10 @@ namespace junklite
         [SerializeField] private float damageHitVFXLifetime = 0.5f;
 
         [SerializeField] private float cameraShakeOnHit = 5f;
+        [Tooltip("Gamepad rumble when she takes a hit (motor speeds 0..1, real seconds).")]
+        [SerializeField, Range(0f, 1f)] private float hurtRumbleLow = 0.7f;
+        [SerializeField, Range(0f, 1f)] private float hurtRumbleHigh = 0.4f;
+        [SerializeField, Min(0f)] private float hurtRumbleDuration = 0.2f;
         [SerializeField] private CinemachineImpulseSource damageImpulseSource;
 
         public AttackDirection LastAttackDirection => _weaponManager?.CurrentAttackDirection ?? AttackDirection.Side;
@@ -976,7 +980,10 @@ namespace junklite
                 }
 
                 if (feedbackManager != null)
+                {
                     feedbackManager.DoCameraShake(damageImpulseSource, cameraShakeOnHit);
+                    feedbackManager.DoRumble(hurtRumbleLow, hurtRumbleHigh, hurtRumbleDuration);
+                }
             }
 
             hitReactionResolver?.Resolve(request);

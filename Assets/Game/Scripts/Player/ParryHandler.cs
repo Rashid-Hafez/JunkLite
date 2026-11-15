@@ -36,6 +36,10 @@ namespace junklite
         [SerializeField, Min(0f)] private float parryImpactBurstLifetime = 0.8f;
         [Tooltip("Camera shake force on a parry. Negative = the default impulse.")]
         [SerializeField] private float parryShakeForce = 1.6f;
+        [Tooltip("Gamepad rumble on a successful parry (motor speeds 0..1, real seconds).")]
+        [SerializeField, Range(0f, 1f)] private float parryRumbleLow = 0.4f;
+        [SerializeField, Range(0f, 1f)] private float parryRumbleHigh = 0.8f;
+        [SerializeField, Min(0f)] private float parryRumbleDuration = 0.15f;
 
         [Header("Slow Motion And Zoom (negative = the camera's own value)")]
         [Tooltip("Time scale during the parry slow motion.")]
@@ -172,6 +176,7 @@ namespace junklite
 
                 // feedback effects (no hit-stop: it would fight the slow motion over Time.timeScale)
                 FeedbackManager.Instance?.DoCameraShake(parryShakeForce);
+                FeedbackManager.Instance?.DoRumble(parryRumbleLow, parryRumbleHigh, parryRumbleDuration);
 
                 // delay slow‑motion/zoom slightly so animation plays first
                 StartCoroutine(DelayedCameraEffect());

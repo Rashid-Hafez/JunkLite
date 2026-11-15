@@ -3,6 +3,27 @@
 namespace junklite
 {
     /// <summary>
+    /// Feedback weight of one landed hit: light jabs stay short, finishers hit hard.
+    /// Read-only config; 0 in any field means "use the WeaponManager default".
+    /// </summary>
+    [System.Serializable]
+    public struct HitFeel
+    {
+        [Tooltip("Hit-stop in seconds (time freeze and lunge freeze). 0 = WeaponManager default.")]
+        [Min(0f)] public float hitstop;
+        [Tooltip("Camera kick along the swing. 0 = WeaponManager default.")]
+        [Min(0f)] public float shakeForce;
+        [Tooltip("Gamepad low-frequency (heavy) motor, 0..1. All three rumble fields 0 = WeaponManager default.")]
+        [Range(0f, 1f)] public float rumbleLow;
+        [Tooltip("Gamepad high-frequency (sharp) motor, 0..1.")]
+        [Range(0f, 1f)] public float rumbleHigh;
+        [Tooltip("Rumble length in real seconds.")]
+        [Min(0f)] public float rumbleDuration;
+
+        public bool HasRumble => rumbleDuration > 0f && (rumbleLow > 0f || rumbleHigh > 0f);
+    }
+
+    /// <summary>
     /// WeaponData for melee weapons (fists, swords, etc).
     /// Defines MeleeComboStep which contains only melee-relevant fields.
     /// </summary>
@@ -63,6 +84,10 @@ namespace junklite
             public Vector2 knockback;
             [Tooltip("Flinch = knockback + hitstun. Launch = lift the enemy off the ground; the knockback above is then the launch velocity (x away from the player, y up). Launch needs overrideKnockback.")]
             public HitReactionKind reactionKind;
+
+            [Header("Hit Feel")]
+            [Tooltip("How heavy this hit feels when it lands. Every 0 falls back to the WeaponManager default.")]
+            public HitFeel feel;
         }
 
         [Tooltip("Distance from the player center where the hit sphere or projectile origin is placed.")]

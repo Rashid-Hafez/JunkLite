@@ -145,7 +145,7 @@ namespace junklite
         private readonly Action<int> completeWithoutAnimation;
         private readonly Action<EnemyCharacter, float> enemyHitApplied;
         private readonly Action environmentHit;
-        private readonly Action playHitFeedback;
+        private readonly Action<MeleeWeaponData.MeleeComboStep> playHitFeedback;
         private readonly Func<string, float, float> warpHitDelay;
         private readonly HashSet<int> processedReceivers = new();
 
@@ -160,7 +160,7 @@ namespace junklite
             Action<int> completeWithoutAnimation,
             Action<EnemyCharacter, float> enemyHitApplied,
             Action environmentHit,
-            Action playHitFeedback,
+            Action<MeleeWeaponData.MeleeComboStep> playHitFeedback,
             Func<string, float, float> warpHitDelay = null)
         {
             this.coroutineHost = coroutineHost;
@@ -308,12 +308,15 @@ namespace junklite
 
                     if (damageApplied)
                     {
-                        playHitFeedback?.Invoke();
+                        playHitFeedback?.Invoke(step);
+                        // The step's own hit-stop wins, so the lunge freeze matches the time freeze.
                         execution.StartOwned(motion.ApplyHitstop(
                             request.ExecutionId,
-                            step.reactionKind != HitReactionKind.Flinch
-                                ? request.Settings.LaunchHitstopDuration
-                                : request.Settings.EnemyHitHitstopDuration));
+                            step.feel.hitstop > 0f
+                                ? step.feel.hitstop
+                                : step.reactionKind != HitReactionKind.Flinch
+                                    ? request.Settings.LaunchHitstopDuration
+                                    : request.Settings.EnemyHitHitstopDuration));
                         // A focused slide follows the knockback: no recoil to cut it short.
                         bool followsTarget = request.FocusCollider != null && step.focusedSlide > 0f;
                         if (!followsTarget)

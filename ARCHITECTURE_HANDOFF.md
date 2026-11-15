@@ -9,6 +9,15 @@
 >
 > After architecture changes, run `graphify update .` again so the next developer and agent get accurate answers. Details are in `GRAPHIFY_WORKFLOW.md`. The graph covers C# and `.md` files only and does not replace this document.
 
+### Hit feel tiers, directional shake, gamepad rumble (2026-11-15)
+
+- **Per-step weight:** `MeleeComboStep.feel` (`HitFeel`: `hitstop`, `shakeForce`, `rumbleLow`, `rumbleHigh`, `rumbleDuration`). Any field left at 0 uses the `WeaponManager` default (`enemyHitHitstopDuration`, `enemyHitShakeForce`, `enemyHitRumble*`; the up attack keeps `upLaunchHitstop`). `WeaponAttackExecutor` passes the landed step to `WeaponManager.PlayHitFeedback(step)`, and the lunge freeze (`motion.ApplyHitstop`) uses the same step value.
+- **Authored on `Fist (Cass)` and `Sword (Cass)`:** side and air hits 1–2 are light (hit-stop 0.06, shake 0.5, rumble 0.15/0.35 for 0.08 s); side hit 3 is heavy (0.16, 1.2, 0.6/0.5 for 0.18 s); air hit 3 (spike) 0.14, 1.2; up launch keeps its 0.05 hit-stop with shake 1 and rumble 0.5/0.4 for 0.14 s; down attack is all defaults. `Fist` and `Sword` (non-Cass) are untouched and use the defaults.
+- **Directional shake:** `FeedbackManager.DoCameraShake(source, direction, force)` kicks along the swing (lane axis times facing, or up/down) at the source's `DefaultVelocity` strength. The old scalar overloads are unchanged; only player melee hits use the new one.
+- **Rumble:** `FeedbackManager.DoRumble(low, high, seconds)` is the only place that writes gamepad motors. Real-time timer; the stronger request and later end win; it stops on timeout, pause, focus loss, disable and pad removal, and does nothing unless `GameInputManager.IsUsingGamepad`. Callers: melee hits, `PlayerCharacter` on applied damage (`hurtRumble*`), `ParryHandler` on a successful parry (`parryRumble*`).
+- **Comfort scalars:** `FeedbackManager.ShakeIntensity` and `RumbleIntensity` (0..1, serialized) scale every shake and rumble. No settings UI drives them yet.
+- **Not verified:** nothing was run in Play Mode (no Editor was open; the two weapon assets were edited as YAML). The values are first guesses and need tuning with a pad in hand.
+
 ### Demo build pass: clean HUD, Brute intro dash, parry shove fix, Rooftop on the title (2026-11-13)
 
 - **Clean HUD:** `PlayerUI.hideGameplayHud` + `gameplayHudElements` (applied in `OnEnable`). On in `New Player UI 2.prefab` with Health, Mod Combat UI and Objective Tracker HUD: they stay bound but inactive. The I-menu, dialogue, prompts and pause still show. `StatBarUI.AnimateTo` and `HealthIcon_Damaged.TriggerHitPulse` skip coroutines while inactive. **Untick Hide Gameplay Hud on the prefab to bring the HUD back.**

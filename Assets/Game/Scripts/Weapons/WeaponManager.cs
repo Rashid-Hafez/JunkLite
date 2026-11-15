@@ -40,6 +40,10 @@ namespace junklite
         [Tooltip("Hit-stop on a launching hit (combo finisher). Longer than a normal hit so the launch lands.")]
         [SerializeField] private float launchHitstopDuration = 0.12f;
         [SerializeField] private float enemyHitShakeForce = 0.8f;
+        [Tooltip("Gamepad rumble on a landed hit when the combo step authors none (Hit Feel).")]
+        [SerializeField, Range(0f, 1f)] private float enemyHitRumbleLow = 0.2f;
+        [SerializeField, Range(0f, 1f)] private float enemyHitRumbleHigh = 0.35f;
+        [SerializeField, Min(0f)] private float enemyHitRumbleDuration = 0.1f;
 
         [Header("Up Attack")]
         [Tooltip("Seconds after an up attack starts before the next one. Up + attack inside it is a side swing.")]
@@ -746,7 +750,7 @@ namespace junklite
             };
         }
 
-        private void PlayHitFeedback()
+        private void PlayHitFeedback(MeleeWeaponData.MeleeComboStep step)
         {
             // The swing connected: its recovery can be cancelled into a jump or dash now.
             if (isAttacking)
@@ -757,13 +761,30 @@ namespace junklite
                 currentAttackDir != AttackDirection.Down && airHitHangDuration > 0f)
                 controller.ApplyAirHang(airHitHangGravityScale, airHitHangDuration);
 
-            if (FeedbackManager.Instance != null)
+            FeedbackManager feedback = FeedbackManager.Instance;
+            if (feedback == null) return;
+
+            // The step's Hit Feel sets the weight; anything left at 0 uses the defaults here.
+            HitFeel feel = step.feel;
+            float hitstop = feel.hitstop > 0f
+                ? feel.hitstop
+                : currentAttackDir == AttackDirection.Up ? upLaunchHitstop : enemyHitHitstopDuration;
+            float shake = feel.shakeForce > 0f ? feel.shakeForce : enemyHitShakeForce;
+
+            // The camera kicks the way the swing goes.
+            Vector3 swing = currentAttackDir switch
             {
-                FeedbackManager.Instance.DoHitFeedback(
-                    impulseSource,
-                    currentAttackDir == AttackDirection.Up ? upLaunchHitstop : enemyHitHitstopDuration,
-                    enemyHitShakeForce);
-            }
+                AttackDirection.Up => Vector3.up,
+                AttackDirection.Down => Vector3.down,
+                _ => FacingAxis * Facing
+            };
+
+            feedback.DoHitstop(hitstop);
+            feedback.DoCameraShake(impulseSource, swing, shake);
+            if (feel.HasRumble)
+                feedback.DoRumble(feel.rumbleLow, feel.rumbleHigh, feel.rumbleDuration);
+            else
+                feedback.DoRumble(enemyHitRumbleLow, enemyHitRumbleHigh, enemyHitRumbleDuration);
         }
 
         private void ApplyAttackInputLock()
