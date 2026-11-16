@@ -11,7 +11,7 @@ namespace junklite
         NoPoints,
         MissingPrerequisite,
         MissingWeapon,
-        /// <summary>The node's tier is above this build's Max Available Tier.</summary>
+        /// <summary>The node's tier is above this build's Max Available Tier, or its branch is locked for this build.</summary>
         NotInBuild,
         Unknown,
     }
@@ -161,7 +161,7 @@ namespace junklite
         {
             if (node == null || config == null || config.Find(node.id) != node) return UpgradeLockReason.Unknown;
             if (purchased.Contains(node.id)) return UpgradeLockReason.Owned;
-            if (!config.IsTierAvailable(node.tier)) return UpgradeLockReason.NotInBuild;
+            if (!config.IsAvailable(node)) return UpgradeLockReason.NotInBuild;
             if (node.requiredWeapon != null && !OwnsWeapon(node.requiredWeapon)) return UpgradeLockReason.MissingWeapon;
             if (node.prerequisiteIds != null)
                 foreach (string id in node.prerequisiteIds)

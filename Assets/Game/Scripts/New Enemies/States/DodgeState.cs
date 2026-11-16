@@ -77,7 +77,8 @@ namespace junklite
             startPosition = Transform.position;
             float dodgeDistance = dodger.DodgeDistance;
 
-            LayerMask wallMask = dodger.DodgeWallLayer;
+            // Barriers are kinematic-dodge walls too, whatever the prefab's wall mask says.
+            LayerMask wallMask = dodger.DodgeWallLayer.value | LayerMask.GetMask(EnemyBarrier.LayerName);
             if (wallMask.value != 0)
             {
                 Vector3 rayOrigin = startPosition + Vector3.up * 0.5f;

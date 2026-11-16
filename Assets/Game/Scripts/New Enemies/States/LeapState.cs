@@ -27,7 +27,12 @@ namespace junklite
         }
 
         private const float MinAirDuration = 0.15f;
-
+        // The arc is kinematic and ignores colliders, so every step is swept against level geometry: the
+        // landing point can slide while she is airborne (tracked leaps) and must never carry her through a wall.
+        private const float SweepHeight = 0.9f;
+        private const float SweepStopBuffer = 0.35f;
+        private static int sweepMask = -1;
+        private Vector3 lastAirPosition;
         private ILeaper leaper;
         private EnemyMovement movement;
         private Rigidbody rb;
@@ -145,6 +150,8 @@ namespace junklite
 
             phase = Phase.Air;
             timer = airDuration;
+            lastAirPosition = startPosition;
+            if (sweepMask < 0) sweepMask = LayerMask.GetMask("Default", "Ground", "Wall", EnemyBarrier.LayerName);
 
             if (leaper is ILeapAirPose pose && pose.LeapAirHoldsLandPose)
                 enemy.AnimationPresenter?.PlayLeapAirHoldingLandPose();
@@ -160,10 +167,46 @@ namespace junklite
 
             Vector3 position = Vector3.Lerp(startPosition, destination, progress);
             position.y += 4f * leaper.LeapHeight * progress * (1f - progress);
+
+            if (BlockedByGeometry(lastAirPosition, position, out Vector3 stopPoint))
+            {
+                // Land where the wall stops her, on the ground level of the intended landing.
+                destination = new Vector3(stopPoint.x, destination.y, stopPoint.z);
+                BeginLand();
+                return;
+            }
+
+            lastAirPosition = position;
             Transform.position = position;
 
             if (progress >= 1f)
                 BeginLand();
+        }
+
+        /// <summary>Horizontal sweep of one air step at body height. False when nothing solid is in the way.</summary>
+        private bool BlockedByGeometry(Vector3 from, Vector3 to, out Vector3 stopPoint) =>
+            SweepBlocked(from, to, Mathf.Min(startPosition.y, destination.y) + SweepHeight, sweepMask, out stopPoint);
+
+        /// <summary>
+        /// Raycasts the horizontal move from <paramref name="from"/> to <paramref name="to"/> at <paramref name="rayHeight"/>.
+        /// True with the last safe point (<see cref="SweepStopBuffer"/> before the hit) when a collider is in the way.
+        /// </summary>
+        public static bool SweepBlocked(Vector3 from, Vector3 to, float rayHeight, int mask, out Vector3 stopPoint)
+        {
+            stopPoint = to;
+            Vector3 delta = to - from;
+            delta.y = 0f;
+            float distance = delta.magnitude;
+            if (distance < 0.001f) return false;
+
+            Vector3 direction = delta / distance;
+            Vector3 origin = new Vector3(from.x, rayHeight, from.z);
+            // Reach a little past the step so a wall right at the end of it still counts.
+            if (!Physics.Raycast(origin, direction, out RaycastHit hit, distance + SweepStopBuffer, mask, QueryTriggerInteraction.Ignore))
+                return false;
+
+            stopPoint = new Vector3(origin.x, from.y, origin.z) + direction * Mathf.Max(0f, hit.distance - SweepStopBuffer);
+            return true;
         }
 
         private void BeginLand()

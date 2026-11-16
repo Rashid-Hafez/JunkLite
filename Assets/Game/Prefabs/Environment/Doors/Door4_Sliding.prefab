@@ -203,6 +203,7 @@ MonoBehaviour:
     m_RotationOrder: 4
   blocker: {fileID: 1718520110676174263}
   locked: 0
+  enemiesCanOpen: 1
   audioSource: {fileID: 0}
   openClip: {fileID: 0}
   closeClip: {fileID: 0}

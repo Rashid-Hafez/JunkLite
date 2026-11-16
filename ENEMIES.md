@@ -109,3 +109,11 @@ Melee hitboxes (`Hitbox` child, trigger box along local +X, flipped with the roo
 | Hit VFX draw behind it | Its sprite sorting layer/order is above `Player` / 100. |
 | No hit flash | Wrong Spine material, or `isSpine` off (see `EnemySpineSetup.md`). |
 | A boss gets lifted | **Can Be Launched** on. Bosses keep it off (Brute also ignores knockback in code). |
+
+
+## Rooms enemies must not enter (2026-11-16)
+
+- **Placement:** no enemy within 12 m of a free-roam (Z plane) room, and none just behind one of its doors. Enemies only move along their lane, so one that leaves its room never belongs in a Z plane room.
+- **Doors:** `SlidingDoor.Enemies Can Open` is off on doors into free-roam rooms, the Z Door, and the boss-room doors. An enemy chasing the player stops at the closed door instead of following her through.
+- **Barriers:** an `EnemyBarrier` across the doorway (layer `EnemyBarrier`, collides with enemies only) keeps them out even when the door is open. `[Gameplay]/Enemy Barriers`. Boss room: `BossRoomLock` + `Barrier_BossRoom_Door`.
+- **Leaps:** `LeapState` sweeps every air step against Default/Ground/Wall/EnemyBarrier and lands short of a wall, so a hyena or grunt vault can no longer carry them through one.

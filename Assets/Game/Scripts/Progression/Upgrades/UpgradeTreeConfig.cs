@@ -20,8 +20,18 @@ namespace junklite
         [Tooltip("Highest tier that can be bought in this build. Higher tiers show as Currently Unavailable. 0 = every tier.")]
         [Min(0)] public int maxAvailableTier;
 
+        [Tooltip("Branches that cannot be bought in this build. Their nodes show as Currently Unavailable.")]
+        public UpgradeBranch[] unavailableBranches = Array.Empty<UpgradeBranch>();
+
         /// <summary>True when this build lets the player buy nodes of <paramref name="tier"/>.</summary>
         public bool IsTierAvailable(int tier) => maxAvailableTier <= 0 || tier <= maxAvailableTier;
+
+        /// <summary>True when this build lets the player buy nodes of <paramref name="branch"/>.</summary>
+        public bool IsBranchAvailable(UpgradeBranch branch) =>
+            unavailableBranches == null || Array.IndexOf(unavailableBranches, branch) < 0;
+
+        /// <summary>True when neither the tier cap nor a branch lock hides <paramref name="node"/> in this build.</summary>
+        public bool IsAvailable(UpgradeNode node) => node != null && IsTierAvailable(node.tier) && IsBranchAvailable(node.branch);
         public List<UpgradeNode> nodes = new();
 
         private Dictionary<string, UpgradeNode> byId;
@@ -101,7 +111,7 @@ namespace junklite
         /// </summary>
         public static void PopulateDefaults(UpgradeTreeConfig config, WeaponData blades = null)
         {
-            // Nodes and points per level only: Starting Points and Max Available Tier are build switches and stay as authored.
+            // Nodes and points per level only: Starting Points, Max Available Tier and Unavailable Branches are build switches and stay as authored.
             config.pointsPerLevel = 1;
             config.nodes = new List<UpgradeNode>
             {

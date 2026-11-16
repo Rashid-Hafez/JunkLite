@@ -179,6 +179,21 @@ namespace junklite
             roomActions.Add(new ToolAction("PREVIOUS CHECKPOINT", () => JumpToCheckpoint(-1)));
             roomActions.Add(new ToolAction("SPAWN NEAR ROOM 10", () => TeleportToAnchor("room10 spawn")));
             roomActions.Add(new ToolAction("SPAWN NEAR BRUTE ROOM", () => TeleportToAnchor("brute room spawn")));
+            roomActions.Add(new ToolAction("GIVE SERVICE KEY", GiveServiceKey));
+        }
+
+        /// <summary>Gives the Z Key (opens the back door, Room 3's Z Door) without fetching it from Room 10.</summary>
+        private static string GiveServiceKey()
+        {
+            PlayerCharacter player = GetPlayer();
+            PlayerKeyring keyring = player != null ? player.GetComponentInParent<PlayerKeyring>() : null;
+            if (keyring == null)
+                return "No player keyring";
+            if (keyring.Has(PlayerKeyring.ZKey))
+                return "Already has the service key";
+
+            keyring.Add(PlayerKeyring.ZKey);
+            return "Gave the service key (Z Key)";
         }
 
         /// <summary>

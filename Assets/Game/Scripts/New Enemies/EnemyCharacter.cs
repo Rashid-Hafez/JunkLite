@@ -279,7 +279,7 @@ namespace junklite
         }
 
         // secondsToHit: how long until the hit lands, so the closing ring meets it. Negative = the melee timing.
-        private void ShowAttackNotify(float secondsToHit = -1f)
+        private void ShowAttackNotify(float secondsToHit = -1f, bool unparryable = false)
         {
             float leftToHit;
             if (secondsToHit > 0f)
@@ -293,7 +293,7 @@ namespace junklite
             {
                 attackWarningVfx.SetActive(true);
                 if (attackWarningVfx.TryGetComponent(out AttackTellView tellView))
-                    tellView.Play(leftToHit);
+                    tellView.Play(leftToHit, unparryable);
                 if (attackTellBurstPrefab != null)
                     VFXPool.SpawnTimed(attackTellBurstPrefab, attackWarningVfx.transform.position, Quaternion.identity, attackTellBurstLifetime);
             }
@@ -346,15 +346,18 @@ namespace junklite
             }
         }
 
-        /// <summary>Show the warning now (charge, grab). The ring closes over <paramref name="secondsToHit"/> (negative = melee timing).</summary>
-        public void ShowAttackWarningImmediate(float secondsToHit = -1f)
+        /// <summary>
+        /// Show the warning now (charge, grab). The ring closes over <paramref name="secondsToHit"/> (negative = melee timing).
+        /// <paramref name="unparryable"/> shows the red, shaking sign: dodge, don't parry.
+        /// </summary>
+        public void ShowAttackWarningImmediate(float secondsToHit = -1f, bool unparryable = false)
         {
             if (attackNotifyCoroutine != null)
             {
                 StopCoroutine(attackNotifyCoroutine);
                 attackNotifyCoroutine = null;
             }
-            ShowAttackNotify(secondsToHit);
+            ShowAttackNotify(secondsToHit, unparryable);
         }
 
         public void HideAttackWarning()

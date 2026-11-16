@@ -179,6 +179,30 @@ namespace junklite
         }
 
         /// <summary>
+        /// Boss retry: puts him back at his post, idle and unaware, so a respawned player can come in
+        /// without him camping the doorway. Health is left alone. Ignores players for a moment so he does
+        /// not re-acquire her before she is back through the door.
+        /// </summary>
+        public void ReturnToPost(Vector3 position, Quaternion rotation, float ignoreSeconds = 1.5f)
+        {
+            if (!Actor.IsAlive) return;
+            Rigidbody body = GetComponent<Rigidbody>();
+            if (body != null)
+            {
+                body.linearVelocity = Vector3.zero;
+                body.position = position;
+                body.rotation = rotation;
+            }
+            transform.SetPositionAndRotation(position, rotation);
+
+            pendingMove = Move.None;
+            breatherActive = false;
+            nextDecisionTime = Time.time + 1f;
+            Perception?.ForgetTarget(ignoreSeconds);
+            ChangeState<IdleState>();
+        }
+
+        /// <summary>
         /// Story hook (boss intro): the Brute finds the player at pursuit range and opens with his charge.
         /// </summary>
         public void OpenWithCharge()

@@ -27,6 +27,12 @@ namespace junklite
         public event Action OnSpecialAttack = delegate { };
         public event Action OnParry = delegate { };
         public event Action OnInteract = delegate { };
+        /// <summary>
+        /// Raised on every Interact press, even while <see cref="IsInteractBlocked"/> (combat). Only for doors that
+        /// carry the player out of a room (LaneEntryTrigger): an enemy held back by a door or barrier can keep her
+        /// "in combat" forever, and she must never be trapped in a room by that. Everything else uses OnInteract.
+        /// </summary>
+        public event Action OnProceed = delegate { };
         /// <summary>Raised after OnInteract when the press had an interact prompt to act on: an interaction really happened.</summary>
         public event Action OnInteractionPerformed = delegate { };
 
@@ -371,10 +377,11 @@ namespace junklite
             // Bind it to the F key (or your preferred key).
             controls.Player.Interact.performed += _ =>
             {
-                if (!IsGameplayInputEnabled || IsInteractBlocked) return;
+                if (!IsGameplayInputEnabled) return;
                 // Read first: the interactable that handles the press hides the prompt.
                 bool hadPrompt = IsInteractPromptShowing();
-                OnInteract();
+                OnProceed();
+                if (!IsInteractBlocked) OnInteract();
                 if (hadPrompt) OnInteractionPerformed();
             };
 

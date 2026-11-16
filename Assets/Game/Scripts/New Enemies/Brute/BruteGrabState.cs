@@ -75,7 +75,7 @@ namespace junklite
                 return;
             }
 
-            enemy.ShowAttackWarningImmediate(grab.WarningTime);
+            enemy.ShowAttackWarningImmediate(grab.WarningTime, unparryable: true);
             presenter?.PlayGrabWarning(grab.WarningTime);
             SetPhase(Phase.Warning);
         }
@@ -137,9 +137,13 @@ namespace junklite
         {
             enemy.HideAttackWarning();
             presenter?.PlayGrabReach();
-            grab.GrabHitbox?.Activate();
+            // Phase first: Activate tests the volume at once, and a player already inside
+            // must land in HandleCaught as a Reach catch (it ignores other phases, which
+            // used to deal the grab damage without the grab). The lunge starts before the
+            // hitbox too, so an instant catch can stop it in HandleCaught.
             SetPhase(Phase.Reach);
             BeginReachLunge();
+            grab.GrabHitbox?.Activate();
         }
 
         // The reach steps toward a player who backed off during the warning; the
@@ -197,9 +201,11 @@ namespace junklite
             // A hitbox catch happens mid-reach, so the clip is already playing: freeze its
             // end pose. A touch catch comes from idle: play the reach so the grab reads,
             // then the clip holds its last frame until the throw (TouchThrowDelay).
+            // A catch on the reach's first frame (she was already in the hitbox) leaves the
+            // reach clip from BeginReach running, so it reads, then holds its last frame.
             if (touchGrab)
                 presenter?.PlayGrabReach();
-            else
+            else if (timer > 0f)
                 presenter?.PlayGrabHold();
             SetPhase(Phase.Hold);
         }

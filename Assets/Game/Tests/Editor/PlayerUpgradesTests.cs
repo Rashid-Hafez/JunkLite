@@ -340,6 +340,35 @@ namespace junklite.Tests
         }
 
         [Test]
+        public void UnavailableBranchesCannotBeBought()
+        {
+            tree.unavailableBranches = new[] { UpgradeBranch.Jump, UpgradeBranch.Dash };
+            upgrades.AddBonusPoints(20);
+            Assert.That(upgrades.GetLockReason(tree.Find("jump.spring")), Is.EqualTo(UpgradeLockReason.NotInBuild));
+            Assert.That(upgrades.TryPurchase(tree.Find("dash.strike")), Is.False);
+            Assert.That(upgrades.TryPurchase(tree.Find("mods.slot1")), Is.True, "other branches stay open");
+
+            tree.unavailableBranches = Array.Empty<UpgradeBranch>();
+            Assert.That(upgrades.TryPurchase(tree.Find("dash.strike")), Is.True);
+        }
+
+        [Test]
+        public void TheShippedTreeChainsEachBranchAndLocksMovement()
+        {
+            var shipped = AssetDatabase.LoadAssetAtPath<UpgradeTreeConfig>("Assets/Game/Resources/UpgradeTreeConfig.asset");
+            Assert.That(shipped, Is.Not.Null);
+            var branch = new List<UpgradeNode>();
+            foreach (UpgradeBranch b in Enum.GetValues(typeof(UpgradeBranch)))
+            {
+                bool open = b != UpgradeBranch.Jump && b != UpgradeBranch.Dash;
+                Assert.That(shipped.IsBranchAvailable(b), Is.EqualTo(open), b.ToString());
+                shipped.GetBranch(b, branch);
+                for (int i = 1; i < branch.Count; i++)
+                    Assert.That(branch[i].prerequisiteIds, Does.Contain(branch[i - 1].id), branch[i].id);
+            }
+        }
+
+        [Test]
         public void TheShippedTreeStartsWithNoPointsAndEveryTierBuyable()
         {
             var shipped = AssetDatabase.LoadAssetAtPath<UpgradeTreeConfig>("Assets/Game/Resources/UpgradeTreeConfig.asset");

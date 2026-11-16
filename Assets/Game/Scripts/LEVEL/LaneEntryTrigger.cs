@@ -46,6 +46,9 @@ namespace junklite
         private PlayerLifecycle subscribedLifecycle;
         private bool playerSnapped;
         private bool proceedDialoguePlayed;
+        // The gate was opened this run. A checkpoint respawn past the door keeps it open, so the way back
+        // out of a room the player already left is never relocked behind them.
+        private bool gateOpened;
         private Coroutine entryRoutine;
         private IDisposable entryInputLock;
 
@@ -90,7 +93,7 @@ namespace junklite
             Rebind();
             // Came back into the room before reaching Arrival; a Script-mode shot never sees that retreat.
             if (transition != null && transition.IsActive) transition.Release();
-            if (GateOpenable) TutorialPromptHUD.ShowInteract(this, promptLabel);
+            if (GateOpenable) TutorialPromptHUD.ShowInteract(this, promptLabel, allowInCombat: true);
         }
 
         private void OnTriggerExit(Collider other)
@@ -133,6 +136,7 @@ namespace junklite
             }
 
             SetGateLocked(false);
+            gateOpened = true;
             controller.StepToLane(point, yRotation, stepSpeed);
             if (laneCamera != null)
             {
@@ -179,7 +183,7 @@ namespace junklite
         private void HandleGateRuleChanged()
         {
             if (playerInside == null) return;
-            if (GateOpenable) TutorialPromptHUD.ShowInteract(this, promptLabel);
+            if (GateOpenable) TutorialPromptHUD.ShowInteract(this, promptLabel, allowInCombat: true);
             else HidePrompt(instant: true);
         }
 
@@ -193,9 +197,33 @@ namespace junklite
         private void HandlePlayerSpawned(PlayerCharacter player)
         {
             CancelEntry();
+
+            // A checkpoint respawn on the far side of a gate she already opened keeps it open (she may need
+            // to walk back through it). Anything else (level start, restart, a spawn still in the room)
+            // locks it again so the door can't be skipped.
+            bool respawnedAtCheckpoint = subscribedLifecycle != null && subscribedLifecycle.SpawnedAtCheckpoint;
+            if (respawnedAtCheckpoint && gateOpened && IsPastGate(player.transform.position))
+            {
+                playerSnapped = true;
+                return;
+            }
+
+            gateOpened = false;
             playerSnapped = false;
             SetGateLocked(true);
             // Free roam is the ZMovementZone's job only: a checkpoint spawn on the lane must stay locked.
+        }
+
+        /// <summary>True when the position is on the other side of the gate door from this trigger (the room side).</summary>
+        private bool IsPastGate(Vector3 position)
+        {
+            if (gateDoor == null) return false;
+            Vector3 toDoor = gateDoor.transform.position - transform.position;
+            toDoor.y = 0f;
+            if (toDoor.sqrMagnitude < 0.01f) return false;
+            Vector3 fromDoor = position - gateDoor.transform.position;
+            fromDoor.y = 0f;
+            return Vector3.Dot(fromDoor, toDoor.normalized) > 0.5f;
         }
 
         private void SetGateLocked(bool locked)
@@ -214,12 +242,12 @@ namespace junklite
             {
                 if (subscribedInput != null)
                 {
-                    subscribedInput.OnInteract -= HandleInteract;
+                    subscribedInput.OnProceed -= HandleInteract;
                 }
                 subscribedInput = input;
                 if (subscribedInput != null)
                 {
-                    subscribedInput.OnInteract += HandleInteract;
+                    subscribedInput.OnProceed += HandleInteract;
                 }
             }
 
@@ -244,7 +272,7 @@ namespace junklite
         {
             if (subscribedInput != null)
             {
-                subscribedInput.OnInteract -= HandleInteract;
+                subscribedInput.OnProceed -= HandleInteract;
                 subscribedInput = null;
             }
 

@@ -92,6 +92,8 @@ namespace junklite.Editor
                 foreach (Transform leaf in new[] { door.LeftLeaf, door.RightLeaf })
                     if (leaf != null && GameObjectUtility.AreStaticEditorFlagsSet(leaf.gameObject, StaticEditorFlags.BatchingStatic))
                         Report(door, $"leaf '{leaf.name}' is Batching Static, so it can't slide. Clear Batching Static on the leaves.");
+                    else if (leaf != null && GameObjectUtility.AreStaticEditorFlagsSet(leaf.gameObject, StaticEditorFlags.OccluderStatic))
+                        Report(door, $"leaf '{leaf.name}' is Occluder Static, so the baked occlusion data keeps the open door solid and culls the room behind it. Clear Occluder Static and rebake occlusion.");
 
             string summary = $"{follows.Length} follow camera(s), {faders.Length} fader(s), {occluders.Length} occluder(s), " +
                              $"{zones.Length} zone(s), {transitions.Length} transition(s)";

@@ -96,7 +96,7 @@ namespace junklite
         private void Update()
         {
             // Entering combat drops a visible interact prompt (only the shared one; tutorial prompts stay).
-            if (this == interactPrompt && interactOwner != null && GameInputManager.Instance != null &&
+            if (this == interactPrompt && interactOwner != null && !interactAllowedInCombat && GameInputManager.Instance != null &&
                 GameInputManager.Instance.IsInteractBlocked)
             {
                 interactOwner = null;
@@ -128,15 +128,18 @@ namespace junklite
 
         private static TutorialPromptHUD interactPrompt;
         private static object interactOwner;
+        // The current owner's press still works in combat (room-exit doors), so its prompt stays up.
+        private static bool interactAllowedInCombat;
 
         /// <summary>
         /// The one on-screen prompt every world interactable shares ("[E] Pick up", "[LB] Talk"...).
         /// The last caller owns it; HideInteract from a stale owner is ignored.
         /// </summary>
-        public static void ShowInteract(object owner, string label)
+        public static void ShowInteract(object owner, string label, bool allowInCombat = false)
         {
-            // No interact prompt while the interact input is blocked (player in combat).
-            if (GameInputManager.Instance != null && GameInputManager.Instance.IsInteractBlocked) return;
+            // No interact prompt while the interact input is blocked (player in combat), except for room exits.
+            if (!allowInCombat && GameInputManager.Instance != null && GameInputManager.Instance.IsInteractBlocked) return;
+            interactAllowedInCombat = allowInCombat;
             if (interactPrompt == null)
             {
                 interactPrompt = new GameObject("InteractPrompt").AddComponent<TutorialPromptHUD>();

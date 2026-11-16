@@ -14,6 +14,9 @@ namespace junklite
         /// <summary>Item key for the grapple hook (granted by the Brute, opens the grapple box).</summary>
         public const string GrappleHook = "Grapple Hook";
 
+        /// <summary>Item key for the Z Key (found in Room 10, opens Room 3's Z Door).</summary>
+        public const string ZKey = "Z Key";
+
         private readonly Dictionary<string, int> keys = new();
 
         /// <summary>Raised with the key tag whenever a key is added.</summary>

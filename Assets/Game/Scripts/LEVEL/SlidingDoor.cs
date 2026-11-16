@@ -29,6 +29,8 @@ namespace junklite
         [SerializeField] private Collider blocker;
         [Tooltip("Starts locked. A locked door stays shut (and closes if open) even with the player nearby.")]
         [SerializeField] private bool locked;
+        [Tooltip("Off: only the player opens this door. Turn it off on doors into free-roam rooms and boss rooms so enemies can't follow through.")]
+        [SerializeField] private bool enemiesCanOpen = true;
 
         [Header("Audio (optional)")]
         [SerializeField] private AudioSource audioSource;
@@ -38,7 +40,10 @@ namespace junklite
         private Vector3 leftClosed;
         private Vector3 rightClosed;
         private float openAmount;   // 0 = closed, 1 = open
-        private int playerContacts;
+        // Player colliders inside the trigger. A set (not a count) so one that was disabled or destroyed
+        // inside it (death, respawn, teleport) can be dropped instead of keeping the door open or stuck.
+        private readonly HashSet<Collider> playerColliders = new();
+        private readonly List<Collider> stalePlayers = new();
         private readonly HashSet<object> lockOwners = new();
         // Solid enemy bodies inside the trigger. Detection/hitbox triggers are ignored.
         private readonly Dictionary<Collider, EnemyCharacter> enemyContacts = new();
@@ -48,6 +53,8 @@ namespace junklite
         public Transform RightLeaf => rightLeaf;
         public bool IsOpen => openAmount >= 1f;
         public bool Locked => lockOwners.Count > 0;
+        public bool EnemiesCanOpen { get => enemiesCanOpen; set => enemiesCanOpen = value; }
+        private int playerContacts => playerColliders.Count;
 
         /// <summary>Raised each time the door finishes opening for the player (not for enemies).</summary>
         public event Action<SlidingDoor> PlayerOpened;
@@ -75,12 +82,13 @@ namespace junklite
 
         private void OnDisable()
         {
-            playerContacts = 0;
+            playerColliders.Clear();
             enemyContacts.Clear();
         }
 
         private void Update()
         {
+            PrunePlayers();
             PruneEnemies();
             bool someoneNear = playerContacts > 0 || enemyContacts.Count > 0;
             float target = someoneNear && !Locked ? 1f : 0f;
@@ -101,7 +109,9 @@ namespace junklite
                 TrackEnemy(other);
                 return;
             }
-            if (playerContacts++ == 0 && !Locked) PlayClip(openClip);
+            bool first = playerColliders.Count == 0;
+            playerColliders.Add(other);
+            if (first && !Locked) PlayClip(openClip);
         }
 
         private void OnTriggerExit(Collider other)
@@ -111,15 +121,25 @@ namespace junklite
                 enemyContacts.Remove(other);
                 return;
             }
-            if (playerContacts == 0) return;
-            if (--playerContacts == 0 && openAmount > 0f) PlayClip(closeClip);
+            if (!playerColliders.Remove(other)) return;
+            if (playerColliders.Count == 0 && openAmount > 0f) PlayClip(closeClip);
         }
 
         private void TrackEnemy(Collider other)
         {
-            if (other.isTrigger) return;
+            if (!enemiesCanOpen || other.isTrigger) return;
             EnemyCharacter enemy = other.GetComponentInParent<EnemyCharacter>();
             if (enemy != null && enemy.IsAlive) enemyContacts[other] = enemy;
+        }
+
+        // A disabled or destroyed player collider can miss OnTriggerExit (the player body is switched off on death).
+        private void PrunePlayers()
+        {
+            if (playerColliders.Count == 0) return;
+            foreach (Collider c in playerColliders)
+                if (c == null || !c.enabled || !c.gameObject.activeInHierarchy) stalePlayers.Add(c);
+            foreach (Collider stale in stalePlayers) playerColliders.Remove(stale);
+            stalePlayers.Clear();
         }
 
         // Dead or disabled enemies never send OnTriggerExit, so drop them here.
