@@ -872,6 +872,11 @@ MonoBehaviour:
   jumpForce: 14
   groundCheckDistance: 0.1
   groundCheckRadius: 0.08
+  groundStopSlideDuration: 0.15
+  turnSlideDuration: 0.195
+  turnSlideInputGrace: 0.12
+  turnSlideMinRunTime: 0.5
+  turnSlideMinSpeed: 12
   TargetParent: {fileID: 0}
   weaponSocket: {fileID: 4764703469501611834}
   weaponSocketSortingLayerName: 11
@@ -925,6 +930,7 @@ MonoBehaviour:
   wallLayer:
     serializedVersion: 2
     m_Bits: 4096
+  requireWallJumpSurface: 1
   wallCheckDistance: 0.1
   wallSlideSpeed: 2
   wallJumpForce: 12
@@ -1039,6 +1045,8 @@ MonoBehaviour:
   enemyHitHitstopDuration: 0.11
   launchHitstopDuration: 0.12
   enemyHitShakeForce: 1
+  upAttackCooldown: 1
+  upLaunchHitstop: 0.05
   attackCooldown: 0.1
   comboWindow: 0.45
   bufferDuration: 0.3
@@ -1376,6 +1384,9 @@ MonoBehaviour:
   dash: Dash
   stun: Hurt
   death: Death
+  knockdown: Death_New
+  grabbed: Grabbed
+  interact: Interact
   idleLoop: 1
   runLoop: 1
   jumpStartLoop: 0
@@ -1390,6 +1401,14 @@ MonoBehaviour:
   runTimeScale: 1
   depthRunTimeScale: 1
   runStopTimeScale: 1
+  runStopToIdleBlend: 0.3
+  runStopFadeStart: 0.6
+  turnSlideClipTimeScale: 1.2
+  jumpAirApexSpeed: 1.05
+  turnStopPortion: 0.35
+  turnStopBlend: 0.1
+  turnStopMinRunTime: 0.5
+  turnStopCooldown: 0.35
   jumpStartTimeScale: 1
   jumpAirTimeScale: 1
   landingTimeScale: 1
@@ -1398,6 +1417,7 @@ MonoBehaviour:
   doubleJumpTimeScale: 1
   wallSlideTimeScale: 1
   dashTimeScale: 1
+  dashExitBlend: 0.1
   stunTimeScale: 1
   deathTimeScale: 1
   speedThreshold: 0.1
@@ -1409,11 +1429,14 @@ MonoBehaviour:
   doubleJumpBlend: 0
   attackOverwrite: 1
   attackMix: 0.05
+  attackToAttackBlend: 0.067
   attackMixOut: 0.05
   attackMixOutDelay: 0
   fistAttackTimeScale: 2
   weaponAttackTimeScale: 1.5
   downAttackTimeScale: 2
+  attackHoldDuration: 0.12
+  attackReleaseSpeed: 1.35
   forceOverrideGroundedHoldDuration: 0.4
   modCombatEntryAnim: Attack_WolverinePose
   modEntryVFXPrefab: {fileID: 2057006026388923700}
@@ -1452,6 +1475,8 @@ MonoBehaviour:
   parryDuration: 0.25
   parryCooldown: 0.2
   parryLockDuration: 0.3
+  parryStartClip: Perry_1
+  parryHitClip: Perry_2
   parryRadius: 4
   enemyLayer:
     serializedVersion: 2
@@ -1463,6 +1488,14 @@ MonoBehaviour:
   stunDuration: 0.3
   parryStunDuration: 1.5
   hitstopDuration: 0.1
+  impactDelay: 0.05
+  parryImpactBurstPrefab: {fileID: 0}
+  parryImpactBurstLifetime: 0.8
+  parryShakeForce: 1.6
+  slowMoScale: 0.4
+  slowMoHoldRealtime: 0.35
+  slowMoStartDelayRealtime: 0.02
+  zoomTarget: 26
 --- !u!114 &2356093748291057341
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7066,7 +7099,7 @@ MonoBehaviour:
   spawnInterval: 0.03
   maximumGhosts: 11
   fadeSpeed: 10
-  ghostShader: {fileID: 4800000, guid: 3873d4699ee8a4b4da8fa6b8c229b94d, type: 3}
+  ghostShader: {fileID: 4800000, guid: 8336cc66622654a5185dde3e7f638d87, type: 3}
   color:
     serializedVersion: 2
     rgba: 2986207625
