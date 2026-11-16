@@ -68,6 +68,11 @@ namespace junklite
 
         private void Start()
         {
+            // ROOFTOP only shows while its scene is in the build list.
+            bool rooftopInBuild = Application.CanStreamedLevelBeLoaded(rooftopScene);
+            if (titleScreen != null) titleScreen.SetCommandVisible(TitleCommand.Rooftop, rooftopInBuild);
+            if (rooftopButton != null) rooftopButton.gameObject.SetActive(rooftopInBuild);
+
             // Legacy menu: Play is the starting focus; UINavigationGroup on Menu Column owns
             // controller/keyboard navigation and selection recovery. The UI Toolkit title handles its own focus.
             if (titleScreen == null && playButton != null && EventSystem.current != null)

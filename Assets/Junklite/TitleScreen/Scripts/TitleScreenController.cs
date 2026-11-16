@@ -141,11 +141,32 @@ namespace Junklite.TitleScreen
             }
         }
 
-        void Select(int index, bool focus = true)
+        /// <summary>Hides a menu item (e.g. a level left out of the build). Navigation skips it and the visible items renumber.</summary>
+        public void SetCommandVisible(TitleCommand command, bool visible)
+        {
+            if (_buttons == null) return;
+            _buttons[(int)command].style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+
+            int number = 1;
+            for (int i = 0; i < _buttons.Length; i++)
+            {
+                if (IsHidden(i)) continue;
+                var index = _buttons[i].Q<Label>(className: "menu-item__index");
+                if (index != null) index.text = (number++).ToString("00");
+            }
+            if (_selected >= 0 && IsHidden(_selected)) Select(_selected + 1);
+        }
+
+        bool IsHidden(int i) => _buttons[i].style.display.value == DisplayStyle.None;
+
+        void Select(int index, bool focus = true, int step = 1)
         {
             if (IsOffline || _poweringOff) return;
 
-            _selected = (index + _buttons.Length) % _buttons.Length;
+            int count = _buttons.Length;
+            for (int tries = 0; tries < count && IsHidden(((index % count) + count) % count); tries++)
+                index += step;
+            _selected = ((index % count) + count) % count;
             for (int i = 0; i < _buttons.Length; i++)
             {
                 _buttons[i].EnableInClassList(SelectedClass, i == _selected);
@@ -162,7 +183,7 @@ namespace Junklite.TitleScreen
             // Handled here because the default navigation doesn't wrap at the ends of the menu.
             evt.StopImmediatePropagation();
             _panelRoot.focusController?.IgnoreEvent(evt);
-            Select(_selected + (down ? 1 : -1));
+            Select(_selected + (down ? 1 : -1), true, down ? 1 : -1);
         }
 
         void OnNavigationSubmit(NavigationSubmitEvent evt)

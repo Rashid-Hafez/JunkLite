@@ -507,7 +507,7 @@ MonoBehaviour:
   spawnInterval: 0.03
   maximumGhosts: 11
   fadeSpeed: 10
-  ghostShader: {fileID: 4800000, guid: 3873d4699ee8a4b4da8fa6b8c229b94d, type: 3}
+  ghostShader: {fileID: 4800000, guid: 8336cc66622654a5185dde3e7f638d87, type: 3}
   color:
     serializedVersion: 2
     rgba: 2986207625
@@ -680,7 +680,7 @@ MonoBehaviour:
   spawnInterval: 0.03
   maximumGhosts: 11
   fadeSpeed: 10
-  ghostShader: {fileID: 4800000, guid: 3873d4699ee8a4b4da8fa6b8c229b94d, type: 3}
+  ghostShader: {fileID: 4800000, guid: 8336cc66622654a5185dde3e7f638d87, type: 3}
   color:
     serializedVersion: 2
     rgba: 2986207625
@@ -987,7 +987,7 @@ MonoBehaviour:
   spawnInterval: 0.03
   maximumGhosts: 11
   fadeSpeed: 10
-  ghostShader: {fileID: 4800000, guid: 3873d4699ee8a4b4da8fa6b8c229b94d, type: 3}
+  ghostShader: {fileID: 4800000, guid: 8336cc66622654a5185dde3e7f638d87, type: 3}
   color:
     serializedVersion: 2
     rgba: 2986207625
@@ -6836,6 +6836,7 @@ MonoBehaviour:
   dash: Dash
   stun: Hurt
   death: Death
+  knockdown: Death_New
   grabbed: Grabbed
   interact: Interact
   idleLoop: 1
@@ -7455,7 +7456,7 @@ MonoBehaviour:
   spawnInterval: 0.03
   maximumGhosts: 11
   fadeSpeed: 10
-  ghostShader: {fileID: 4800000, guid: 3873d4699ee8a4b4da8fa6b8c229b94d, type: 3}
+  ghostShader: {fileID: 4800000, guid: 8336cc66622654a5185dde3e7f638d87, type: 3}
   color:
     serializedVersion: 2
     rgba: 2986207625

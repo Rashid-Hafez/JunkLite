@@ -18,6 +18,12 @@
 - **Comfort scalars:** `FeedbackManager.ShakeIntensity` and `RumbleIntensity` (0..1, serialized) scale every shake and rumble. No settings UI drives them yet.
 - **Not verified:** nothing was run in Play Mode (no Editor was open; the two weapon assets were edited as YAML). The values are first guesses and need tuning with a pad in hand.
 
+### Dash ghost shader, Rooftop out of the build (2026-11-14)
+- Dash after-images drew as solid boxes in builds only. Spine's `SkeletonGhost` clones the skeleton material and swaps in its ghost shader, which samples `_MainTex`; Cass's materials are URP Complex Lit (`_BaseMap`), so `_MainTex` only existed as a stale editor property and was stripped in builds. `Player_Cass` / `Player_2.2` ghosts now use first-party `Assets/Game/Shaders/SkeletonGhostURP.shader` (same look, samples `_BaseMap`). Spine Examples is untouched.
+- Rooftop v3 (about 2.4 GB) is out of the build list. `MainMenuController.Start` hides ROOFTOP when `rooftopScene` can't be loaded (`TitleScreenController.SetCommandVisible` skips it in navigation and renumbers), so re-adding the scene brings the option back.
+- Gameplay HUD is back on: `New Player UI 2` has `hideGameplayHud` off again (the toggle stays for future clean-screen builds).
+- The Mac build is now about 557 MB (was 4.1 GB): Rooftop out, plus LZ4HC. The `unity` CLI build ignores the Editor's compression setting; build through `BuildPipeline.BuildPlayer` with `BuildOptions.CompressWithLz4HC` (or the Build window) to keep compression.
+
 ### Demo build pass: clean HUD, Brute intro dash, parry shove fix, Rooftop on the title (2026-11-13)
 
 - **Clean HUD:** `PlayerUI.hideGameplayHud` + `gameplayHudElements` (applied in `OnEnable`). On in `New Player UI 2.prefab` with Health, Mod Combat UI and Objective Tracker HUD: they stay bound but inactive. The I-menu, dialogue, prompts and pause still show. `StatBarUI.AnimateTo` and `HealthIcon_Damaged.TriggerHitPulse` skip coroutines while inactive. **Untick Hide Gameplay Hud on the prefab to bring the HUD back.**

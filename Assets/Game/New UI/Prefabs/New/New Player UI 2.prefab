@@ -852,7 +852,7 @@ MonoBehaviour:
   playerNameText: {fileID: 0}
   healthIconFeedback: {fileID: 8462336898480373002}
   modCombatUI: {fileID: 8615370108159043596}
-  hideGameplayHud: 1
+  hideGameplayHud: 0
   gameplayHudElements:
   - {fileID: 7183803679292135806}
   - {fileID: 3615150199312490618}
