@@ -46,6 +46,12 @@ namespace junklite
         [Tooltip("How long (real seconds) to stay in slow-motion during parry (unscaled).")]
         [SerializeField] private float parrySlowMoRealtimeDuration = 0.14f;
 
+        [Header("FOV Kick (heavy hits)")]
+        [Tooltip("Real seconds to punch in. Real time, so it shows through the hit-stop.")]
+        [SerializeField, Min(0.01f)] private float fovKickInDuration = 0.04f;
+        [Tooltip("Real seconds to ease back out.")]
+        [SerializeField, Min(0.01f)] private float fovKickOutDuration = 0.2f;
+
         // Configured once and reused when a player spawns or respawns. This keeps
         // player binding explicit without performing scene-wide camera searches.
         private readonly List<CinemachineCamera> managedCameras = new List<CinemachineCamera>();
@@ -79,6 +85,13 @@ namespace junklite
         private float defaultZoomValue;
         private bool defaultIsOrthographic;
         private Coroutine zoomCoroutine;
+
+        // One zoom owner at a time: a kick only starts while no zoom or parry effect runs,
+        // and any zoom that starts later ends the kick first (lens back to its base).
+        private Coroutine fovKickCoroutine;
+        private CinemachineCamera fovKickCamera;
+        private float fovKickBase;
+        private int parryEffectsRunning;
 
         public CinemachineCamera MainCamera => mainCamera;
         /// <summary>The camera the manager made live (top layer). Shown in the dev console.</summary>
@@ -141,6 +154,8 @@ namespace junklite
             CinemachineCore.GetBlendOverride -= OverrideBlend;
             UnsubscribeFromPlayerLifecycle();
             UnsubscribeFromPlayer();
+            EndFovKick();
+            parryEffectsRunning = 0; // Disabling stops the coroutines that would count down.
         }
 
         private void OnDestroy()
@@ -290,6 +305,7 @@ namespace junklite
         {
             if (activeCamera == null)
                 return;
+            EndFovKick();
             var lens = activeCamera.Lens;
             if (customZoomOutValue <= 0f)
                 customZoomOutValue = zoomOutValue;
@@ -305,6 +321,7 @@ namespace junklite
         {
             if (activeCamera == null)
                 return;
+            EndFovKick();
             if (defaultZoomValue <= 0f)
             {
                 var lens = activeCamera.Lens;
@@ -330,6 +347,7 @@ namespace junklite
         /// <summary>Parry zoom and slow motion; a negative value uses this camera's own setting.</summary>
         public void DoParryCameraEffect(float zoomTarget, float slowMoScale, float slowMoHoldRealtime, float slowMoStartDelayRealtime)
         {
+            EndFovKick();
             if (zoomCoroutine != null)
                 StopCoroutine(zoomCoroutine);
             StartCoroutine(CoParryEffect(
@@ -343,6 +361,10 @@ namespace junklite
         {
             if (activeCamera == null)
                 yield break;
+
+            EndFovKick();
+            // Counted so a hit landing during the parry hold can't start a kick on top of it.
+            parryEffectsRunning++;
 
             var lens = activeCamera.Lens;
             defaultIsOrthographic = lens.Orthographic;
@@ -363,6 +385,79 @@ namespace junklite
 
             if (zoomCoroutine != null) StopCoroutine(zoomCoroutine);
             zoomCoroutine = StartCoroutine(CoZoom(defaultZoomValue, parryZoomReturnDuration, true));
+            parryEffectsRunning--;
+        }
+
+        // ------------------------------------------------------------------
+        // FOV kick (heavy hits)
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Short punch-in on the live camera for a heavy hit: FOV narrows by <paramref name="degrees"/>
+        /// then eases back, in real time. Skipped while a parry or Phantom Strike zoom is moving the
+        /// lens, and on orthographic cameras.
+        /// </summary>
+        public void DoFovKick(float degrees)
+        {
+            if (degrees <= 0f || activeCamera == null || !isActiveAndEnabled)
+                return;
+            if (zoomCoroutine != null || parryEffectsRunning > 0)
+                return;
+            if (activeCamera.Lens.Orthographic)
+                return;
+
+            EndFovKick(); // A second hit restarts from the same base, so kicks never stack.
+            fovKickCamera = activeCamera;
+            fovKickBase = activeCamera.Lens.FieldOfView;
+            fovKickCoroutine = StartCoroutine(CoFovKick(degrees));
+        }
+
+        private IEnumerator CoFovKick(float degrees)
+        {
+            CinemachineCamera cam = fovKickCamera;
+            float kicked = Mathf.Max(1f, fovKickBase - degrees);
+
+            float elapsed = 0f;
+            while (elapsed < fovKickInDuration && cam != null)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                SetFieldOfView(cam, Mathf.Lerp(fovKickBase, kicked, Mathf.Clamp01(elapsed / fovKickInDuration)));
+                yield return null;
+            }
+
+            elapsed = 0f;
+            while (elapsed < fovKickOutDuration && cam != null)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / fovKickOutDuration);
+                t = 1f - (1f - t) * (1f - t); // ease out
+                SetFieldOfView(cam, Mathf.Lerp(kicked, fovKickBase, t));
+                yield return null;
+            }
+
+            fovKickCoroutine = null;
+            EndFovKick();
+        }
+
+        // Stops a running kick and puts the lens back, so the next zoom captures a clean base.
+        private void EndFovKick()
+        {
+            if (fovKickCoroutine != null)
+            {
+                StopCoroutine(fovKickCoroutine);
+                fovKickCoroutine = null;
+            }
+
+            if (fovKickCamera != null)
+                SetFieldOfView(fovKickCamera, fovKickBase);
+            fovKickCamera = null;
+        }
+
+        private static void SetFieldOfView(CinemachineCamera cam, float fieldOfView)
+        {
+            var lens = cam.Lens;
+            lens.FieldOfView = Mathf.Clamp(fieldOfView, 0.01f, 179f);
+            cam.Lens = lens;
         }
 
         private IEnumerator CoZoom(float targetValue, float duration, bool unscaled = false)
@@ -480,6 +575,8 @@ namespace junklite
 
             bool changed = top != activeCamera;
             if (!changed && !forcePrioritize) return;
+
+            if (changed) EndFovKick(); // The old camera gets its lens back before it goes idle.
 
             if (changed)
             {

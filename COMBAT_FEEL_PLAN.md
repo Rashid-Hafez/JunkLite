@@ -2,11 +2,11 @@
 
 Written 2026-11-15. Source: the 18-item combat-feel checklist (anticipation, hit stop, shake, haptics and so on) audited against the code.
 
-Phase 1 is in the working tree but **not committed and not tested in Play Mode**. Its details are in the top entry of `ARCHITECTURE_HANDOFF.md` ("Hit feel tiers, directional shake, gamepad rumble").
+Phase 1 is committed (`7aec35ef`). Phase 2 was added on 2026-11-16 and is in the working tree, not committed. **Neither has been tested in Play Mode.** Details are in the top two entries of `ARCHITECTURE_HANDOFF.md`.
 
-## Before anything else: verify Phase 1
+## Before anything else: verify Phases 1 and 2
 
-1. Open the Editor and confirm it compiles. A `dotnet build` outside Unity showed no errors in the changed files, but it also reported errors in `EnemyLaunchSettings.cs`, `LaunchedState.cs`, `MainMenuController.cs` and `PlayerUI.cs` (missing `LaunchArc` and Junklite UI types). These looked like an out-of-date `.csproj`; this was not confirmed.
+1. Open the Editor and confirm it compiles. A `dotnet build` outside Unity on 2026-11-16 passed with 0 errors.
 2. Open `Assets/Game/Scripts/Weapons/Fist (Cass).asset` and `Sword (Cass).asset`. Each combo step should show a **Hit Feel** block with values. They were edited as YAML, not through the Inspector.
 3. Play with a gamepad on Service Floor or Sandbox and check:
    - Hits 1–2 feel quick (hit-stop 0.06 s, was 0.16 s) and hit 3 feels heavy (0.16 s).
@@ -14,6 +14,8 @@ Phase 1 is in the working tree but **not committed and not tested in Play Mode**
    - Rumble fires on landed hits, on damage taken and on a successful parry, and stops when paused or when the window loses focus.
    - No rumble at all when playing on keyboard and mouse.
    - The up launch still lets her jump straight after (its 0.05 s hit-stop was left alone).
+   - Phase 2: side hit 3, the air spike and the up launch punch the camera in slightly (1–2°) and ease back. Parry a hit, and use Phantom Strike, then land a finisher straight after: the camera must return to its normal framing each time.
+   - Phase 2: the last enemy of an encounter dies in a short slow motion. Earlier waves and earlier enemies do not trigger it.
 4. Run the EditMode tests in `Assets/Game/Tests/Editor/` (`DamagePipelineTests` at least).
 5. Tune, then commit.
 
@@ -24,10 +26,11 @@ Phase 1 is in the working tree but **not committed and not tested in Play Mode**
 - **Non-Cass weapons.** `Fist.asset` and `Sword.asset` have no tiers and use the `WeaponManager` defaults. Author them only if those assets are still in use.
 - **Other shake callers.** Mods, the Brute and parry still use the old non-directional shake. Move them to `DoCameraShake(source, direction, force)` only where a direction makes sense.
 
-## Phase 2: Camera emphasis
+## Phase 2: Camera emphasis (code done 2026-11-16, needs tuning)
 
-- **FOV kick on heavy hits.** Add an `fovKick` field to `HitFeel` (degrees, 0 = none) and a short real-time pulse in `CameraManager`, reusing the parry zoom path. Use 1–2° on finishers, spikes and launches only. It must not fight the parry zoom or the Phantom Strike zoom-out: one zoom owner at a time.
-- **Kill emphasis.** A short `FeedbackManager.DoSlowMotion` (about 0.3x for 0.25 s real) on the last enemy of an encounter. Needs a "last enemy died" signal from the encounter code.
+- **FOV kick on heavy hits.** Done: `HitFeel.fovKick` and `CameraManager.DoFovKick`. Tune the degrees on the weapon assets and the in/out times on `CameraManager`.
+- **Kill emphasis.** Done: `EncounterController` slows time on the last enemy of the last wave (0.3x for 0.4 s real, set per encounter; 0 = off). The duration is longer than first planned because the killing blow's hit-stop eats into it.
+- **Not covered:** enemies outside an `EncounterController` (free-roaming ones, or a boss not in an encounter) get no kill slow motion.
 - **Skip motion blur and focus kick.** On a side-on 2.5D lane with 2D Spine characters they smear the sprites and cost URP performance for little gain.
 
 ## Phase 3: Target reactions
@@ -60,8 +63,7 @@ Phase 1 is in the working tree but **not committed and not tested in Play Mode**
 
 ## Suggested order
 
-1. Verify and commit Phase 1.
+1. Verify Phases 1 and 2 in Play Mode, tune, commit Phase 2.
 2. Phase 3 jitter and squash (code only, visible at once).
-3. Phase 2 FOV kick and kill slow-mo.
-4. Phase 5 dust.
+3. Phase 5 dust.
 5. Phase 4 with the animator and sound person, and the Phase 1 settings sliders once the options UI has room.

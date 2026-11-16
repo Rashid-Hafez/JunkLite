@@ -9,6 +9,14 @@
 >
 > After architecture changes, run `graphify update .` again so the next developer and agent get accurate answers. Details are in `GRAPHIFY_WORKFLOW.md`. The graph covers C# and `.md` files only and does not replace this document.
 
+### Camera emphasis: FOV kick and final-kill slow motion (2026-11-16)
+
+- **FOV kick:** `HitFeel.fovKick` (degrees, 0 = none; no `WeaponManager` default). `WeaponManager.PlayHitFeedback` calls `CameraManager.DoFovKick(fovKick * FeedbackManager.ShakeIntensity)`, so the shake comfort scalar covers it. The kick narrows the live camera's FOV and eases back in real time (`fovKickInDuration` 0.04 s, `fovKickOutDuration` 0.2 s on `CameraManager`), so it shows through the hit-stop.
+- **One zoom owner:** a kick does not start while `zoomCoroutine` runs or a parry effect is active (`parryEffectsRunning`). `RequestZoomOut`, `RequestZoomBackIn`, `DoParryCameraEffect` and a live-camera change all call `EndFovKick()` first, which puts the lens back on its base so the next zoom captures a clean default. A second kick restarts from the same base; kicks never stack. Orthographic cameras are skipped.
+- **Authored on `Fist (Cass)` and `Sword (Cass)`:** side hit 3 = 1.5°, air hit 3 (spike) = 2°, up launch = 1°. Everything else is 0.
+- **Final-kill slow motion:** `EncounterController.HandleEnemyDied` calls `FeedbackManager.DoSlowMotion(finalKillSlowMoScale, finalKillSlowMoDuration)` when the last living enemy of the last wave dies (defaults 0.3x for 0.4 s real; duration 0 turns it off per encounter). It runs alongside the killing blow's hit-stop, which wins while it lasts, so the visible slow motion is the duration minus that hit-stop. Existing scene encounters pick up the defaults; no scene was edited.
+- **Not verified:** compiled with `dotnet build` only (0 errors). Nothing was run in Play Mode; the weapon assets were edited as YAML with the Editor closed.
+
 ### Hit feel tiers, directional shake, gamepad rumble (2026-11-15)
 
 - **Per-step weight:** `MeleeComboStep.feel` (`HitFeel`: `hitstop`, `shakeForce`, `rumbleLow`, `rumbleHigh`, `rumbleDuration`). Any field left at 0 uses the `WeaponManager` default (`enemyHitHitstopDuration`, `enemyHitShakeForce`, `enemyHitRumble*`; the up attack keeps `upLaunchHitstop`). `WeaponAttackExecutor` passes the landed step to `WeaponManager.PlayHitFeedback(step)`, and the lunge freeze (`motion.ApplyHitstop`) uses the same step value.

@@ -19,6 +19,8 @@ namespace junklite
         [Range(0f, 1f)] public float rumbleHigh;
         [Tooltip("Rumble length in real seconds.")]
         [Min(0f)] public float rumbleDuration;
+        [Tooltip("Camera punch-in in degrees of FOV. 0 = none. Keep to 1-2 on finishers, spikes and launches.")]
+        [Min(0f)] public float fovKick;
 
         public bool HasRumble => rumbleDuration > 0f && (rumbleLow > 0f || rumbleHigh > 0f);
     }

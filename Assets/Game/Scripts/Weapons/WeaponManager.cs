@@ -781,6 +781,9 @@ namespace junklite
 
             feedback.DoHitstop(hitstop);
             feedback.DoCameraShake(impulseSource, swing, shake);
+            // The shake comfort setting scales the punch-in too.
+            if (feel.fovKick > 0f)
+                CameraManager.Instance?.DoFovKick(feel.fovKick * feedback.ShakeIntensity);
             if (feel.HasRumble)
                 feedback.DoRumble(feel.rumbleLow, feel.rumbleHigh, feel.rumbleDuration);
             else

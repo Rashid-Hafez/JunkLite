@@ -15,6 +15,12 @@ namespace junklite
         [SerializeField] private bool startOnStart;
         [SerializeField] private List<EncounterWave> waves = new();
 
+        [Header("Final Kill Emphasis")]
+        [Tooltip("Time scale when the last enemy of the last wave dies (1 = no slow motion).")]
+        [SerializeField, Range(0.05f, 1f)] private float finalKillSlowMoScale = 0.3f;
+        [Tooltip("Real seconds of slow motion. It runs alongside the killing blow's hit-stop, so the visible part is this minus that hit-stop. 0 = off for this encounter.")]
+        [SerializeField, Min(0f)] private float finalKillSlowMoDuration = 0.4f;
+
         private readonly HashSet<EnemyCharacter> livingEnemies = new();
         private readonly HashSet<EnemyCharacter> usedExistingEnemies = new();
         private readonly List<EnemyCharacter> pruneBuffer = new();
@@ -390,6 +396,14 @@ namespace junklite
                 return;
 
             enemy.Died -= HandleEnemyDied;
+
+            // Last enemy of the last wave: a short slow motion on the kill. FeedbackManager owns the time scale.
+            bool finalKill = State == EncounterState.Running &&
+                             livingEnemies.Count == 0 &&
+                             CurrentWaveIndex >= ConfiguredWaveCount - 1;
+            if (finalKill && finalKillSlowMoDuration > 0f && finalKillSlowMoScale < 1f)
+                FeedbackManager.Instance?.DoSlowMotion(finalKillSlowMoScale, finalKillSlowMoDuration);
+
             EnemyDied?.Invoke(enemy);
         }
 
