@@ -374,6 +374,7 @@ namespace junklite
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            if (eventData.button != PointerEventData.InputButton.Left) return;
             HandleSelectionConfirm();
         }
 
@@ -465,12 +466,15 @@ namespace junklite
             ClearSelection();
             OnModSelected?.Invoke(null);
 
-            if (IsEmpty || isLocked)
+            // Only the left button drags, and only one drag at a time. A right-button drag started on top of
+            // a left one used to overwrite the shared drag icon, which left the first copy on screen for good.
+            if (IsEmpty || isLocked || eventData.button != PointerEventData.InputButton.Left || draggedSlot != null)
             {
                 eventData.pointerDrag = null;
                 return;
             }
 
+            if (dragIcon != null) Destroy(dragIcon);
             draggedSlot = this;
 
             if (rootCanvas == null)
@@ -501,7 +505,7 @@ namespace junklite
 
         public void OnEndDrag(PointerEventData eventData)
         {
-            CleanupDrag();
+            if (draggedSlot == this) CleanupDrag();
         }
 
         private void UpdateDragPosition(PointerEventData eventData)

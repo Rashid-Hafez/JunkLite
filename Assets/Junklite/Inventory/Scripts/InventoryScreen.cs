@@ -19,6 +19,8 @@ namespace Junklite.Inventory
     /// Mouse: click a mod then a slot, drag between storage and slots, double-click to equip.
     /// Keyboard: arrows to move, Enter to equip, Z X C V to equip into that slot, Delete to unequip,
     /// Esc to drop a picked-up mod.
+    /// Gamepad (JunkLite, driven by UIToolkitGamepadInput): A picks up a mod and jumps to a slot, A on a
+    /// slot places it (or picks up that slot's mod to move it), X quick-equips / unequips, B drops it.
     /// </summary>
     [RequireComponent(typeof(UIDocument))]
     public class InventoryScreen : MonoBehaviour, IBackHandler
@@ -109,6 +111,7 @@ namespace Junklite.Inventory
         ModSlot? _currentSlot;
         VisualElement _lastFocused;
         bool _tutorialDone;
+        bool _gamepadPrompts;
         bool _dimmed;
         bool _reticleShown;
         int _backHandledFrame = -1;
@@ -121,6 +124,7 @@ namespace Junklite.Inventory
         Vector2 _pressPosition;
         bool _dragging;
         VisualElement _dragGhost;
+        int _dragPointer = -1;
 
         bool Ignoring => !isActiveAndEnabled || _dimmed;
 
@@ -137,6 +141,20 @@ namespace Junklite.Inventory
         public ModDefinition HighlightedMod => _currentSlot.HasValue ? inventory.GetEquipped(_currentSlot.Value) : _currentMod;
         public ModSlot? HighlightedSlot => _currentSlot;
         public string CalloutText => _calloutMessage?.text;
+        /// <summary>JunkLite: true while the player is on a gamepad, so the prompts name its buttons.</summary>
+        public bool GamepadPrompts
+        {
+            get => _gamepadPrompts;
+            set
+            {
+                if (_gamepadPrompts == value) return;
+                _gamepadPrompts = value;
+                if (_screen == null) return;
+                RenderDetail(false);
+                if (_picked == null && _calloutReset == null) ShowBaseCallout();
+            }
+        }
+
         public bool IsCasStatsOpen => _casStats != null && _casStats.ClassListContains("cas-stats--open");
 
         /// <summary>Set by the pause menu: pushes the screen back and ignores input while it's open.</summary>
@@ -181,6 +199,7 @@ namespace Junklite.Inventory
             _dimmed = false;
             inventory.Changed += Refresh;
             _picked = null;
+            CancelDrag();
 
             if (_screen != _boundScreen)
             {
@@ -230,6 +249,9 @@ namespace Junklite.Inventory
 
             _screen.RegisterCallback<PointerMoveEvent>(OnPointerMove);
             _screen.RegisterCallback<PointerUpEvent>(OnPointerUp);
+            _screen.RegisterCallback<PointerCancelEvent>(_ => CancelDrag());
+            // Any other mouse button (right, middle) abandons a press or drag instead of leaving it half done.
+            _screen.RegisterCallback<PointerDownEvent>(evt => { if (evt.button != 0) CancelDrag(); }, TrickleDown.TrickleDown);
             _screen.RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
             _screen.RegisterCallback<NavigationMoveEvent>(OnNavigationMove, TrickleDown.TrickleDown);
             _screen.RegisterCallback<NavigationSubmitEvent>(OnNavigationSubmit, TrickleDown.TrickleDown);
@@ -239,6 +261,9 @@ namespace Junklite.Inventory
         void OnDisable()
         {
             StopAllCoroutines();
+            _calloutReset = null;
+            // Closing mid-drag must not leave the dragged icon on the screen.
+            CancelDrag();
             if (inventory != null) inventory.Changed -= Refresh;
         }
 
@@ -311,10 +336,100 @@ namespace Junklite.Inventory
             if (_screen == null || Ignoring || _picked == null) return false;
 
             _backHandledFrame = Time.frameCount;
+            DropPicked();
+            return true;
+        }
+
+        void Pick(ModDefinition mod)
+        {
+            _picked = mod;
+            MarkPicked();
+            ShowCallout(false, $"{mod.DisplayName.ToUpperInvariant()} PICKED UP. CHOOSE A{(mod.Type == ModType.Active ? "N ACTIVE" : " PASSIVE")} SLOT.", false);
+        }
+
+        // Puts a picked-up mod down where it was and returns the cursor to it.
+        void DropPicked()
+        {
+            var mod = _picked;
             _picked = null;
             MarkPicked();
             ShowBaseCallout();
-            return true;
+            if (Tab == InventoryTab.Inventory) TileFor(mod)?.Focus();
+        }
+
+        // ---------- gamepad (JunkLite) ----------
+
+        /// <summary>
+        /// Puts keyboard/gamepad focus on the highlighted mod or slot. Hovering with the mouse moves the
+        /// highlight without moving focus, and a click on empty space drops focus altogether; either way the
+        /// next gamepad press must start from what the reticle shows.
+        /// </summary>
+        public void FocusCurrent()
+        {
+            if (_screen == null || Ignoring || Tab != InventoryTab.Inventory) return;
+            var focused = _screen.focusController?.focusedElement as VisualElement;
+            var current = CurrentElement();
+            if (current != null && current.focusable)
+            {
+                if (focused != current) current.Focus();
+                return;
+            }
+            if (focused != null && focused.focusable && (focused.ClassListContains("tile") || focused.ClassListContains("socket"))) return;
+            FirstTile()?.Focus();
+        }
+
+        /// <summary>
+        /// Gamepad A. On a stored mod: pick it up and jump to the slot it would go in (A again on any slot
+        /// places it). On a slot: place the picked-up mod, or pick up the slot's own mod to move it.
+        /// </summary>
+        public void GamepadPrimary()
+        {
+            if (_screen == null || Ignoring || Tab != InventoryTab.Inventory) return;
+            FocusCurrent();
+
+            if (_currentSlot.HasValue)
+            {
+                var slot = _currentSlot.Value;
+                var here = inventory.GetEquipped(slot);
+                if (_picked != null)
+                {
+                    if (here == _picked) DropPicked();
+                    else TryEquip(_picked, slot);
+                }
+                else if (inventory.IsLocked(slot))
+                {
+                    Shake(_sockets[(int)slot].Root);
+                    ShowCallout(true, "SLOT LOCKED. UNLOCK IT IN UPGRADES");
+                }
+                else if (here != null) Pick(here);
+                return;
+            }
+
+            var mod = _currentMod;
+            if (mod == null) return;
+            if (_picked == mod)
+            {
+                DropPicked();
+                return;
+            }
+
+            var target = BestSlotFor(mod);
+            if (!target.HasValue)
+            {
+                ShowCallout(true, $"NO UNLOCKED {(mod.Type == ModType.Active ? "ACTIVE" : "PASSIVE")} SLOT");
+                return;
+            }
+            Pick(mod);
+            _sockets[(int)target.Value].Root.Focus();
+        }
+
+        /// <summary>Gamepad X: a stored mod goes straight into its first free slot; a slot's mod returns to storage.</summary>
+        public void GamepadSecondary()
+        {
+            if (_screen == null || Ignoring || Tab != InventoryTab.Inventory) return;
+            FocusCurrent();
+            if (_currentSlot.HasValue) TryUnequip(_currentSlot.Value);
+            else if (_currentMod != null) QuickEquip(_currentMod);
         }
 
         IEnumerator Enter()
@@ -477,7 +592,7 @@ namespace Junklite.Inventory
                 bool slot = _currentSlot.HasValue;
                 bool passive = slot && ModInventory.SlotType(_currentSlot.Value) == ModType.Passive;
                 _detail.Q<Label>("detail-empty-title").text = !slot ? "SELECT A MOD" : passive ? "EMPTY PASSIVE SLOT" : "EMPTY ACTIVE SLOT";
-                _detail.Q<Label>("detail-empty-hint").text = !slot ? "HOVER OR USE THE ARROW KEYS" : passive ? "PASSIVE MODS GO HERE" : "ACTIVE MODS GO HERE";
+                _detail.Q<Label>("detail-empty-hint").text = !slot ? (_gamepadPrompts ? "USE THE D-PAD OR LEFT STICK" : "HOVER OR USE THE ARROW KEYS") : passive ? "PASSIVE MODS GO HERE" : "ACTIVE MODS GO HERE";
             }
             else
             {
@@ -532,6 +647,9 @@ namespace Junklite.Inventory
         void MarkPicked()
         {
             foreach (var tile in _tiles) tile.Root.EnableInClassList("tile--picked", tile.Mod != null && tile.Mod == _picked);
+            // A mod picked up out of a slot (gamepad, or a drag) reads as lifted there.
+            foreach (var view in _sockets)
+                view.Root.EnableInClassList("socket--dragging", _picked != null && inventory.GetEquipped(view.Slot) == _picked);
             MarkTargets();
         }
 
@@ -592,12 +710,13 @@ namespace Junklite.Inventory
                 return;
             }
 
-            _picked = _picked == tile.Mod ? null : tile.Mod;
-            MarkPicked();
-            if (_picked != null)
-                ShowCallout(false, $"{_picked.DisplayName.ToUpperInvariant()} PICKED UP. CHOOSE A{(_picked.Type == ModType.Active ? "N ACTIVE" : " PASSIVE")} SLOT.", false);
-            else
+            if (_picked == tile.Mod)
+            {
+                _picked = null;
+                MarkPicked();
                 ShowBaseCallout();
+            }
+            else Pick(tile.Mod);
         }
 
         void OnSocketClicked(ModSlot slot)
@@ -609,20 +728,23 @@ namespace Junklite.Inventory
 
         void QuickEquip(ModDefinition mod)
         {
+            var target = BestSlotFor(mod);
+            if (target.HasValue) TryEquip(mod, target.Value);
+            else ShowCallout(true, $"NO UNLOCKED {(mod.Type == ModType.Active ? "ACTIVE" : "PASSIVE")} SLOT");
+        }
+
+        // The first empty unlocked slot of the mod's type, else the first unlocked one. Null if all are locked.
+        ModSlot? BestSlotFor(ModDefinition mod)
+        {
             ModSlot? target = null;
             for (int i = 0; i < ModInventory.SlotCount; i++)
             {
                 var slot = (ModSlot)i;
                 if (ModInventory.SlotType(slot) != mod.Type || inventory.IsLocked(slot)) continue;
+                if (inventory.GetEquipped(slot) == null) return slot;
                 target ??= slot;
-                if (inventory.GetEquipped(slot) == null)
-                {
-                    target = slot;
-                    break;
-                }
             }
-            if (target.HasValue) TryEquip(mod, target.Value);
-            else ShowCallout(true, $"NO UNLOCKED {(mod.Type == ModType.Active ? "ACTIVE" : "PASSIVE")} SLOT");
+            return target;
         }
 
         void TryEquip(ModDefinition mod, ModSlot slot)
@@ -674,6 +796,7 @@ namespace Junklite.Inventory
                 ShowCallout(true, inventory.IsLocked(slot) ? "SLOT LOCKED" : "STORAGE IS FULL");
                 return;
             }
+            if (_picked == mod) _picked = null;
             _currentMod = null;
             _currentSlot = slot;
             Refresh();
@@ -686,7 +809,7 @@ namespace Junklite.Inventory
         {
             if (tutorialMod == null)
             {
-                ShowCallout(false, "PICK A MOD, THEN A SLOT", false);
+                ShowCallout(false, _gamepadPrompts ? "A: PICK UP A MOD, THEN A SLOT.  X: QUICK EQUIP / REMOVE" : "PICK A MOD, THEN A SLOT", false);
                 return;
             }
             if (inventory.IsEquipped(tutorialMod)) _tutorialDone = true;
@@ -944,6 +1067,13 @@ namespace Junklite.Inventory
         void OnPointerMove(PointerMoveEvent evt)
         {
             if (_pressMod == null) return;
+            // The left button is no longer down: its release never reached us (let go outside the window,
+            // or while another button was held). Drop the press rather than drag with nothing held.
+            if ((evt.pressedButtons & 1) == 0)
+            {
+                CancelDrag();
+                return;
+            }
             if (!_dragging)
             {
                 if (((Vector2)evt.position - _pressPosition).sqrMagnitude < DragThreshold * DragThreshold) return;
@@ -963,11 +1093,13 @@ namespace Junklite.Inventory
             _grid.EnableInClassList("grid--drop", _pressSlot.HasValue);
             MarkPicked();
 
+            _dragGhost?.RemoveFromHierarchy();
             _dragGhost = new VisualElement { pickingMode = PickingMode.Ignore };
             _dragGhost.AddToClassList("drag-ghost");
             _dragGhost.style.backgroundImage = _pressMod.Icon;
             _screen.Add(_dragGhost);
             _screen.CapturePointer(pointerId);
+            _dragPointer = pointerId;
         }
 
         void OnPointerUp(PointerUpEvent evt)
@@ -978,7 +1110,11 @@ namespace Junklite.Inventory
                 return;
             }
 
-            _screen.ReleasePointer(evt.pointerId);
+            if (evt.button != 0)
+            {
+                CancelDrag();
+                return;
+            }
             var mod = _pressMod;
             var from = _pressSlot;
             EndDrag();
@@ -996,12 +1132,24 @@ namespace Junklite.Inventory
             }
         }
 
+        // Abandons a press or drag without moving anything.
+        void CancelDrag()
+        {
+            bool wasDragging = _dragging;
+            EndDrag();
+            if (!wasDragging) return;
+            _picked = null;
+            if (_grid != null && inventory != null) MarkPicked();
+        }
+
         void EndDrag()
         {
             _dragging = false;
+            if (_dragPointer >= 0 && _screen?.panel != null && _screen.HasPointerCapture(_dragPointer)) _screen.ReleasePointer(_dragPointer);
+            _dragPointer = -1;
             _pressElement?.RemoveFromClassList("socket--dragging");
             _pressElement?.RemoveFromClassList("tile--dragging");
-            _grid.RemoveFromClassList("grid--drop");
+            _grid?.RemoveFromClassList("grid--drop");
             _dragGhost?.RemoveFromHierarchy();
             _dragGhost = null;
             _pressMod = null;

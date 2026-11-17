@@ -11,7 +11,9 @@ namespace junklite
     /// navigation events, which a gamepad never produces here. While the screen is live this reads the
     /// gamepad and sends the focused element the same events the keyboard does: D-pad / left stick =
     /// NavigationMoveEvent (with a hold delay and repeat, so the stick doesn't race), A = NavigationSubmitEvent.
-    /// Inventory: LB / RB = previous / next tab, B = back / close. The pause screen's B and Start are
+    /// Inventory: LB / RB = previous / next tab, B = back / close. On its mods tab A and X go to
+    /// <see cref="InventoryScreen.GamepadPrimary"/> / <see cref="InventoryScreen.GamepadSecondary"/>
+    /// (pick up and place, quick equip / unequip) instead. The pause screen's B and Start are
     /// handled by <see cref="PauseScreenBridge"/>. Keyboard and mouse are untouched.
     /// Lives on the screen's prefab next to its UIDocument.
     /// </summary>
@@ -61,6 +63,8 @@ namespace junklite
         private void Update()
         {
             Gamepad pad = Gamepad.current;
+            if (screen != null)
+                screen.GamepadPrompts = pad != null && GameInputManager.Instance != null && GameInputManager.Instance.IsUsingGamepad;
             if (pad == null || root == null || root.panel == null || !IsLive) return;
 
             if (screen != null)
@@ -72,10 +76,23 @@ namespace junklite
 
             UpdateMove(pad);
 
+            bool onMods = screen != null && screen.Tab == InventoryTab.Inventory;
             if (pad.buttonSouth.wasPressedThisFrame)
             {
-                using var submit = NavigationSubmitEvent.GetPooled();
-                Send(submit);
+                if (onMods)
+                {
+                    sentFrame = Time.frameCount;
+                    screen.GamepadPrimary();
+                }
+                else
+                {
+                    using var submit = NavigationSubmitEvent.GetPooled();
+                    Send(submit);
+                }
+            }
+            else if (onMods && pad.buttonWest.wasPressedThisFrame)
+            {
+                screen.GamepadSecondary();
             }
         }
 
@@ -114,12 +131,26 @@ namespace junklite
 
         private void Send(EventBase evt)
         {
+            // Mouse hover and clicks can leave focus off the highlighted mod, or nowhere at all, and an
+            // event sent to nothing never reaches the screen. Start from what the screen shows.
+            if (screen != null) screen.FocusCurrent();
+
             // Sent to the focused element, like the keyboard; the screens' handlers trickle down from their roots.
-            var target = root.panel.focusController.focusedElement as VisualElement ?? root;
+            var target = root.panel.focusController.focusedElement as VisualElement ?? FirstFocusable() ?? root;
             sending = true;
             sentFrame = Time.frameCount;
             target.SendEvent(evt);
             sending = false;
+        }
+
+        // Upgrades tab with nothing focused (after a mouse click on empty space): start on its first card
+        // so the pad is never left with nowhere to go.
+        private VisualElement FirstFocusable()
+        {
+            if (screen == null || screen.Tab != InventoryTab.Upgrades || screen.UpgradesRoot == null) return null;
+            VisualElement first = screen.UpgradesRoot.Q(className: "upgrade-node");
+            first?.Focus();
+            return first;
         }
 
         private void DropDuplicate(EventBase evt)

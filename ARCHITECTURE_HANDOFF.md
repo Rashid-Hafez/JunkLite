@@ -9,6 +9,15 @@
 >
 > After architecture changes, run `graphify update .` again so the next developer and agent get accurate answers. Details are in `GRAPHIFY_WORKFLOW.md`. The graph covers C# and `.md` files only and does not replace this document.
 
+### Controller pass: inventory pick-and-place, mod slots 3/4, drag icon leak (2026-11-17)
+
+- **Inventory on a pad (`InventoryScreen`, package edit, keep when re-importing):** on the mods tab `UIToolkitGamepadInput` no longer sends A as a submit. A calls `GamepadPrimary` (stored mod: pick up and jump to its best slot; slot: place the picked-up mod, or pick up the slot's own mod to move it; A on the picked-up mod drops it), X calls `GamepadSecondary` (stored mod: quick equip; slot: unequip). B still goes through `HandleBack`, which now returns focus to the dropped mod. Keyboard Enter is unchanged (quick equip).
+- **Focus:** `InventoryScreen.FocusCurrent` moves focus onto the highlighted mod/slot before every pad press. Mouse hover moved the highlight without focus, and a click on empty space cleared focus, after which pad events went to the document root and never reached the screen.
+- **Prompts:** `InventoryScreen.GamepadPrompts` (set from `GameInputManager.IsUsingGamepad`) swaps the base callout and the empty-detail hint to pad wording. No new elements.
+- **Bindings (`InputSystem_Actions.inputactions` and the wrapper `.cs`, edited together):** D-pad left/right moved from the unused `Previous`/`Next` to `ModActivate3`/`ModActivate4` (they had no pad binding). The gamepad A binding on `UI/Click` is removed: the UI module routed it into the mouse pointer, so A also clicked whatever the cursor was over. uGUI still gets A through `UI/Submit`.
+- **Drag icon leak:** legacy `ModSlotUI` let a right-button drag start on top of a left one and overwrite the shared static `dragIcon`, orphaning the first copy. Only the left button drags or clicks now, one drag at a time. `InventoryScreen` drags are cancelled by any other mouse button, a lost left release (`pressedButtons`), `PointerCancelEvent`, and disable.
+- **Not run:** Play Mode with a pad, and the package's EditMode tests (the Editor was not reachable from the agent).
+
 ### Pause QUIT TO TITLE left the UI action map on (2026-11-17)
 - Symptom: after Pause → QUIT TO TITLE and starting a level again, dialogue could be clicked (E/LB are also bound in the UI map) but she couldn't move once it ended. Found with a temporary Player.log trace: `move=False ui=True` from the pause onward.
 - Cause: `PauseMenu` (Junklite package) calls `SetClosed()` before raising QUIT TO TITLE, so `PauseScreenBridge.Close` saw `!menu.IsOpen` and returned before `SwitchToPlayerActionMap`. `GameInputManager` is persistent, so the UI map carried into every later scene.
