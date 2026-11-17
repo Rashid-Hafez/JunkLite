@@ -20,6 +20,10 @@ namespace junklite
         private GameManager subscribedGame;
         private GameInputManager subscribedInput;
         private int openedFrame = -1;
+        // True while this screen holds the UI action map, so Close always hands the Player map back.
+        // QUIT TO TITLE marks the package menu closed before it raises the command, so menu.IsOpen
+        // can't be used for that: it left the UI map on into the next level (no movement).
+        private bool ownsUIMap;
 
         private void Awake() => menu = GetComponent<PauseMenu>();
 
@@ -70,6 +74,7 @@ namespace junklite
             openedFrame = Time.frameCount;
             menu.Open();
             GameInputManager.Instance?.SwitchToUIActionMap();
+            ownsUIMap = true;
             BindInput(true);
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
@@ -78,8 +83,9 @@ namespace junklite
         private void Close()
         {
             BindInput(false);
-            if (!menu.IsOpen) return;
-            menu.Close();
+            if (menu.IsOpen) menu.Close();
+            if (!ownsUIMap) return;
+            ownsUIMap = false;
             GameInputManager.Instance?.SwitchToPlayerActionMap();
         }
 

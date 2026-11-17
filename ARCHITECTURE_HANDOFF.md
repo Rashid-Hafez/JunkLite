@@ -9,6 +9,12 @@
 >
 > After architecture changes, run `graphify update .` again so the next developer and agent get accurate answers. Details are in `GRAPHIFY_WORKFLOW.md`. The graph covers C# and `.md` files only and does not replace this document.
 
+### Pause QUIT TO TITLE left the UI action map on (2026-11-17)
+- Symptom: after Pause → QUIT TO TITLE and starting a level again, dialogue could be clicked (E/LB are also bound in the UI map) but she couldn't move once it ended. Found with a temporary Player.log trace: `move=False ui=True` from the pause onward.
+- Cause: `PauseMenu` (Junklite package) calls `SetClosed()` before raising QUIT TO TITLE, so `PauseScreenBridge.Close` saw `!menu.IsOpen` and returned before `SwitchToPlayerActionMap`. `GameInputManager` is persistent, so the UI map carried into every later scene.
+- Fix: `PauseScreenBridge` tracks `ownsUIMap` and always hands the Player map back on close. Safety net: `GameManager.InitializeForNewScene` calls `SwitchToPlayerActionMap()` on every level load. Verified in Play Mode (pause → quit to title mid-dialogue → Service Floor → dialogue → moves).
+- Leftover, not changed: Service Floor's Game Root instance has a Timeline `SignalReceiver` calling `SetGameplayInputEnabled` on the scene's own `GameInputManager`, which is the removed duplicate whenever the Menu's root exists.
+
 ### Camera emphasis: FOV kick and final-kill slow motion (2026-11-16)
 
 - **FOV kick:** `HitFeel.fovKick` (degrees, 0 = none; no `WeaponManager` default). `WeaponManager.PlayHitFeedback` calls `CameraManager.DoFovKick(fovKick * FeedbackManager.ShakeIntensity)`, so the shake comfort scalar covers it. The kick narrows the live camera's FOV and eases back in real time (`fovKickInDuration` 0.04 s, `fovKickOutDuration` 0.2 s on `CameraManager`), so it shows through the hit-stop.

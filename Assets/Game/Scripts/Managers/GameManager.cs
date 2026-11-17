@@ -364,8 +364,14 @@ namespace junklite
         {
             isLoadingScene = false;
 
-            // Re-enable gameplay input now that the scene is ready.
-            GameInputManager.Instance?.SetGameplayInputEnabled(true);
+            // Re-enable gameplay input now that the scene is ready. A level always starts on the Player
+            // map: a menu that closed without handing it back (pause, results) must not carry over.
+            GameInputManager input = GameInputManager.Instance; // Unity null check: may be a destroyed root
+            if (input != null)
+            {
+                input.SetGameplayInputEnabled(true);
+                input.SwitchToPlayerActionMap();
+            }
 
             RebindPauseInputSubscription();
 

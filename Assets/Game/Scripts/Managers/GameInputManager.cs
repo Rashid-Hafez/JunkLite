@@ -150,6 +150,7 @@ namespace junklite
 
         public void SwitchToUIActionMap()
         {
+            if (controls == null) return;
             controls.Player.Disable();
             // Keep inventory toggle available while UI map is active
             // so keyboard I / controller Select-Touchpad can close inventory.
@@ -167,6 +168,7 @@ namespace junklite
         /// </summary>
         public void SwitchToPlayerActionMap()
         {
+            if (controls == null) return;
             controls.UI.Disable();
             controls.Player.Enable();
         }
