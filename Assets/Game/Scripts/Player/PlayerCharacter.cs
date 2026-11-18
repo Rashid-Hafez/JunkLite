@@ -439,10 +439,12 @@ namespace junklite
             HandleInput();
             UpdateBufferedAttackCancels();
 
-            //Temp Debug keys 
+#if UNITY_EDITOR
+            // Dev test keys, Editor only: H heal, T hurt, Y instant death.
             if (Keyboard.current?.hKey.wasPressedThisFrame == true) Heal(20f);
             if (Keyboard.current?.tKey.wasPressedThisFrame == true) ReceiveDamage(new DamageRequest(15f));
             if (Keyboard.current?.yKey.wasPressedThisFrame == true) InstantDeath();
+#endif
         }
 
         void FixedUpdate()

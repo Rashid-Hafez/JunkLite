@@ -21,11 +21,12 @@ namespace Junklite.TitleScreen
         const string PowerCollapseClass = "title-screen--power-collapse";
         const string PowerOutClass = "title-screen--power-out";
 
-        static readonly string[] ButtonNames = { "menu-resume", "menu-begin", "menu-rooftop", "menu-calibrate", "menu-terminate" };
+        static readonly string[] ButtonNames = { "menu-resume", "menu-begin", "menu-rooftop", "menu-training", "menu-calibrate", "menu-terminate" };
 
         [SerializeField] UnityEvent onResume = new UnityEvent();
         [SerializeField] UnityEvent onBegin = new UnityEvent();
         [SerializeField] UnityEvent onRooftop = new UnityEvent();
+        [SerializeField] UnityEvent onTraining = new UnityEvent();
         [SerializeField] UnityEvent onCalibrate = new UnityEvent();
         [SerializeField] UnityEvent onTerminate = new UnityEvent();
 
@@ -247,6 +248,7 @@ namespace Junklite.TitleScreen
                 case TitleCommand.Resume: onResume?.Invoke(); break;
                 case TitleCommand.Begin: onBegin?.Invoke(); break;
                 case TitleCommand.Rooftop: onRooftop?.Invoke(); break;
+                case TitleCommand.Training: onTraining?.Invoke(); break;
                 case TitleCommand.Calibrate: onCalibrate?.Invoke(); break;
                 case TitleCommand.Terminate: onTerminate?.Invoke(); break;
             }

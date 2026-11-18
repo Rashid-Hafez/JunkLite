@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Cinemachine;
 using UnityEngine;
 
 namespace junklite
@@ -31,6 +32,9 @@ namespace junklite
         private readonly List<CameraOccluder> animating = new List<CameraOccluder>();
 
         private Camera viewCamera;
+        private CinemachineBrain brain;
+        private ICinemachineCamera lastLiveCamera;
+        private bool liveCameraSkipsOcclusion;
         private bool occlusionCullingSuspended;
         private bool occlusionCullingDefault;
         private Transform target;
@@ -47,6 +51,7 @@ namespace junklite
         {
             hits = new RaycastHit[maxHits];
             viewCamera = GetComponent<Camera>();
+            brain = GetComponent<CinemachineBrain>();
             if (viewCamera != null) occlusionCullingDefault = viewCamera.useOcclusionCulling;
         }
 
@@ -82,7 +87,21 @@ namespace junklite
                     animating.RemoveAt(i);
             }
 
-            SuspendOcclusionCulling(occluding.Count > 0 || animating.Count > 0);
+            SuspendOcclusionCulling(occluding.Count > 0 || animating.Count > 0 || LiveCameraSkipsOcclusion());
+        }
+
+        // A live camera marked NoOcclusionCullingCamera sits outside the baked data, where culling is wrong.
+        private bool LiveCameraSkipsOcclusion()
+        {
+            if (brain == null) return false;
+            ICinemachineCamera live = brain.ActiveVirtualCamera;
+            if (live != lastLiveCamera)
+            {
+                lastLiveCamera = live;
+                liveCameraSkipsOcclusion = live is Component component && component != null &&
+                                           component.TryGetComponent(out NoOcclusionCullingCamera _);
+            }
+            return liveCameraSkipsOcclusion;
         }
 
         // Baked occlusion culling still treats hidden walls as solid and would cull the player and the

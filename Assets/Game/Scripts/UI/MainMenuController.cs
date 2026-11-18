@@ -86,6 +86,7 @@ namespace junklite
                 case TitleCommand.Begin: OnPlay(); break;
                 case TitleCommand.Resume: OnContinue(); break;
                 case TitleCommand.Rooftop: OnRooftop(); break;
+                case TitleCommand.Training: OnTraining(); break;
                 case TitleCommand.Terminate: OnQuit(); break;
                 // Calibrate (settings) has no screen yet; the title plays its press feedback only.
             }
@@ -104,6 +105,9 @@ namespace junklite
         public void OnRooftop() => Load(rooftopScene);
         public void OnServiceFloor() => Load(serviceFloorScene);
         public void OnSandbox() => Load(sandboxScene);
+
+        /// <summary>Practice mode: loads the SANDBOX level with the current profile (no reset).</summary>
+        public void OnTraining() => Load(sandboxScene);
 
         public void OnQuit()
         {
