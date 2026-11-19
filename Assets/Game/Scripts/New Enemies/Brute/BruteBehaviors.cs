@@ -17,7 +17,7 @@ namespace junklite
 
         [Header("Timing")]
         [Tooltip("Warning sign time before the grab reaches out (dodge window).")]
-        [SerializeField] private float warningTime = 0.4f;
+        [SerializeField] private float warningTime = 0.8f;
         [Tooltip("How long the grab hitbox is live once the reach starts.")]
         [SerializeField] private float reachActiveTime = 0.3f;
         [Tooltip("Step toward the player during the reach, so a backing-off player is still caught. 0 = reach in place.")]
@@ -48,8 +48,8 @@ namespace junklite
         [SerializeField] private float throwDamage = 20f;
 
         [Header("Grab On Touch")]
-        [Tooltip("Touching his body while he is idle or walking grabs her at once (no warning). A dash or roll still passes through.")]
-        [SerializeField] private bool grabOnTouch = true;
+        [Tooltip("Off on the Brute Boss: every grab must show the warning. On = touching his body while he is idle or walking grabs her at once (no warning). A dash or roll still passes through.")]
+        [SerializeField] private bool grabOnTouch = false;
         [Tooltip("Seconds after any grab ends before a touch can grab again. The normal grab keeps its own cooldown.")]
         [SerializeField, Min(0f)] private float touchCooldown = 1.5f;
         [Tooltip("How deep (metres) the bodies must overlap before a touch counts.")]

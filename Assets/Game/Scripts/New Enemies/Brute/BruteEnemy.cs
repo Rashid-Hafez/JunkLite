@@ -26,13 +26,18 @@ namespace junklite
         [Header("Brute - Parried Dash")]
         [Tooltip("Stun duration when the player parries the charged dash (the big punish window).")]
         [SerializeField] private float parriedDashStunDuration = 2.5f;
-        [Tooltip("Push applied when the dash is parried (normal parries use the ParryHandler values).")]
-        [SerializeField] private float parriedDashPushForce = 28f;
-        [SerializeField] private float parriedDashPushDuration = 0.6f;
+        [Tooltip("Metres he slides back the way he came when the dash is parried (normal parries use the ParryHandler values).")]
+        [SerializeField, Min(0f)] private float parriedDashSlideDistance = 6f;
+        [Tooltip("Seconds the parried slide takes (fast start, easing to a stop).")]
+        [SerializeField, Min(0.05f)] private float parriedDashPushDuration = 0.6f;
         [SerializeField] private float parriedDashHitstop = 0.12f;
         [SerializeField] private float parriedDashShakeForce = 1.2f;
         [Tooltip("Dust/scrape particles at his feet, played while he slides back.")]
         [SerializeField] private ParticleSystem[] parrySlideParticles;
+        [Tooltip("Slide particles emit this many times their authored rate while he slides.")]
+        [SerializeField, Min(1f)] private float parrySlideEmissionMultiplier = 2.5f;
+        [Tooltip("Particles each slide system throws out at once when the parry lands.")]
+        [SerializeField, Min(0)] private int parrySlideBurst = 20;
 
         [Header("Brute - Knockdown")]
         [Tooltip("Damage he takes outside a knockdown that knocks him down. 0 = never. Blocked hits and damage-over-time ticks don't count.")]
@@ -168,7 +173,7 @@ namespace junklite
             if (parriedDashBackDirection != Vector3.zero)
                 direction = parriedDashBackDirection;
 
-            base.ApplyParryPush(direction, parriedDashPushForce, 0f, parriedDashPushDuration);
+            movement?.SlideOverTime(direction, parriedDashSlideDistance, parriedDashPushDuration);
             FeedbackManager.Instance?.DoHitstop(parriedDashHitstop);
             FeedbackManager.Instance?.DoCameraShake(parriedDashShakeForce);
             if (slideRoutine != null)
@@ -177,20 +182,48 @@ namespace junklite
         }
 
         private Coroutine slideRoutine;
+        private float[] slideBaseRates;
 
         private IEnumerator PlaySlideParticles(float duration)
         {
             if (parrySlideParticles == null)
                 yield break;
 
+            SetSlideEmission(true);
             foreach (var ps in parrySlideParticles)
-                if (ps != null) ps.Play();
+            {
+                if (ps == null) continue;
+                ps.Play();
+                if (parrySlideBurst > 0) ps.Emit(parrySlideBurst);
+            }
 
             yield return new WaitForSeconds(duration);
 
             foreach (var ps in parrySlideParticles)
                 if (ps != null) ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            SetSlideEmission(false);
             slideRoutine = null;
+        }
+
+        // Scales the authored emission rate during the slide; the asset's value is restored after.
+        private void SetSlideEmission(bool boosted)
+        {
+            if (parrySlideParticles == null)
+                return;
+
+            if (slideBaseRates == null || slideBaseRates.Length != parrySlideParticles.Length)
+            {
+                slideBaseRates = new float[parrySlideParticles.Length];
+                for (int i = 0; i < parrySlideParticles.Length; i++)
+                    slideBaseRates[i] = parrySlideParticles[i] != null ? parrySlideParticles[i].emission.rateOverTimeMultiplier : 0f;
+            }
+
+            for (int i = 0; i < parrySlideParticles.Length; i++)
+            {
+                if (parrySlideParticles[i] == null) continue;
+                ParticleSystem.EmissionModule emission = parrySlideParticles[i].emission;
+                emission.rateOverTimeMultiplier = slideBaseRates[i] * (boosted ? parrySlideEmissionMultiplier : 1f);
+            }
         }
 
         private void PlayArmorBlockFeedback(DamageRequest request)
@@ -243,6 +276,13 @@ namespace junklite
             if (StateMachine != null)
                 StateMachine.OnStateChanged -= HandleStateChanged;
             knockedDown = false;
+
+            if (slideRoutine != null)
+            {
+                StopCoroutine(slideRoutine);
+                slideRoutine = null;
+                SetSlideEmission(false);
+            }
 
             if (armorShakeRoutine != null)
             {

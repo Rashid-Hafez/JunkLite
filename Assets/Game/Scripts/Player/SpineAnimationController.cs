@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Spine;
 using Spine.Unity;
+using DG.Tweening;
 
 namespace junklite
 {
@@ -136,6 +137,17 @@ namespace junklite
         [SerializeField, Min(0f)] private float attackHoldDuration = 0.12f;
         [Tooltip("Attack clip speed multiplier from its 'Release' Spine event to the end of the clip.")]
         [SerializeField, Range(0.1f, 3f)] private float attackReleaseSpeed = 1.35f;
+
+        [Header("Wind-up Squash & Stretch")]
+        [Tooltip("Squash the rig while an attack pauses (Hold) and stretch it on release. Scales from the rig's pivot (feet).")]
+        [SerializeField] private bool windupSquash = true;
+        [Tooltip("Rig scale (x wide, y tall) while the attack is held.")]
+        [SerializeField] private Vector2 holdSquashScale = new Vector2(1.08f, 0.92f);
+        [Tooltip("Rig scale the release snaps to before settling back to normal.")]
+        [SerializeField] private Vector2 releaseStretchScale = new Vector2(0.93f, 1.08f);
+        [SerializeField, Min(0f)] private float holdSquashTime = 0.06f;
+        [SerializeField, Min(0f)] private float releaseStretchTime = 0.05f;
+        [SerializeField, Min(0f)] private float stretchSettleTime = 0.12f;
 
         [Header("Force Override (e.g. GroundPound)")]
         [Tooltip("When grounded, wait this long after the override animation ends before returning to idle/run")]
@@ -343,7 +355,7 @@ namespace junklite
 
             SyncSkeletonToFacing();
 
-            if (playerState.IsWallSliding && playerState.IsAlive && !playerState.IsStunned)
+            if (playerState.IsWallSliding && !playerState.IsGrounded && playerState.IsAlive && !playerState.IsStunned)
             {
                 PlayWallSlide();
                 return;
@@ -357,6 +369,7 @@ namespace junklite
 
         private void LateUpdate()
         {
+            ApplySquash();
             if (skeletonAnimation == null || skeletonAnimation.transform == transform) return;
             bool wallPose = playerState != null && playerState.IsAlive && !playerState.IsStunned &&
                            playerState.IsWallSliding;
@@ -371,7 +384,76 @@ namespace junklite
         {
             if (skeletonAnimation != null) skeletonAnimation.transform.localPosition -= appliedWallPoseOffset;
             appliedWallPoseOffset = Vector3.zero;
+            ResetSquash();
         }
+
+        #region Wind-up Squash & Stretch
+
+        private Vector2 squashScale = Vector2.one;
+        private Vector2 appliedSquash = Vector2.one;
+        private Transform squashedTransform;
+        private Tween squashTween;
+
+        private void PlaySquash(Vector2 target, float time, bool settle)
+        {
+            if (!windupSquash) return;
+            squashTween?.Kill();
+            DG.Tweening.Sequence seq = DOTween.Sequence();
+            seq.Append(DOTween.To(() => squashScale, v => squashScale = v, target, time).SetEase(Ease.OutQuad));
+            if (settle)
+                seq.Append(DOTween.To(() => squashScale, v => squashScale = v, Vector2.one, stretchSettleTime).SetEase(Ease.OutBack));
+            squashTween = seq.SetLink(gameObject);
+        }
+
+        // Interrupted mid-hold (hurt, dash, death): ease back instead of staying squashed.
+        private void SettleSquashIfIdle()
+        {
+            if (squashScale == Vector2.one || attackHoldRemaining > 0f) return;
+            if (squashTween != null && squashTween.IsActive() && squashTween.IsPlaying()) return;
+            PlaySquash(Vector2.one, stretchSettleTime, false);
+        }
+
+        // Scales the shown rig by the squash, as a delta so facing flips and other scale owners are kept.
+        // A rig on this root would also scale the collider, so it is skipped.
+        private void ApplySquash()
+        {
+            Transform t = skeletonAnimation != null && skeletonAnimation.transform != transform ? skeletonAnimation.transform : null;
+            if (squashedTransform != t)
+            {
+                UnapplySquash();
+                squashedTransform = t;
+            }
+            if (t == null) return;
+
+            Vector3 scale = t.localScale;
+            scale.x = scale.x / appliedSquash.x * squashScale.x;
+            scale.y = scale.y / appliedSquash.y * squashScale.y;
+            t.localScale = scale;
+            appliedSquash = squashScale;
+        }
+
+        private void UnapplySquash()
+        {
+            if (squashedTransform != null)
+            {
+                Vector3 scale = squashedTransform.localScale;
+                scale.x /= appliedSquash.x;
+                scale.y /= appliedSquash.y;
+                squashedTransform.localScale = scale;
+            }
+            appliedSquash = Vector2.one;
+        }
+
+        private void ResetSquash()
+        {
+            squashTween?.Kill();
+            squashTween = null;
+            squashScale = Vector2.one;
+            UnapplySquash();
+            squashedTransform = null;
+        }
+
+        #endregion
 
         private void OnDestroy()
         {
@@ -624,7 +706,8 @@ namespace junklite
             attackBaseTimeScale = timeScale;
             currentAttackEntry = entry;
             releaseFastAfterHold = false;
-            timedHoldAt = attackHoldAtOverride >= 0f && WindupAppliesTo(animationName) && !HasHoldEvents(animationName)
+            timedHoldAt = attackHoldAtOverride >= 0f && WindupAppliesTo(animationName) &&
+                          (windupIgnoresClipEvents || !HasHoldEvents(animationName))
                 ? attackHoldAtOverride : -1f;
         }
 
@@ -952,17 +1035,25 @@ namespace junklite
         // Clip seconds of a timed wind-up pause on the current swing (clips with no Hold event); negative = none.
         private float timedHoldAt = -1f;
         private bool releaseFastAfterHold;
+        private float attackReleaseOverride;
+        // The step's wind-up replaces the clip's own Hold/Release events (pauses at windupAt instead).
+        private bool windupIgnoresClipEvents;
+        private float ReleaseSpeed => attackReleaseOverride > 0f ? attackReleaseOverride : attackReleaseSpeed;
         private float BaseAttackHold => attackHoldOverride > 0f ? attackHoldOverride : attackHoldDuration;
         private float ScaledAttackHold => BaseAttackHold / (weaponManager != null ? weaponManager.AttackSpeedMultiplier : 1f);
 
         /// <summary>
         /// Wind-up for the swing about to start (a combo step's windupHold / windupAt). Hold 0 = attackHoldDuration
-        /// at the clip's own Hold event. With a hold, a clip without Hold events pauses at <paramref name="holdAt"/>.
+        /// at the clip's own Hold event. With a hold, a clip without Hold events pauses at <paramref name="holdAt"/>
+        /// (any clip when <paramref name="ignoreClipEvents"/>). <paramref name="releaseSpeed"/> 0 = attackReleaseSpeed, 1 = normal.
         /// </summary>
-        public void SetAttackWindup(float holdSeconds, float holdAt, string clip = null)
+        public void SetAttackWindup(float holdSeconds, float holdAt, string clip = null, float releaseSpeed = 0f,
+            bool ignoreClipEvents = false)
         {
             attackHoldOverride = Mathf.Max(0f, holdSeconds);
             attackHoldAtOverride = attackHoldOverride > 0f ? Mathf.Max(0f, holdAt) : -1f;
+            attackReleaseOverride = Mathf.Max(0f, releaseSpeed);
+            windupIgnoresClipEvents = ignoreClipEvents && attackHoldAtOverride >= 0f;
             windupClip = clip;
         }
 
@@ -1001,7 +1092,7 @@ namespace junklite
                 return delay;
 
             return AttackHoldTiming.WarpDelay(delay, ResolveAttackTimeScale(), holdAt, releaseAt,
-                ScaledAttackHold, attackReleaseSpeed);
+                ScaledAttackHold, ReleaseSpeed);
         }
 
         // Clip seconds of the clip's Hold and Release events; negative when absent.
@@ -1013,6 +1104,12 @@ namespace junklite
                 ? rig.Skeleton?.Data?.FindAnimation(animationName)
                 : null;
             if (clip == null) return false;
+
+            if (windupIgnoresClipEvents && WindupAppliesTo(animationName))
+            {
+                holdAt = releaseAt = Mathf.Min(attackHoldAtOverride, clip.Duration);
+                return true;
+            }
 
             Timeline[] timelines = clip.Timelines.Items;
             for (int i = 0; i < clip.Timelines.Count; i++)
@@ -1039,9 +1136,12 @@ namespace junklite
         private bool HasHoldEvents(string animationName)
         {
             float saved = attackHoldAtOverride;
+            bool savedIgnore = windupIgnoresClipEvents;
             attackHoldAtOverride = -1f;
+            windupIgnoresClipEvents = false;
             bool has = TryGetAttackHoldMarks(animationName, out _, out _);
             attackHoldAtOverride = saved;
+            windupIgnoresClipEvents = savedIgnore;
             return has;
         }
 
@@ -1051,14 +1151,17 @@ namespace junklite
 
             entry.TimeScale = 0f;
             attackHoldRemaining = ScaledAttackHold;
+            PlaySquash(holdSquashScale, holdSquashTime, false);
         }
 
         private void ReleaseAttackHold(TrackEntry entry)
         {
             if (entry != currentAttackEntry) return;
 
+            bool wasHeld = attackHoldRemaining > 0f;
             attackHoldRemaining = 0f;
-            entry.TimeScale = attackBaseTimeScale * attackReleaseSpeed;
+            entry.TimeScale = attackBaseTimeScale * ReleaseSpeed;
+            if (wasHeld) PlaySquash(releaseStretchScale, releaseStretchTime, true);
         }
 
         // Gameplay delta: hit-stop and slow motion stretch the pause exactly as they stretch the clip.
@@ -1072,11 +1175,18 @@ namespace junklite
                 BeginAttackHold(currentAttackEntry);
             }
 
-            if (attackHoldRemaining <= 0f) return;
+            if (attackHoldRemaining <= 0f)
+            {
+                SettleSquashIfIdle();
+                return;
+            }
 
             attackHoldRemaining -= Time.deltaTime;
             if (attackHoldRemaining <= 0f && currentAttackEntry != null)
-                currentAttackEntry.TimeScale = attackBaseTimeScale * (releaseFastAfterHold ? attackReleaseSpeed : 1f);
+            {
+                currentAttackEntry.TimeScale = attackBaseTimeScale * (releaseFastAfterHold ? ReleaseSpeed : 1f);
+                PlaySquash(releaseStretchScale, releaseStretchTime, true);
+            }
         }
 
         #endregion
@@ -1515,7 +1625,7 @@ namespace junklite
         private void PlayLocomotion(string animName, bool loop)
         {
             if (IsDead && animName != death) return;
-            if (playerState.IsWallSliding && playerState.IsAlive && !playerState.IsStunned)
+            if (playerState.IsWallSliding && !playerState.IsGrounded && playerState.IsAlive && !playerState.IsStunned)
             {
                 PlayWallSlide();
                 return;
@@ -1548,7 +1658,7 @@ namespace junklite
         private void PlayJumpAir()
         {
             if (IsDead) return;
-            if (playerState.IsWallSliding && playerState.IsAlive && !playerState.IsStunned)
+            if (playerState.IsWallSliding && !playerState.IsGrounded && playerState.IsAlive && !playerState.IsStunned)
             {
                 PlayWallSlide();
                 return;
@@ -1678,9 +1788,11 @@ namespace junklite
             // Grounded but still in an air pose (e.g. the landing event was missed): fix it.
             // This used to sit behind IsPlayingTransientAnim(), which lists these same clips,
             // so it never ran and a held Jump Air / Wall Slide frame stuck after landing.
-            // Jump Start is left alone: it plays on the ground for the take-off frame.
+            // Jump Start counts too once the take-off is over (not jumping, not rising): a jump that never
+            // left the ground (into a wall, cut by a lock) otherwise froze on its last frame.
             if (playerState.IsGrounded && !playerState.IsJumping &&
-                (current == jumpAir || current == doubleJump || current == wallSlide))
+                (current == jumpAir || current == doubleJump || current == wallSlide ||
+                 (current == jumpStart && (controller == null || controller.Velocity.y <= 0.1f))))
             {
                 float speed = GetSpeed();
                 PlayLocomotion(speed > speedThreshold ? run : idle, true);
@@ -2034,6 +2146,10 @@ namespace junklite
             if (e != null && e.Data != null)
             {
                 string eventName = e.Data.Name;
+                // A step wind-up that replaces the clip's events owns the pause (UpdateAttackHold).
+                if (windupIgnoresClipEvents && trackEntry == currentAttackEntry &&
+                    (eventName == AttackHoldEvent || eventName == AttackReleaseEvent))
+                    return;
                 if (eventName == AttackHoldEvent)
                 {
                     BeginAttackHold(trackEntry);

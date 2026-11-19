@@ -26,7 +26,7 @@ Plays the player's Spine animations. It only plays animations: it reads movement
 2. `UpdateGrabbedPose`: the grabbed loop owns the pose while she is held.
 3. `SyncSkeletonToFacing`: on a left/right player, swap skeletons when facing changes.
 4. Wall attach/slide owns the pose while attached.
-5. `ApplyAnyStateFallbacks`: end a one-shot Hurt, fix a stuck air pose after landing, and force Jump Air while falling.
+5. `ApplyAnyStateFallbacks`: end a one-shot Hurt, fix a stuck air pose after landing (Jump Start, Jump Air, Double Jump or Wall Slide while grounded, not jumping and not rising), and force Jump Air while falling. The wall-slide pose only owns the skeleton while airborne.
 6. `UpdateLocomotionFromSpeed`: pick Idle, Run or Run Stop from input and speed (see below).
 7. `UpdateRunSpeed`: Run time scale = `clamp(speed / MoveSpeed, minRunTimeScale, maxRunTimeScale) * runTimeScale`.
 
@@ -54,7 +54,7 @@ Run --(flip, guard passes)--> part of Run Stop --(blend)--> Run
 
 - **Hurt (`stun` clip):** plays on every applied non-periodic hit (`PlayerCharacter.OnHurt`), never for a blocked, parried or invulnerable one. A stun holds it until the stun ends; otherwise it is a one-shot and locomotion returns when it completes. The stun that follows a hit finds it already current, so it doesn't restart. If an attack, dash, wall slide or override owns track 0, Hurt shows on the overlay and clears itself, so the swing's gameplay continues.
 - **Grabbed (`grabbed`):** loops while `PlayerCharacter.IsHeldByGrabber`. The check is polled, so a throw, an escape, a cancelled grab or death all end it. A throw's flight goes back to the stun pose. A rig without the clip keeps the stun pose.
-- **Interact (`interact`):** plays once on `GameInputManager.OnInteractionPerformed` (the press had a prompt to act on) when she is grounded, standing still and not attacking, then Idle. Moving cancels it into Run.
+- **Interact (`interact`):** plays once on `GameInputManager.OnInteractionPerformed` (never raised unless `PlayerCharacter.CanInteract`) (the press had a prompt to act on) when she is grounded, standing still and not attacking, then Idle. Moving cancels it into Run.
 - **Dash (`dash`):** the clip (0.47 s) is longer than the dash (`dashDuration`), so only its held pose shows. `dashExitBlend` eases out of it. Touching the ground mid-dash doesn't replace it.
 - The side rigs have clips the front/back rigs lack. `ShowSideRigIfMissing` moves her to the side view before such a clip plays.
 
@@ -74,6 +74,7 @@ The new Cass has two rigs, `Cass_R` (shown facing right) and `Cass_L` (shown fac
 - Time scale: `fistAttackTimeScale` (no weapons), `weaponAttackTimeScale` (upgraded arm weapon), `downAttackTimeScale` (down attack).
 - **Blending:** `attackMix` from idle/run, `attackToAttackBlend` from one swing into the next (also while the last swing is still mixing out), `attackMixOut` back to idle/run.
 - **`Hold` and `Release` Spine events:** on the current attack entry only. `Hold` pauses the clip for `attackHoldDuration` (divided by the attack speed upgrade); `Release` runs it at base speed times `attackReleaseSpeed` until it ends. A skeleton swap keeps the pause and does not fire events again.
+- **Step wind-up (`MeleeComboStep.windupHold` / `windupAt`):** pauses the clip at `windupAt` (clip seconds) when it has no Hold event. `windupIgnoreClipEvents` pauses there even when it has one (its Hold/Release events are skipped for that step). `windupReleaseSpeed` sets the speed after the pause: 0 = `attackReleaseSpeed`, 1 = normal. The Mantis Blades ground combo (`Sword (Cass)`, steps 1–3) holds 0.2 s at 0.1 / 0.1 / 0.15 clip seconds, then runs at normal speed.
 - **Hit timing:** `MeleeComboStep.hitDelay` stays measured on the plain clip. `WarpAttackDelay` (`AttackHoldTiming.WarpDelay`) moves the hit window with the Hold and Release, and the swing stays uncancellable until the hit window has passed.
 - `ForcePlayOverride(name, loop, onComplete)` takes over the skeleton for things like Ground Pound; `forceOverrideGroundedHoldDuration` waits before returning to Idle/Run.
 - `PlayKnockdown` / `EndKnockdown` for knockdowns. After death only the death animation can play.

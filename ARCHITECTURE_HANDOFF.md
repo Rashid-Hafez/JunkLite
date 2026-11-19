@@ -9,6 +9,12 @@
 >
 > After architecture changes, run `graphify update .` again so the next developer and agent get accurate answers. Details are in `GRAPHIFY_WORKFLOW.md`. The graph covers C# and `.md` files only and does not replace this document.
 
+### Brute: grab fixes, red unparryable tell, exact parry slide, no touch grab (2026-11-19)
+- **Grab damage without the grab:** `BruteGrabState.BeginReach` activated the hitbox before `SetPhase(Reach)`; `Hitbox.Activate` queries at once, so a player already inside took `grabDamage` and `HandleCaught` dropped the catch (phase was still Warning). Now phase, then lunge, then hitbox. A first-frame catch keeps the reach clip instead of `PlayGrabHold`.
+- **Unparryable tell:** `AttackTellView.Play(seconds, unparryable)` tints every sprite in the sign (`unparryableTint`) and shakes it (`shakeAmplitude`, `shakeHz`); `EnemyCharacter.ShowAttackWarningImmediate(seconds, unparryable)` passes it. The grab warning uses it.
+- **Parried dash slide:** `ApplyPushOverTime` adds force on top of leftover dash velocity, so a full-speed parry kept him sliding forward first. The heavy parry now uses `EnemyMovement.SlideOverTime` (clears lane speed, eases over an exact distance): `BruteEnemy.parriedDashSlideDistance` (6 m) replaces `parriedDashPushForce`. Slide particles get `parrySlideBurst` (20) and `parrySlideEmissionMultiplier` (2.5x, restored after).
+- **Touch grab off, longer wind-up:** the touch grab had no warning by design; the Brute Boss prefab now has `grabOnTouch` off (code default too), so every grab is warned. `warningTime` 0.4 → 0.8 s (prefab and default). The touch-grab code path stays for re-enabling.
+
 ### Controller pass: inventory pick-and-place, mod slots 3/4, drag icon leak (2026-11-17)
 
 - **Inventory on a pad (`InventoryScreen`, package edit, keep when re-importing):** on the mods tab `UIToolkitGamepadInput` no longer sends A as a submit. A calls `GamepadPrimary` (stored mod: pick up and jump to its best slot; slot: place the picked-up mod, or pick up the slot's own mod to move it; A on the picked-up mod drops it), X calls `GamepadSecondary` (stored mod: quick equip; slot: unequip). B still goes through `HandleBack`, which now returns focus to the dropped mod. Keyboard Enter is unchanged (quick equip).
@@ -648,6 +654,8 @@ Design and phase plan: `GRUNT_BEHAVIOR_PLAN.md`. Phases 1–3 are implemented (c
 - Gamepad: hold LT (`GrappleAim` binding) to aim, right stick picks the direction (neutral = facing), X (`Attack`) throws, A jumps/kicks off the wall.
 - Service Floor: the Brute's `ObjectiveOnDeath.grantKey` gives the hook; its `ObjectiveLink` plays Crow `ServiceFloor_UseGrapple`. `[Gameplay]/Grapple CyberBox` (5A, `requiredKeyTag` = Grapple Hook) holds a heal pickup.
 - `PlayerCharacter.IsInCombat` (from `PlayerCombatTracker`) sets `GameInputManager.InteractBlocker`: Interact is ignored and the shared interact prompt hides while in combat.
+- `PlayerCharacter.CanInteract` sets `GameInputManager.InteractAllowed` (2026-11-18): while she is airborne, jumping, wall sliding, attacking (`PlayerState` or `WeaponManager`), dashing, rolling, parrying, stunned, grabbed, input-locked or physics-overridden, the whole Interact press is dropped, room-exit doors (`OnProceed`) included. Before, E mid-jump at a `LaneEntryTrigger` froze her in the jump pose. Combat still doesn't block doors (see the room-exit rule below).
+- Stale air flags self-heal (2026-11-18): `PlayerCharacter.UpdateAirborneStates` clears `IsJumping`/`IsFalling`/`IsWallSliding` once she is grounded and not rising (0.15 s after a jump starts), and `SpineAnimationController` treats a grounded Jump Start like the other air clips. A jump that never left the ground (into a wall, cut by a lock) never flipped grounded, so `SetGrounded` couldn't clear it and the pose froze.
 
 ## Objectives, door locks and keys (2026-10-13)
 

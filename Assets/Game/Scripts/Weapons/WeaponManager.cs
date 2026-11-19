@@ -446,7 +446,8 @@ namespace junklite
             {
                 MeleeWeaponData.MeleeComboStep holdStep = default;
                 bool hasStep = data is MeleeWeaponData melee && melee.TryGetMeleeStep(dir, comboIndex, isGrounded, out holdStep);
-                spineController.SetAttackWindup(hasStep ? holdStep.windupHold : 0f, hasStep ? holdStep.windupAt : 0f, animName);
+                spineController.SetAttackWindup(hasStep ? holdStep.windupHold : 0f, hasStep ? holdStep.windupAt : 0f, animName,
+                    hasStep ? holdStep.windupReleaseSpeed : 0f, hasStep && holdStep.windupIgnoreClipEvents);
                 if (hasStep && holdStep.windupHold > 0f)
                     windupRelease = spineController.GetWindupReleaseTime(animName);
                 clipDuration = spineController.GetAttackRealDuration(animName);

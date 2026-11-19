@@ -111,6 +111,18 @@ namespace junklite
         private Coroutine knockDownRoutine;
         private Coroutine grabRoutine;
         public bool IsGrabbed => grabController?.IsGrabbed ?? false;
+
+        /// <summary>
+        /// Her body is free to interact (doors included): alive, standing on the ground and not busy.
+        /// Jumping, wall sliding, attacking, dashing, rolling, parrying, stunned, grabbed or input-locked all say no.
+        /// </summary>
+        public bool CanInteract =>
+            IsAlive && playerState != null && controller != null &&
+            playerState.IsGrounded && controller.IsGrounded && !playerState.IsJumping &&
+            !playerState.IsWallSliding && !playerState.IsDashing && !playerState.IsRolling &&
+            !playerState.IsParrying && !playerState.IsStunned && !playerState.IsInputLocked &&
+            !playerState.IsAttacking && (_weaponManager == null || !_weaponManager.IsAttacking) &&
+            !IsGrabbed && !controller.IsPhysicsOverridden;
         /// <summary>Physically held right now. IsGrabbed also covers the throw's flight and the get-up, when physics is hers again.</summary>
         public bool IsHeldByGrabber => IsGrabbed && controller != null && controller.IsPhysicsOverridden;
         public bool CanBeGrabbed => grabController?.CanBeGrabbed ?? false;
@@ -473,17 +485,35 @@ namespace junklite
 
         }
 
+        // A jump's first frames can still read grounded before the body leaves the floor.
+        private const float JumpTakeOffGrace = 0.15f;
+        private float lastJumpStartTime = float.NegativeInfinity;
+
         /// <summary>
-        /// Updates jumping/falling states based on velocity when airborne.
+        /// Updates jumping/falling states based on velocity when airborne, and clears stale air flags once grounded.
         /// </summary>
         void UpdateAirborneStates()
         {
             if (playerState == null || Controller == null) return;
 
-            // Wall sliding owns its airborne pose.
-            if (playerState.IsGrounded || playerState.IsWallSliding) return;
-
             float yVel = Controller.Velocity.y;
+
+            // Standing but still flagged in the air: a jump that never left the ground (blocked, cancelled, cut
+            // by an interaction or lock) never flips grounded, so SetGrounded can't clear it. Not rising = landed.
+            if (playerState.IsGrounded)
+            {
+                if (yVel <= 0.1f && (playerState.IsJumping || playerState.IsFalling || playerState.IsWallSliding) &&
+                    Time.time - lastJumpStartTime > JumpTakeOffGrace)
+                {
+                    playerState.SetWallSliding(false);
+                    playerState.SetJumping(false);
+                    playerState.SetFalling(false);
+                }
+                return;
+            }
+
+            // Wall sliding owns its airborne pose.
+            if (playerState.IsWallSliding) return;
 
             // Transition from jumping to falling when velocity goes negative
             if (playerState.IsJumping && yVel < -0.1f)
@@ -528,6 +558,7 @@ namespace junklite
                 inputManager.OnAttack += HandleAttackInput;
                 inputManager.OnDash += OnDashPressed;
                 inputManager.InteractBlocker = () => IsInCombat;
+                inputManager.InteractAllowed = () => CanInteract;
 
                 
                 inputManager.OnModActivate1 += HandleModActivate1;
@@ -568,6 +599,7 @@ namespace junklite
                 inputManager.OnAttack -= HandleAttackInput;
                 inputManager.OnDash -= OnDashPressed;
                 inputManager.InteractBlocker = null;
+                inputManager.InteractAllowed = null;
 
                 // TODO: Unwire when added to GameInputManager
                 inputManager.OnModActivate1 -= HandleModActivate1;
@@ -621,6 +653,7 @@ namespace junklite
 
         void HandleWallJumped()
         {
+            lastJumpStartTime = Time.time;
             // The controller already cleared the slide; the push-off is an ordinary rising jump.
             playerState?.SetFalling(false);
             playerState?.SetJumping(true);
@@ -629,6 +662,7 @@ namespace junklite
         void HandleDoubleJump()
         {
             // Refund one air attack if scheduled (e.g. pogo hit) so player can pogo again after double jump
+            lastJumpStartTime = Time.time;
             playerState?.TryRefundAirAttackAfterDoubleJump();
 
             // Double jump: clear falling, set jumping BEFORE double jumping.
@@ -651,6 +685,7 @@ namespace junklite
 
         void HandleJumpStarted()
         {
+            lastJumpStartTime = Time.time;
             // Ground jump: set jumping and clear falling
             playerState?.SetFalling(false);  // Clear falling first
             playerState?.SetJumping(true);   // Now set jumping

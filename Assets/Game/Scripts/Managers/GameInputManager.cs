@@ -18,6 +18,12 @@ namespace junklite
         /// <summary>Set by the player: returns true while interact must be ignored (e.g. in combat).</summary>
         public Func<bool> InteractBlocker { get; set; }
         public bool IsInteractBlocked => InteractBlocker?.Invoke() == true;
+        /// <summary>
+        /// Set by the player: returns false while her body can't interact (airborne, wall sliding, attacking, dashing,
+        /// stunned, locked...). Unlike <see cref="InteractBlocker"/> it drops the whole press, doors (OnProceed) included.
+        /// </summary>
+        public Func<bool> InteractAllowed { get; set; }
+        public bool CanInteractNow => InteractAllowed?.Invoke() != false;
 
         public event Action OnJump = delegate { };
         public event Action OnJumpReleased = delegate { };
@@ -379,7 +385,7 @@ namespace junklite
             // Bind it to the F key (or your preferred key).
             controls.Player.Interact.performed += _ =>
             {
-                if (!IsGameplayInputEnabled) return;
+                if (!IsGameplayInputEnabled || !CanInteractNow) return;
                 // Read first: the interactable that handles the press hides the prompt.
                 bool hadPrompt = IsInteractPromptShowing();
                 OnProceed();

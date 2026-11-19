@@ -67,6 +67,10 @@ namespace junklite
             [Tooltip("Clips with no Hold event: clip seconds where the wind-up pause happens (the pulled-back pose). " +
                      "After it the rest of the swing runs at SpineAnimationController.attackReleaseSpeed. Needs windupHold.")]
             [Min(0f)] public float windupAt;
+            [Tooltip("Pause at windupAt even when the clip has its own Hold/Release events (they are ignored for this step). Needs windupHold.")]
+            public bool windupIgnoreClipEvents;
+            [Tooltip("Speed of the swing after the wind-up pause, times its normal speed. 0 = SpineAnimationController.attackReleaseSpeed, 1 = normal speed.")]
+            [Min(0f)] public float windupReleaseSpeed;
             [Tooltip("How far the combat-focus slide goes, times the usual (no target: noTargetLungeDistance; focused: up to hitting range). 0 or 1 = usual. 1.1 = 10% further.")]
             [Min(0f)] public float lungeDistanceScale;
             [Tooltip("Focused only: she slides at least this far (m) on this hit, even when already in reach, and keeps " +

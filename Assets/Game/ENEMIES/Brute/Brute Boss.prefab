@@ -5096,13 +5096,15 @@ MonoBehaviour:
   armorShakeAmplitude: 0.08
   armorSparkHeight: 1.5
   parriedDashStunDuration: 2.5
-  parriedDashPushForce: 28
+  parriedDashSlideDistance: 6
   parriedDashPushDuration: 0.6
   parriedDashHitstop: 0.12
   parriedDashShakeForce: 1.2
   parrySlideParticles:
   - {fileID: 7823939741899040117}
   - {fileID: 9031470983731547642}
+  parrySlideEmissionMultiplier: 2.5
+  parrySlideBurst: 20
   knockdownDamage: 200
   knockdownDuration: 3
   downedDamageMultiplier: 1.5
@@ -5417,7 +5419,7 @@ MonoBehaviour:
   grab:
     grabRange: 2.8
     cooldown: 4
-    warningTime: 0.4
+    warningTime: 0.8
     reachActiveTime: 0.3
     reachLungeSpeed: 9
     reachLungeStopDistance: 1
@@ -5433,7 +5435,7 @@ MonoBehaviour:
     grabDamage: 5
     throwForce: {x: 22, y: 9}
     throwDamage: 20
-    grabOnTouch: 1
+    grabOnTouch: 0
     touchCooldown: 1.5
     touchMinOverlap: 0.05
     touchHoldTime: 0

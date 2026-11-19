@@ -126,6 +126,7 @@ namespace junklite
 
         // Push-over-time state (parry pushback etc.)
         private bool isPushActive;
+        private Coroutine slideRoutine;
 
         // Launch state: airborne after a launching hit. Voluntary movement and the
         // idle horizontal zeroing are suspended until the owner ends the launch.
@@ -912,6 +913,60 @@ namespace junklite
                 float verticalVel = rb.useGravity ? rb.linearVelocity.y : 0f;
                 rb.linearVelocity = BuildVelocity(0f, verticalVel);
             }
+        }
+
+        /// <summary>
+        /// Exact slide along the lane (e.g. a parried dash). Clears the current lane speed
+        /// first, so leftover dash speed can't carry the body the wrong way, then eases from
+        /// 2 * distance / duration to zero, covering exactly <paramref name="distance"/>
+        /// unless a wall stops it. Restarting replaces a running slide.
+        /// </summary>
+        public void SlideOverTime(Vector3 worldDirection, float distance, float duration)
+        {
+            if (ignoreKnockback || rb == null || distance <= 0f || duration <= 0f)
+                return;
+
+            if (slideRoutine != null)
+                StopCoroutine(slideRoutine);
+            slideRoutine = StartCoroutine(CoSlide(worldDirection, distance, duration));
+        }
+
+        private IEnumerator CoSlide(Vector3 worldDir, float distance, float duration)
+        {
+            Stop();
+            float sign = Vector3.Dot(worldDir, horizontalAxis) >= 0f ? 1f : -1f;
+            float startSpeed = 2f * distance / duration;
+
+            isPushActive = true;
+            RefreshCollisionDetectionMode();
+
+            // Velocity is set (not added) every step, so HandleMovement's leftovers never stack.
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                float speed = startSpeed * (1f - elapsed / duration);
+                rb.linearVelocity = BuildVelocity(sign * speed, rb.useGravity ? rb.linearVelocity.y : 0f);
+                yield return new WaitForFixedUpdate();
+                elapsed += Time.fixedDeltaTime;
+            }
+
+            EndSlide();
+        }
+
+        private void EndSlide()
+        {
+            slideRoutine = null;
+            isPushActive = false;
+            RefreshCollisionDetectionMode();
+            if (rb != null && !rb.isKinematic)
+                rb.linearVelocity = BuildVelocity(0f, rb.useGravity ? rb.linearVelocity.y : 0f);
+        }
+
+        // A disable kills the coroutine; don't leave the push flag stuck on.
+        private void OnDisable()
+        {
+            if (slideRoutine != null)
+                EndSlide();
         }
 
         /// <summary>
