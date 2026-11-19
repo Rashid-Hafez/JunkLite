@@ -9,7 +9,7 @@ namespace junklite
     /// Player is briefly locked during the cast animation, then free to move
     /// while the pulse travels independently.
     /// 
-    /// No mutable state on the ScriptableObject — all runtime state lives on
+    /// No mutable state on the ScriptableObject; all runtime state lives on
     /// ModInstance (cooldown) and the spawned pulse GameObject.
     /// </summary>
     [CreateAssetMenu(fileName = "EnergyWaveMod", menuName = "Junklite/Mods/Energy Wave")]
@@ -62,52 +62,35 @@ namespace junklite
 
         public override void OnHitRegistered(ModInstance instance, PlayerCharacter player, EnemyCharacter enemy, float damageDealt)
         {
-            // No charges needed — cooldown only
+            // No charges needed; cooldown only.
         }
 
-        protected override bool ExecuteAbility(ModInstance instance, PlayerCharacter player)
+        protected override bool ExecuteAbility(
+            ModInstance instance,
+            PlayerCharacter player,
+            ModExecutionRunner executionRunner)
         {
-            // Start cooldown immediately to prevent double-activation.
-            // This overrides the auto-cooldown in TryActivate (which also fires,
-            // but calling it twice with the same duration is harmless — second call
-            // just resets the same end time).
-            instance.StartCooldown(cooldown);
+            if (wavePrefab == null)
+            {
+                Debug.LogWarning("[EnergyWave] No wave prefab assigned.");
+                return false;
+            }
 
-            player.StartCoroutine(CoCastAndFire(player));
-            return true;
+            return executionRunner.TryStart(
+                instance,
+                context => CoCastAndFire(context, player));
         }
 
         #endregion
 
         #region Cast Sequence
 
-        private IEnumerator CoCastAndFire(PlayerCharacter player)
+        private IEnumerator CoCastAndFire(ModExecutionContext context, PlayerCharacter player)
         {
             var playerState = player.PlayerState;
-            var controller = player.Controller;
-            var rb = player.GetComponent<Rigidbody>();
             var spineAnim = player.GetComponent<SpineAnimationController>();
 
-            // --- LOCK for cast wind-up ---
-            if (playerState != null)
-            {
-                playerState.SetInputLocked(true);
-                playerState.SetVulnerable(false);
-            }
-
-            if (controller != null)
-            {
-                controller.StopAllVelocity();
-                controller.CanMove = false;
-            }
-
-            bool wasKinematic = false;
-            if (rb != null)
-            {
-                wasKinematic = rb.isKinematic;
-                rb.isKinematic = true;
-                rb.linearVelocity = Vector3.zero;
-            }
+            context.LockPlayerControl();
 
             // VFX + animation
             if (activationVFX != null)
@@ -117,44 +100,28 @@ namespace junklite
                 spineAnim.ForcePlayOverride(firingAnimationName, true, () => { });
 
             // Spawn the pulse
-            SpawnPulse(player);
+            SpawnPulse(player, context.Instance);
 
             // Hold the lock for cast duration
             yield return new WaitForSeconds(castLockDuration);
 
-            // --- UNLOCK ---
-            if (rb != null)
-                rb.isKinematic = wasKinematic;
-
-            if (controller != null)
-            {
-                controller.CanMove = true;
-            }
-
             if (playerState != null)
-            {
-                playerState.SetInputLocked(false);
-                playerState.SetVulnerable(true);
                 playerState.ApplyInvulnerability(castInvulnerability);
-            }
         }
 
-        private void SpawnPulse(PlayerCharacter player)
+        private void SpawnPulse(PlayerCharacter player, ModInstance instance)
         {
-            if (wavePrefab == null)
-            {
-                Debug.LogWarning("[EnergyWave] No wave prefab assigned.");
-                return;
-            }
-
-            float facing = Mathf.Sign(player.transform.localScale.x);
+            float facing = player.Controller != null
+                ? player.Controller.FacingSign
+                : Mathf.Sign(player.transform.localScale.x);
             Vector3 spawnPos = player.transform.position
                              + Vector3.up * spawnHeightOffset
                              + Vector3.right * (facing * spawnForwardOffset);
 
-            Vector3 direction = Vector3.right * facing;
+            Vector3 direction = player.transform.right * facing;
 
             var go = Object.Instantiate(wavePrefab, spawnPos, Quaternion.identity);
+            go.transform.Rotate(0, (facing < 0 ? 0 : 180) + player.transform.rotation.eulerAngles.y, 0);
             var pulse = go.GetComponent<EnergyWavePulse>();
 
             if (pulse != null)
@@ -169,7 +136,8 @@ namespace junklite
                     enemyLayerMask,
                     player.gameObject,
                     hitShakeIntensity,
-                    dragDurationRatio
+                    dragDurationRatio,
+                    instance
                 );
             }
             else

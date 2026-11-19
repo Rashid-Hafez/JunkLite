@@ -3,19 +3,32 @@ using UnityEngine;
 using TMPro;
 using System;
 using junklite;
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class DialogueManager : MonoBehaviour
 {
     public static DialogueManager instance;
 
     [Header("UI")]
+    public Image portraitImage;
     public GameObject dialogueBox;
     public TMP_Text speakerText;
     public TMP_Text dialogueText;
     public GameObject continueIndicator;
 
+    [Tooltip("Optional CMA bubble UI. When set (or found on this object) it replaces the legacy panel above.")]
+    public DialogueBubbleView bubbleView;
+
     [Header("Settings")]
     public float typeSpeed = 0.03f;
+
+    [Header("Sound")]
+    [Tooltip("Repeating beep track: loops while a line types; skipping plays a single beep.")]
+    public SoundEntry beepSound;
+    [Tooltip("Length of one beep at the start of the clip.")]
+    public float singleBeepSeconds = 0.06f;
+    private AudioSource beepSource;
 
     private DialogueSequence currentSequence;
     private int currentIndex;
@@ -26,82 +39,237 @@ public class DialogueManager : MonoBehaviour
     private Coroutine typingCoroutine;
     private bool isTyping;
     private bool waitingForInput;
+    private bool revealedCurrentLine;
+    private int lastShownIndex = -1;
+    private string currentDisplayText = string.Empty;
+    private float lastContinueTime = -10f;
+    private float continueDebounce = 0.12f; // seconds, uses unscaled time so it works during freezes
+    private GameInputManager subscribedInputManager;
+    private TMP_Text continueIndicatorText;
 
-    // Dialogue events
+
     public event Action OnDialogueContinue = delegate { };
     public event Action OnDialogueEnded = delegate { };
 
-    private void Start()
-    {
-        OnDialogueContinue += NextLine;
+    // Stored so we can unsubscribe on destroy
+    private Action<InputAction.CallbackContext> playerContinueCallback;
+    private Action<InputAction.CallbackContext> uiContinueCallback;
 
+    #region Lifecycle
+
+    private void Awake()
+    {
         if (instance == null)
             instance = this;
         else if (instance != this)
+        {
             Destroy(gameObject);
+            return;
+        }
+    }
+
+    private void Start()
+    {
+        // Do not subscribe NextLine to the OnDialogueContinue event to avoid
+        // re-entrancy/duplicate calls when input triggers the event. Input is
+        // handled explicitly by ProcessContinueInput which calls NextLine()
+        // directly.
+
+        if (bubbleView == null)
+            bubbleView = GetComponent<DialogueBubbleView>();
+        if (bubbleView != null)
+        {
+            // The bubble view owns the presentation; the manager keeps the flow.
+            dialogueBox = bubbleView.Root;
+            continueIndicator = bubbleView.ContinueIndicator;
+            continueIndicatorText = bubbleView.ContinueText;
+        }
 
         dialogueBox.SetActive(false);
         if (continueIndicator) continueIndicator.SetActive(false);
+        // Route continue input through a single handler that:
+        // - ignores input when globally suppressed
+        // - ignores input for unskippable lines
+        // - when typing, reveals the full line on first press
+        // - only advances when the line is revealed and ready to advance
+        playerContinueCallback = _ => ProcessContinueInput();
+        uiContinueCallback = _ => ProcessContinueInput();
 
-
-        GameInputManager.Instance.controls.Player.DialogueContinue.performed += _ =>
+        subscribedInputManager = GameInputManager.Instance;
+        if (subscribedInputManager == null)
         {
-            if (IsContinueInputSuppressed) return;
-            OnDialogueContinue();
-        };
+            Debug.LogError("DialogueManager requires a GameInputManager in the scene.", this);
+            return;
+        }
 
-        GameInputManager.Instance.controls.UI.DialogueContinue.performed += _ =>
-        {
-            if (IsContinueInputSuppressed) return;
-            OnDialogueContinue();
-        };
+        subscribedInputManager.controls.Player.DialogueContinue.performed += playerContinueCallback;
+        subscribedInputManager.controls.UI.DialogueContinue.performed += uiContinueCallback;
+        subscribedInputManager.OnInputDeviceChanged += HandleInputDeviceChanged;
+        continueIndicatorText = continueIndicator != null
+            ? continueIndicator.GetComponent<TMP_Text>() ?? continueIndicator.GetComponentInChildren<TMP_Text>(true)
+            : null;
+        RefreshContinueIndicator();
     }
 
-    // ENTRY POINT (used by everything)
+    private void OnDestroy()
+    {
+        if (instance == this)
+            instance = null;
+
+
+        if (subscribedInputManager != null)
+        {
+            subscribedInputManager.controls.Player.DialogueContinue.performed -= playerContinueCallback;
+            subscribedInputManager.controls.UI.DialogueContinue.performed -= uiContinueCallback;
+            subscribedInputManager.OnInputDeviceChanged -= HandleInputDeviceChanged;
+        }
+
+        subscribedInputManager = null;
+    }
+
+    #endregion
+
+    #region Public API
+
     public void StartDialogue(DialogueSequence sequence)
     {
+        // Ignore duplicate requests to start the same sequence while it's
+        // already active to avoid restarting the currently shown line.
+        if (currentSequence != null && currentSequence == sequence)
+        {
+            return;
+        }
+
+        // Chained sequences keep the bubble history; a fresh conversation starts clean.
+        if (bubbleView != null && !dialogueBox.activeSelf)
+            bubbleView.Clear();
+
         currentSequence = sequence;
         currentIndex = 0;
         dialogueBox.SetActive(true);
+        // Reset per-line guards/state so re-starting a sequence shows lines cleanly.
+        if (typingCoroutine != null)
+        {
+            StopCoroutine(typingCoroutine);
+            typingCoroutine = null;
+        }
+        isTyping = false;
+        revealedCurrentLine = false;
+        lastShownIndex = -1;
+
         ShowLine();
+
     }
 
-    void ShowLine()
+    // Timeline hook
+    public void PlayDialogue(DialogueSequence sequence) => StartDialogue(sequence);
+
+    public void TurnOffInput()
+    { 
+        GameInputManager.Instance.SetGameplayInputEnabled(false);
+    }
+
+    public void TurnOnInput()
     {
+        GameInputManager.Instance.SetGameplayInputEnabled(true);
+    }
+    public void NextLine()
+    {
+        if (currentSequence == null) return;
         var line = currentSequence.dialogueLines[currentIndex];
-
-        speakerText.text = line.speakerName;
-
-        // 🔒 Apply player control
-        if (line.lockPlayerMovement)
+        if (line.canSkip)
+        { 
+            IsContinueInputSuppressed = false;
+        }else
         {
-            GameInputManager.Instance.SetGameplayInputEnabled(false);
+            IsContinueInputSuppressed = true;
+        }
+
+        // Skip typing — reveal full line immediately
+        if (isTyping)
+        {
+            StopCoroutine(typingCoroutine);
+            PlayBeep();
+            dialogueText.text = currentDisplayText;
+            isTyping = false;
+
+            if (line.requiresPlayerInput)
+            {
+                waitingForInput = true;
+                if (continueIndicator) continueIndicator.SetActive(true);
+            }
+
+            return;
+        }
+
+        if (line.requiresPlayerInput && !waitingForInput) return;
+
+        waitingForInput = false;
+        if (continueIndicator) continueIndicator.SetActive(false);
+
+        currentIndex++;
+
+        if (currentIndex >= currentSequence.dialogueLines.Length)
+            EndDialogue();
+        else
+            ShowLine();
+    }
+
+    #endregion
+
+    #region Internal
+
+    private void ShowLine()
+    {
+        // Prevent restarting the same line if it's already being shown/typed.
+        if (lastShownIndex == currentIndex && (isTyping || revealedCurrentLine))
+            return;
+        
+
+        var line = currentSequence.dialogueLines[currentIndex];
+        currentDisplayText = ResolveInputBindings(line.dialogueText);
+        RefreshContinueIndicator();
+
+        if (bubbleView != null)
+        {
+            dialogueText = bubbleView.ShowLine(line, currentDisplayText);
         }
         else
         {
-            GameInputManager.Instance.SetGameplayInputEnabled(true);
+            if (speakerText) speakerText.text = line.speakerName;
+            if (portraitImage)
+            {
+                portraitImage.sprite = line.speakerPortrait;
+                portraitImage.color = line.speakerPortrait != null ? Color.white : Color.clear;
+            }
         }
+        GameInputManager.Instance.SetGameplayInputEnabled(!line.lockPlayerMovement);
 
         if (typingCoroutine != null)
             StopCoroutine(typingCoroutine);
 
-        typingCoroutine = StartCoroutine(TypeLine(line));
+        // reset reveal state for the new line
+        revealedCurrentLine = false;
+        lastShownIndex = currentIndex;
+        typingCoroutine = StartCoroutine(TypeLine(line, currentDisplayText));
     }
 
-    IEnumerator TypeLine(DialogueLine line)
+    private IEnumerator TypeLine(DialogueLine line, string displayText)
     {
         isTyping = true;
         waitingForInput = false;
-
         dialogueText.text = "";
 
-        foreach (char c in line.dialogueText)
+        StartTypingSound();
+        foreach (char c in displayText)
         {
             dialogueText.text += c;
             yield return new WaitForSeconds(typeSpeed);
         }
+        StopTypingSound();
 
         isTyping = false;
+        revealedCurrentLine = true;
 
         if (line.requiresPlayerInput)
         {
@@ -115,18 +283,29 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
-    public void NextLine()
+    private void ProcessContinueInput()
     {
+        // debounce rapid/duplicate input (use unscaled time so it works during pausing/freezes)
+        if (Time.unscaledTime - lastContinueTime < continueDebounce) return;
+
+        if (IsContinueInputSuppressed) return;
         if (currentSequence == null) return;
+        if (currentIndex < 0 || currentIndex >= currentSequence.dialogueLines.Length) return;
 
         var line = currentSequence.dialogueLines[currentIndex];
 
-        // Skip typing
-        if (isTyping)
+        // absolutely ignore input for unskippable lines
+        if (!line.canSkip) return;
+
+        // If we're still typing, reveal the rest of the line on first press
+        if (isTyping && !revealedCurrentLine)
         {
-            StopCoroutine(typingCoroutine);
-            dialogueText.text = line.dialogueText;
+            if (typingCoroutine != null)
+                StopCoroutine(typingCoroutine);
+            PlayBeep();
+            dialogueText.text = currentDisplayText;
             isTyping = false;
+            revealedCurrentLine = true;
 
             if (line.requiresPlayerInput)
             {
@@ -137,46 +316,131 @@ public class DialogueManager : MonoBehaviour
             return;
         }
 
-        // Block if not ready
-        if (line.requiresPlayerInput && !waitingForInput)
-            return;
+        // If this line requires player input, don't advance until the player is expected to continue
+        if (line.requiresPlayerInput && !waitingForInput) return;
 
-        waitingForInput = false;
-        if (continueIndicator) continueIndicator.SetActive(false);
-
-        currentIndex++;
-
-        if (currentIndex >= currentSequence.dialogueLines.Length)
-        {
-            EndDialogue();
-        }
-        else
-        {
-            ShowLine();
-        }
+        // Safe to advance: call NextLine directly to avoid event-based re-entrancy.
+        lastContinueTime = Time.unscaledTime;
+        NextLine();
+        // Notify external subscribers that a continue occurred (do not subscribe
+        // NextLine to this event to avoid duplicate calls).
+        OnDialogueContinue?.Invoke();
     }
 
-    void EndDialogue()
+    private bool EnsureBeepSource()
+    {
+        if (beepSound == null || !beepSound.IsValid) return false;
+        if (beepSource == null)
+        {
+            beepSource = gameObject.AddComponent<AudioSource>();
+            beepSource.playOnAwake = false;
+        }
+        beepSource.clip = beepSound.clip;
+        beepSource.volume = beepSound.volume;
+        return true;
+    }
+
+    private void StartTypingSound()
+    {
+        if (!EnsureBeepSource()) return;
+        beepSource.loop = true;
+        beepSource.pitch = beepSound.GetRandomPitch();
+        beepSource.Play();
+    }
+
+    private void StopTypingSound()
+    {
+        if (beepSource != null) beepSource.Stop();
+    }
+
+    // Skip: cut the typing loop and play one beep from the start of the clip.
+    private void PlayBeep()
+    {
+        if (!EnsureBeepSource()) return;
+        beepSource.Stop();
+        beepSource.loop = false;
+        beepSource.Play();
+        beepSource.SetScheduledEndTime(AudioSettings.dspTime + singleBeepSeconds);
+    }
+
+    private static string ResolveInputBindings(string sourceText)
+    {
+        GameInputManager inputManager = GameInputManager.Instance;
+        return inputManager != null
+            ? inputManager.ResolveBindingTokens(sourceText)
+            : sourceText;
+    }
+
+    private void HandleInputDeviceChanged(bool _)
+    {
+        RefreshContinueIndicator();
+
+        if (currentSequence == null || currentIndex < 0 ||
+            currentIndex >= currentSequence.dialogueLines.Length)
+        {
+            return;
+        }
+
+        DialogueLine line = currentSequence.dialogueLines[currentIndex];
+        string resolvedText = ResolveInputBindings(line.dialogueText);
+        if (resolvedText == currentDisplayText)
+            return;
+
+        currentDisplayText = resolvedText;
+
+        if (isTyping)
+        {
+            if (typingCoroutine != null)
+                StopCoroutine(typingCoroutine);
+
+            typingCoroutine = null;
+            StopTypingSound();
+            isTyping = false;
+            revealedCurrentLine = true;
+            waitingForInput = line.requiresPlayerInput;
+            dialogueText.text = currentDisplayText;
+            if (continueIndicator != null)
+                continueIndicator.SetActive(waitingForInput);
+            return;
+        }
+
+        if (revealedCurrentLine && dialogueText != null)
+            dialogueText.text = currentDisplayText;
+    }
+
+    private void RefreshContinueIndicator()
+    {
+        if (continueIndicatorText == null && continueIndicator != null)
+            continueIndicatorText = continueIndicator.GetComponent<TMP_Text>()
+                ?? continueIndicator.GetComponentInChildren<TMP_Text>(true);
+
+        if (continueIndicatorText == null)
+            return;
+
+        GameInputManager inputManager = GameInputManager.Instance;
+        string hint = inputManager != null
+            ? inputManager.GetBindingHint("Player/DialogueContinue")
+            : string.Empty;
+        if (!string.IsNullOrEmpty(hint))
+            continueIndicatorText.text = bubbleView != null ? $"{hint.ToUpperInvariant()} >" : $"[{hint}] >>";
+    }
+
+    private void EndDialogue()
     {
         var finished = currentSequence;
-        dialogueBox.SetActive(false);
         currentSequence = null;
+        StopTypingSound();
+        // Keep the box up while chaining so bubble history carries over.
+        if (finished == null || finished.nextSequence == null)
+            dialogueBox.SetActive(false);
 
         GameInputManager.Instance.SetGameplayInputEnabled(true);
 
         if (finished != null && finished.nextSequence != null)
-        {
             StartDialogue(finished.nextSequence);
-        }
         else
-        {
             OnDialogueEnded();
-        }
     }
 
-    // 🎬 Timeline hook
-    public void PlayDialogue(DialogueSequence sequence)
-    {
-        StartDialogue(sequence);
-    }
+    #endregion
 }

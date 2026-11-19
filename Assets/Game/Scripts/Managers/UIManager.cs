@@ -35,10 +35,9 @@ namespace junklite
 
         private void Start()
         {
-            // Subscribe to game manager events
+            // Global game state stays on GameManager.
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.OnPlayerSpawned += OnPlayerSpawned;
                 GameManager.Instance.OnGameStateChanged += OnGameStateChanged;
             }
 
@@ -65,12 +64,6 @@ namespace junklite
                     ShowGameOver();
                     break;
             }
-        }
-
-        private void OnPlayerSpawned(PlayerCharacter player)
-        {
-            // Connect HUD to new player
-           
         }
 
         public void ShowHUD()
@@ -106,10 +99,8 @@ namespace junklite
         private void OnDestroy()
         {
             if (GameManager.Instance != null)
-            {
                 GameManager.Instance.OnGameStateChanged -= OnGameStateChanged;
-                GameManager.Instance.OnPlayerSpawned -= OnPlayerSpawned;
-            }
+
         }
     }
 }

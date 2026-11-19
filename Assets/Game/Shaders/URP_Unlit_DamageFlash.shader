@@ -18,6 +18,7 @@ Shader "Game/URP_Unlit_DamageFlash"
         _PulseSpeed ("Glow Pulse Speed", Range(0,20)) = 6
         _Saturation ("Saturation", Range(0,1)) = 1
         _AlphaClipThreshold ("Threshold", Range(0,1)) = 1
+        _EmissionBoost ("Emission Boost (HDR, feeds bloom)", Range(0,10)) = 0
     }
 
     SubShader
@@ -61,6 +62,7 @@ Shader "Game/URP_Unlit_DamageFlash"
                 float _PulseSpeed;
                 float _Saturation;
                 float _AlphaClipThreshold;
+                float _EmissionBoost;
             CBUFFER_END
 
             struct Attributes
@@ -98,7 +100,7 @@ Shader "Game/URP_Unlit_DamageFlash"
                 float pulse = 1.0 + (sin(_Time.y * _PulseSpeed) * _PulseAmount);
                 float3 glow = (_FlashColor.rgb * _GlowColor.rgb) * flashFactor * _GlowIntensity * pulse;
 
-                float3 color = baseCol.rgb + glow;
+                float3 color = baseCol.rgb * (1.0 + _EmissionBoost) + glow;
                 float luminance = dot(color, float3(0.2126, 0.7152, 0.0722));
                 color = lerp(float3(luminance, luminance, luminance), color, _Saturation);
                 return float4(color, alpha);

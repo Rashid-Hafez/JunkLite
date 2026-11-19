@@ -1,0 +1,384 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace junklite
+{
+    /// <summary>
+    /// Single-player enemy sensor. It reports target facts and never chooses AI states.
+    /// </summary>
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(Collider))]
+    public class EnemyPerception : MonoBehaviour
+    {
+        [Header("Detection")]
+        [SerializeField] private LayerMask targetLayers = ~0;
+        [SerializeField] private bool requireLineOfSight;
+        [SerializeField] private LayerMask losBlockingLayers;
+
+        [Header("Facing")]
+        [Tooltip("A player behind the enemy (against its facing along the lane) is only noticed inside Rear Radius. Being hit or an ally alert bypasses this for a while.")]
+        [SerializeField] private bool useFacingCone;
+        [SerializeField, Min(0f)] private float rearRadius = 2f;
+
+        [Header("Reachability")]
+        [Tooltip("If true, the target is rejected when a floor separates it vertically from this enemy.")]
+        [SerializeField] private bool requireReachablePath = true;
+        [SerializeField] private LayerMask platformLayers;
+        [SerializeField] private float minVerticalDifferenceToCheck = 0.5f;
+
+        [Header("Performance")]
+        [SerializeField, Min(0.05f), Tooltip("How often tracked targets are revalidated while inside the sensor.")]
+        private float validationInterval = 0.2f;
+
+        [Header("Debug")]
+        [SerializeField] private bool showGizmos = true;
+
+        private readonly HashSet<Collider> targetColliders = new();
+        private PlayerCharacter currentTarget;
+        private SphereCollider sphereCollider;
+        private Transform distanceOrigin;
+        private float originalRadius;
+        private Coroutine validationRoutine;
+        private WaitForSeconds validationWait;
+        private readonly Collider[] overlapBuffer = new Collider[8];
+        private EnemyMovement ownerMovement;
+        private float coneBypassUntil;
+        private float ignoreTargetsUntil;
+
+        /// <summary>Fires after the current target changes. Arguments are previous and current.</summary>
+        public event Action<PlayerCharacter, PlayerCharacter> TargetChanged;
+
+        // Compatibility events for legacy enemy controllers. New brains use TargetChanged.
+        public event Action<PlayerCharacter> OnTargetEnter;
+        public event Action<PlayerCharacter> OnTargetExit;
+
+        public PlayerCharacter CurrentTarget => HasTarget ? currentTarget : null;
+        public Transform TargetTransform => CurrentTarget != null ? CurrentTarget.transform : null;
+        public Transform Target => TargetTransform;
+        public bool HasTarget => currentTarget != null && currentTarget.IsAlive;
+        public float TargetDistance => HasTarget && distanceOrigin != null
+            ? Vector3.Distance(distanceOrigin.position, currentTarget.transform.position)
+            : float.MaxValue;
+        public float OriginalRadius => originalRadius;
+
+        protected virtual void Awake()
+        {
+            Collider sensorCollider = GetComponent<Collider>();
+            sensorCollider.isTrigger = true;
+            EnemySensorLayer.Apply(gameObject);
+
+            sphereCollider = sensorCollider as SphereCollider;
+            if (sphereCollider != null)
+                originalRadius = sphereCollider.radius;
+
+            EnemyCharacter owner = GetComponentInParent<EnemyCharacter>();
+            distanceOrigin = owner != null ? owner.transform : transform;
+            ownerMovement = owner != null ? owner.GetComponent<EnemyMovement>() : null;
+
+            int playerLayer = LayerMask.NameToLayer("Player");
+            if (playerLayer >= 0)
+                targetLayers |= 1 << playerLayer;
+
+            validationWait = new WaitForSeconds(validationInterval);
+        }
+
+        protected virtual void OnDisable()
+        {
+            ClearTarget();
+            targetColliders.Clear();
+            ResetRadius();
+            if (validationRoutine != null)
+            {
+                StopCoroutine(validationRoutine);
+                validationRoutine = null;
+            }
+        }
+
+        public void SetRadius(float radius)
+        {
+            if (sphereCollider != null)
+                sphereCollider.radius = Mathf.Max(0f, radius);
+        }
+
+        public void ResetRadius()
+        {
+            if (sphereCollider != null)
+                sphereCollider.radius = originalRadius;
+        }
+
+        /// <summary>
+        /// Re-scans the sensor volume with a physics query. Trigger enter events are
+        /// missed when a target is already inside the sphere (e.g. it was released
+        /// from a grab or revived in place), so brains can call this while targetless.
+        /// </summary>
+        public void RefreshOverlap()
+        {
+            if (sphereCollider == null || !isActiveAndEnabled || HasTarget)
+                return;
+
+            Vector3 scale = transform.lossyScale;
+            float worldRadius = sphereCollider.radius
+                * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
+            Vector3 center = transform.TransformPoint(sphereCollider.center);
+
+            int count = Physics.OverlapSphereNonAlloc(center, worldRadius, overlapBuffer, targetLayers, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+            {
+                TryTrackCollider(overlapBuffer[i]);
+                if (HasTarget)
+                    break;
+            }
+
+            EnsureValidationRunning();
+        }
+
+        /// <summary>
+        /// Something drew attention (a hit landed, an ally raised the alarm): ignore
+        /// the facing cone for a while and re-check everything already inside the
+        /// sensor, then re-scan. Nothing happens if the player is outside the sphere.
+        /// </summary>
+        public void Alert(float bypassSeconds = 3f)
+        {
+            coneBypassUntil = Mathf.Max(coneBypassUntil, Time.time + Mathf.Max(0f, bypassSeconds));
+            if (!isActiveAndEnabled || HasTarget)
+                return;
+
+            CleanupMissingColliders();
+            RetryTrackedColliders();
+            RefreshOverlap();
+        }
+
+        /// <summary>
+        /// Explicitly forgets the target. The brain may use this when its pursuit policy expires.
+        /// </summary>
+        public void ClearTarget()
+        {
+            if (ReferenceEquals(currentTarget, null))
+                return;
+
+            PlayerCharacter previous = currentTarget;
+            currentTarget = null;
+
+            TargetChanged?.Invoke(previous, null);
+            OnTargetExit?.Invoke(previous);
+        }
+
+        /// <summary>
+        /// Forgets the target and ignores every player for a while (the chase was given up at a
+        /// ledge, say). Colliders inside the sensor stay tracked, so the validation loop picks the
+        /// player up again once the window has passed.
+        /// </summary>
+        public void ForgetTarget(float ignoreSeconds)
+        {
+            ignoreTargetsUntil = Mathf.Max(ignoreTargetsUntil, Time.time + Mathf.Max(0f, ignoreSeconds));
+            ClearTarget();
+            EnsureValidationRunning();
+        }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            TryTrackCollider(other);
+            EnsureValidationRunning();
+        }
+
+        private void OnTriggerExit(Collider other)
+        {
+            targetColliders.Remove(other);
+
+            PlayerCharacter player = ResolvePlayer(other);
+            if (player == null || player != currentTarget)
+            {
+                StopValidationIfEmpty();
+                return;
+            }
+
+            CleanupMissingColliders();
+            if (!ContainsColliderFor(player))
+                ClearTarget();
+
+            StopValidationIfEmpty();
+        }
+
+        private void EnsureValidationRunning()
+        {
+            if (targetColliders.Count > 0 && validationRoutine == null)
+                validationRoutine = StartCoroutine(ValidateTrackedTargets());
+        }
+
+        private void StopValidationIfEmpty()
+        {
+            if (targetColliders.Count > 0 || validationRoutine == null)
+                return;
+
+            StopCoroutine(validationRoutine);
+            validationRoutine = null;
+        }
+
+        private System.Collections.IEnumerator ValidateTrackedTargets()
+        {
+            while (targetColliders.Count > 0)
+            {
+                yield return validationWait;
+                CleanupMissingColliders();
+
+                if (!ReferenceEquals(currentTarget, null) &&
+                    (currentTarget == null || !currentTarget.IsAlive || !IsValidTarget(currentTarget)))
+                {
+                    ClearTarget();
+                }
+
+                if (!HasTarget)
+                    RetryTrackedColliders();
+            }
+
+            validationRoutine = null;
+        }
+
+        private void RetryTrackedColliders()
+        {
+            foreach (Collider collider in targetColliders)
+            {
+                if (collider == null)
+                    continue;
+                TryTrackCollider(collider);
+                if (HasTarget)
+                    break;
+            }
+        }
+
+        private void TryTrackCollider(Collider other)
+        {
+            if ((targetLayers & (1 << other.gameObject.layer)) == 0)
+                return;
+
+            PlayerCharacter player = ResolvePlayer(other);
+            if (player == null || !player.IsAlive)
+                return;
+
+            targetColliders.Add(other);
+
+            if (currentTarget == player || currentTarget != null)
+                return;
+            if (Time.time < ignoreTargetsUntil)
+                return;
+
+            if (!IsValidTarget(player))
+                return;
+
+            currentTarget = player;
+            TargetChanged?.Invoke(null, player);
+            OnTargetEnter?.Invoke(player);
+        }
+
+        private bool IsValidTarget(PlayerCharacter player)
+        {
+            if (player == null || !player.IsAlive)
+                return false;
+            if (requireLineOfSight && !HasLineOfSight(player.transform))
+                return false;
+            if (requireReachablePath && !IsTargetReachable(player.transform))
+                return false;
+            if (useFacingCone && Time.time >= coneBypassUntil && IsBehindOwner(player.transform)
+                && Vector3.Distance(distanceOrigin.position, player.transform.position) > rearRadius)
+                return false;
+            return true;
+        }
+
+        private bool IsBehindOwner(Transform target)
+        {
+            if (ownerMovement == null)
+                return false;
+
+            float along = Vector3.Dot(target.position - distanceOrigin.position, ownerMovement.MovementAxis);
+            if (Mathf.Abs(along) < 0.1f)
+                return false;
+            return (along > 0f ? 1 : -1) != ownerMovement.FacingDirection;
+        }
+
+        private static PlayerCharacter ResolvePlayer(Collider collider)
+        {
+            if (collider == null)
+                return null;
+
+            return collider.GetComponent<PlayerCharacter>()
+                ?? collider.GetComponentInParent<PlayerCharacter>();
+        }
+
+        private bool ContainsColliderFor(PlayerCharacter player)
+        {
+            foreach (Collider collider in targetColliders)
+            {
+                if (collider != null && ResolvePlayer(collider) == player)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void CleanupMissingColliders()
+        {
+            targetColliders.RemoveWhere(collider => collider == null);
+        }
+
+        private bool IsTargetReachable(Transform target)
+        {
+            float verticalDifference = transform.position.y - target.position.y;
+            if (verticalDifference < minVerticalDifferenceToCheck)
+                return true;
+
+            return !Physics.Raycast(
+                transform.position,
+                Vector3.down,
+                verticalDifference,
+                platformLayers,
+                QueryTriggerInteraction.Ignore);
+        }
+
+        private bool HasLineOfSight(Transform target)
+        {
+            Vector3 origin = transform.position;
+            Vector3 toTarget = target.position - origin;
+
+            if (Physics.Raycast(
+                    origin,
+                    toTarget.normalized,
+                    out RaycastHit hit,
+                    toTarget.magnitude,
+                    losBlockingLayers,
+                    QueryTriggerInteraction.Ignore))
+            {
+                return hit.transform == target || hit.transform.IsChildOf(target);
+            }
+
+            return true;
+        }
+
+#if UNITY_EDITOR
+        private void OnDrawGizmos()
+        {
+            if (!showGizmos)
+                return;
+
+            Collider sensorCollider = GetComponent<Collider>();
+            if (sensorCollider == null)
+                return;
+
+            Gizmos.color = HasTarget
+                ? new Color(1f, 0.5f, 0f, 0.3f)
+                : new Color(1f, 1f, 0f, 0.2f);
+
+            if (sensorCollider is SphereCollider sphere)
+            {
+                Gizmos.matrix = transform.localToWorldMatrix;
+                Gizmos.DrawWireSphere(sphere.center, sphere.radius);
+            }
+            else if (sensorCollider is BoxCollider box)
+            {
+                Gizmos.matrix = transform.localToWorldMatrix;
+                Gizmos.DrawWireCube(box.center, box.size);
+            }
+        }
+#endif
+    }
+}

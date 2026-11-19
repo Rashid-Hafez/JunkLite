@@ -12,6 +12,8 @@ namespace junklite
         public SoundEntry death;
         public SoundEntry charge;
         public SoundEntry grab;
+        [Tooltip("Played when an armored enemy blocks a hit (metal clank).")]
+        public SoundEntry armorClank;
 
         [Header("Movement")]
         public SoundEntry dash;

@@ -48,11 +48,11 @@ Material:
     m_Ints: []
     m_Floats:
     - _AlphaCutoff: 0.5
-    - _ColorMask: 15
-    - _ColorMultiplier: 13.42
+    - _ColorMask: 10
+    - _ColorMultiplier: 2
     - _DistortionAmount: 0.04
     - _GlitchAmount: 0.218
-    - _GlitchMinOpacity: 1
+    - _GlitchMinOpacity: 0.896
     - _GlitchTiling: -1.98
     - _MipLevel: 4
     - _MipLevelIntensity: 1
@@ -60,7 +60,7 @@ Material:
     - _OuterRimIntensity: 1
     - _Pattern: 0
     - _PatternCoords: 0
-    - _PatternSize: 46.18
+    - _PatternSize: 27.15
     - _Stencil: 0
     - _StencilComp: 8
     - _StencilOp: 0

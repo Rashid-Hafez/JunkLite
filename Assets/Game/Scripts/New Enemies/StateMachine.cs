@@ -10,9 +10,6 @@ namespace junklite
     /// </summary>
     public class StateMachine : MonoBehaviour
     {
-        [Header("Debug")]
-        [SerializeField] private bool logTransitions = false;
-
         private Dictionary<Type, IState> states = new Dictionary<Type, IState>();
         private IState currentState;
         private IState previousState;
@@ -79,6 +76,32 @@ namespace junklite
             ChangeState(newState);
         }
 
+        /// <summary>
+        /// Exits and re-enters a registered state. Unlike ChangeState, this is
+        /// intentionally allowed when the requested state is already current.
+        /// </summary>
+        public void RestartState<T>() where T : IState
+        {
+            var type = typeof(T);
+            if (!states.TryGetValue(type, out var stateToRestart))
+            {
+                Debug.LogError($"State {type.Name} not registered!");
+                return;
+            }
+
+            if (currentState != stateToRestart)
+            {
+                ChangeState(stateToRestart);
+                return;
+            }
+
+            previousState = currentState;
+            currentState.Exit();
+            currentState.Enter();
+
+            OnStateChanged?.Invoke(previousState, currentState);
+        }
+
         public void ChangeState(IState newState)
         {
             if (newState == null)
@@ -88,9 +111,6 @@ namespace junklite
             }
 
             if (currentState == newState) return;
-
-            if (logTransitions)
-                Debug.Log($"[FSM] {gameObject.name}: {currentState?.GetType().Name ?? "None"} -> {newState.GetType().Name}");
 
             previousState = currentState;
             currentState?.Exit();
@@ -115,9 +135,6 @@ namespace junklite
                 Debug.LogError($"Initial state {type.Name} not registered!");
                 return;
             }
-
-            if (logTransitions)
-                Debug.Log($"[FSM] {gameObject.name}: Initial state -> {type.Name}");
 
             currentState = initialState;
             currentState.Enter();

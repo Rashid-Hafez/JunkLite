@@ -1,11 +1,17 @@
 using UnityEngine;
+using System.Collections.Generic;
+using System.Buffers;
+using UnityEngine.Pool;
 
 namespace junklite
 {
     [CreateAssetMenu(fileName = "ElectricMod", menuName = "Junklite/Mods/Electric")]
     public class ElectricModData : PassiveModData
     {
+        private const int MaxOverlapCapacity = 256;
+
         [Header("Zap Effect")]
+        [SerializeField] private StatusEffectDefinition electricStatusEffect;
         public float zapDamage = 3f;
         public float tickInterval = 0.3f;
         public float zapDuration = 2f;
@@ -24,48 +30,77 @@ namespace junklite
             if (instance.IsBroken) return;
             if (enemy == null || !enemy.IsAlive || enemy.StatusEffects == null) return;
 
-            ApplyZap(enemy, zapDamage);
+            ApplyZap(enemy, zapDamage, player.gameObject);
 
             if (zapRadius > 0f)
-                ZapNearbyEnemies(enemy);
+                ZapNearbyEnemies(enemy, player.gameObject);
 
             instance.ConsumeDurability();
         }
-
-        public override void OnEquip(PlayerCharacter player) { }
-
-        public override void OnUnequip(PlayerCharacter player) { }
 
         #endregion
 
         #region Helpers
 
-        private void ApplyZap(EnemyCharacter enemy, float damage)
+        private void ApplyZap(EnemyCharacter enemy, float damage, GameObject source)
         {
-            var zap = new StatusEffectInstance(
-                type: StatusEffectType.Electric,
-                damagePerTick: damage,
-                tickInterval: tickInterval,
-                duration: zapDuration,
-                damageType: DamageType.Electric,
-                source: null
-            );
+            StatusEffectApplication zap = electricStatusEffect != null
+                ? new StatusEffectApplication(
+                    electricStatusEffect.BuildSpec().WithDamagePerTick(damage),
+                    source,
+                    strengthOverride: damage,
+                    definition: electricStatusEffect)
+                : StatusEffectApplication.DamageOverTime(
+                    StatusEffectType.Electric,
+                    damage,
+                    tickInterval,
+                    zapDuration,
+                    DamageType.Electric,
+                    source);
 
             enemy.StatusEffects.Apply(zap);
         }
 
-        private void ZapNearbyEnemies(EnemyCharacter origin)
+        private void ZapNearbyEnemies(EnemyCharacter origin, GameObject source)
         {
             float areaDamage = zapDamage * areaDamageMultiplier;
-            Collider[] hits = Physics.OverlapSphere(origin.transform.position, zapRadius);
+            Collider[] overlapBuffer = ArrayPool<Collider>.Shared.Rent(64);
+            HashSet<EnemyCharacter> affectedEnemies = HashSetPool<EnemyCharacter>.Get();
 
-            foreach (var hit in hits)
+            try
             {
-                var nearbyEnemy = hit.GetComponent<EnemyCharacter>();
-                if (nearbyEnemy == null || nearbyEnemy == origin) continue;
-                if (!nearbyEnemy.IsAlive || nearbyEnemy.StatusEffects == null) continue;
+                int hitCount;
+                while (true)
+                {
+                    hitCount = Physics.OverlapSphereNonAlloc(
+                        origin.transform.position,
+                        zapRadius,
+                        overlapBuffer);
+                    if (hitCount < overlapBuffer.Length || overlapBuffer.Length >= MaxOverlapCapacity)
+                        break;
 
-                ApplyZap(nearbyEnemy, areaDamage);
+                    Collider[] largerBuffer = ArrayPool<Collider>.Shared.Rent(
+                        Mathf.Min(overlapBuffer.Length * 2, MaxOverlapCapacity));
+                    ArrayPool<Collider>.Shared.Return(overlapBuffer, clearArray: true);
+                    overlapBuffer = largerBuffer;
+                }
+
+                for (int i = 0; i < hitCount; i++)
+                {
+                    Collider hit = overlapBuffer[i];
+                    if (hit == null) continue;
+                    var nearbyEnemy = hit.GetComponentInParent<EnemyCharacter>();
+                    if (nearbyEnemy == null || nearbyEnemy == origin) continue;
+                    if (!nearbyEnemy.IsAlive || nearbyEnemy.StatusEffects == null) continue;
+                    if (!affectedEnemies.Add(nearbyEnemy)) continue;
+
+                    ApplyZap(nearbyEnemy, areaDamage, source);
+                }
+            }
+            finally
+            {
+                ArrayPool<Collider>.Shared.Return(overlapBuffer, clearArray: true);
+                HashSetPool<EnemyCharacter>.Release(affectedEnemies);
             }
         }
 

@@ -1,0 +1,126 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &8318720336426160346
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 3991610267305407322, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_PanelSettings
+      value: 
+      objectReference: {fileID: 11400000, guid: 89e133d9241134f2f8aea7d9ba66d3a4, type: 2}
+    - target: {fileID: 7279537988215388327, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8991308520691338416, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: pauseTime
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8991308520691338416, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: openWithEscape
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9049161548963107108, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_Name
+      value: Pause Screen
+      objectReference: {fileID: 0}
+    - target: {fileID: 9185215875467639428, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9185215875467639428, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9185215875467639428, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9185215875467639428, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9185215875467639428, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9185215875467639428, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9185215875467639428, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9185215875467639428, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9185215875467639428, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9185215875467639428, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 9049161548963107108, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5094992525673031232}
+    - targetCorrespondingSourceObject: {fileID: 9049161548963107108, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4709929130920804282}
+  m_SourcePrefab: {fileID: 100100000, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+--- !u!1 &1073858276525736446 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 9049161548963107108, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+  m_PrefabInstance: {fileID: 8318720336426160346}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5094992525673031232
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1073858276525736446}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1430532ea2a8b4bfbad21cec6f8645ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.PauseScreenBridge
+--- !u!114 &4709929130920804282
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1073858276525736446}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cae67e39135f1469da9485d7110564d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.UIToolkitGamepadInput
+  screen: {fileID: 0}
+  pause: {fileID: 1131955348614143082}
+  stickThreshold: 0.5
+  repeatDelay: 0.35
+  repeatInterval: 0.14
+--- !u!114 &1131955348614143082 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8991308520691338416, guid: 731410235c229b248ad897deb2239cbc, type: 3}
+  m_PrefabInstance: {fileID: 8318720336426160346}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1073858276525736446}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0581f64b3f43cb243af0b784b948b0b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Junklite.Pause::Junklite.Pause.PauseMenu

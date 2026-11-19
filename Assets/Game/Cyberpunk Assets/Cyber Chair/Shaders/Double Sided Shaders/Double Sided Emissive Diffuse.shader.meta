@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: d0188c64b3ff75947a4e285da6cedcd4
+timeCreated: 1489413550
+licenseType: Store
+ShaderImporter:
+  defaultTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 116719
+  packageName: Sci-fi Chair
+  packageVersion: 1.0
+  assetPath: Assets/Fantasy Village/Shaders/Double Sided Shaders/Double Sided Emissive
+    Diffuse.shader
+  uploadId: 240929

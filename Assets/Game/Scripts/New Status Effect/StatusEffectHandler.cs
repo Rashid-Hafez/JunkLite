@@ -1,251 +1,380 @@
-using UnityEngine;
+using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace junklite
 {
     /// <summary>
-    /// Manages all status effects on an enemy.
+    /// Actor-neutral runtime controller for buffs and debuffs. It owns timing,
+    /// stacking and ticks, then publishes one aggregate snapshot to the actor.
     /// </summary>
     public class StatusEffectHandler : MonoBehaviour
     {
-        [Header("VFX References (Disabled by Default)")]
+        [Header("Legacy VFX References (Disabled by Default)")]
+        [Tooltip("Legacy burn particles. StatusEffectVisuals permanently disables these on enemies at initialization.")]
         [SerializeField] private GameObject burnVFX;
         [SerializeField] private GameObject poisonVFX;
         [SerializeField] private GameObject bleedVFX;
         [SerializeField] private GameObject electricVFX;
 
-        [Header("Debug")]
-        [SerializeField] private bool showDebugLogs = false;
+        private readonly List<StatusEffectInstance> activeEffects = new();
+        private readonly List<StatusEffectInstance> tickBuffer = new();
+        private readonly List<StatusEffectInstance> removalBuffer = new();
 
-        // Active effects - one per type (refresh stacking)
-        private Dictionary<StatusEffectType, StatusEffectInstance> activeEffects = new();
+        private IStatusEffectTarget target;
+        private IDamageReceiver damageReceiver;
+        private StatusEffectSnapshot snapshot = StatusEffectSnapshot.Clear;
+        private bool legacyBurnVisualsDisabled;
 
-        // Cached references
-        private EnemyCharacter enemy;
-        private EnemyMovement movement;
-        private float originalSpeed;
-        private bool hasSpeedModifier;
+        public event Action<StatusEffectType> OnEffectApplied;
+        public event Action<StatusEffectType> OnEffectRemoved;
+        public event Action<StatusEffectType> OnEffectRefreshed;
+        public event Action<StatusEffectType, float> OnEffectTick;
+        public event Action<StatusEffectSnapshot> OnSnapshotChanged;
 
-        // Events for UI/Audio hooks
-        public event System.Action<StatusEffectType> OnEffectApplied;
-        public event System.Action<StatusEffectType> OnEffectRemoved;
-        public event System.Action<StatusEffectType, float> OnEffectTick; // type, damage dealt
-
-        // Public accessors
-        public bool HasEffect(StatusEffectType type) => activeEffects.ContainsKey(type);
         public int ActiveEffectCount => activeEffects.Count;
+        public StatusEffectSnapshot CurrentSnapshot => snapshot;
+        public bool IsCrowdControlled => snapshot.IsCrowdControlled;
+        public float MoveSpeedMultiplier => snapshot.MoveSpeedMultiplier;
 
         private void Awake()
         {
-            enemy = GetComponent<EnemyCharacter>();
-            movement = GetComponent<EnemyMovement>();
-
-            if (enemy == null)
-            {
-                Debug.LogError($"StatusEffectHandler on {name} requires EnemyCharacter component!");
-                enabled = false;
-            }
+            CacheTarget();
         }
 
         private void Start()
         {
-            // Cache original speed
-            if (movement != null)
-                originalSpeed = movement.MoveSpeed;
+            // Public Apply calls still work while this component is disabled and
+            // re-enable ticking when the first effect is added.
+            enabled = activeEffects.Count > 0;
+        }
+
+        public void BindTarget(IStatusEffectTarget statusTarget)
+        {
+            target = statusTarget;
+            damageReceiver = statusTarget;
+            PublishSnapshot();
+        }
+
+        public bool HasEffect(StatusEffectType type)
+        {
+            for (int i = 0; i < activeEffects.Count; i++)
+            {
+                if (activeEffects[i].Type == type)
+                    return true;
+            }
+
+            return false;
+        }
+
+        public bool HasTag(StatusEffectTags tag)
+        {
+            return (snapshot.Tags & tag) != 0;
+        }
+
+        public StatusEffectInstance Apply(StatusEffectApplication application)
+        {
+            if (!application.IsValid)
+                return null;
+
+            CacheTarget();
+            if (damageReceiver != null && !damageReceiver.IsAlive)
+                return null;
+
+            float now = Time.time;
+            StatusEffectInstance existing = FindMatchingEffect(application);
+            if (existing != null)
+            {
+                bool aggregatesChanged = existing.Merge(application, now);
+                if (aggregatesChanged)
+                    RecalculateSnapshot();
+
+                OnEffectRefreshed?.Invoke(existing.Type);
+                enabled = true;
+
+                return existing;
+            }
+
+            var effect = new StatusEffectInstance(application, now);
+            activeEffects.Add(effect);
+            SetVFXActive(effect.Type, true);
+            RecalculateSnapshot();
+            OnEffectApplied?.Invoke(effect.Type);
+            enabled = true;
+
+            return effect;
+        }
+
+        // Backward-compatible entry point for older code-created effects.
+        public StatusEffectInstance Apply(StatusEffectInstance effect)
+        {
+            return effect != null ? Apply(effect.ToApplication()) : null;
+        }
+
+        public StatusEffectInstance ApplyHitstun(float duration, GameObject source = null)
+        {
+            return Apply(StatusEffectApplication.Hitstun(duration, source));
+        }
+
+        public StatusEffectInstance ApplyStun(float duration, GameObject source = null)
+        {
+            return Apply(StatusEffectApplication.Stun(duration, source));
+        }
+
+        public StatusEffectInstance ApplySlow(float duration, float moveSpeedMultiplier, GameObject source = null)
+        {
+            return Apply(StatusEffectApplication.Slow(duration, moveSpeedMultiplier, source));
+        }
+
+        public StatusEffectInstance ApplyFreeze(float duration, GameObject source = null)
+        {
+            return Apply(StatusEffectApplication.Freeze(duration, source));
+        }
+
+        public void Remove(StatusEffectType type)
+        {
+            removalBuffer.Clear();
+            for (int i = 0; i < activeEffects.Count; i++)
+            {
+                if (activeEffects[i].Type == type)
+                    removalBuffer.Add(activeEffects[i]);
+            }
+
+            RemoveBufferedEffects();
+        }
+
+        public void Remove(StatusEffectDefinition definition)
+        {
+            if (definition == null)
+                return;
+
+            removalBuffer.Clear();
+            for (int i = 0; i < activeEffects.Count; i++)
+            {
+                if (activeEffects[i].Definition == definition)
+                    removalBuffer.Add(activeEffects[i]);
+            }
+
+            RemoveBufferedEffects();
+        }
+
+        public void ClearAllEffects()
+        {
+            if (activeEffects.Count == 0)
+            {
+                if (snapshot.Tags != StatusEffectTags.None ||
+                    snapshot.BlockedActions != StatusActionBlock.None ||
+                    !Mathf.Approximately(snapshot.MoveSpeedMultiplier, 1f))
+                {
+                    snapshot = StatusEffectSnapshot.Clear;
+                    PublishSnapshot();
+                }
+                enabled = false;
+                return;
+            }
+
+            removalBuffer.Clear();
+            removalBuffer.AddRange(activeEffects);
+            activeEffects.Clear();
+
+            for (int i = 0; i < removalBuffer.Count; i++)
+            {
+                StatusEffectType type = removalBuffer[i].Type;
+                SetVFXActive(type, false);
+                OnEffectRemoved?.Invoke(type);
+            }
+
+            removalBuffer.Clear();
+            RecalculateSnapshot();
+            enabled = false;
+        }
+
+        public float GetRemainingDuration(StatusEffectType type)
+        {
+            float longest = 0f;
+            for (int i = 0; i < activeEffects.Count; i++)
+            {
+                if (activeEffects[i].Type == type)
+                    longest = Mathf.Max(longest, activeEffects[i].RemainingDuration);
+            }
+
+            return longest;
         }
 
         private void Update()
         {
-            if (!enemy.IsAlive)
+            CacheTarget();
+            if (damageReceiver != null && !damageReceiver.IsAlive)
             {
                 ClearAllEffects();
                 return;
             }
 
-            if (enemy.IsAlive)
-                TickEffects();
+            TickEffects(Time.time);
         }
 
-        /// <summary>
-        /// Apply a status effect. If same type exists, refreshes duration.
-        /// </summary>
-        public void Apply(StatusEffectInstance effect)
-        {
-            if (effect == null || effect.Type == StatusEffectType.None)
-                return;
-
-            if (!enemy.IsAlive)
-                return;
-
-            // Check if effect of this type already exists
-            if (activeEffects.TryGetValue(effect.Type, out var existing))
-            {
-                // Refresh existing effect
-                existing.RefreshWith(effect);
-
-                if (showDebugLogs)
-                    Debug.Log($"[StatusEffect] Refreshed {effect.Type} on {name}");
-            }
-            else
-            {
-                // Add new effect
-                activeEffects[effect.Type] = effect;
-
-                // Enable VFX
-                SetVFXActive(effect.Type, true);
-
-                // Apply speed modifier if any
-                ApplySpeedModifier();
-
-                // Fire event
-                OnEffectApplied?.Invoke(effect.Type);
-
-                if (showDebugLogs)
-                    Debug.Log($"[StatusEffect] Applied {effect.Type} to {name} (duration: {effect.Duration}s)");
-            }
-        }
-
-        /// <summary>
-        /// Remove a specific effect type.
-        /// </summary>
-        public void Remove(StatusEffectType type)
-        {
-            if (!activeEffects.ContainsKey(type))
-                return;
-
-            activeEffects.Remove(type);
-
-            // Disable VFX
-            SetVFXActive(type, false);
-
-            // Recalculate speed modifiers
-            ApplySpeedModifier();
-
-            // Fire event
-            OnEffectRemoved?.Invoke(type);
-
-            if (showDebugLogs)
-                Debug.Log($"[StatusEffect] Removed {type} from {name}");
-        }
-
-        /// <summary>
-        /// Clear all active effects.
-        /// </summary>
-        public void ClearAllEffects()
-        {
-            var types = new List<StatusEffectType>(activeEffects.Keys);
-            foreach (var type in types)
-            {
-                Remove(type);
-            }
-        }
-
-        /// <summary>
-        /// Get remaining duration for an effect type.
-        /// </summary>
-        public float GetRemainingDuration(StatusEffectType type)
-        {
-            if (activeEffects.TryGetValue(type, out var effect))
-                return effect.RemainingDuration;
-            return 0f;
-        }
-
-        private void TickEffects()
+        private void TickEffects(float now)
         {
             if (activeEffects.Count == 0)
                 return;
 
-            float deltaTime = Time.deltaTime;
-            var expiredEffects = new List<StatusEffectType>();
+            tickBuffer.Clear();
+            tickBuffer.AddRange(activeEffects);
+            int effectCountBeforeTick = activeEffects.Count;
 
-            foreach (var kvp in activeEffects)
+            for (int i = 0; i < tickBuffer.Count; i++)
             {
-                var effect = kvp.Value;
+                StatusEffectInstance effect = tickBuffer[i];
+                if (!activeEffects.Contains(effect))
+                    continue;
 
-                // Update duration
-                effect.RemainingDuration -= deltaTime;
-
-                // Update tick timer
-                effect.TickTimer += deltaTime;
-
-                // Check if it's time to tick damage
-                if (effect.TickTimer >= effect.TickInterval)
+                int catchUpTicks = 0;
+                while (effect.CanTick && now >= effect.NextTickAt && effect.NextTickAt <= effect.ExpiresAt && catchUpTicks < 8)
                 {
-                    effect.TickTimer -= effect.TickInterval;
                     ApplyTickDamage(effect);
+                    effect.AdvanceTick();
+                    catchUpTicks++;
+
+                    if (damageReceiver != null && !damageReceiver.IsAlive)
+                        break;
                 }
 
-                // Check if expired
+                if (damageReceiver != null && !damageReceiver.IsAlive)
+                    break;
+
                 if (effect.IsExpired)
-                {
-                    expiredEffects.Add(kvp.Key);
-                }
+                    RemoveInstance(effect, recalculate: false);
             }
 
-            // Remove expired effects
-            foreach (var type in expiredEffects)
-            {
-                Remove(type);
-            }
+            tickBuffer.Clear();
+
+            if (damageReceiver != null && !damageReceiver.IsAlive)
+                ClearAllEffects();
+            else if (activeEffects.Count != effectCountBeforeTick)
+                RecalculateSnapshot();
+
+            if (activeEffects.Count == 0)
+                enabled = false;
         }
 
         private void ApplyTickDamage(StatusEffectInstance effect)
         {
-            if (!enemy.IsAlive)
+            if (damageReceiver == null || !damageReceiver.IsAlive || effect.DamagePerTick <= 0f)
                 return;
 
-            // Create damage info - goes through proper damage system!
-            var damageInfo = new DamageInfo(
+            DamageResult result = damageReceiver.ReceiveDamage(new DamageRequest(
                 effect.DamagePerTick,
                 effect.Source,
                 effect.DamageType,
-                Vector2.zero, // No knockback for DoT
-                isTickDamage: true
-            );
+                isTickDamage: true));
 
-            // Apply damage through the enemy's damage system
-            enemy.TakeDamage(damageInfo);
-
-            // Fire tick event
-            OnEffectTick?.Invoke(effect.Type, effect.DamagePerTick);
-
-            if (showDebugLogs)
-                Debug.Log($"[StatusEffect] {effect.Type} tick: {effect.DamagePerTick} damage to {name}");
-        }
-
-        private void ApplySpeedModifier()
-        {
-            if (movement == null)
+            if (!result.WasApplied)
                 return;
 
-            // Find the strongest speed modifier among active effects
-            float lowestModifier = 1f;
+            OnEffectTick?.Invoke(effect.Type, result.AppliedDamage);
 
-            foreach (var effect in activeEffects.Values)
+        }
+
+        private StatusEffectInstance FindMatchingEffect(StatusEffectApplication application)
+        {
+            for (int i = 0; i < activeEffects.Count; i++)
             {
-                if (effect.SpeedModifier < lowestModifier)
-                    lowestModifier = effect.SpeedModifier;
+                if (activeEffects[i].Matches(application))
+                    return activeEffects[i];
             }
 
-            // Apply the modifier
-            if (lowestModifier < 1f)
+            return null;
+        }
+
+        private void RemoveBufferedEffects()
+        {
+            if (removalBuffer.Count == 0)
+                return;
+
+            for (int i = 0; i < removalBuffer.Count; i++)
+                RemoveInstance(removalBuffer[i], recalculate: false);
+
+            removalBuffer.Clear();
+            RecalculateSnapshot();
+            enabled = activeEffects.Count > 0;
+        }
+
+        private void RemoveInstance(StatusEffectInstance effect, bool recalculate)
+        {
+            if (effect == null || !activeEffects.Remove(effect))
+                return;
+
+            if (!HasEffect(effect.Type))
+                SetVFXActive(effect.Type, false);
+
+            OnEffectRemoved?.Invoke(effect.Type);
+
+            if (recalculate)
+                RecalculateSnapshot();
+        }
+
+        private void RecalculateSnapshot()
+        {
+            StatusEffectTags tags = StatusEffectTags.None;
+            StatusActionBlock blockedActions = StatusActionBlock.None;
+            float strongestSlow = 1f;
+            float strongestHaste = 1f;
+
+            for (int i = 0; i < activeEffects.Count; i++)
             {
-                movement.MoveSpeed = originalSpeed * lowestModifier;
-                hasSpeedModifier = true;
+                StatusEffectInstance effect = activeEffects[i];
+                tags |= effect.Tags;
+                blockedActions |= effect.BlockedActions;
+
+                float multiplier = effect.MoveSpeedMultiplier;
+                if (multiplier < 1f)
+                    strongestSlow = Mathf.Min(strongestSlow, multiplier);
+                else if (multiplier > 1f)
+                    strongestHaste = Mathf.Max(strongestHaste, multiplier);
             }
-            else if (hasSpeedModifier)
-            {
-                // Restore original speed
-                movement.MoveSpeed = originalSpeed;
-                hasSpeedModifier = false;
-            }
+
+            float moveSpeedMultiplier = strongestSlow < 1f ? strongestSlow : strongestHaste;
+            var next = new StatusEffectSnapshot(tags, blockedActions, moveSpeedMultiplier);
+
+            bool changed = next.Tags != snapshot.Tags ||
+                           next.BlockedActions != snapshot.BlockedActions ||
+                           !Mathf.Approximately(next.MoveSpeedMultiplier, snapshot.MoveSpeedMultiplier);
+
+            snapshot = next;
+            if (changed)
+                PublishSnapshot();
+        }
+
+        private void PublishSnapshot()
+        {
+            target?.ApplyStatusEffectSnapshot(snapshot);
+            OnSnapshotChanged?.Invoke(snapshot);
+        }
+
+        private void CacheTarget()
+        {
+            if (target == null)
+                target = GetComponent<IStatusEffectTarget>();
+            if (damageReceiver == null)
+                damageReceiver = target ?? GetComponent<IDamageReceiver>();
         }
 
         private void SetVFXActive(StatusEffectType type, bool active)
         {
             GameObject vfx = GetVFXForType(type);
             if (vfx != null)
-                vfx.SetActive(active);
+                vfx.SetActive(active && !(type == StatusEffectType.Burn && legacyBurnVisualsDisabled));
+        }
+
+        // Disable before the first Apply, rather than briefly starting play-on-awake particles
+        // and suppressing them in OnEffectApplied. Never restore the retired effect on disable.
+        internal void DisableLegacyBurnVisuals()
+        {
+            legacyBurnVisualsDisabled = true;
+            if (burnVFX == null) return;
+            foreach (ParticleSystem particles in burnVFX.GetComponentsInChildren<ParticleSystem>(true))
+                particles.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+            burnVFX.SetActive(false);
         }
 
         private GameObject GetVFXForType(StatusEffectType type)
@@ -262,17 +391,10 @@ namespace junklite
 
         private void OnDisable()
         {
-            // Clean up VFX when disabled
-            foreach (var type in activeEffects.Keys)
-            {
-                SetVFXActive(type, false);
-            }
-        }
-
-        private void OnDestroy()
-        {
             ClearAllEffects();
         }
+
+        private void OnDestroy() => ClearAllEffects();
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -284,15 +406,5 @@ namespace junklite
             if (electricVFX != null && electricVFX.activeSelf) electricVFX.SetActive(false);
         }
 #endif
-    }
-
-
-    public enum StatusEffectType
-    {
-        None,
-        Burn,
-        Poison,
-        Bleed,
-        Electric
     }
 }

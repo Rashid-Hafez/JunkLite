@@ -7,6 +7,8 @@ namespace junklite
         private enum Phase { WindUp, Attack, Cooldown }
 
         private IMeleeAttacker meleeAttacker;
+        private IMeleeLunge lunge;
+        private bool lunging;
         private EnemyMovement movement;
         private Hitbox hitbox;
 
@@ -19,6 +21,9 @@ namespace junklite
 
         public MeleeAttackState(EnemyCharacter enemy) : base(enemy) { }
 
+        /// <summary>Still telegraphing: the swing hasn't started, so a brain may still call it off.</summary>
+        public bool IsInWindUp => isInitialized && phase == Phase.WindUp;
+
         public override void Enter()
         {
             meleeAttacker = GetCapability<IMeleeAttacker>();
@@ -30,6 +35,8 @@ namespace junklite
 
             movement = enemy.Movement;
             hitbox = meleeAttacker.MeleeHitbox;
+            lunge = GetCapability<IMeleeLunge>();
+            lunging = false;
             isInitialized = true;
 
             movement?.Stop();
@@ -55,12 +62,7 @@ namespace junklite
 
                 case Phase.Cooldown:
                     if (timer >= meleeAttacker.MeleeAttackSpeed)
-                    {
-                        if (HasTarget && IsTargetInAttackRange)
-                            BeginWindUp();
-                        else
-                            meleeAttacker.OnMeleeComplete();
-                    }
+                        CompleteAttack();
                     break;
             }
         }
@@ -75,9 +77,9 @@ namespace junklite
             timer = 0f;
             FaceTarget();
 
-            // Tell the enemy a new attack cycle is starting (wind-up).
-            // Animation controller can use this to play a telegraph/anticipation anim.
-            meleeAttacker.OnMeleeWindUp();
+            // Gameplay owns the duration. Presentation may fit its clip to this
+            // phase, but it cannot change when the attack becomes active.
+            enemy.AnimationPresenter?.PlayMeleeWindup(meleeAttacker.MeleeWindUpDuration);
         }
 
         private void BeginAttack()
@@ -88,9 +90,34 @@ namespace junklite
             hitboxActivated = false;
             hitboxDeactivated = false;
 
-            // Tell the enemy the actual swing is starting now.
-            // Animation controller plays the attack clip at this point.
-            meleeAttacker.OnMeleeAttack();
+            enemy.AnimationPresenter?.PlayMeleeAttack(attackDuration);
+            BeginLunge();
+        }
+
+        private void BeginLunge()
+        {
+            if (lunge == null || lunge.LungeSpeed <= 0f || lunge.LungeDuration <= 0f
+                || !HasTarget || movement == null)
+                return;
+
+            // Already on top of the target: gliding further only drives through it.
+            if (IsWithinLungeStop())
+                return;
+
+            float sign = Mathf.Sign(movement.GetSignedAxisDistance(Transform.position, Target.position));
+            movement.MoveInDirection(movement.MovementAxis * sign, lunge.LungeSpeed);
+            lunging = true;
+        }
+
+        private bool IsWithinLungeStop() =>
+            HasTarget && movement != null
+            && movement.GetAbsAxisDistance(Transform.position, Target.position) <= lunge.LungeStopDistance;
+
+        private void EndLunge()
+        {
+            if (!lunging) return;
+            lunging = false;
+            movement?.Stop();
         }
 
         // =============================================================
@@ -100,6 +127,9 @@ namespace junklite
         private void UpdateAttack()
         {
             float progress = Mathf.Clamp01(timer / attackDuration);
+
+            if (lunging && (timer >= lunge.LungeDuration || IsWithinLungeStop()))
+                EndLunge();
 
             if (!hitboxActivated && progress >= meleeAttacker.MeleeHitStartNormalized)
             {
@@ -115,6 +145,7 @@ namespace junklite
 
             if (progress >= 1f)
             {
+                EndLunge();
                 hitbox?.Deactivate();
                 FaceTarget();
 
@@ -126,12 +157,19 @@ namespace junklite
                 }
                 else
                 {
-                    if (HasTarget && IsTargetInAttackRange)
-                        BeginWindUp();
-                    else
-                        meleeAttacker.OnMeleeComplete();
+                    CompleteAttack();
                 }
             }
+        }
+
+        private void CompleteAttack()
+        {
+            if (!isInitialized)
+                return;
+
+            isInitialized = false;
+            hitbox?.Deactivate();
+            meleeAttacker.OnMeleeComplete();
         }
 
         // =============================================================
@@ -146,6 +184,7 @@ namespace junklite
 
         public override void Exit()
         {
+            EndLunge();
             hitbox?.Deactivate();
             isInitialized = false;
         }

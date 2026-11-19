@@ -1,0 +1,69 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4081726452868006341
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5495492783530366818}
+  - component: {fileID: 7898282311256816885}
+  m_Layer: 0
+  m_Name: Mods
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5495492783530366818
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4081726452868006341}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7898282311256816885
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4081726452868006341}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eede9db8611eacf4f97513d45c29d634, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Junklite.Inventory::Junklite.Inventory.ModInventory
+  capacity: 30
+  stored:
+  - {fileID: 11400000, guid: 302c585353923cf43b25ed4d3a421c40, type: 2}
+  - {fileID: 11400000, guid: dfec7fe44b0d5514ea999f5fa2b6bdf0, type: 2}
+  - {fileID: 11400000, guid: ab49264f3b5f18f408552bf0f0621ec6, type: 2}
+  - {fileID: 11400000, guid: 5fbf3abdf2ba61144b3983d4812b626e, type: 2}
+  - {fileID: 11400000, guid: c6a8917ce97c87f48b031ee03d636d46, type: 2}
+  - {fileID: 11400000, guid: 425b37be60978614ca9c861ca9961ec2, type: 2}
+  - {fileID: 11400000, guid: 6366d7c5a4740294cb6dd432e6d07f82, type: 2}
+  - {fileID: 11400000, guid: 4a680201ef04e8347a3856759f0adc5f, type: 2}
+  - {fileID: 11400000, guid: 1a2bc279c85643b41a95aacddccea9e4, type: 2}
+  - {fileID: 11400000, guid: 7d0739c65d29d514e9c63fe8a170f82a, type: 2}
+  - {fileID: 11400000, guid: c89809b76830ddf41b9604c4b404bfeb, type: 2}
+  - {fileID: 11400000, guid: a167e3c8ac2e4784aa72eda970960c4d, type: 2}
+  - {fileID: 11400000, guid: 0c34971a4c995aa42bacbd11d674202d, type: 2}
+  - {fileID: 11400000, guid: f551f51b3fb2670418ee94eb0e09b0a0, type: 2}
+  equipped:
+  - {fileID: 0}
+  - {fileID: 11400000, guid: 16137d4b6d89300478d5937084ce913a, type: 2}
+  - {fileID: 11400000, guid: cecce7ac4ea72c143b3afb849b0c7803, type: 2}
+  - {fileID: 11400000, guid: 102789f238201a64fbb56a0dcdd3a066, type: 2}
+  - {fileID: 11400000, guid: 1f0e6da5f7c0c824f92d8e61308d44ed, type: 2}
+  - {fileID: 0}

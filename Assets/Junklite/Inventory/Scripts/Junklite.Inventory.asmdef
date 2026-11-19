@@ -1,0 +1,16 @@
+{
+  "name": "Junklite.Inventory",
+  "rootNamespace": "Junklite.Inventory",
+  "references": [
+    "Junklite.Shared"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
