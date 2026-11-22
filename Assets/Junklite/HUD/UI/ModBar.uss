@@ -1,0 +1,305 @@
+/* MOD BAR. Ported from HUD/mods/mods.css. The four active slots (Z X C V, or L2 + face buttons) and the passive
+   slots, under a C.M.A. MOD STATE strip. With .mods--bare (the chosen design) there is no panel, strip or words:
+   only the slots with a thin outline and the button under each one.
+
+   States (toggled by HudModBar):
+     .mods--online    mod state on: slots at full strength
+     .mods--pad       gamepad prompts: the HOLD L2 group shows
+     .slot--empty     nothing equipped: corner marks only
+     .slot--cooling   cooldown running: shade over the icon, seconds in the middle
+     .slot--ready     cooldown just finished: corners and flash (cyan, in Theme.uss)
+     .slot--fire      pressed: dips for 260 ms
+     .slot--refuse    a press that did nothing: red seconds for 320 ms */
+
+.mods-wrap { flex-direction: row; justify-content: center; }
+
+.mods {
+    flex-direction: column;
+    padding: 10px 18px 12px 18px;
+}
+
+/* strip */
+.mods-head {
+    flex-direction: row;
+    align-items: center;
+    height: 40px;
+    padding-bottom: 8px;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--line);
+}
+
+.mods-head__label { margin-right: 12px; }
+.mods-head__gap { flex-grow: 1; min-width: 16px; }
+.mods-head__hold,
+.mods-head__toggle { flex-direction: row; align-items: center; }
+.mods-head__hold { display: none; margin-right: 18px; }
+.mods--pad .mods-head__hold { display: flex; }
+.mods-head__hint { margin-left: 9px; font-size: 11px; letter-spacing: 30.6px; }
+
+/* slot row */
+.mods-row { flex-direction: row; align-items: flex-start; margin-top: 12px; }
+
+.mods-div {
+    width: 1px;
+    height: 84px;
+    margin-left: 6px;
+    margin-right: 16px;
+    background-color: var(--line);
+}
+
+.slot {
+    flex-direction: column;
+    align-items: center;
+    margin-right: 10px;
+    opacity: 0.5;
+    transition: opacity 220ms ease-out-cubic, scale 220ms ease-out-cubic;
+}
+
+.mods--online .slot { opacity: 1; }
+.slot--fire { scale: 0.9 0.9; transition-duration: 60ms; }
+.slot--end { margin-right: 0; }
+
+.slot__frame {
+    width: 84px;
+    height: 84px;
+    overflow: hidden;
+    background-color: var(--ink);
+    border-width: 1px;
+    border-color: var(--line);
+    transition: border-color 150ms ease-out;
+}
+
+.slot--passive .slot__frame { width: 60px; height: 60px; }
+
+.slot__icon {
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    right: 4px;
+    bottom: 4px;
+    background-size: cover;
+    background-position-x: center;
+    background-position-y: center;
+    transition: opacity 150ms ease-out;
+}
+
+.slot--cooling .slot__icon { opacity: 0.4; }
+
+.slot__shade { position: absolute; left: 0; top: 0; right: 0; height: 0; background-color: var(--shade); }
+
+.slot__time {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    -unity-font-definition: var(--hud-number-bold);
+    font-size: 26px;
+    letter-spacing: 4.6px;
+    color: var(--paper);
+    -unity-text-align: middle-center;
+}
+
+.slot--cooling .slot__time { opacity: 1; }
+.slot--refuse .slot__time { color: var(--alert); }
+
+.slot__rarity { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; }
+.slot__rarity--junk { background-color: var(--r-junk); }
+.slot__rarity--standard { background-color: var(--r-standard); }
+.slot__rarity--classified { background-color: var(--r-classified); }
+.slot__rarity--elite { background-color: var(--r-elite); }
+
+.slot__flash {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--hot);
+    opacity: 0;
+    transition: opacity 520ms ease-out;
+}
+
+.slot--ready .slot__flash { opacity: 0.55; transition-duration: 0s; }
+.slot--ready .slot__frame { border-color: var(--hot); }
+
+/* corner marks: always there on an empty slot, lit when a slot comes ready (cyan, in Theme.uss) */
+.slot__corner {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-width: 0;
+    border-color: var(--hot);
+    opacity: 0;
+    transition: opacity 420ms ease-out;
+}
+
+.slot__corner--tl { left: 0; top: 0; border-left-width: 2px; border-top-width: 2px; }
+.slot__corner--tr { right: 0; top: 0; border-right-width: 2px; border-top-width: 2px; }
+.slot__corner--bl { left: 0; bottom: 0; border-left-width: 2px; border-bottom-width: 2px; }
+.slot__corner--br { right: 0; bottom: 0; border-right-width: 2px; border-bottom-width: 2px; }
+.slot--ready .slot__corner { opacity: 1; transition-duration: 0s; }
+
+.slot__empty {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    -unity-font-definition: var(--hud-head);
+    font-size: 10px;
+    letter-spacing: 26.4px;
+    color: var(--text-dim);
+    -unity-text-align: middle-center;
+}
+
+.slot--empty .slot__frame { background-color: rgba(28, 36, 52, 0); border-color: rgba(58, 67, 194, 0); }
+.slot--empty .slot__corner { opacity: 1; border-color: var(--line); }
+.slot--empty .slot__empty { opacity: 1; }
+
+/* the button under each active slot, the PSV tag under the passive ones */
+.slot__key { margin-top: 10px; transition: opacity 150ms ease-out; }
+.slot--cooling .slot__key { opacity: 0.4; }
+.slot--empty .slot__key { opacity: 0.4; }
+
+.slot__tag {
+    margin-top: 10px;
+    height: 22px;
+    padding: 0 7px;
+    background-color: var(--trough);
+    color: var(--text-dim);
+    -unity-font-definition: var(--hud-head);
+    font-size: 10px;
+    letter-spacing: 24px;
+}
+
+/* readout floating above the panel: last mod used, or why a press was refused */
+.mods-readout {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -46px;
+    height: 36px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    translate: 0 6px;
+    transition: opacity 200ms ease-out-cubic, translate 200ms ease-out-cubic;
+}
+
+.mods-readout--on { opacity: 1; translate: 0 0; }
+
+.mods-readout__pill {
+    flex-direction: row;
+    align-items: center;
+    height: 36px;
+    padding: 0 10px 0 12px;
+    background-color: var(--panel);
+}
+
+.mods-readout__kp { display: none; margin-left: 10px; }
+.mods-readout--key .mods-readout__kp { display: flex; }
+
+.mods-readout__name {
+    -unity-font-definition: var(--hud-head-medium);
+    font-size: 12px;
+    letter-spacing: 26px;
+    color: var(--text);
+}
+
+.mods-readout__sep {
+    margin: 0 10px;
+    -unity-font-definition: var(--hud-head);
+    font-size: 12px;
+    color: var(--line);
+}
+
+.mods-readout__detail {
+    -unity-font-definition: var(--hud-number);
+    font-size: 15px;
+    letter-spacing: 11.2px;
+    color: var(--hot);
+}
+
+.mods-readout--warn .mods-readout__detail { color: var(--alert); }
+
+/* ---------- game-driven states (HudModBar.ShowUnlocked / ShowWear / ShowBroken) ----------
+   Slots the player hasn't unlocked are hidden.
+   The uses bar: a hairline right under the slot, as wide as its frame, one cell per use; the uses left are solid and
+   the used ones a faint trace (colours in Theme.uss), the last one left red. A mod that doesn't wear keeps the space,
+   so all the buttons stay level.
+   A broken mod (no uses left) dims its art and BROKEN replaces its button; Theme.uss reddens its frame. The moment it
+   breaks (.slot--shatter, 520 ms): a red flash, and BROKEN pops in. */
+.slot--locked { display: none; }
+.mods-div--hidden { display: none; }
+.slot--broken .slot__icon { opacity: 0.3; }
+
+.slot__wear {
+    flex-direction: row;
+    width: 84px;
+    height: 3px;
+    margin-top: 4px;
+}
+
+.slot--passive .slot__wear { width: 60px; }
+
+.slot__use {
+    flex-grow: 1;
+    margin-right: 2px;
+    transition: background-color 200ms ease-out;
+}
+
+.slot__use--end { margin-right: 0; }
+
+.slot--no-wear .slot__wear,
+.slot--empty .slot__wear,
+.slot--broken .slot__wear { visibility: hidden; }
+
+.slot--broken .slot__key,
+.slot--broken .slot__tag { display: none; }
+
+.slot__broken {
+    display: none;
+    margin-top: 10px;
+    height: 22px;
+    padding: 0 6px;
+    -unity-font-definition: var(--hud-head-semibold);
+    font-size: 12px;
+    letter-spacing: 16px;
+    -unity-text-align: middle-center;
+    color: var(--ink);
+    background-color: var(--alert);
+    transition: scale 120ms ease-out;
+}
+
+.slot--broken .slot__broken { display: flex; }
+.slot--broken.slot--refuse .slot__broken { scale: 1.12 1.12; transition-duration: 0s; }
+.slot--shatter .slot__flash { background-color: var(--alert); opacity: 0.75; transition-duration: 0s; }
+.slot--shatter .slot__broken { scale: 1.18 1.18; transition-duration: 0s; }
+
+/* ---------- BARE (the chosen design) ----------
+   No panel, strip or words. The mod state still works: offline, the slots drop to half strength.
+   A refused press flashes the button red and rattles the slot. */
+.mods--bare {
+    background-color: rgba(0, 0, 0, 0);
+    border-top-width: 0;
+    padding: 0;
+}
+
+.mods--bare .mods-head,
+.mods--bare .mods-readout,
+.mods--bare .tick,
+.mods--bare .slot__tag,
+.mods--bare .slot__empty { display: none; }
+
+.mods--bare .mods-row { margin-top: 0; }
+/* light outlines over the game (Theme.uss turns them yellow) */
+.mods--bare .slot__frame { border-color: rgba(111, 208, 255, 0.4); }
+.mods--bare .slot--empty .slot__frame { border-color: rgba(111, 208, 255, 0); }
+.mods--bare .slot--empty .slot__corner { border-color: rgba(111, 208, 255, 0.55); }
+.mods--bare .mods-div { background-color: rgba(111, 208, 255, 0.3); height: 60px; margin-top: 12px; }
+.mods--bare .slot--passive { margin-top: 12px; }
+.mods--bare .slot--ready .slot__frame { border-color: var(--hot); }

@@ -1,0 +1,73 @@
+/* THE LEVEL-UP NOTICE. Ported from HUD/new version/shared/elements/popups.css (.lvl) and the colour prototype's
+   theme.css, text only like the C.M.A. prompt (Prompt.uss): a yellow LEVEL UP chip and the new level in yellow, the
+   rewards in sky blue, and where to spend them. It comes in from the left under the vitals and leaves on its own.
+   It has its own UI Document (Resources/JunkliteHUD/LevelUp.uxml); HudLevelUp places it under the vitals for the
+   HUD's size.
+
+   States (set from HudLevelUp):
+     .lvl--on        on screen
+     .lvl--instant   no fade (hidden at once)
+     .size-70 / .size-80 / .size-90 on the root: the HUD's size */
+
+@import url("HudBase.uss");
+@import url("Theme.uss");
+@import url("HudLinear.uss");
+@import url("HudLayout.uss");
+
+.lvl-zone {
+    position: absolute;
+    left: 48px;
+    top: 165px;
+    transform-origin: 0 0;
+}
+
+.size-70 .lvl-zone { scale: 0.7 0.7; }
+.size-80 .lvl-zone { scale: 0.8 0.8; }
+.size-90 .lvl-zone { scale: 0.9 0.9; }
+
+.lvl {
+    flex-direction: column;
+    opacity: 0;
+    translate: -24px 0;
+    transition: opacity 280ms ease-out-cubic, translate 280ms ease-out-cubic;
+}
+
+.lvl--on { opacity: 1; translate: 0 0; }
+.lvl--instant { transition-duration: 0s; }
+
+.lvl-head { flex-direction: row; align-items: center; }
+
+.lvl-head__chip {
+    height: 26px;
+    padding: 0 10px;
+    font-size: 15px;
+}
+
+.lvl-head__level {
+    margin-left: 14px;
+    -unity-font-definition: var(--hud-title);
+    font-size: 52px;
+    letter-spacing: 3px;
+    color: var(--yellow);
+}
+
+.lvl-reward {
+    margin-top: 4px;
+    -unity-font-definition: var(--hud-number);
+    font-size: 28px;
+    letter-spacing: 5.5px;
+    color: var(--text);
+}
+
+.lvl-hint {
+    margin-top: 4px;
+    -unity-font-definition: var(--hud-head-medium);
+    font-size: 15px;
+    letter-spacing: 28.3px;
+    color: var(--text);
+}
+
+/* no card behind it, so a stronger shadow than the HUD's */
+.lvl .lvl-head__level,
+.lvl .lvl-reward,
+.lvl .lvl-hint { text-shadow: 0 2px 6px rgba(17, 20, 58, 0.9); }

@@ -1,0 +1,49 @@
+/* HUD LAYOUT. Ported from HUD/new version/shared/elements/full-hud.css: the chosen layout. Each element sits in a
+   corner zone, a flex container pinned to a corner of the screen:
+     top left        vitals
+     top right       the objective, popping up
+     bottom centre   the bare mod bar
+     bottom right    the dialogue
+   HudLayout sets these classes on the root:
+     .size-70 / .size-80 / .size-90   the whole HUD scaled from its corners (70% is the chosen size, 100% has no class)
+     .hud--idle                       faded back after a few quiet seconds (off unless switched on) */
+
+.hud {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+/* ---------- zones ---------- */
+.zone {
+    position: absolute;
+    flex-direction: column;
+    transition: opacity 700ms ease-out, scale 280ms ease-out;
+}
+
+.zone--tl { left: 48px; top: 48px; align-items: flex-start; transform-origin: 0 0; }
+.zone--tr { right: 48px; top: 48px; align-items: flex-end; transform-origin: 100% 0; }
+.zone--bc { left: 0; right: 0; bottom: 48px; align-items: center; transform-origin: 50% 100%; }
+.zone--br { right: 48px; bottom: 48px; align-items: flex-end; transform-origin: 100% 100%; }
+
+/* the top-right objective slides in from the right */
+.zone--tr .ob { translate: 28px 0; }
+.zone--tr .ob.ob--shown { translate: 0 0; }
+
+/* ---------- size ---------- */
+.size-70 .zone { scale: 0.7 0.7; }
+.size-80 .zone { scale: 0.8 0.8; }
+.size-90 .zone { scale: 0.9 0.9; }
+
+/* ---------- idle fade ---------- */
+.hud--idle .zone { opacity: 0.45; }
+
+/* ---------- glitch: torn rows ----------
+   Last, so a torn row's colour beats every element's own. HudFx.Tear moves .tear rows sideways and
+   recolours them for a few 70 ms frames. */
+.hud .tear--hot .unity-label,
+.hud .tear--hot.unity-label { color: var(--hot); }
+.hud .tear--cold .unity-label,
+.hud .tear--cold.unity-label { color: var(--action); }

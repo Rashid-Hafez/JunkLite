@@ -62,6 +62,28 @@ namespace Junklite.Inventory
 
         public string TypeLabel => hybrid ? "Active / Passive" : type == ModType.Active ? "Active" : "Passive";
 
+        // Durability, set by the game while it runs (not saved): the points left, the max, and what one use costs.
+        float durability;
+        float maxDurability;
+        float durabilityPerUse;
+
+        /// <summary>True once the game has given this mod a durability (a mod that doesn't wear has none).</summary>
+        public bool HasDurability => maxDurability > 0f && durabilityPerUse > 0f;
+        public float Durability => durability;
+        public float MaxDurability => maxDurability;
+        /// <summary>How many uses it has from new, and how many are left.</summary>
+        public int Uses => HasDurability ? Mathf.CeilToInt(maxDurability / durabilityPerUse - 0.001f) : 0;
+        public int UsesLeft => HasDurability ? Mathf.CeilToInt(Mathf.Max(0f, durability) / durabilityPerUse - 0.001f) : 0;
+        /// <summary>Out of durability: it no longer works.</summary>
+        public bool IsBroken => HasDurability && durability <= 0f;
+
+        public void SetDurability(float current, float max, float perUse)
+        {
+            durability = current;
+            maxDurability = max;
+            durabilityPerUse = perUse;
+        }
+
         /// <summary>Makes a mod in code, for mods that don't exist as assets (from a server or a save file, say).</summary>
         public static ModDefinition Create(string id, string displayName, ModRarity rarity, ModType type,
             float cooldown = 0f, string damage = null, string description = null, Texture2D icon = null)

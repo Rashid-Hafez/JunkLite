@@ -1,0 +1,202 @@
+/* LEVEL RESULTS. Ported from HUD/new version/shared/elements/results.css (the fourth take, chosen 21 Nov 2026).
+   The game's results information as its own screen rather than part of the HUD: modern and minimal, in the
+   guideline's darker tones and its white, edge to edge over the paused game.
+     left    slate #1C2434: MISSION COMPLETE and the title at the top; at the bottom a rule, the grade (RATING, the
+             letter, PERFORMANCE GRADE), the time and the total kills
+     right   dark indigo #21266E: the kill breakdown at the top, Retry and Continue at the bottom
+   The tops and bottoms of the two halves line up. All the writing is white; the only colour is the grade letter
+   (S lime, A cyan, B sky blue, C orange, D red). Anton for the title and the grade, Azeret Mono for labels,
+   Bender for numbers, JetBrains Mono for the buttons. It fades in once and holds still.
+   Letter-spacing is the prototype's em size x 100 x 1.2, as in HudBase.uss.
+
+   States (set from HudResults):
+     .res--shown                      in the layout (display), one frame before it fades in
+     .res--on                         on screen
+     .res--s / --a / --b / --c / --d  the grade's colour
+     .res-btn--on                     the selected button */
+
+@import url("HudBase.uss");
+
+.res {
+    --res-slate: #1C2434;
+    --res-indigo: #21266E;
+    --res-white: #E7ECED;
+    --res-white-2: rgba(231, 236, 237, 0.55);   /* labels */
+    --res-white-3: rgba(231, 236, 237, 0.14);   /* rules */
+    --res-grade: #6FD0FF;
+
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: none;
+    flex-direction: row;
+    opacity: 0;
+    transition: opacity 260ms ease-out;
+}
+
+.res--shown { display: flex; }
+.res--on { opacity: 1; }
+.res--s { --res-grade: #EBF83F; }
+.res--a { --res-grade: #5DEFE2; }
+.res--b { --res-grade: #6FD0FF; }
+.res--c { --res-grade: #FF9313; }
+.res--d { --res-grade: #E44018; }
+
+/* ---------- the two halves ---------- */
+.res-left {
+    flex-grow: 1;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 132px 110px 110px 160px;
+    background-color: var(--res-slate);
+    translate: 0 14px;
+    transition: translate 420ms ease-out-cubic;
+}
+
+.res-right {
+    width: 620px;
+    flex-shrink: 0;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 132px 96px 110px 84px;
+    background-color: var(--res-indigo);
+    translate: 28px 0;
+    transition: translate 420ms ease-out-cubic;
+}
+
+.res--on .res-left,
+.res--on .res-right { translate: 0 0; }
+
+/* ---------- type ---------- */
+.res-label {
+    -unity-font-definition: var(--hud-head-medium);
+    font-size: 14px;
+    letter-spacing: 35.8px;
+    color: var(--res-white-2);
+}
+
+.res-head,
+.res-body { flex-direction: column; }
+
+/* Anton's line box is taller in Unity than the prototype's line-height, so the big letters get negative margins to
+   sit where they do in the browser. */
+.res-title {
+    margin-top: -18px;
+    -unity-font-definition: var(--hud-title);
+    font-size: 128px;
+    letter-spacing: 0.9px;
+    color: var(--res-white);
+}
+
+.res-rule { height: 1px; background-color: var(--res-white-3); }
+
+.res-num {
+    -unity-font-definition: var(--hud-number-light);
+    font-size: 96px;
+    letter-spacing: 1.3px;
+    color: var(--res-white);
+}
+
+.res-unit {
+    margin: 0 26px 10px 10px;
+    -unity-font-definition: var(--hud-head-medium);
+    font-size: 14px;
+    letter-spacing: 25.7px;
+    color: var(--res-white-2);
+}
+
+/* ---------- left: the grade, then the time and the total kills ---------- */
+.res-stats { flex-direction: row; align-items: stretch; margin-top: 52px; }
+.res-rating { flex-direction: column; width: 330px; flex-shrink: 0; }
+
+.res-grade {
+    margin-top: -48px;
+    -unity-font-definition: var(--hud-title);
+    font-size: 250px;
+    color: var(--res-grade);
+}
+
+.res-rating__caption { margin-top: -47px; margin-bottom: -12px; }
+.res-vrule { width: 1px; margin: 0 72px 0 20px; background-color: var(--res-white-3); }
+.res-figures { flex-direction: column; justify-content: space-between; }
+.res-figure { flex-direction: column; }
+.res-figure__value { flex-direction: row; align-items: flex-end; margin-top: 5px; }
+
+/* ---------- right: the kill breakdown, then the buttons ---------- */
+.res-kills { flex-direction: column; }
+.res-kill-list { flex-direction: column; margin-top: 18px; }
+
+.res-kill {
+    flex-direction: row;
+    align-items: center;
+    height: 74px;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--res-white-3);
+}
+
+.res-kill__label {
+    flex-grow: 1;
+    -unity-font-definition: var(--hud-head-medium);
+    font-size: 17px;
+    letter-spacing: 28.2px;
+    color: var(--res-white);
+}
+
+.res-kill__count {
+    -unity-font-definition: var(--hud-number-light);
+    font-size: 46px;
+    letter-spacing: 2.6px;
+    color: var(--res-white);
+}
+
+.res-foot { flex-direction: column; }
+
+.res-btn {
+    flex-direction: row;
+    align-items: center;
+    height: 72px;
+    margin-top: 14px;
+    padding: 0 22px 0 28px;
+    border-width: 1px;
+    border-color: rgba(231, 236, 237, 0.3);
+    background-color: rgba(0, 0, 0, 0);
+    transition: background-color 150ms ease-out, border-color 150ms ease-out;
+}
+
+.res-btn__label {
+    flex-grow: 1;
+    -unity-font-definition: var(--hud-key);
+    font-size: 18px;
+    letter-spacing: 26.7px;
+    color: var(--res-white);
+}
+
+/* the confirm button's name, on the selected button only: ENTER, or the cross on a pad */
+.res-key {
+    display: none;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    min-width: 30px;
+    padding: 0 8px;
+    border-width: 1px;
+    border-color: rgba(28, 36, 52, 0.45);
+}
+
+.res-key__txt {
+    -unity-font-definition: var(--hud-key);
+    font-size: 12px;
+    letter-spacing: 15px;
+    color: var(--res-slate);
+}
+
+.res-key__glyph { width: 16px; height: 16px; color: var(--res-slate); display: none; }
+.res-key--pad .res-key__glyph { display: flex; }
+.res-key--pad .res-key__txt { display: none; }
+
+.res-btn--on { background-color: var(--res-white); border-color: var(--res-white); }
+.res-btn--on .res-btn__label { color: var(--res-slate); }
+.res-btn--on .res-key { display: flex; }

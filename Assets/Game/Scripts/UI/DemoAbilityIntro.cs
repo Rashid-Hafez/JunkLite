@@ -22,6 +22,9 @@ namespace junklite
         private InputAction continueInput;
         private bool running;
 
+        /// <summary>The intro is up (GameplayLocks treats it like a cutscene: no inventory or pause over it).</summary>
+        public static bool IsShowing { get; private set; }
+
         private void Start()
         {
             if (prompt == null)
@@ -40,6 +43,7 @@ namespace junklite
             }
 
             running = true;
+            IsShowing = true;
             Time.timeScale = 0f;
             input.SetGameplayInputEnabled(false);
             if (overlay != null) overlay.SetActive(true);
@@ -53,6 +57,7 @@ namespace junklite
         {
             if (!running) return;
             running = false;
+            IsShowing = false;
             continueInput.performed -= OnContinue;
 
             prompt.Hide();
@@ -67,6 +72,7 @@ namespace junklite
             if (!running) return;
             if (continueInput != null) continueInput.performed -= OnContinue;
             running = false;
+            IsShowing = false;
             Time.timeScale = 1f;
         }
     }

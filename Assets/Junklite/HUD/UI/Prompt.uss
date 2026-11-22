@@ -1,0 +1,111 @@
+/* THE C.M.A. PROMPT. Ported from HUD/new version/shared/elements/popups.css (.pop) and the colour prototype's
+   theme.css. Text only, with no card (the user's call, 21 Nov 2026): a sky blue header over up to three rows of a
+   big yellow button cap and what it does, in big yellow type (22 Nov 2026) with a soft dark shadow so it reads over
+   the game.
+   It has its own UI Document (Resources/JunkliteHUD/Prompt.uxml), so it brings the HUD's tokens, caps and look with it.
+
+   States (set from HudPrompt):
+     .pop--on        on screen
+     .pop--done      the player did it: the header turns cyan and the rows dim, then the prompt leaves
+     .pop--instant   no fade (hidden at once)
+     .size-70 / .size-80 / .size-90 on the root: the HUD's size */
+
+@import url("HudBase.uss");
+@import url("Theme.uss");
+@import url("HudLinear.uss");
+@import url("HudLayout.uss");
+
+/* centred along the top; HudPrompt sets the top edge */
+.pop-zone {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 280px;
+    align-items: center;
+    transform-origin: 50% 0;
+}
+
+.size-70 .pop-zone { scale: 0.7 0.7; }
+.size-80 .pop-zone { scale: 0.8 0.8; }
+.size-90 .pop-zone { scale: 0.9 0.9; }
+
+.pop {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 360px;
+    opacity: 0;
+    translate: 0 -18px;
+    transition: opacity 280ms ease-out-cubic, translate 280ms ease-out-cubic;
+}
+
+.pop--on { opacity: 1; translate: 0 0; }
+.pop--instant { transition-duration: 0s; }
+
+.pop-panel {
+    flex-direction: column;
+    padding: 0;
+}
+
+.pop-head {
+    -unity-font-definition: var(--hud-head-medium);
+    font-size: 17px;
+    letter-spacing: 27.7px;
+    color: var(--text);
+    white-space: nowrap;
+    padding: 0 0 4px 0;
+    margin: 0;
+    transition: color 150ms ease-out;
+}
+
+.pop-rows {
+    flex-direction: column;
+    margin-top: 6px;
+}
+
+.pop-row {
+    flex-direction: row;
+    align-items: center;
+    height: 68px;
+    transition: opacity 200ms ease-out;
+}
+
+.pop-row__kp { margin-right: 20px; }
+
+/* bigger button caps than the HUD's large ones */
+.pop-row__kp .kp__cap { min-width: 52px; height: 52px; padding: 0 13px; border-bottom-width: 6px; border-radius: 5px; }
+.pop-row__kp .kp__txt { font-size: 24px; }
+.pop-row__kp .kp__glyph { width: 30px; height: 30px; }
+.pop-row__kp.kp--round .kp__cap { width: 52px; min-width: 0; padding: 0; border-radius: 26px; }
+.pop-row__kp.kp--pill .kp__cap { border-radius: 16px; padding: 0 15px; }
+.pop-row__kp.kp--pill .kp__txt { font-size: 20px; }
+.pop-row__kp .kp__ring { border-radius: 10px; }
+.pop-row__kp.kp--round .kp__ring { border-radius: 31px; }
+
+.pop-row__label {
+    -unity-font-definition: var(--hud-head-semibold);
+    font-size: 30px;
+    letter-spacing: 17.1px;
+    color: var(--yellow);
+    white-space: nowrap;
+    padding: 0;
+    margin: 0;
+}
+
+.pop-row__suffix {
+    margin: 0 0 0 14px;
+    padding: 0;
+    -unity-font-definition: var(--hud-number);
+    font-size: 30px;
+    letter-spacing: 5.5px;
+    color: var(--yellow);
+    white-space: nowrap;
+}
+
+/* with no card behind it, the writing gets a stronger shadow than the HUD's */
+.pop .pop-head,
+.pop .pop-row__label,
+.pop .pop-row__suffix { text-shadow: 0 2px 6px rgba(17, 20, 58, 0.9); }
+
+/* done: SYNC OK */
+.pop--done .pop-head { color: var(--action); }
+.pop--done .pop-row { opacity: 0.45; }

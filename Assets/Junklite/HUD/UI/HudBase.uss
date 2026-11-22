@@ -1,0 +1,249 @@
+/* JUNKLITE HUD: tokens and the pieces every element shares. Ported from HUD/shared/css/tokens.css and hud-common.css.
+   Lengths are reference pixels of the 1920x1080 frame (Panel Settings does the scaling).
+   Letter-spacing: on 6000.6 the value acts as a percentage of the font size, but measured against the browser it
+   comes out at about 0.82 of that, so every value here is the prototype's em size x 100 x 1.2.
+   Opacities and see-through colours are the prototype's, which are right in Gamma colour space (JunkLite's setting).
+   In Linear colour space HudLinear.uss replaces them.
+   Theme.uss sets the colour prototype's colours over these tokens. */
+
+@import url("../../Shared/UI/Common.uss");
+
+:root {
+    /* palette (guideline hex codes) */
+    --orange-300: #FF9313;
+    --orange-500: #E85C19;
+    --red-500: #E44018;
+    --sky-300: #6FD0FF;
+    --sky-600: #1B97D3;
+    --cyan-300: #5DEFE2;
+    --indigo-500: #3A43C2;
+    --indigo-800: #21266E;
+    --slate-900: #1C2434;
+    --paper: #E7ECED;
+    --grey-500: #56606B;
+
+    /* roles, same as the title screen */
+    --band: #21266E;
+    --line: #3A43C2;
+    --text: #6FD0FF;
+    --text-dim: #1B97D3;
+    --hot: #FF9313;
+    --alert: #E44018;
+    --alert-base: #8E2A10;
+    --action: #5DEFE2;
+    --action-idle: #3EA9A6;
+    --ink: #1C2434;
+
+    /* HUD-only roles. Unity blends in linear space, so translucent colours carry new alphas that look like the
+       prototype's over the game (prototype values in brackets; see "CSS to USS" in PIPELINE.md). */
+    --panel: rgba(28, 36, 52, 0.88);
+    --trough: #121826;
+    --shade: rgba(18, 24, 38, 0.8);
+
+    /* mod rarity (GDD key, same values as the inventory) */
+    --r-junk: #C9D1E6;
+    --r-standard: #86E68C;
+    --r-classified: #6FD0FF;
+    --r-elite: #FF5F74;
+
+    /* type roles: one file per weight */
+    --hud-title: url("../../Shared/Fonts/Anton-Regular.ttf");
+    --hud-head: url("../../Shared/Fonts/AzeretMono-Regular.ttf");
+    --hud-head-medium: url("../Fonts/AzeretMono-Medium.ttf");
+    --hud-head-semibold: url("../../Shared/Fonts/AzeretMono-SemiBold.ttf");
+    --hud-body: url("../../Shared/Fonts/AzeretMono-Regular.ttf");
+    --hud-key: url("../Fonts/JetBrainsMono-Bold.ttf");
+    --hud-number: url("../../Shared/Fonts/Bender-Regular.otf");
+    --hud-number-light: url("../Fonts/Bender-Light.otf");
+    --hud-number-bold: url("../Fonts/Bender-Bold.otf");
+}
+
+/* ---------- panel ---------- */
+
+.hud-panel {
+    background-color: var(--panel);
+    border-top-width: 1px;
+    border-top-color: var(--line);
+}
+
+/* corner ticks: two-sided borders. Last child of a panel, so they draw on top. */
+.tick {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-color: var(--text);
+    border-width: 0;
+}
+
+.tick--tl { left: -1px; top: -1px; border-left-width: 2px; border-top-width: 2px; }
+.tick--tr { right: -1px; top: -1px; border-right-width: 2px; border-top-width: 2px; }
+.tick--bl { left: -1px; bottom: -1px; border-left-width: 2px; border-bottom-width: 2px; }
+.tick--br { right: -1px; bottom: -1px; border-right-width: 2px; border-bottom-width: 2px; }
+
+/* ---------- small type ---------- */
+
+.kicker {
+    -unity-font-definition: var(--hud-head);
+    font-size: 11px;
+    letter-spacing: 28.3px;
+    color: var(--text-dim);
+}
+
+/* status chip: the title's RESTRICTED flag */
+.chip {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    height: 20px;
+    padding: 0 8px;
+    -unity-font-definition: var(--hud-head-medium);
+    font-size: 11px;
+    letter-spacing: 28.3px;
+    color: var(--text);
+    background-color: var(--band);
+    transition: color 150ms ease-out, background-color 150ms ease-out, opacity 150ms ease-out;
+}
+
+.chip--hot { color: var(--ink); background-color: var(--hot); }
+.chip--alert { color: var(--ink); background-color: var(--alert); }
+.chip--action { color: var(--ink); background-color: var(--action); }
+
+.chip--ghost { color: var(--text-dim); background-color: var(--trough); }
+
+/* ---------- input prompts (KeyPrompt) ----------
+   .kp            a binding label: a --paper cap (sky blue; yellow on the mod bar, in Theme.uss)
+   .kp--hot       asks for a press now: a --hot cap (yellow; cyan on the mod bar)
+   .kp--down      pressed: the cap drops onto its base for 120 ms
+   .kp--refuse    a press that did nothing: red for 320 ms
+   .kp--round     gamepad face button, .kp--pill shoulder or stick, .kp--none no binding on this device */
+
+.kp {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.kp--none { display: none; }
+
+.kp__cap {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 9px;
+    background-color: var(--paper);
+    border-radius: 4px;
+    border-bottom-width: 4px;
+    border-bottom-color: var(--grey-500);
+    translate: 0 0;
+    transition: translate 90ms ease-out, border-bottom-width 90ms ease-out, background-color 90ms ease-out, border-bottom-color 90ms ease-out;
+}
+
+.kp__txt {
+    -unity-font-definition: var(--hud-key);
+    font-size: 16px;
+    color: var(--ink);
+    -unity-text-align: middle-center;
+}
+
+.kp__glyph {
+    width: 20px;
+    height: 20px;
+    color: var(--ink);
+}
+
+.kp--hot .kp__cap { background-color: var(--hot); border-bottom-color: var(--orange-500); }
+.kp--down .kp__cap { translate: 0 3px; border-bottom-width: 1px; }
+.kp--refuse .kp__cap { background-color: var(--alert); border-bottom-color: var(--alert-base); }
+
+.kp--round .kp__cap { width: 34px; min-width: 0; padding: 0; border-radius: 17px; }
+.kp--pill .kp__cap { border-radius: 12px; padding: 0 10px; }
+.kp--pill .kp__txt { font-size: 14px; }
+
+/* the ping: armed (no transition), then sent out so it grows and fades */
+.kp__ring {
+    position: absolute;
+    left: -5px;
+    top: -5px;
+    right: -5px;
+    bottom: -5px;
+    border-width: 2px;
+    border-color: var(--paper);
+    border-radius: 8px;
+    opacity: 0;
+    scale: 1 1;
+}
+
+.kp--hot .kp__ring { border-color: var(--hot); }
+.kp--round .kp__ring { border-radius: 22px; }
+.kp--pill .kp__ring { border-radius: 16px; }
+.kp__ring--arm { opacity: 0.95; scale: 0.92 0.92; transition-duration: 0s; }
+.kp__ring--go { opacity: 0; scale: 1.55 1.55; transition: opacity 760ms ease-out-cubic, scale 760ms ease-out-cubic; }
+
+.kp--lg .kp__cap { min-width: 40px; height: 40px; border-bottom-width: 5px; }
+.kp--lg .kp__txt { font-size: 19px; }
+.kp--lg .kp__glyph { width: 24px; height: 24px; }
+.kp--lg.kp--round .kp__cap { width: 40px; border-radius: 20px; }
+.kp--sm .kp__cap { min-width: 28px; height: 28px; padding: 0 7px; border-bottom-width: 3px; }
+.kp--sm .kp__txt { font-size: 13px; }
+.kp--sm .kp__glyph { width: 16px; height: 16px; }
+.kp--sm.kp--round .kp__cap { width: 28px; padding: 0; border-radius: 14px; }
+.kp--sm.kp--pill .kp__txt { font-size: 12px; }
+.kp--xs .kp__cap { min-width: 22px; height: 22px; padding: 0 5px; border-bottom-width: 3px; border-radius: 3px; }
+.kp--xs .kp__txt { font-size: 11px; }
+.kp--xs .kp__glyph { width: 13px; height: 13px; }
+.kp--xs.kp--round .kp__cap { width: 22px; padding: 0; border-radius: 11px; }
+.kp--xs.kp--pill .kp__txt { font-size: 10px; }
+
+/* the word next to a prompt: bright and heavy, so the pair reads as one instruction */
+.kp-label {
+    -unity-font-definition: var(--hud-head-semibold);
+    font-size: 13px;
+    letter-spacing: 25.8px;
+    color: var(--paper);
+}
+
+/* ---------- glitch: chroma ghosts ----------
+   A heading is three Labels stacked: two ghosts (--hot and --action: yellow and cyan) and the text on top. */
+
+.chroma { flex-direction: row; }
+.chroma__ghost { position: absolute; left: 0; top: 0; opacity: 0; }
+.chroma > .unity-label.chroma__ghost--a { color: var(--hot); }
+.chroma > .unity-label.chroma__ghost--b { color: var(--action); }
+.chroma--on > .chroma__ghost { opacity: 0.85; }
+
+/* ---------- glitch: sliced portrait ----------
+   N horizontal strips, each holding the whole image shifted up, so the strips line up into one picture. */
+
+.pt__slice { position: absolute; left: 0; right: 0; overflow: hidden; }
+
+.pt__img {
+    position: absolute;
+    left: 0;
+    right: 0;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position-x: center;
+    background-position-y: bottom;
+}
+
+.pt__band { position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: 0; }
+.pt__band--hot { background-color: var(--hot); }
+.pt__band--cold { background-color: var(--action); }
+.pt__slice--hot > .pt__band--hot { opacity: 0.42; }
+.pt__slice--cold > .pt__band--cold { opacity: 0.34; }
+
+/* scanlines over small art: the CRT layer's pattern (Shared/Art/fx-scan.png at 0.9), with its alpha raised
+   for linear blending so the feed is as dark as in the prototype */
+.hud-scan {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url("../Art/hud-scan.png");
+    background-repeat: repeat;
+    background-size: 4px 1080px;
+}

@@ -825,6 +825,7 @@ RectTransform:
   - {fileID: 7048030084652165557}
   - {fileID: 1539634877269823609}
   - {fileID: 3511801739656281873}
+  - {fileID: 4158217662533058264}
   - {fileID: 6362207168075070631}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -852,7 +853,7 @@ MonoBehaviour:
   playerNameText: {fileID: 0}
   healthIconFeedback: {fileID: 8462336898480373002}
   modCombatUI: {fileID: 8615370108159043596}
-  hideGameplayHud: 0
+  hideGameplayHud: 1
   gameplayHudElements:
   - {fileID: 7183803679292135806}
   - {fileID: 3615150199312490618}
@@ -6550,6 +6551,189 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 7729384413980221394, guid: e8b3080e17bd9f143bbb9ebe4b15a826, type: 3}
   m_PrefabInstance: {fileID: 1513260289332858403}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1598714908501256851
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 8666793544143661696}
+    m_Modifications:
+    - target: {fileID: 450559421920921043, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: calmFace
+      value: 
+      objectReference: {fileID: 2800000, guid: 3f841909a93e64ca7aa37c5fb1db9668, type: 3}
+    - target: {fileID: 450559421920921043, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: showCrow
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 450559421920921043, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: angryFace
+      value: 
+      objectReference: {fileID: 2800000, guid: 7d35637d900a3459089cd86ae155b6a4, type: 3}
+    - target: {fileID: 450559421920921043, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: shoutFace
+      value: 
+      objectReference: {fileID: 2800000, guid: 20d818da1995646d28db116fa93b5a16, type: 3}
+    - target: {fileID: 450559421920921043, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: showLives
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 450559421920921043, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: crowRevives
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 956403385535153585, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: showOnStart
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 956403385535153585, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: advanceAfterComplete
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 956403385535153585, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: directives.Array.size
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1798071521102113436, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2873724996284787880, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: lines.Array.size
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3094995681765622870, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: m_Name
+      value: Junklite HUD
+      objectReference: {fileID: 0}
+    - target: {fileID: 3430390877403419723, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3430390877403419723, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3430390877403419723, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3430390877403419723, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3430390877403419723, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3430390877403419723, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3430390877403419723, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3430390877403419723, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3430390877403419723, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3430390877403419723, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6603895762543310159, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      propertyPath: gameDriven
+      value: 1
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 3094995681765622870, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5748974491538510086}
+    - targetCorrespondingSourceObject: {fileID: 3094995681765622870, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7034084597844551407}
+  m_SourcePrefab: {fileID: 100100000, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+--- !u!114 &1184292586217271104 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 450559421920921043, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+  m_PrefabInstance: {fileID: 1598714908501256851}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4385490713691074245}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75f335489d7657f42adc22c02833c3af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Junklite.HUD::Junklite.HUD.HudVitals
+--- !u!114 &1975414969996111650 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 956403385535153585, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+  m_PrefabInstance: {fileID: 1598714908501256851}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4385490713691074245}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a6579b54ccf8664fb7e3accd9fe0953, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Junklite.HUD::Junklite.HUD.HudObjective
+--- !u!4 &4158217662533058264 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3430390877403419723, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+  m_PrefabInstance: {fileID: 1598714908501256851}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &4385490713691074245 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3094995681765622870, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+  m_PrefabInstance: {fileID: 1598714908501256851}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5748974491538510086
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4385490713691074245}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b654f6edea8db19478be15057a232731, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.JunkliteHudBridge
+  vitals: {fileID: 1184292586217271104}
+  modBar: {fileID: 5587285469668794332}
+  objective: {fileID: 1975414969996111650}
+  inventoryScreen: {fileID: 2625500632771474614}
+--- !u!114 &7034084597844551407
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4385490713691074245}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45d32fc7f6a6f054f94abb36c56f42b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::junklite.JunkliteResultsBridge
+  submitAction: UI/Submit
+--- !u!114 &5587285469668794332 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6603895762543310159, guid: 7bb6af70c94d30041b773b3be1850853, type: 3}
+  m_PrefabInstance: {fileID: 1598714908501256851}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4385490713691074245}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6c6862009234dc4d964aa502dbea18d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Junklite.HUD::Junklite.HUD.HudModBar
 --- !u!1001 &3115437333798997328
 PrefabInstance:
   m_ObjectHideFlags: 0

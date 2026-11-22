@@ -1,13 +1,18 @@
 @import url("../../Shared/UI/Common.uss");
 
+/* The title screen from Title screen/junklite-title (the chosen title, built from the Chroma variant). Positions are
+   the prototype's at 1920x1080, measured in the browser. Letter-spacing is the prototype's em size x 100 x 1.2 (the
+   HUD's rule; see "CSS to USS" in PIPELINE.md). */
 :root {
-  --color-bg: #07090C;
-  --color-text-dim: #A7B0B7;
-  --color-text-faint: #56606B;
-  --color-text-off: #343C46;
-  --color-action: #5DEFE2;
-  --color-action-idle: #34817B;
-  --color-action-wash: rgba(93, 239, 226, 0.011);
+  --bg: #1C2434;
+  --band: #21266E;
+  --line: #3A43C2;
+  --text: #6FD0FF;
+  --text-dim: #1B97D3;
+  --hot: #FF9313;
+  --action: #5DEFE2;
+  --action-idle: #3EA9A6;
+  --grey: #56606B;
 
   --fade: 150ms ease-out-cubic;
 }
@@ -28,7 +33,7 @@
   height: 1080px;
   flex-shrink: 0;
   overflow: hidden;
-  background-color: var(--color-bg);
+  background-color: var(--bg);
   transform-origin: center;
   transition: opacity 280ms ease-out-cubic;
 }
@@ -55,36 +60,68 @@
   background-image: url("../Art/title-background.png");
 }
 
-/* ---------- portrait ---------- */
+/* ---------- Cas: the ASCII portrait (rows built by TitleCasArt) ---------- */
 
-.portrait-cover {
+.cas {
   position: absolute;
-  left: 1086px;
-  top: 188px;
-  width: 586px;
-  height: 598px;
-  background-color: var(--color-bg);
+  left: 538px;
+  top: 110px;
+  width: 845px;
+  height: 865px;
+  flex-direction: column;
 }
+
+.cas__row {
+  flex-shrink: 0;
+  height: 11.5px;
+  -unity-font-definition: var(--font-button);
+  font-size: 8.8px;
+  letter-spacing: 0;
+  -unity-text-align: middle-left;
+  color: var(--text);
+}
+
+/* a torn row in the glitch: all one colour */
+.cas__row--hot { color: var(--hot); }
+.cas__row--cold { color: var(--text); }
 
 /* ---------- live text ---------- */
 
+.clock {
+  position: absolute;
+  right: 96px;
+  top: 35px;
+  height: 18px;
+  -unity-font-definition: var(--font-number);
+  font-size: 16px;
+  letter-spacing: 15px;
+  -unity-text-align: middle-right;
+  color: var(--text);
+}
+
 .payload {
   position: absolute;
-  left: 1222px;
-  top: 946px;
+  left: 1424px;
+  top: 710px;
+  height: 17px;
   -unity-font-definition: var(--font-mono);
-  font-size: 14px;
-  letter-spacing: 8px;
-  color: var(--color-text-dim);
+  font-size: 15px;
+  letter-spacing: 9.6px;
+  color: var(--text);
 }
 
 /* ---------- menu ---------- */
 
-.menu {
+.menu-column {
   position: absolute;
-  left: 168px;
-  top: 579px;
-  width: 620px;
+  left: 96px;
+  top: 548px;
+  width: 420px;
+  flex-direction: column;
+}
+
+.menu {
+  flex-direction: column;
 }
 
 .menu-item,
@@ -93,110 +130,104 @@
 .menu-item:focus,
 .menu-item:hover:active {
   margin: 0;
-  padding: 0;
-  border-width: 0;
+  padding: 0 16px 0 0;
   border-radius: 0;
-  background-color: rgba(0, 0, 0, 0);
+  border-top-width: 0;
+  border-right-width: 0;
+  border-left-width: 4px;
+  border-bottom-width: 1px;
+  border-left-color: var(--bg);
+  border-bottom-color: var(--line);
+  background-color: var(--bg);
 }
 
 .menu-item {
   flex-direction: row;
   align-items: center;
-  width: 620px;
+  width: 420px;
   height: 62px;
   -unity-font-definition: var(--font-button);
-  font-size: 24px;
-  letter-spacing: 14px;
-  color: var(--color-action-idle);
-  transition: color var(--fade), scale 110ms ease-out-cubic;
+  font-size: 22px;
+  letter-spacing: 16.4px;
+  color: var(--action-idle);
+  transition: color var(--fade), background-color var(--fade), border-left-color var(--fade), scale 110ms ease-out-cubic;
 }
 
 .menu-item:active {
   scale: 0.985 0.985;
 }
 
-.menu-item--selected {
-  color: var(--color-action);
-}
-
-.menu-item__highlight {
-  position: absolute;
-  left: 40px;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  background-color: var(--color-action-wash);
-  opacity: 0;
-  transition: opacity var(--fade);
+.menu-item--selected,
+.menu-item--selected:hover,
+.menu-item--selected:active,
+.menu-item--selected:focus,
+.menu-item--selected:hover:active {
+  color: var(--action);
+  background-color: var(--band);
+  border-left-color: var(--hot);
 }
 
 .menu-item__index {
-  width: 48px;
+  width: 52px;
+  padding-left: 14px;
   -unity-font-definition: var(--font-number);
   font-size: 14px;
-  letter-spacing: 10px;
-  color: var(--color-text-off);
+  letter-spacing: 12px;
+  color: var(--text-dim);
   transition: color var(--fade);
 }
 
-.menu-item__caret {
-  width: 30px;
-  padding-left: 12px;
-  opacity: 0;
-  translate: -6px 0;
-  transition: opacity var(--fade), translate var(--fade);
-}
-
 .menu-item__label {
-  padding-left: 6px;
+  flex-grow: 1;
 }
 
 .menu-item__hint {
-  margin-left: auto;
-  padding-right: 18px;
   -unity-font-definition: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 26px;
-  color: var(--color-text-faint);
+  font-size: 11px;
+  letter-spacing: 28.4px;
+  color: var(--text-dim);
   opacity: 0;
   transition: opacity var(--fade);
 }
 
-.menu-item__underline {
-  position: absolute;
-  left: 40px;
-  right: 0;
-  bottom: 0;
-  height: 1px;
-  background-color: var(--color-action);
-  opacity: 0.23;
-  scale: 0 1;
-  transform-origin: left;
-  transition: scale 220ms ease-out-cubic;
+.menu-item--selected .menu-item__index { color: var(--hot); }
+.menu-item--selected .menu-item__hint { opacity: 1; }
+
+/* ---------- status: what a pressed command is doing ---------- */
+
+.status {
+  margin-top: 26px;
+  flex-direction: column;
 }
 
-.menu-item--selected .menu-item__highlight,
-.menu-item--selected .menu-item__hint {
-  opacity: 1;
+.status__text {
+  height: 14px;
+  -unity-font-definition: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 15.3px;
+  color: var(--text-dim);
 }
 
-.menu-item--selected .menu-item__caret {
-  opacity: 1;
-  translate: 0 0;
-}
-
-.menu-item--selected .menu-item__caret--off {
+.status__bar {
+  height: 2px;
+  margin-top: 12px;
+  background-color: var(--line);
   opacity: 0;
-  transition-duration: 0s;
 }
 
-.menu-item--selected .menu-item__index {
-  color: var(--color-action-idle);
+.status__fill {
+  height: 2px;
+  background-color: var(--hot);
+  transform-origin: left;
+  scale: 0 1;
 }
 
-.menu-item--selected .menu-item__underline {
-  scale: 1 1;
-}
+.status--run .status__text { color: var(--action); }
+.status--run .status__bar,
+.status--done .status__bar { opacity: 1; }
+.status--run .status__fill { scale: 1 1; transition: scale 900ms linear; }
+.status--done .status__fill { scale: 1 1; }
+.status--done .status__text { color: var(--hot); }
 
 /* ---------- CRT flash on power-off (the layer itself is in Shared/UI/Crt.uss) ---------- */
 
@@ -231,11 +262,11 @@
   justify-content: center;
   -unity-font-definition: var(--font-button);
   font-size: 13px;
-  letter-spacing: 30px;
-  color: var(--color-text-faint);
+  letter-spacing: 36px;
+  color: var(--grey);
 }
 
 .reconnect__action {
   margin-left: 16px;
-  color: var(--color-action);
+  color: var(--action);
 }

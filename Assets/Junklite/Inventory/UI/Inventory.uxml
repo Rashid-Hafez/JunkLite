@@ -117,7 +117,13 @@
                 <ui:Label class="detail__stat-label" text="TIER" />
               </ui:VisualElement>
             </ui:VisualElement>
+            <ui:VisualElement name="detail-wear" class="detail__wear hidden">
+              <ui:Label class="detail__wear-label" text="DURABILITY" />
+              <ui:VisualElement name="detail-wear-cells" class="detail__wear-cells" />
+              <ui:Label name="detail-wear-value" class="detail__wear-value" />
+            </ui:VisualElement>
             <ui:Label name="detail-description" class="detail__description" />
+            <ui:Label name="detail-broken" class="detail__broken hidden" text="BROKEN" />
             <ui:VisualElement name="detail-status" class="detail__status">
               <ui:VisualElement class="detail__status-dot" />
               <ui:Label name="detail-status-label" class="detail__status-label" />

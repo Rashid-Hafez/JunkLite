@@ -279,7 +279,11 @@ namespace junklite
 
         private ModDefinition DefinitionFor(ModInstance instance)
         {
-            if (definitions.TryGetValue(instance, out var existing)) return existing;
+            if (definitions.TryGetValue(instance, out var existing))
+            {
+                ShowDurability(existing, instance);
+                return existing;
+            }
 
             ModData data = instance.Data;
             float cooldown = data is ActiveModData active ? active.cooldown : 0f;
@@ -295,13 +299,23 @@ namespace junklite
                 description: data.description,
                 icon: IconFor(data));
             definition.hideFlags = HideFlags.DontSave;
+            ShowDurability(definition, instance);
 
             definitions[instance] = definition;
             instances[definition] = instance;
             return definition;
         }
 
-        private Texture2D IconFor(ModData data)
+        // The screen shows the mod's uses left and BROKEN from its durability, read again on every pull.
+        private static void ShowDurability(ModDefinition definition, ModInstance instance)
+        {
+            ModData data = instance.Data;
+            if (data == null) return;
+            definition.SetDurability(instance.CurrentDurability, data.maxDurability, data.durabilityPerUse);
+        }
+
+        /// <summary>The icon a mod shows on the inventory screen (its override, else its sprite). The HUD uses it too.</summary>
+        public Texture2D IconFor(ModData data)
         {
             for (int i = 0; i < iconOverrides.Count; i++)
                 if (iconOverrides[i].mod == data && iconOverrides[i].icon != null) return iconOverrides[i].icon;

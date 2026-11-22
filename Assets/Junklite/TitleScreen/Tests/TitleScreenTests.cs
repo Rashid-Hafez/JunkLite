@@ -16,6 +16,7 @@ namespace Junklite.TitleScreen.Tests
     {
         const string ScenePath = "Assets/Junklite/TitleScreen/Scenes/TitleScreen.unity";
         const float Margin = 0.25f;
+        const float Launch = 0.9f;   // the status bar's fill before a command runs
 
         TitleScreenController _controller;
         readonly List<TitleCommand> _executed = new List<TitleCommand>();
@@ -70,18 +71,37 @@ namespace Junklite.TitleScreen.Tests
         }
 
         [UnityTest]
-        public IEnumerator Calibrate_Click_FiresCalibrate()
+        public IEnumerator DemoMenu_NamesLevelsAndHidesCalibrate()
         {
-            yield return CheckCommand("menu-calibrate", TitleCommand.Calibrate);
+            yield return null;
+            Assert.That(_controller.DemoMenu, Is.True);
+            Assert.That(Q("menu-begin").Q<Label>(className: "menu-item__label").text, Is.EqualTo("TUTORIAL"));
+            Assert.That(Q("menu-resume").Q<Label>(className: "menu-item__label").text, Is.EqualTo("SERVICE FLOOR"));
+            Assert.That(Q("menu-calibrate").resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+            Assert.That(_controller.Selected, Is.EqualTo(TitleCommand.Begin), "TUTORIAL comes first.");
         }
 
         [UnityTest]
-        public IEnumerator Commands_CanRunBackToBack()
+        public IEnumerator Commands_RunOneAtATime()
         {
             simulate.Click(Q("menu-resume"));
             simulate.Click(Q("menu-begin"));
+            yield return WaitFor(() => _executed.Count > 0, Launch + Margin);
+            yield return new WaitForSecondsRealtime(0.5f);
+            CollectionAssert.AreEqual(new[] { TitleCommand.Resume }, _executed);
+        }
+
+        [UnityTest]
+        public IEnumerator Command_ShowsStatusBeforeItRuns()
+        {
+            simulate.Click(Q("menu-training"));
             yield return null;
-            CollectionAssert.AreEqual(new[] { TitleCommand.Resume, TitleCommand.Begin }, _executed);
+            simulate.FrameUpdate();
+            Assert.That(_executed, Is.Empty, "It ran before the status bar filled.");
+            Assert.That(Q("status").ClassListContains("status--run"), Is.True);
+            Assert.That(((Label)Q("status-text")).text, Does.StartWith("> "));
+            yield return WaitFor(() => _executed.Count > 0, Launch + Margin);
+            Assert.That(((Label)Q("status-text")).text, Does.EndWith("// READY"));
         }
 
         [UnityTest]
@@ -111,6 +131,7 @@ namespace Junklite.TitleScreen.Tests
 
             _executed.Clear();
             simulate.Click(Q("menu-resume"));
+            yield return WaitFor(() => _executed.Count > 0, Launch + Margin);
             CollectionAssert.AreEqual(new[] { TitleCommand.Resume }, _executed);
         }
 
@@ -133,7 +154,7 @@ namespace Junklite.TitleScreen.Tests
         [UnityTest]
         public IEnumerator Hover_MovesSelection()
         {
-            foreach (var command in new[] { TitleCommand.Calibrate, TitleCommand.Rooftop, TitleCommand.Training, TitleCommand.Terminate, TitleCommand.Begin, TitleCommand.Resume })
+            foreach (var command in new[] { TitleCommand.Rooftop, TitleCommand.Training, TitleCommand.Terminate, TitleCommand.Begin, TitleCommand.Resume })
             {
                 string name = "menu-" + command.ToString().ToLowerInvariant();
                 simulate.MouseMove(Q(name));
@@ -146,28 +167,34 @@ namespace Junklite.TitleScreen.Tests
         [UnityTest]
         public IEnumerator ArrowKeys_MoveSelectionAndWrap()
         {
+            // the demo's order: TUTORIAL, SERVICE FLOOR, ROOFTOP, TRAINING, (CALIBRATE hidden), TERMINATE SESSION
             simulate.MouseMove(Q("menu-resume"));
             yield return null;
 
             Move(NavigationMoveEvent.Direction.Down);
+            Assert.That(_controller.Selected, Is.EqualTo(TitleCommand.Rooftop));
+            Move(NavigationMoveEvent.Direction.Up);
+            Move(NavigationMoveEvent.Direction.Up);
             Assert.That(_controller.Selected, Is.EqualTo(TitleCommand.Begin));
             Move(NavigationMoveEvent.Direction.Up);
-            Move(NavigationMoveEvent.Direction.Up);
             Assert.That(_controller.Selected, Is.EqualTo(TitleCommand.Terminate));
+            Move(NavigationMoveEvent.Direction.Up);
+            Assert.That(_controller.Selected, Is.EqualTo(TitleCommand.Training), "Navigation skips the hidden CALIBRATE.");
             Move(NavigationMoveEvent.Direction.Down);
-            Assert.That(_controller.Selected, Is.EqualTo(TitleCommand.Resume));
+            Move(NavigationMoveEvent.Direction.Down);
+            Assert.That(_controller.Selected, Is.EqualTo(TitleCommand.Begin));
         }
 
         [UnityTest]
         public IEnumerator Submit_RunsSelectedCommand()
         {
-            simulate.MouseMove(Q("menu-calibrate"));
+            simulate.MouseMove(Q("menu-training"));
             yield return null;
-            Q("menu-calibrate").Focus();
+            Q("menu-training").Focus();
 
             Send(NavigationSubmitEvent.GetPooled());
-            yield return WaitFor(() => _executed.Count > 0, 0.5f);
-            CollectionAssert.AreEqual(new[] { TitleCommand.Calibrate }, _executed);
+            yield return WaitFor(() => _executed.Count > 0, Launch + Margin);
+            CollectionAssert.AreEqual(new[] { TitleCommand.Training }, _executed);
         }
 
         [UnityTest]
@@ -183,10 +210,9 @@ namespace Junklite.TitleScreen.Tests
 
             yield return WaitFor(() => _controller.Selected != null, 2f);
             simulate.Click(Q("menu-resume"));
+            yield return WaitFor(() => _executed.Count > 0, Launch + Margin);
             CollectionAssert.AreEqual(new[] { TitleCommand.Resume }, _executed);
-            yield return new WaitForSecondsRealtime(1.5f);
-            simulate.FrameUpdate();
-            Assert.That(Q("portrait-cover").resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+            Assert.That(Q("cas").childCount, Is.GreaterThan(0), "Cas was not drawn again.");
         }
 
         [UnityTest]
@@ -237,16 +263,19 @@ namespace Junklite.TitleScreen.Tests
         }
 
         [UnityTest]
-        public IEnumerator Portrait_IsRevealedAfterStart()
+        public IEnumerator Cas_IsDrawnAsText()
         {
-            yield return new WaitForSecondsRealtime(1.5f);
+            yield return null;
             simulate.FrameUpdate();
-            Assert.That(Q("portrait-cover").resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+            var cas = Q("cas");
+            Assert.That(cas.childCount, Is.GreaterThanOrEqualTo(75), "Cas's rows are missing. Check the poses on Title Cas Art.");
+            Assert.That(((Label)cas[0]).text, Is.Not.Empty);
         }
 
         IEnumerator CheckCommand(string button, TitleCommand command)
         {
             simulate.Click(Q(button));
+            yield return WaitFor(() => _executed.Count > 0, Launch + Margin);
             CollectionAssert.AreEqual(new[] { command }, _executed);
             yield return new WaitForSecondsRealtime(0.5f);
             Assert.That(_controller.IsOffline, Is.False);

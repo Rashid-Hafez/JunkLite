@@ -498,6 +498,8 @@ namespace Junklite.Inventory
             }
         }
 
+        static readonly Color Broken = new Color(0.894f, 0.251f, 0.094f);   // #E44018
+
         void RenderSockets()
         {
             foreach (var view in _sockets)
@@ -513,8 +515,15 @@ namespace Junklite.Inventory
                         ? new StyleColor(WithAlpha(RarityColor(mod), SlotBorderAlpha))
                         : new StyleColor(StyleKeyword.Null);
 
+                // a broken mod: dimmed art, a red frame and BROKEN under its name
+                bool broken = mod != null && mod.IsBroken;
+                view.Root.EnableInClassList("socket--broken", broken);
+                if (broken)
+                    view.Root.style.borderTopColor = view.Root.style.borderRightColor =
+                        view.Root.style.borderBottomColor = view.Root.style.borderLeftColor = new StyleColor(Broken);
+
                 view.Name.text = mod != null ? mod.DisplayName.ToUpperInvariant() : locked ? "LOCKED" : "EMPTY";
-                view.Meta.text = locked ? "UPGRADE TO UNLOCK" : passive ? "PASSIVE" : mod != null && mod.HasCooldown ? $"{FormatSeconds(mod.Cooldown).ToUpperInvariant()} COOLDOWN" : "ACTIVE";
+                view.Meta.text = locked ? "UPGRADE TO UNLOCK" : broken ? "BROKEN" : passive ? "PASSIVE" : mod != null && mod.HasCooldown ? $"{FormatSeconds(mod.Cooldown).ToUpperInvariant()} COOLDOWN" : "ACTIVE";
             }
         }
 
@@ -544,7 +553,11 @@ namespace Junklite.Inventory
 
                 tile.Image.style.backgroundImage = tile.Mod.Icon;
                 tile.Bar.style.backgroundColor = RarityColor(tile.Mod);
-                tile.Cooldown.text = tile.Mod.HasCooldown ? FormatSeconds(tile.Mod.Cooldown) : "PSV";
+                // a broken mod: dimmed art, a red frame and BROKEN in place of its cooldown
+                bool broken = tile.Mod.IsBroken;
+                tile.Root.EnableInClassList("tile--broken", broken);
+                if (broken) tile.Bar.style.backgroundColor = Broken;
+                tile.Cooldown.text = broken ? "BROKEN" : tile.Mod.HasCooldown ? FormatSeconds(tile.Mod.Cooldown) : "PSV";
                 bool isNew = tile.Mod.MarkAsNew && !_seen.Contains(tile.Mod);
                 tile.NewDot.style.display = tile.Mod.MarkAsNew ? DisplayStyle.Flex : DisplayStyle.None;
                 tile.NewDot.EnableInClassList("tile__new--seen", !isNew);
@@ -608,6 +621,32 @@ namespace Junklite.Inventory
                 _detail.Q<Label>("detail-damage-label").text = mod.DamageOnlyWhenActive ? "DAMAGE · ACTIVE" : "DAMAGE";
                 _detail.Q<Label>("detail-tier").text = mod.Tier.ToString();
                 _detail.Q<Label>("detail-description").text = mod.Description;
+
+                // durability: one cell per use, lit for the uses left, and the points left out of the max; BROKEN
+                // once it's out. A mod that doesn't wear shows neither.
+                bool broken = mod.IsBroken;
+                modView.EnableInClassList("detail__mod--broken", broken);
+                _detail.Q("detail-wear").EnableInClassList("hidden", !mod.HasDurability);
+                _detail.Q("detail-broken").EnableInClassList("hidden", !broken);
+                if (mod.HasDurability)
+                {
+                    var cells = _detail.Q("detail-wear-cells");
+                    int uses = Mathf.Min(mod.Uses, 20);
+                    int left = mod.Uses <= 20 ? mod.UsesLeft : Mathf.CeilToInt(mod.UsesLeft * 20f / mod.Uses);
+                    if (cells.childCount != uses)
+                    {
+                        cells.Clear();
+                        for (int k = 0; k < uses; k++)
+                        {
+                            var cell = new VisualElement { pickingMode = PickingMode.Ignore };
+                            cell.AddToClassList("detail__wear-cell");
+                            if (k == uses - 1) cell.AddToClassList("detail__wear-cell--end");
+                            cells.Add(cell);
+                        }
+                    }
+                    for (int k = 0; k < uses; k++) cells[k].EnableInClassList("detail__wear-cell--on", k < left);
+                    _detail.Q<Label>("detail-wear-value").text = $"{Mathf.CeilToInt(Mathf.Max(0f, mod.Durability))} / {Mathf.CeilToInt(mod.MaxDurability)}";
+                }
 
                 bool linked = inventory.IsEquipped(mod);
                 _detail.Q("detail-status").EnableInClassList("detail__status--linked", linked);

@@ -1,0 +1,73 @@
+/* LINEAR COLOUR SPACE. HudLayout adds .hud--linear to the HUD when the project renders in Linear colour space.
+   The other sheets carry the web prototype's values, which are right in Gamma (JunkLite's setting), where Unity
+   blends colours like the browser. In Linear, Unity blends in linear light: light colours at part opacity come out
+   brighter, dark ones a little more see-through, and thin dark text on a bright fill looks lighter. The values here
+   are worked out so the result looks like the prototype again (the Gamma value in brackets).
+   Every rule starts with .hud--linear, so it beats the plain rule it replaces. */
+
+/* ---------- tokens ---------- */
+.hud--linear {
+    --action-idle: rgba(93, 239, 226, 0.36);     /* 0.45 */
+    --band: rgba(111, 208, 255, 0.07);           /* 0.18 */
+    --panel: rgba(33, 38, 110, 0.95);            /* 0.92 */
+    --trough: rgba(17, 20, 58, 0.94);            /* 0.9 */
+    --outline: rgba(111, 208, 255, 0.25);        /* 0.4 */
+    --shade: rgba(17, 20, 58, 0.86);             /* 0.8 */
+}
+
+/* ---------- shared pieces ---------- */
+/* dark text on a bright chip renders thin in linear space, so it takes the next weight up */
+.hud--linear .chip--hot,
+.hud--linear .chip--alert,
+.hud--linear .chip--action,
+.hud--linear .hp-state.chip--ghost { -unity-font-definition: var(--hud-head-semibold); }
+
+.hud--linear .chroma--on > .chroma__ghost { opacity: 0.7; }                     /* 0.85 */
+.hud--linear .pt__slice--hot > .pt__band--hot { opacity: 0.3; }                 /* 0.42 */
+.hud--linear .pt__slice--cold > .pt__band--cold { opacity: 0.24; }              /* 0.34 */
+
+/* ---------- objective ---------- */
+.hud--linear .ob { --text-dim: rgba(235, 248, 63, 0.4); }                       /* 0.6 */
+.hud--linear .ob-head { border-bottom-color: rgba(111, 208, 255, 0.36); }       /* 0.55 */
+.hud--linear .ob-step--flash { background-color: rgba(235, 248, 63, 0.07); }    /* 0.2 */
+.hud--linear .ob-step--done .ob-step__kp { opacity: 0.19; }                     /* 0.35 */
+
+/* ---------- vitals ---------- */
+.hud--linear .hp-feed { border-color: rgba(235, 248, 63, 0.63); }               /* 0.8 */
+.hud--linear .hp--critical .hp-feed { border-color: var(--alert); }
+.hud--linear .hp-state--off { opacity: 0.1; }                                   /* 0.2 */
+.hud--linear .hp--hit .hp-bar__flash { opacity: 0.5; }
+.hud--linear .slot__use { background-color: rgba(235, 248, 63, 0.11); }                          /* 0.7 */
+.hud--linear .hp-plate--broken { opacity: 0.33; }                               /* 0.55 */
+
+/* ---------- mod bar ---------- */
+.hud--linear .slot { opacity: 0.32; }                                           /* 0.5: mod state off */
+.hud--linear .mods--online .slot { opacity: 1; }
+.hud--linear .slot--cooling .slot__icon { opacity: 0.25; }                      /* 0.4 */
+.hud--linear .slot--broken .slot__icon { opacity: 0.18; }                       /* 0.3 */
+.hud--linear .slot--ready .slot__flash { opacity: 0.45; }                       /* 0.55 */
+.hud--linear .mods--bare .slot__frame { border-color: rgba(235, 248, 63, 0.41); }               /* 0.6 */
+.hud--linear .mods--bare .slot--empty .slot__frame { border-color: rgba(235, 248, 63, 0); }
+.hud--linear .mods--bare .slot--empty .slot__corner { border-color: rgba(235, 248, 63, 0.38); } /* 0.55 */
+.hud--linear .mods--bare .mods-div { background-color: rgba(111, 208, 255, 0.17); }            /* 0.3 */
+.hud--linear .mods--bare .slot--ready .slot__frame { border-color: var(--action); }
+.hud--linear .mods--bare .slot--broken .slot__frame { border-color: var(--alert); }
+
+/* dimmed buttons on cooling or empty slots, part by part (see Theme.uss) */
+.hud--linear .mods-wrap .slot--cooling .kp__cap,
+.hud--linear .mods-wrap .slot--empty .kp__cap,
+.hud--linear .mods-wrap .slot--broken .kp__cap { background-color: rgba(235, 248, 63, 0.22); border-bottom-color: rgba(140, 148, 38, 0.27); }   /* 0.4 */
+.hud--linear .mods-wrap .slot--cooling .kp__txt,
+.hud--linear .mods-wrap .slot--empty .kp__txt,
+.hud--linear .mods-wrap .slot--broken .kp__txt,
+.hud--linear .mods-wrap .slot--cooling .kp__glyph,
+.hud--linear .mods-wrap .slot--empty .kp__glyph,
+.hud--linear .mods-wrap .slot--broken .kp__glyph { color: rgba(33, 38, 110, 0.94); }   /* 0.88 */
+.hud--linear .mods-wrap .slot--cooling .kp--refuse .kp__cap,
+.hud--linear .mods-wrap .slot--empty .kp--refuse .kp__cap,
+.hud--linear .mods-wrap .slot--broken .kp--refuse .kp__cap { background-color: rgba(228, 64, 24, 0.2); border-bottom-color: rgba(142, 42, 16, 0.26); }   /* 0.4 */
+
+/* ---------- dialogue ---------- */
+.hud--linear .dlg--typing .dlg-foot__kp .kp__cap { background-color: rgba(111, 208, 255, 0.38); border-bottom-color: rgba(27, 151, 211, 0.41); }   /* 0.55 */
+.hud--linear .dlg--typing .dlg-foot__kp .kp__txt,
+.hud--linear .dlg--typing .dlg-foot__kp .kp__glyph { color: rgba(33, 38, 110, 0.98); }   /* 0.93 */

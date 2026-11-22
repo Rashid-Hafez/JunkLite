@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Text;
+using Junklite.HUD;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,7 +8,10 @@ using UnityEngine.VFX;
 
 namespace junklite
 {
-    /// <summary>Presentation only: binds without replaying rewards, and releases all transient feedback on hide.</summary>
+    /// <summary>Presentation only: binds without replaying rewards, and releases all transient feedback on hide.
+    /// It lives on the level-up feedback object rather than on the portrait, so level-ups still show (XP popups,
+    /// sound, ripple, notice) when the old vitals are hidden for the Junklite HUD. Then the notice shows in the
+    /// Junklite look (Junklite.HUD.HudLevelUp, under the new vitals) instead of the old toast.</summary>
     public sealed class PlayerLevelUI : MonoBehaviour
     {
         private readonly Image[] edges = new Image[4];
@@ -29,10 +33,17 @@ namespace junklite
         private float gainRemaining;
         private long recentGain;
         private int celebrationFromLevel;
+        private HudLevelUp junkliteNotice;
+        private bool noticeInJunkliteLook;
 
         public static PlayerLevelUI Create(RectTransform portrait, RectTransform hud)
         {
-            var ui = portrait.gameObject.AddComponent<PlayerLevelUI>();
+            Canvas canvas = hud.GetComponentInParent<Canvas>();
+            Transform feedbackParent = canvas != null ? canvas.rootCanvas.transform : hud;
+            var feedback = new GameObject("Level Up Feedback", typeof(RectTransform), typeof(Canvas));
+            feedback.layer = hud.gameObject.layer;
+            // On the feedback object, which stays on when the portrait's vitals are hidden.
+            var ui = feedback.AddComponent<PlayerLevelUI>();
             ui.portrait = portrait;
             for (int i = 0; i < ui.edges.Length; i++)
             {
@@ -55,10 +66,6 @@ namespace junklite
             ui.gain.alignment = TextAlignmentOptions.Center;
             ui.gain.text = "";
 
-            Canvas canvas = hud.GetComponentInParent<Canvas>();
-            Transform feedbackParent = canvas != null ? canvas.rootCanvas.transform : hud;
-            var feedback = new GameObject("Level Up Feedback", typeof(RectTransform), typeof(Canvas));
-            feedback.layer = hud.gameObject.layer;
             ui.feedbackRoot = (RectTransform)feedback.transform;
             ui.feedbackRoot.SetParent(feedbackParent, false);
             Stretch(ui.feedbackRoot);
@@ -114,6 +121,7 @@ namespace junklite
             feedbackRemaining = gainRemaining = 0f;
             recentGain = 0;
             if (notificationGroup != null) notificationGroup.alpha = 0f;
+            if (junkliteNotice != null) junkliteNotice.Hide(instant: true);
             if (gain != null) gain.text = "";
             if (audioSource != null) audioSource.Stop();
             ClearRipple();
@@ -171,6 +179,7 @@ namespace junklite
             notificationTitle.text = $"LEVEL UP  -  LEVEL {change.Level}";
             notificationTitle.color = config.levelUpColor;
             var message = new StringBuilder();
+            const string spendHint = "OPEN THE UPGRADES TAB TO SPEND";
             int pointsPerLevel = PlayerUpgrades.Instance != null ? PlayerUpgrades.Instance.PointsPerLevel : 1;
             int points = Mathf.Max(0, change.Level - celebrationFromLevel) * pointsPerLevel;
             if (points > 0)
@@ -178,10 +187,19 @@ namespace junklite
             AppendReward(message, config, PlayerStat.MaxHealth, "HEALTH", celebrationFromLevel, change.Level);
             AppendReward(message, config, PlayerStat.OutgoingDamage, "DAMAGE", celebrationFromLevel, change.Level);
             AppendReward(message, config, PlayerStat.Armor, "ARMOR", celebrationFromLevel, change.Level);
-            if (points > 0) message.Append("\nOPEN THE UPGRADES TAB TO SPEND");
+            string rewards = message.ToString().Trim();
+            if (points > 0) message.Append("\n" + spendHint);
             notification.text = message.ToString();
             notification.color = config.levelUpColor;
-            notificationGroup.alpha = 1f;
+            // With the old vitals hidden, the Junklite HUD is in use: the notice shows in its look instead.
+            noticeInJunkliteLook = portrait == null || !portrait.gameObject.activeInHierarchy;
+            if (noticeInJunkliteLook)
+            {
+                if (junkliteNotice == null) junkliteNotice = HudLevelUp.Create(feedbackRoot);
+                junkliteNotice.Show("LEVEL UP", $"LEVEL {change.Level}", rewards, points > 0 ? spendHint : null,
+                    config.notificationDuration);
+            }
+            notificationGroup.alpha = noticeInJunkliteLook ? 0f : 1f;
             UpdateHighlight(0f);
             ClearRipple();
             if (config.showLevelUpRipple && player != null && player.IsAlive)
@@ -233,6 +251,12 @@ namespace junklite
 
         private void Update()
         {
+            // The old HUD this belongs to is gone.
+            if (portrait == null)
+            {
+                Destroy(gameObject);
+                return;
+            }
             if (progression == null) return;
             if (ripple != null)
             {
@@ -249,7 +273,7 @@ namespace junklite
             feedbackRemaining = Mathf.Max(0, feedbackRemaining - Time.unscaledDeltaTime);
             float elapsed = Mathf.Max(config.notificationDuration, config.portraitHighlightDuration) - feedbackRemaining;
             UpdateHighlight(Mathf.Clamp01(elapsed / Mathf.Max(0.05f, config.portraitHighlightDuration)));
-            notificationGroup.alpha = Mathf.Clamp01(feedbackRemaining / 0.35f);
+            notificationGroup.alpha = noticeInJunkliteLook ? 0f : Mathf.Clamp01(feedbackRemaining / 0.35f);
         }
 
         private void UpdateHighlight(float pulse)

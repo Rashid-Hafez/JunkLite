@@ -1,0 +1,208 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &3094995681765622870
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3430390877403419723}
+  - component: {fileID: 5695412709089851053}
+  - component: {fileID: 1798071521102113436}
+  - component: {fileID: 450559421920921043}
+  - component: {fileID: 956403385535153585}
+  - component: {fileID: 6603895762543310159}
+  - component: {fileID: 2873724996284787880}
+  - component: {fileID: 7234736771540373645}
+  m_Layer: 0
+  m_Name: Hud
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3430390877403419723
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3094995681765622870}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5695412709089851053
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3094995681765622870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
+  m_PanelSettings: {fileID: 11400000, guid: 639faae0f5d26b6498b889df936fb45b, type: 2}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 9197481963319205126, guid: 256de027dff8d2b4c9fd9259cbf58d2f, type: 3}
+  m_SortingOrder: 0
+  m_Position: 0
+  m_WorldSpaceSizeMode: 1
+  m_WorldSpaceWidth: 1920
+  m_WorldSpaceHeight: 1080
+  m_PivotReferenceSize: 0
+  m_Pivot: 0
+  m_WorldSpaceCollider: {fileID: 0}
+--- !u!114 &1798071521102113436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3094995681765622870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 048c96ed08e4ebc40b763580a13df4e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Junklite.HUD::Junklite.HUD.HudInputReader
+  followLastDevice: 1
+--- !u!114 &450559421920921043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3094995681765622870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75f335489d7657f42adc22c02833c3af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Junklite.HUD::Junklite.HUD.HudVitals
+  maxHealth: 150
+  health: 132
+  plates: 4
+  armor: 4
+  lives: 3
+  feedId: KRF-0636
+  calmFace: {fileID: 0}
+  shoutFace: {fileID: 0}
+  angryFace: {fileID: 0}
+  idleFlicker: 1
+  crowRevives: 1
+  reviveFraction: 0.4
+  onDown:
+    m_PersistentCalls:
+      m_Calls: []
+  onRevived:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &956403385535153585
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3094995681765622870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a6579b54ccf8664fb7e3accd9fe0953, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Junklite.HUD::Junklite.HUD.HudObjective
+  directives:
+  - level: LVL 0 / C.M.A. TRAINING
+    title: PATCH UP
+    brief: Take the health pack from The KRF Porta Box.
+    steps: []
+  startIndex: 0
+  showOnStart: 1
+  startDelay: 0.3
+  loop: 0
+  onDirectiveShown:
+    m_PersistentCalls:
+      m_Calls: []
+  onDirectiveCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &6603895762543310159
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3094995681765622870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6c6862009234dc4d964aa502dbea18d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Junklite.HUD::Junklite.HUD.HudModBar
+  inventory: {fileID: 0}
+  fallbackLoadout:
+  - {fileID: 0}
+  - {fileID: 11400000, guid: 16137d4b6d89300478d5937084ce913a, type: 2}
+  - {fileID: 11400000, guid: cecce7ac4ea72c143b3afb849b0c7803, type: 2}
+  - {fileID: 11400000, guid: 102789f238201a64fbb56a0dcdd3a066, type: 2}
+  - {fileID: 11400000, guid: 1f0e6da5f7c0c824f92d8e61308d44ed, type: 2}
+  - {fileID: 0}
+  modStateOn: 1
+  bare: 1
+  cooldownSpeed: 1
+  onModUsed:
+    m_PersistentCalls:
+      m_Calls: []
+  onModStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &2873724996284787880
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3094995681765622870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 717f11faba82a3545a2c46345c744e29, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Junklite.HUD::Junklite.HUD.HudDialogue
+  speakers:
+  - id: cassidy
+    displayName: CASSIDY
+    unit: K.R.F. / DIREHOUND
+    accentName: 0
+  lines:
+  - speaker: cassidy
+    text: What was that?!
+  openOnStart: 0
+  nextOpensWhenClosed: 0
+  onLineShown:
+    m_PersistentCalls:
+      m_Calls: []
+  onClosed:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &7234736771540373645
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3094995681765622870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc92ca9ea356808488fb60cd8d92b094, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Junklite.HUD::Junklite.HUD.HudLayout
+  size: 0
+  objectivePopsUp: 1
+  popUpSeconds: 5
+  fadeWhenQuiet: 0
+  quietSeconds: 4
+  reduceMotion: 0

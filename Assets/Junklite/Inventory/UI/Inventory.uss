@@ -858,6 +858,77 @@
   color: var(--pop-muted);
 }
 
+/* ---------- broken mods and durability ----------
+   Out of durability: dimmed art, a red frame and BROKEN (on the tile, under the slot, in the details). The details
+   show the durability: one cell per use, lit for the uses left, and the points left out of the max. */
+.tile--broken .tile__image,
+.socket--broken .socket__image,
+.detail__mod--broken .detail__image { opacity: 0.3; }
+
+.tile--broken { border-color: #E44018; }
+
+.tile--broken .tile__cooldown {
+  background-color: #E44018;
+  -unity-font-definition: var(--font-mono-bold);
+  letter-spacing: 12px;
+  color: var(--ink);
+}
+
+.socket--broken .socket__meta,
+.socket--passive.socket--broken .socket__meta {
+  -unity-font-definition: var(--font-mono-bold);
+  color: #E44018;
+}
+
+.detail__wear {
+  flex-direction: row;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom-width: 1px;
+  border-color: var(--pop-line);
+}
+
+.detail__wear-label {
+  margin-right: 14px;
+  -unity-font-definition: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 20px;
+  color: var(--pop-muted);
+}
+
+.detail__wear-cells {
+  flex-grow: 1;
+  flex-direction: row;
+  height: 8px;
+  margin-right: 14px;
+}
+
+.detail__wear-cell {
+  flex-grow: 1;
+  margin-right: 3px;
+  background-color: rgba(28, 36, 52, 0.22);
+}
+
+.detail__wear-cell--end { margin-right: 0; }
+.detail__wear-cell--on { background-color: var(--ink); }
+
+.detail__wear-value {
+  -unity-font-definition: var(--font-digits);
+  font-size: 20px;
+  color: var(--ink);
+}
+
+.detail__broken {
+  align-self: flex-start;
+  margin-top: 16px;
+  padding: 5px 10px;
+  background-color: var(--ink);
+  -unity-font-definition: var(--font-mono-bold);
+  font-size: 12px;
+  letter-spacing: 24px;
+  color: #FF5A2E;
+}
+
 .detail__description {
   margin-top: 20px;
   white-space: normal;

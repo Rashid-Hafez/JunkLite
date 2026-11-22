@@ -55,6 +55,9 @@ namespace junklite
         private ModManager _modManager;
         private InventoryComponent inventory;
         private bool isInventoryOpen;
+        // The inventory pauses the world: the time scale it found, given back when it closes.
+        private bool inventoryPausedTime;
+        private float timeScaleBeforeInventory = 1f;
         private PlayerLifecycle subscribedPlayerLifecycle;
         private PlayerLevelUI levelUI;
 
@@ -197,6 +200,7 @@ namespace junklite
 
             if (isInventoryOpen && GameInputManager.Instance != null)
                 GameInputManager.Instance.SetGameplayInputEnabled(true);
+            ResumeTimeAfterInventory();
 
             Unbind();
         }
@@ -207,8 +211,32 @@ namespace junklite
 
             if (isInventoryOpen && GameInputManager.Instance != null)
                 GameInputManager.Instance.SetGameplayInputEnabled(true);
+            ResumeTimeAfterInventory();
 
             Unbind();
+        }
+
+        // Hit-stop and slow motion hand the speed back when they end, so the inventory holds the world still each frame.
+        private void Update()
+        {
+            if (isInventoryOpen && inventoryPausedTime && Time.timeScale != 0f) Time.timeScale = 0f;
+        }
+
+        private void PauseTimeForInventory()
+        {
+            if (inventoryPausedTime) return;
+            timeScaleBeforeInventory = Time.timeScale > 0f ? Time.timeScale : 1f;
+            inventoryPausedTime = true;
+            Time.timeScale = 0f;
+        }
+
+        private void ResumeTimeAfterInventory()
+        {
+            if (!inventoryPausedTime) return;
+            inventoryPausedTime = false;
+            // The pause menu owns the speed while it's up (QUIT TO TITLE, say); otherwise the world runs again.
+            bool gamePaused = GameManager.Instance != null && GameManager.Instance.CurrentState == GameManager.GameState.Paused;
+            if (!gamePaused) Time.timeScale = timeScaleBeforeInventory;
         }
 
         // -----------------------------------------------------------------------
@@ -255,10 +283,13 @@ namespace junklite
         // INVENTORY
         // -----------------------------------------------------------------------
 
+        // The player's inventory button. It can always close the inventory; it opens it only when nothing else has the
+        // screen: no pause, cutscene, dialogue or finished level, and a living player (GameplayLocks).
         private void HandleInventoryToggle()
         {
             if (isInventoryOpen) CloseInventory();
-            else OpenInventory();
+            else if (GameplayLocks.CanOpenInventory(player, out string reason)) OpenInventory();
+            else if (Debug.isDebugBuild) Debug.Log($"[PlayerUI] Inventory not opened: {reason}.", this);
         }
 
         private void HandleUICancel()
@@ -305,6 +336,7 @@ namespace junklite
                 GameInputManager.Instance.SetGameplayInputEnabled(false);
                 GameInputManager.Instance.SwitchToUIActionMap();
             }
+            PauseTimeForInventory();
         }
 
         /// <summary>
@@ -348,6 +380,7 @@ namespace junklite
                 GameInputManager.Instance.SetGameplayInputEnabled(true);
                 GameInputManager.Instance.SwitchToPlayerActionMap();
             }
+            ResumeTimeAfterInventory();
         }
 
         // -----------------------------------------------------------------------

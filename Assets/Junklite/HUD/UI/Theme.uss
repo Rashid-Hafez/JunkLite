@@ -1,0 +1,154 @@
+/* THE LOOK: the colour prototype. Ported from HUD/new version/main/theme.css and colour prototype/theme.css.
+   Yellow and blue are equal partners, with red and cyan as accents. Only the guideline's colours: there's no white,
+   near-black or orange anywhere. Each element leads with one of the two and uses the other as its accent:
+     objective (top right)    YELLOW leads: all its writing, the chip and corner ticks in yellow on the dark blue card
+     vitals (top left)        BLUE leads: sky blue digits and STABLE chip; a YELLOW health bar; cyan armor and shield
+     mod bar (bottom centre)  YELLOW leads: yellow slot outlines and button caps; cyan when a mod comes ready
+     dialogue (bottom right)  BLUE leads: a sky blue name chip and line; the yellow button prompt
+   Colours:
+     yellow #EBF83F      the objective's and the mod bar's lead; the health bar; anything new or to press now
+     sky blue #6FD0FF    the vitals' and the dialogue's lead; the main writing, lines and outlines
+     blue #1B97D3        secondary labels (kickers, units, counts)
+     dark blue #21266E   the objective card, and the dark text on chips and caps
+     cyan #5DEFE2        ready and good: COMPLETE, armor, CROW READY, a mod coming ready, the heal lead
+     red #E44018         the card's top line, the health bar's frame; damage, critical and refused
+   Mod rarity stripes: junk blue, standard cyan, classified yellow, elite red.
+   Every piece of writing has a soft dark blue shadow, so it reads over bright scenes.
+
+   See-through colours: the values here are the web prototype's. They're right for a project in Gamma colour space
+   (JunkLite is), where Unity blends colours like the browser. In Linear colour space HudLayout adds .hud--linear,
+   and HudLinear.uss swaps in values that look the same there. */
+
+:root {
+    --yellow: #EBF83F;
+    --yellow-base: #8C9426;                      /* under a yellow cap: a darker yellow */
+    --cyan-base: #2E9C92;                        /* under a cyan cap: a darker cyan */
+
+    --text: #6FD0FF;
+    --text-dim: #1B97D3;
+    --hot: #EBF83F;
+    --orange-500: #8C9426;                       /* the hot cap's base: a darker yellow */
+    --action: #5DEFE2;
+    --action-idle: rgba(93, 239, 226, 0.45);     /* a broken armor plate's outline */
+    --alert: #E44018;
+    --alert-base: #8E2A10;                       /* the refused cap's base: a darker red */
+    --band: rgba(111, 208, 255, 0.18);           /* sky tint: plain chips, the progress trough, the step lines */
+    --line: #E44018;
+    --paper: #6FD0FF;                            /* button caps, the hit flash and the slot seconds: sky blue */
+    --grey-500: #1B97D3;                         /* a button cap's base */
+    --ink: #21266E;                              /* dark text on chips and caps */
+    --panel: rgba(33, 38, 110, 0.92);            /* the objective card */
+    --trough: rgba(17, 20, 58, 0.9);             /* empty bars and the slot backs */
+    --outline: rgba(111, 208, 255, 0.4);         /* a thin sky blue outline */
+    --text-outline: rgba(17, 20, 58, 0.9);       /* an outline on the writing, if one is turned on (see below) */
+    --shade: rgba(17, 20, 58, 0.8);              /* the cooldown shade over a mod icon */
+
+    --r-junk: #1B97D3;
+    --r-standard: #5DEFE2;
+    --r-classified: #EBF83F;
+    --r-elite: #E44018;
+}
+
+/* ---------- writing: a soft dark blue shadow ----------
+   The web prototype also draws a hairline dark blue outline outside each letter. Unity's text outline is drawn half
+   inside the letters, so even a thin one makes the small text thinner and dimmer than the prototype; the shadow alone
+   matches it best. To try an outline anyway: -unity-text-outline-width: 0.35px; -unity-text-outline-color: var(--text-outline);
+   Not on the solid chips, key caps or name chip, which carry their own fill. */
+.hud .unity-label { text-shadow: 0 1px 3px rgba(17, 20, 58, 0.8); }
+
+.hud .chip,
+.hud .kp__txt,
+.hud .dlg-name,
+.hud .slot__broken { text-shadow: 0 0 0 rgba(0, 0, 0, 0); }
+
+/* ---------- objective: YELLOW leads ----------
+   The card stays dark blue, and all its writing is yellow: the title, the brief, the steps, the count, with a dimmer
+   yellow for the level and for finished steps. The chip and the corner ticks are yellow too. The card has a red top
+   line; the line under the head, the step lines and the progress line are sky blue.
+   Completed: the chip turns cyan and the title dims to the dimmer yellow.
+   The writing colours are set once on the card (.ob), so every label inside picks them up. */
+.ob { --text: #EBF83F; --text-dim: rgba(235, 248, 63, 0.6); }
+.ob .tick { border-color: var(--yellow); }
+.ob-head { border-bottom-color: rgba(111, 208, 255, 0.55); }
+.ob-step--flash { background-color: rgba(235, 248, 63, 0.2); }
+.ob-step__box { border-color: var(--text); }
+.ob-progress__fill { background-color: #6FD0FF; }
+
+/* ---------- vitals: BLUE leads, with a YELLOW bar ----------
+   Sky blue digits, a solid sky blue STABLE chip, blue labels, cyan armor and CROW READY, a red frame round the bar.
+   The health bar is yellow (the fifth take, 21 Nov 2026); the shield (Pulse Barrier) and the armor are cyan, so the
+   two read apart. Yellow accents: the outline of Cas's feed and the lives count.
+   A hit drains a red trail. Low: yellow digits and a yellow LOW chip, red trail. Critical: red digits, bar and feed
+   outline, yellow trail. */
+.hp-bar__fill { background-color: var(--yellow); }
+.hp-feed { border-color: rgba(235, 248, 63, 0.8); }
+.hp-bar__trail { background-color: var(--alert); }
+.hp-bar__heal { background-color: var(--action); }
+.hp--low .hp-bar__trail { background-color: var(--alert); }
+.hp--critical .hp-bar__trail { background-color: var(--hot); }
+.hp-state.chip--ghost { color: var(--ink); background-color: var(--text); }
+
+/* ---------- mod bar: YELLOW leads ----------
+   Yellow slot outlines and button caps round the mod art, which is mostly blue; a sky blue divider before the
+   passives. A mod coming ready, or a mod being fired, lights its cap, corners and flash cyan; a refused press is red. */
+.mods-wrap .kp__cap { background-color: var(--yellow); border-bottom-color: var(--yellow-base); }
+
+/* a cooling or empty slot's button is dimmed (the prototype fades the whole button to 0.4). The browser fades it as
+   one layer, so the letter stays dark on the dim cap; Unity fades each part on its own, which washes the letter out.
+   So here the button stays at full opacity and its parts are dimmed one by one. */
+.mods-wrap .slot--cooling .slot__key,
+.mods-wrap .slot--empty .slot__key,
+.mods-wrap .slot--broken .slot__key { opacity: 1; }
+.mods-wrap .slot--cooling .kp__cap,
+.mods-wrap .slot--empty .kp__cap,
+.mods-wrap .slot--broken .kp__cap { background-color: rgba(235, 248, 63, 0.4); border-bottom-color: rgba(140, 148, 38, 0.4); }
+.mods-wrap .slot--cooling .kp__txt,
+.mods-wrap .slot--empty .kp__txt,
+.mods-wrap .slot--broken .kp__txt,
+.mods-wrap .slot--cooling .kp__glyph,
+.mods-wrap .slot--empty .kp__glyph,
+.mods-wrap .slot--broken .kp__glyph { color: rgba(33, 38, 110, 0.88); }
+
+.mods-wrap .kp--hot .kp__cap { background-color: var(--action); border-bottom-color: var(--cyan-base); }
+.mods-wrap .kp--hot .kp__ring { border-color: var(--action); }
+.mods-wrap .kp--refuse .kp__cap { background-color: var(--alert); border-bottom-color: var(--alert-base); }
+/* a refused press on a dimmed button flashes a dim red */
+.mods-wrap .slot--cooling .kp--refuse .kp__cap,
+.mods-wrap .slot--empty .kp--refuse .kp__cap,
+.mods-wrap .slot--broken .kp--refuse .kp__cap { background-color: rgba(228, 64, 24, 0.4); border-bottom-color: rgba(142, 42, 16, 0.4); }
+.slot__flash { background-color: var(--action); }
+.slot__corner { border-color: var(--action); }
+.slot--ready .slot__frame { border-color: var(--action); }
+.mods--bare .slot__frame { border-color: rgba(235, 248, 63, 0.6); }
+.mods--bare .slot--empty .slot__frame { border-color: rgba(235, 248, 63, 0); }
+.mods--bare .slot--empty .slot__corner { border-color: rgba(235, 248, 63, 0.55); }
+.mods--bare .mods-div { background-color: rgba(111, 208, 255, 0.3); }
+.mods--bare .slot--ready .slot__frame { border-color: var(--action); }
+.mods--bare .slot--broken .slot__frame { border-color: var(--alert); }   /* a broken mod: red frame */
+/* the uses bar: yellow for the uses left, a faint yellow for the used ones, red on the last one */
+.slot__use { background-color: rgba(235, 248, 63, 0.2); }
+.slot__use--on { background-color: var(--yellow); }
+.slot--worn .slot__use--on { background-color: var(--alert); }
+.slot__frame { background-color: var(--trough); }
+
+/* ---------- dialogue: BLUE leads ----------
+   The speaker's name chip and the line in sky blue; the yellow button prompt is its accent.
+   A speaker set to the accent chip (DialogueSpeaker.accentName) speaks under a yellow chip instead. */
+.dlg-name { background-color: var(--text); }
+.dlg-name--accent { background-color: var(--yellow); }
+
+/* while the line types, the prompt is a quiet SKIP (the prototype fades the whole button to 0.55). As on the mod bar,
+   its parts are dimmed one by one, so the letter stays dark on the dim cap. */
+.dlg--typing .dlg-foot__kp { opacity: 1; }
+.dlg--typing .dlg-foot__kp .kp__cap { background-color: rgba(111, 208, 255, 0.55); border-bottom-color: rgba(27, 151, 211, 0.55); }
+.dlg--typing .dlg-foot__kp .kp__txt,
+.dlg--typing .dlg-foot__kp .kp__glyph { color: rgba(33, 38, 110, 0.93); }
+
+/* ---------- the demo: no extra labels (22 Nov 2026) ----------
+   The objective shows its title and brief only: no DIRECTIVE chip, level name or count. The vitals show Cas's name,
+   her health and armor only: no STABLE / LOW / CRITICAL chip and no KRF-0636 tag on her feed (the digits and the bar
+   still turn yellow when low and red when critical). Delete this block to bring them back. */
+.ob-head { display: none; }
+.ob-title { margin-top: 0; }
+.hp-state { display: none; }
+.hp-feed__tag { display: none; }

@@ -7,25 +7,23 @@ using Random = UnityEngine.Random;
 namespace Junklite.TitleScreen
 {
     /// <summary>
-    /// The portrait reveal and the payload scramble. The CRT layer and the portrait glitch are on CrtOverlay.
-    /// Purely cosmetic: disable this component to turn them off.
+    /// The title's small live touches: the header clock, the payload line's scramble every 11 to 19 seconds, and a
+    /// restart for Cas's portrait (TitleCasArt) and the CRT layer (CrtOverlay). Purely cosmetic: disable this component
+    /// to turn them off.
     /// </summary>
     [RequireComponent(typeof(UIDocument))]
     public class TitleScreenEffects : MonoBehaviour
     {
-        const float PortraitTop = 188f;
-        const float PortraitHeight = 598f;
         const string ScrambleCharacters = "#/\\|=+*<>_-01";
 
-        VisualElement _cover;
         Label _payload;
+        Label _clock;
         string _payloadText;
 
         void OnDisable()
         {
             StopAllCoroutines();
             if (!IsBound()) return;
-            _cover.style.display = DisplayStyle.None;
             _payload.text = _payloadText;
         }
 
@@ -35,31 +33,27 @@ namespace Junklite.TitleScreen
             StopAllCoroutines();
             var crt = GetComponent<CrtOverlay>();
             if (crt != null && crt.enabled) crt.Restart();
+            var cas = GetComponent<TitleCasArt>();
+            if (cas != null && cas.enabled) cas.Restart();
             if (!Bind()) return;
 
             _payload.text = _payloadText;
-            StartCoroutine(RevealPortrait());
             StartCoroutine(ScramblePayload());
+            StartCoroutine(RunClock());
         }
 
-        IEnumerator RevealPortrait()
+        // The prototype's in-world clock: 2348.06.06, from 18:36:12, one second a second.
+        IEnumerator RunClock()
         {
-            const int steps = 24;
-
-            _cover.style.display = DisplayStyle.Flex;
-            _cover.style.top = PortraitTop;
-            _cover.style.height = PortraitHeight;
-            yield return new WaitForSecondsRealtime(0.38f);
-
-            var wait = new WaitForSecondsRealtime(0.76f / steps);
-            for (int i = 1; i <= steps; i++)
+            float start = Time.unscaledTime;
+            var wait = new WaitForSecondsRealtime(1f);
+            while (true)
             {
-                float revealed = PortraitHeight * i / steps;
-                _cover.style.top = PortraitTop + revealed;
-                _cover.style.height = PortraitHeight - revealed;
+                int seconds = Mathf.FloorToInt(Time.unscaledTime - start) + 12;
+                int minutes = 36 + seconds / 60;
+                _clock.text = $"2348.06.06  18:{minutes:00}:{seconds % 60:00}";
                 yield return wait;
             }
-            _cover.style.display = DisplayStyle.None;
         }
 
         IEnumerator ScramblePayload()
@@ -90,7 +84,7 @@ namespace Junklite.TitleScreen
         bool IsBound()
         {
             var root = GetComponent<UIDocument>().rootVisualElement;
-            return _cover != null && root != null && root.Contains(_cover);
+            return _payload != null && root != null && root.Contains(_payload);
         }
 
         bool Bind()
@@ -98,11 +92,11 @@ namespace Junklite.TitleScreen
             if (IsBound()) return true;
 
             var root = GetComponent<UIDocument>().rootVisualElement;
-            _cover = root?.Q("portrait-cover");
             _payload = root?.Q<Label>("payload");
-            if (_cover == null || _payload == null)
+            _clock = root?.Q<Label>("clock");
+            if (_payload == null || _clock == null)
             {
-                _cover = null;
+                _payload = null;
                 return false;
             }
 
