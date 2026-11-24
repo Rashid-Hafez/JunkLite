@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+  <Style src="../../UI/LevelUp.uss" />
+  <!-- The level-up notice under the vitals: HudLevelUp fills the chip, the level, the rewards and the hint with the
+       game's words. Text only, like the C.M.A. prompt. -->
+  <ui:VisualElement name="hud" class="hud size-70" picking-mode="Ignore">
+    <ui:VisualElement name="lvl-zone" class="lvl-zone" picking-mode="Ignore">
+      <ui:VisualElement name="lvl" class="lvl" picking-mode="Ignore">
+        <ui:VisualElement class="lvl-head tear" picking-mode="Ignore">
+          <ui:Label name="lvl-chip" class="chip chip--hot lvl-head__chip" picking-mode="Ignore" />
+          <ui:Label name="lvl-level" class="lvl-head__level" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:Label name="lvl-reward" class="lvl-reward tear" picking-mode="Ignore" />
+        <ui:Label name="lvl-hint" class="lvl-hint" picking-mode="Ignore" />
+      </ui:VisualElement>
+    </ui:VisualElement>
+  </ui:VisualElement>
+</ui:UXML>

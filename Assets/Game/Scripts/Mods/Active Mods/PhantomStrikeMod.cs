@@ -1,4 +1,3 @@
-using Unity.VisualScripting;
 using UnityEngine;
 
 namespace junklite
@@ -56,28 +55,43 @@ namespace junklite
             base.OnHitRegistered(instance, player, enemy, damageDealt);
         }
 
-        protected override bool ExecuteAbility(ModInstance instance, PlayerCharacter player)
+        protected override bool ExecuteAbility(
+            ModInstance instance,
+            PlayerCharacter player,
+            ModExecutionRunner executionRunner)
         {
             var tracker = GetTracker(player);
             if (tracker == null || tracker.IsExecutingSpecial) return false;
 
-            tracker.ExecuteSlam(instance);
-            return true;
+            return tracker.ExecuteSlam(instance, executionRunner);
         }
 
-        public override void OnEquip(PlayerCharacter player)
+        public override void OnInstalled(ModInstance instance, PlayerCharacter player)
+        {
+            var tracker = GetOrCreateTracker(player);
+            tracker.Initialize(this);
+        }
+
+        public override void OnCombatModeEntered(ModInstance instance, PlayerCharacter player)
         {
             var tracker = GetOrCreateTracker(player);
             tracker.Initialize(this);
             tracker.SetActive(true);
         }
 
-        public override void OnUnequip(PlayerCharacter player)
+        public override void OnCombatModeExited(ModInstance instance, PlayerCharacter player)
         {
             var tracker = GetTracker(player);
             if (tracker == null) return;
 
             tracker.SetActive(false);
+        }
+
+        public override void OnRemoved(ModInstance instance, PlayerCharacter player)
+        {
+            var tracker = GetTracker(player);
+            if (tracker != null)
+                tracker.SetActive(false);
         }
 
         #endregion
@@ -86,8 +100,8 @@ namespace junklite
 
         private PhantomStrikeTracker GetTracker(PlayerCharacter player)
         {
-            var parent = GetOrCreateTrackerParent(player);
-            return parent.GetComponentInChildren<PhantomStrikeTracker>();
+            var parent = player != null ? player.transform.Find("Mod Trackers") : null;
+            return parent != null ? parent.GetComponentInChildren<PhantomStrikeTracker>() : null;
         }
 
         private PhantomStrikeTracker GetOrCreateTracker(PlayerCharacter player)
@@ -95,7 +109,7 @@ namespace junklite
             var parent = GetOrCreateTrackerParent(player);
             var tracker = parent.GetComponentInChildren<PhantomStrikeTracker>();
             if (tracker == null)
-                tracker = parent.AddComponent<PhantomStrikeTracker>();
+                tracker = parent.gameObject.AddComponent<PhantomStrikeTracker>();
             return tracker;
         }
 

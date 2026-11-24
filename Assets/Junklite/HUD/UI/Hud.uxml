@@ -1,0 +1,134 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:hud="Junklite.HUD" editor-extension-mode="False">
+  <Style src="Hud.uss" />
+  <!-- The chosen layout: vitals top left, objective top right, the bare mod bar centred along the bottom, the
+       dialogue bottom right, at 70%, in the colour prototype's look (NoBoxes.uss and Theme.uss).
+       HudLayout sets the size. Repeated parts (objective steps, bar segments, armor plates, mod slots, portrait
+       strips) are built in code. -->
+  <ui:VisualElement name="hud" class="hud size-70" picking-mode="Ignore">
+
+    <ui:VisualElement name="zone-tl" class="zone zone--tl" picking-mode="Ignore">
+      <!-- VITALS -->
+      <ui:VisualElement name="hp" class="hp" picking-mode="Ignore">
+        <ui:VisualElement name="hp-feed" class="hp-feed tear" picking-mode="Ignore">
+          <ui:VisualElement name="hp-feed-art" class="hp-feed__art" picking-mode="Ignore" />
+          <ui:VisualElement class="hud-scan" picking-mode="Ignore" />
+          <ui:VisualElement class="hp-feed__tag" picking-mode="Ignore">
+            <ui:Label name="hp-feed-id" class="hp-feed__id" text="KRF-0636" picking-mode="Ignore" />
+            <ui:Label name="hp-lives" class="hp-feed__lives" text="×03" picking-mode="Ignore" />
+          </ui:VisualElement>
+          <ui:VisualElement class="tick tick--tl" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="hp-main" class="hp-main hud-panel" picking-mode="Ignore">
+          <ui:VisualElement name="hp-head" class="hp-head tear" picking-mode="Ignore">
+            <ui:Label name="hp-label" class="kicker hp-head__label" text="QUINN, C." picking-mode="Ignore" />
+            <ui:VisualElement name="hp-crow" class="hp-crow hp-crow--ready" picking-mode="Ignore">
+              <ui:VisualElement class="hp-crow__dot" picking-mode="Ignore" />
+              <ui:Label name="hp-crow-label" class="hp-crow__label" text="CROW READY" picking-mode="Ignore" />
+            </ui:VisualElement>
+          </ui:VisualElement>
+          <ui:VisualElement name="hp-readout" class="hp-readout tear" picking-mode="Ignore">
+            <ui:Label name="hp-value" class="hp-value" text="132" picking-mode="Ignore" />
+            <ui:Label name="hp-max" class="hp-max" text="/ 150" picking-mode="Ignore" />
+            <ui:Label name="hp-shield" class="hp-shield" picking-mode="Ignore" />
+            <ui:VisualElement class="hp-readout__gap" picking-mode="Ignore" />
+            <ui:Label name="hp-state" class="chip chip--ghost hp-state" text="STABLE" picking-mode="Ignore" />
+          </ui:VisualElement>
+          <ui:VisualElement name="hp-bar" class="hp-bar" picking-mode="Ignore">
+            <ui:VisualElement name="hp-trail" class="hp-bar__trail" picking-mode="Ignore" />
+            <ui:VisualElement name="hp-heal" class="hp-bar__heal" picking-mode="Ignore" />
+            <ui:VisualElement name="hp-fill" class="hp-bar__fill" picking-mode="Ignore" />
+            <ui:VisualElement name="hp-shield-bar" class="hp-bar__shield" picking-mode="Ignore" />
+            <ui:VisualElement name="hp-gaps" picking-mode="Ignore" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0;" />
+            <ui:VisualElement class="hp-bar__flash" picking-mode="Ignore" />
+          </ui:VisualElement>
+          <ui:VisualElement name="hp-armor" class="hp-armor tear" picking-mode="Ignore">
+            <ui:Label class="kicker hp-armor__label" text="ARMOR" picking-mode="Ignore" />
+            <ui:VisualElement name="hp-plates" class="hp-plates" picking-mode="Ignore" />
+            <ui:Label name="hp-armor-value" class="hp-armor__value" text="4 / 4" picking-mode="Ignore" />
+          </ui:VisualElement>
+          <ui:VisualElement class="tick tick--br" picking-mode="Ignore" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+    </ui:VisualElement>
+
+    <ui:VisualElement name="zone-tr" class="zone zone--tr" picking-mode="Ignore">
+      <!-- OBJECTIVE -->
+      <ui:VisualElement name="ob" class="ob" picking-mode="Ignore">
+        <ui:VisualElement class="ob-panel hud-panel" picking-mode="Ignore">
+          <ui:VisualElement name="ob-head" class="ob-head tear" picking-mode="Ignore">
+            <ui:Label name="ob-chip" class="chip ob-head__chip" text="DIRECTIVE 01" picking-mode="Ignore" />
+            <ui:Label name="ob-level" class="kicker ob-head__level" text="LVL 0 / C.M.A. TRAINING" picking-mode="Ignore" />
+            <ui:Label name="ob-count" class="ob-head__count" text="01 / 01" picking-mode="Ignore" />
+          </ui:VisualElement>
+          <ui:VisualElement name="ob-title" class="chroma ob-title tear" picking-mode="Ignore">
+            <ui:Label class="chroma__ghost chroma__ghost--a" text="PATCH UP" picking-mode="Ignore" />
+            <ui:Label class="chroma__ghost chroma__ghost--b" text="PATCH UP" picking-mode="Ignore" />
+            <ui:Label class="chroma__text" text="PATCH UP" picking-mode="Ignore" />
+          </ui:VisualElement>
+          <ui:Label name="ob-brief" class="ob-brief tear" text="Take the health pack from The KRF Porta Box." picking-mode="Ignore" />
+          <ui:VisualElement name="ob-steps" class="ob-steps ob-steps--none" picking-mode="Ignore" />
+          <ui:VisualElement class="ob-progress" picking-mode="Ignore">
+            <ui:VisualElement name="ob-fill" class="ob-progress__fill" picking-mode="Ignore" />
+          </ui:VisualElement>
+          <ui:VisualElement class="tick tick--tl" picking-mode="Ignore" />
+          <ui:VisualElement class="tick tick--br" picking-mode="Ignore" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+    </ui:VisualElement>
+
+    <ui:VisualElement name="zone-bc" class="zone zone--bc" picking-mode="Ignore">
+      <!-- MOD BAR. Bare in the chosen design: the bare class hides the strip, readout and words. -->
+      <ui:VisualElement name="mods-wrap" class="mods-wrap" picking-mode="Ignore">
+        <ui:VisualElement name="mods" class="mods hud-panel mods--online mods--bare" picking-mode="Ignore">
+          <ui:VisualElement name="mods-head" class="mods-head tear" picking-mode="Ignore">
+            <ui:Label class="kicker mods-head__label" text="C.M.A. // MOD STATE" picking-mode="Ignore" />
+            <ui:Label name="mods-state" class="chip chip--action mods-head__state" text="ONLINE" picking-mode="Ignore" />
+            <ui:VisualElement class="mods-head__gap" picking-mode="Ignore" />
+            <ui:VisualElement class="mods-head__hold" picking-mode="Ignore">
+              <hud:KeyPrompt action="ModHold" size="Small" picking-mode="Ignore" />
+              <ui:Label class="kp-label mods-head__hint" text="HOLD" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement class="mods-head__toggle" picking-mode="Ignore">
+              <hud:KeyPrompt name="mods-toggle-key" action="ModState" size="Small" picking-mode="Ignore" />
+              <ui:Label name="mods-toggle-label" class="kp-label mods-head__hint" text="TOGGLE" picking-mode="Ignore" />
+            </ui:VisualElement>
+          </ui:VisualElement>
+          <ui:VisualElement name="mods-row" class="mods-row" picking-mode="Ignore" />
+          <ui:VisualElement name="mods-readout" class="mods-readout" picking-mode="Ignore">
+            <ui:VisualElement class="mods-readout__pill" picking-mode="Ignore">
+              <ui:Label name="mods-readout-name" class="mods-readout__name" picking-mode="Ignore" />
+              <ui:Label class="mods-readout__sep" text="//" picking-mode="Ignore" />
+              <ui:Label name="mods-readout-detail" class="mods-readout__detail" picking-mode="Ignore" />
+              <hud:KeyPrompt name="mods-readout-key" action="ModState" size="ExtraSmall" class="mods-readout__kp" picking-mode="Ignore" />
+            </ui:VisualElement>
+          </ui:VisualElement>
+          <ui:VisualElement class="tick tick--tl" picking-mode="Ignore" />
+          <ui:VisualElement class="tick tick--br" picking-mode="Ignore" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+    </ui:VisualElement>
+
+    <ui:VisualElement name="zone-br" class="zone zone--br" picking-mode="Ignore">
+      <!-- DIALOGUE: no picture and no box (hidden until someone speaks) -->
+      <ui:VisualElement name="dlg" class="dlg" picking-mode="Ignore">
+        <ui:VisualElement name="dlg-box" class="dlg-box hud-panel">
+          <ui:VisualElement name="dlg-head" class="dlg-head tear" picking-mode="Ignore">
+            <ui:Label name="dlg-name" class="dlg-name" text="CASSIDY" picking-mode="Ignore" />
+            <ui:Label name="dlg-unit" class="kicker dlg-head__unit" text="K.R.F. / DIREHOUND" picking-mode="Ignore" />
+          </ui:VisualElement>
+          <ui:VisualElement name="dlg-line" class="dlg-line tear" picking-mode="Ignore">
+            <ui:Label name="dlg-text" class="dlg-text" picking-mode="Ignore" />
+          </ui:VisualElement>
+          <ui:VisualElement class="dlg-foot" picking-mode="Ignore">
+            <ui:Label name="dlg-count" class="dlg-foot__count" text="01 / 01" picking-mode="Ignore" />
+            <hud:KeyPrompt name="dlg-key" action="Next" size="Large" class="dlg-foot__kp" picking-mode="Ignore" />
+            <ui:Label name="dlg-label" class="kp-label dlg-foot__label" text="NEXT" picking-mode="Ignore" />
+          </ui:VisualElement>
+          <ui:VisualElement class="tick tick--tl" picking-mode="Ignore" />
+          <ui:VisualElement class="tick tick--br" picking-mode="Ignore" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+    </ui:VisualElement>
+
+  </ui:VisualElement>
+</ui:UXML>

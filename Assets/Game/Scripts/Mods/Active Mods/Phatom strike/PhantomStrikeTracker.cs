@@ -1,6 +1,7 @@
 using UnityEngine;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 
 namespace junklite
 {
@@ -22,13 +23,15 @@ namespace junklite
         private PlayerState playerState;
         private SpineAnimationController spineAnim;
         private Damageable damageable;
-        private Rigidbody rb;
 
         private ModInstance currentModInstance;
+        private ModExecutionRunner executionRunner;
         private bool isActive;
         private bool isExecutingSpecial;
 
-        private static readonly Collider[] overlapBuffer = new Collider[32];
+        private Collider[] overlapBuffer = new Collider[32];
+        private readonly HashSet<IDamageReceiver> damagedReceivers = new();
+        private const int MaxOverlapCapacity = 256;
 
         #endregion
 
@@ -55,7 +58,6 @@ namespace junklite
             playerState = player?.GetComponent<PlayerState>();
             spineAnim = player?.GetComponent<SpineAnimationController>();
             damageable = player?.GetComponent<Damageable>();
-            rb = player?.GetComponent<Rigidbody>();
         }
 
         public void SetActive(bool active)
@@ -66,12 +68,12 @@ namespace junklite
             if (active)
             {
                 if (damageable != null)
-                    damageable.OnDamaged += HandleDamageTaken;
+                    damageable.OnDamageResolved += HandleDamageTaken;
             }
             else
             {
                 if (damageable != null)
-                    damageable.OnDamaged -= HandleDamageTaken;
+                    damageable.OnDamageResolved -= HandleDamageTaken;
 
                 currentModInstance = null;
             }
@@ -80,33 +82,13 @@ namespace junklite
         private void OnDestroy()
         {
             if (damageable != null)
-                damageable.OnDamaged -= HandleDamageTaken;
+                damageable.OnDamageResolved -= HandleDamageTaken;
         }
 
         private void OnDisable()
         {
-            if (!isExecutingSpecial) return;
-
-            isExecutingSpecial = false;
-
-            if (CameraManager.Instance != null)
-                CameraManager.Instance.RequestZoomBackIn();
-
-            if (playerState != null)
-            {
-                playerState.SetInputLocked(false);
-                playerState.SetVulnerable(true);
-            }
-
-            if (player != null)
-            {
-                player.SetVisible(true);
-                if (player.Controller != null)
-                {
-                    player.Controller.SetPhysicsOverride(false);
-                    player.Controller.CanMove = true;
-                }
-            }
+            if (isExecutingSpecial && currentModInstance != null)
+                executionRunner?.Cancel(currentModInstance);
         }
 
         #endregion
@@ -127,7 +109,7 @@ namespace junklite
 
         #region Damage Reset
 
-        private void HandleDamageTaken(float damage, GameObject source)
+        private void HandleDamageTaken(DamageResult result, DamageRequest request)
         {
             if (isExecutingSpecial) return;
 
@@ -143,39 +125,38 @@ namespace junklite
 
         #region Slam Execution
 
-        public void ExecuteSlam(ModInstance instance)
+        public bool ExecuteSlam(ModInstance instance, ModExecutionRunner runner)
         {
-            if (isExecutingSpecial) return;
+            if (isExecutingSpecial || runner == null) return false;
+
             currentModInstance = instance;
-            StartCoroutine(CoExecuteSlam());
+            executionRunner = runner;
+            return runner.TryStart(instance, CoExecuteSlam);
         }
 
-        private IEnumerator CoExecuteSlam()
+        private IEnumerator CoExecuteSlam(ModExecutionContext context)
         {
             if (player == null || playerState == null || modData == null)
                 yield break;
 
             isExecutingSpecial = true;
+            context.ShowActiveDuration(Mathf.Max(0f, modData.driftUpDuration)
+                + Mathf.Max(0f, modData.spawnHeight + modData.driftUpHeight) / Mathf.Max(1f, modData.slamDescentSpeed)
+                + Mathf.Max(0f, modData.recoveryTime));
             Vector3 startPosition = player.transform.position;
 
-            // Lock input and physics
-            playerState.SetInputLocked(true);
-            playerState.SetVulnerable(false);
-
-            if (player.Controller != null)
+            context.LockPlayerControl(overridePhysics: true);
+            context.AddCleanup(() =>
             {
-                player.Controller.StopAllVelocity();
-                player.Controller.CanMove = false;
-                player.Controller.SetPhysicsOverride(true);
-            }
+                if (CameraManager.Instance != null)
+                    CameraManager.Instance.RequestZoomBackIn();
 
-            bool wasKinematic = false;
-            if (rb != null)
-            {
-                wasKinematic = rb.isKinematic;
-                rb.isKinematic = true;
-                rb.linearVelocity = Vector3.zero;
-            }
+                if (player != null)
+                    player.SetVisible(true);
+
+                isExecutingSpecial = false;
+                executionRunner = null;
+            });
 
             // Camera zoom
             if (CameraManager.Instance != null)
@@ -225,6 +206,7 @@ namespace junklite
             // Slam down
             float currentY = player.transform.position.y;
             float speed = Mathf.Max(modData.slamDescentSpeed, 1f);
+            context.ShowActiveDuration(Mathf.Max(0f, currentY - groundY) / speed + Mathf.Max(0f, modData.recoveryTime));
             while (currentY > groundY)
             {
                 currentY -= speed * Time.deltaTime;
@@ -256,22 +238,10 @@ namespace junklite
             }
 
             // Recovery
+            context.ShowActiveDuration(modData.recoveryTime);
             yield return new WaitForSeconds(modData.recoveryTime);
 
-            if (CameraManager.Instance != null)
-                CameraManager.Instance.RequestZoomBackIn();
-
-            if (rb != null)
-                rb.isKinematic = wasKinematic;
-
-            if (player.Controller != null)
-            {
-                player.Controller.SetPhysicsOverride(false);
-                player.Controller.CanMove = true;
-            }
-
             playerState.ApplyInvulnerability(0.2f);
-            playerState.SetInputLocked(false);
 
             // Reset charges on the ModInstance
             if (currentModInstance != null)
@@ -280,22 +250,39 @@ namespace junklite
             OnSpecialUsed?.Invoke();
             OnChargesChanged?.Invoke(0, modData.chargesRequired);
 
-            isExecutingSpecial = false;
         }
 
         private void DealSlamDamage(Vector3 position)
         {
             float damage = modData.slamDamage * modData.criticalMultiplier;
-            int hitCount = Physics.OverlapSphereNonAlloc(position, modData.slamRadius, overlapBuffer, modData.enemyLayerMask);
+            int hitCount;
+            while (true)
+            {
+                hitCount = Physics.OverlapSphereNonAlloc(
+                    position,
+                    modData.slamRadius,
+                    overlapBuffer,
+                    modData.enemyLayerMask);
+                if (hitCount < overlapBuffer.Length || overlapBuffer.Length >= MaxOverlapCapacity)
+                    break;
+
+                overlapBuffer = new Collider[Mathf.Min(overlapBuffer.Length * 2, MaxOverlapCapacity)];
+            }
+            damagedReceivers.Clear();
 
             for (int i = 0; i < hitCount; i++)
             {
                 var col = overlapBuffer[i];
                 if (col.gameObject == player.gameObject) continue;
 
-                var target = col.GetComponentInParent<IDamageable>();
-                if (target != null && target.IsAlive)
-                    target.TakeDamage(new DamageInfo(damage, player.gameObject, DamageType.Physical, Vector2.zero));
+                if (!DamageReceiverUtility.TryGetReceiver(col, out var receiver)) continue;
+                if (!damagedReceivers.Add(receiver) || !receiver.IsAlive) continue;
+
+                receiver.ReceiveDamage(new DamageRequest(
+                    damage,
+                    player.gameObject,
+                    DamageType.Physical,
+                    Vector2.zero));
             }
         }
 

@@ -27,10 +27,8 @@ namespace junklite
 
             if (GameInputManager.Instance == null) return;
 
-            if (attackType == AttackType.Weapon1)
-                GameInputManager.Instance.OnWeapon1Attack += HandleAttack;
-            else
-                GameInputManager.Instance.OnWeapon2Attack += HandleAttack;
+            // One attack input now; the slot choice is legacy and ignored.
+            GameInputManager.Instance.OnAttack += HandleAttack;
         }
 
         private void OnDisable()
@@ -46,10 +44,7 @@ namespace junklite
 
             if (GameInputManager.Instance == null) return;
 
-            if (attackType == AttackType.Weapon1)
-                GameInputManager.Instance.OnWeapon1Attack -= HandleAttack;
-            else
-                GameInputManager.Instance.OnWeapon2Attack -= HandleAttack;
+            GameInputManager.Instance.OnAttack -= HandleAttack;
         }
 
         private void HandleAttack()

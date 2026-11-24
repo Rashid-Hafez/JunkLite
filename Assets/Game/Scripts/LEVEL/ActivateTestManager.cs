@@ -8,7 +8,6 @@ public class ActivateTestManager : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            Debug.Log("Player entered the trigger zone. Activating Test Manager.");
             testManager.SetActive(true);
         }
     }

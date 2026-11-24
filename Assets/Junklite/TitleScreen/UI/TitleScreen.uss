@@ -1,0 +1,272 @@
+@import url("../../Shared/UI/Common.uss");
+
+/* The title screen from Title screen/junklite-title (the chosen title, built from the Chroma variant). Positions are
+   the prototype's at 1920x1080, measured in the browser. Letter-spacing is the prototype's em size x 100 x 1.2 (the
+   HUD's rule; see "CSS to USS" in PIPELINE.md). */
+:root {
+  --bg: #1C2434;
+  --band: #21266E;
+  --line: #3A43C2;
+  --text: #6FD0FF;
+  --text-dim: #1B97D3;
+  --hot: #FF9313;
+  --action: #5DEFE2;
+  --action-idle: #3EA9A6;
+  --grey: #56606B;
+
+  --fade: 150ms ease-out-cubic;
+}
+
+.title-frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  align-items: center;
+  justify-content: center;
+  background-color: #000;
+}
+
+.title-screen {
+  width: 1920px;
+  height: 1080px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background-color: var(--bg);
+  transform-origin: center;
+  transition: opacity 280ms ease-out-cubic;
+}
+
+.title-screen--hidden {
+  opacity: 0;
+  transition-duration: 0s;
+}
+
+.title-screen--power-collapse {
+  scale: 1 0.004;
+  transition: scale 231ms ease-in-out-cubic;
+}
+
+.title-screen--power-out {
+  scale: 0 0.004;
+  transition: scale 189ms ease-in-out-cubic;
+}
+
+.title-screen__background {
+  position: absolute;
+  width: 1920px;
+  height: 1080px;
+  background-image: url("../Art/title-background.png");
+}
+
+/* ---------- Cas: the ASCII portrait (rows built by TitleCasArt) ---------- */
+
+.cas {
+  position: absolute;
+  left: 538px;
+  top: 110px;
+  width: 845px;
+  height: 865px;
+  flex-direction: column;
+}
+
+.cas__row {
+  flex-shrink: 0;
+  height: 11.5px;
+  -unity-font-definition: var(--font-button);
+  font-size: 8.8px;
+  letter-spacing: 0;
+  -unity-text-align: middle-left;
+  color: var(--text);
+}
+
+/* a torn row in the glitch: all one colour */
+.cas__row--hot { color: var(--hot); }
+.cas__row--cold { color: var(--text); }
+
+/* ---------- live text ---------- */
+
+.clock {
+  position: absolute;
+  right: 96px;
+  top: 35px;
+  height: 18px;
+  -unity-font-definition: var(--font-number);
+  font-size: 16px;
+  letter-spacing: 15px;
+  -unity-text-align: middle-right;
+  color: var(--text);
+}
+
+.payload {
+  position: absolute;
+  left: 1424px;
+  top: 710px;
+  height: 17px;
+  -unity-font-definition: var(--font-mono);
+  font-size: 15px;
+  letter-spacing: 9.6px;
+  color: var(--text);
+}
+
+/* ---------- menu ---------- */
+
+.menu-column {
+  position: absolute;
+  left: 96px;
+  top: 548px;
+  width: 420px;
+  flex-direction: column;
+}
+
+.menu {
+  flex-direction: column;
+}
+
+.menu-item,
+.menu-item:hover,
+.menu-item:active,
+.menu-item:focus,
+.menu-item:hover:active {
+  margin: 0;
+  padding: 0 16px 0 0;
+  border-radius: 0;
+  border-top-width: 0;
+  border-right-width: 0;
+  border-left-width: 4px;
+  border-bottom-width: 1px;
+  border-left-color: var(--bg);
+  border-bottom-color: var(--line);
+  background-color: var(--bg);
+}
+
+.menu-item {
+  flex-direction: row;
+  align-items: center;
+  width: 420px;
+  height: 62px;
+  -unity-font-definition: var(--font-button);
+  font-size: 22px;
+  letter-spacing: 16.4px;
+  color: var(--action-idle);
+  transition: color var(--fade), background-color var(--fade), border-left-color var(--fade), scale 110ms ease-out-cubic;
+}
+
+.menu-item:active {
+  scale: 0.985 0.985;
+}
+
+.menu-item--selected,
+.menu-item--selected:hover,
+.menu-item--selected:active,
+.menu-item--selected:focus,
+.menu-item--selected:hover:active {
+  color: var(--action);
+  background-color: var(--band);
+  border-left-color: var(--hot);
+}
+
+.menu-item__index {
+  width: 52px;
+  padding-left: 14px;
+  -unity-font-definition: var(--font-number);
+  font-size: 14px;
+  letter-spacing: 12px;
+  color: var(--text-dim);
+  transition: color var(--fade);
+}
+
+.menu-item__label {
+  flex-grow: 1;
+}
+
+.menu-item__hint {
+  -unity-font-definition: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 28.4px;
+  color: var(--text-dim);
+  opacity: 0;
+  transition: opacity var(--fade);
+}
+
+.menu-item--selected .menu-item__index { color: var(--hot); }
+.menu-item--selected .menu-item__hint { opacity: 1; }
+
+/* ---------- status: what a pressed command is doing ---------- */
+
+.status {
+  margin-top: 26px;
+  flex-direction: column;
+}
+
+.status__text {
+  height: 14px;
+  -unity-font-definition: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 15.3px;
+  color: var(--text-dim);
+}
+
+.status__bar {
+  height: 2px;
+  margin-top: 12px;
+  background-color: var(--line);
+  opacity: 0;
+}
+
+.status__fill {
+  height: 2px;
+  background-color: var(--hot);
+  transform-origin: left;
+  scale: 0 1;
+}
+
+.status--run .status__text { color: var(--action); }
+.status--run .status__bar,
+.status--done .status__bar { opacity: 1; }
+.status--run .status__fill { scale: 1 1; transition: scale 900ms linear; }
+.status--done .status__fill { scale: 1 1; }
+.status--done .status__text { color: var(--hot); }
+
+/* ---------- CRT flash on power-off (the layer itself is in Shared/UI/Crt.uss) ---------- */
+
+.title-screen--power-collapse .fx--flash,
+.title-screen--power-out .fx--flash {
+  opacity: 0.05;
+  transition: opacity 231ms ease-in-out-cubic;
+}
+
+/* ---------- reconnect screen ---------- */
+
+.reconnect,
+.reconnect:hover,
+.reconnect:active,
+.reconnect:focus,
+.reconnect:hover:active {
+  margin: 0;
+  padding: 0;
+  border-width: 0;
+  border-radius: 0;
+  background-color: #000;
+}
+
+.reconnect {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  -unity-font-definition: var(--font-button);
+  font-size: 13px;
+  letter-spacing: 36px;
+  color: var(--grey);
+}
+
+.reconnect__action {
+  margin-left: 16px;
+  color: var(--action);
+}

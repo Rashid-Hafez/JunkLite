@@ -1,0 +1,147 @@
+/* OBJECTIVE. Ported from HUD/objective/objective.css. A directive card from the C.M.A.: chip, level and count,
+   the Anton title, one line of brief, optional steps and a progress line.
+
+   States (toggled by HudObjective):
+     .ob--shown      on screen
+     .ob--done       completed: title dims (the chip turns cyan)
+     .ob--compact    brief and steps folded away, only the head and title stay
+     .ob-step--done  a step is ticked; .ob-step--flash is its one-frame highlight */
+
+.ob {
+    width: 520px;
+    flex-direction: column;
+    opacity: 0;
+    translate: -28px 0;
+    transition: opacity 280ms ease-out-cubic, translate 280ms ease-out-cubic;
+}
+
+.ob--shown { opacity: 1; translate: 0 0; }
+
+.ob-panel {
+    flex-direction: column;
+    padding: 14px 22px 18px 22px;
+}
+
+/* head: chip, level, count */
+.ob-head {
+    flex-direction: row;
+    align-items: center;
+    height: 30px;
+    padding-bottom: 10px;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--line);
+}
+
+.ob-head__level { flex-grow: 1; margin-left: 12px; }
+
+.ob-head__count {
+    -unity-font-definition: var(--hud-number);
+    font-size: 15px;
+    letter-spacing: 11.2px;
+    color: var(--text);
+}
+
+/* title: three stacked labels for the chroma glitch */
+.ob-title { margin-top: 12px; }
+
+.ob-title > .unity-label {
+    -unity-font-definition: var(--hud-title);
+    font-size: 54px;
+    height: 60px;
+    letter-spacing: 2.2px;
+    color: var(--text);
+}
+
+.ob-title > .chroma__text { transition: color 280ms ease-out; }
+
+.ob-brief {
+    margin-top: 4px;
+    max-width: 470px;
+    flex-shrink: 1;
+    white-space: normal;
+    -unity-font-definition: var(--hud-body);
+    font-size: 16px;
+    letter-spacing: 1.5px;
+    color: var(--text);
+}
+
+/* a directive with no brief */
+.ob-brief--none { display: none; }
+
+/* steps */
+.ob-steps { flex-direction: column; margin-top: 14px; }
+.ob-steps--none { display: none; }
+
+.ob-step {
+    flex-direction: row;
+    align-items: center;
+    height: 34px;
+    padding: 0 8px 0 10px;
+    border-top-width: 1px;
+    border-top-color: var(--band);
+    background-color: rgba(33, 38, 110, 0);
+    transition: background-color 420ms ease-out;
+}
+
+.ob-step--flash { background-color: var(--band); transition-duration: 0s; }
+
+.ob-step__box {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    border-width: 1px;
+    border-color: var(--text-dim);
+    align-items: center;
+    justify-content: center;
+}
+
+.ob-step__fill {
+    width: 6px;
+    height: 6px;
+    background-color: var(--hot);
+    scale: 0 0;
+    transition: scale 220ms ease-out-cubic;
+}
+
+.ob-step__label {
+    flex-grow: 1;
+    margin-left: 12px;
+    -unity-font-definition: var(--hud-head);
+    font-size: 12px;
+    letter-spacing: 18px;
+    color: var(--text);
+    transition: color 280ms ease-out;
+}
+
+/* the button a step asks for (ENTER MOD STATE: Q or L3), hot (yellow) until the step is done */
+.ob-step__kp { margin-right: 14px; transition: opacity 280ms ease-out; }
+.ob-step--done .ob-step__kp { opacity: 0.35; }
+
+.ob-step__value {
+    -unity-font-definition: var(--hud-number);
+    font-size: 16px;
+    letter-spacing: 7.5px;
+    color: var(--text);
+}
+
+.ob-step--done .ob-step__box { border-color: var(--hot); }
+.ob-step--done .ob-step__fill { scale: 1 1; }
+.ob-step--done .ob-step__label { color: var(--text-dim); }
+.ob-step--done .ob-step__value { color: var(--hot); }
+
+/* progress line under the card: the title's status bar */
+.ob-progress { height: 2px; margin-top: 14px; background-color: var(--band); }
+
+.ob-progress__fill {
+    height: 2px;
+    width: 0;
+    background-color: var(--hot);
+    transition: width 480ms ease-out-cubic;
+}
+
+/* states */
+.ob--done .ob-title > .chroma__text { color: var(--text-dim); }
+.ob--compact .ob-brief,
+.ob--compact .ob-steps { display: none; }
+.ob--compact .ob-progress { margin-top: 10px; }
+.ob--compact .ob-title > .unity-label { font-size: 40px; height: 46px; }

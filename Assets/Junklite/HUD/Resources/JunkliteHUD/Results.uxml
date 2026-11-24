@@ -1,0 +1,55 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+  <Style src="../../UI/Results.uss" />
+  <!-- The level results screen: HudResults fills the grade, the time, the total and the kill breakdown, and builds
+       the confirm button's tag. The words are the game's own. -->
+  <ui:VisualElement name="res" class="res">
+    <ui:VisualElement class="res-left" picking-mode="Ignore">
+      <ui:VisualElement class="res-head" picking-mode="Ignore">
+        <ui:Label class="res-label" text="MISSION COMPLETE" picking-mode="Ignore" />
+        <ui:Label class="res-title" text="LEVEL RESULTS" picking-mode="Ignore" />
+      </ui:VisualElement>
+      <ui:VisualElement class="res-body" picking-mode="Ignore">
+        <ui:VisualElement class="res-rule" picking-mode="Ignore" />
+        <ui:VisualElement class="res-stats" picking-mode="Ignore">
+          <ui:VisualElement class="res-rating" picking-mode="Ignore">
+            <ui:Label class="res-label" text="RATING" picking-mode="Ignore" />
+            <ui:Label name="res-grade" class="res-grade" picking-mode="Ignore" />
+            <ui:Label class="res-label res-rating__caption" text="PERFORMANCE GRADE" picking-mode="Ignore" />
+          </ui:VisualElement>
+          <ui:VisualElement class="res-vrule" picking-mode="Ignore" />
+          <ui:VisualElement class="res-figures" picking-mode="Ignore">
+            <ui:VisualElement class="res-figure" picking-mode="Ignore">
+              <ui:Label class="res-label" text="TIME" picking-mode="Ignore" />
+              <ui:VisualElement class="res-figure__value" picking-mode="Ignore">
+                <ui:Label name="res-mins" class="res-num" picking-mode="Ignore" />
+                <ui:Label class="res-unit" text="MINS" picking-mode="Ignore" />
+                <ui:Label name="res-secs" class="res-num" picking-mode="Ignore" />
+                <ui:Label class="res-unit" text="SECS" picking-mode="Ignore" />
+              </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="res-figure" picking-mode="Ignore">
+              <ui:Label class="res-label" text="TOTAL KILLS" picking-mode="Ignore" />
+              <ui:VisualElement class="res-figure__value" picking-mode="Ignore">
+                <ui:Label name="res-total" class="res-num" picking-mode="Ignore" />
+              </ui:VisualElement>
+            </ui:VisualElement>
+          </ui:VisualElement>
+        </ui:VisualElement>
+      </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement class="res-right" picking-mode="Ignore">
+      <ui:VisualElement class="res-kills" picking-mode="Ignore">
+        <ui:Label class="res-label" text="KILL BREAKDOWN" picking-mode="Ignore" />
+        <ui:VisualElement name="res-kill-list" class="res-kill-list" picking-mode="Ignore" />
+      </ui:VisualElement>
+      <ui:VisualElement class="res-foot" picking-mode="Ignore">
+        <ui:VisualElement name="res-retry" class="res-btn">
+          <ui:Label class="res-btn__label" text="RETRY" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="res-continue" class="res-btn">
+          <ui:Label class="res-btn__label" text="CONTINUE" picking-mode="Ignore" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+    </ui:VisualElement>
+  </ui:VisualElement>
+</ui:UXML>

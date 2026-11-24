@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+  <Style src="../../UI/Prompt.uss" />
+  <!-- The C.M.A. prompt: HudPrompt fills the header and builds the rows (a button cap, what it does, a suffix).
+       Text only, with no card behind it. -->
+  <ui:VisualElement name="hud" class="hud size-70" picking-mode="Ignore">
+    <ui:VisualElement name="pop-zone" class="pop-zone" picking-mode="Ignore">
+      <ui:VisualElement name="pop" class="pop" picking-mode="Ignore">
+        <ui:VisualElement class="pop-panel" picking-mode="Ignore">
+          <ui:Label name="pop-head" class="pop-head tear" picking-mode="Ignore" />
+          <ui:VisualElement name="pop-rows" class="pop-rows" picking-mode="Ignore" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+    </ui:VisualElement>
+  </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+  <Style src="HudDemo.uss" />
+  <!-- Demo scene only: a screenshot of the game (no HUD) behind the HUD. -->
+  <ui:VisualElement name="demo" class="demo" picking-mode="Ignore">
+    <ui:VisualElement name="demo-backdrop" class="demo-backdrop" picking-mode="Ignore" />
+  </ui:VisualElement>
+</ui:UXML>

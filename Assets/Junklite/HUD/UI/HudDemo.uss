@@ -1,0 +1,24 @@
+/* Demo scene only (HudDemo): the stand-in for the game. Not part of the HUD. */
+
+@import url("../../Shared/UI/Common.uss");
+
+.demo {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+/* a real in-game screenshot with no HUD, filling the screen like the web pages' SCENE backdrop */
+.demo-backdrop {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url("../Art/demo-backdrop.jpg");
+    background-size: cover;
+    background-position-x: left;
+    background-position-y: top;
+}

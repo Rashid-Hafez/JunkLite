@@ -1,0 +1,73 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+  <ui:Template name="Crt" src="../../Shared/UI/Crt.uxml" />
+  <Style src="Pause.uss" />
+  <ui:VisualElement name="pause" class="frame pause pause--closed">
+    <ui:VisualElement name="pause-dim" class="pause__dim" />
+    <ui:VisualElement class="stage pause__stage" picking-mode="Ignore">
+      <ui:VisualElement name="pause-backdrop" class="pause__backdrop hidden" picking-mode="Ignore" />
+      <ui:VisualElement name="pause-showcase" class="pause__showcase" picking-mode="Ignore" />
+
+      <ui:VisualElement name="sidebar" class="sidebar">
+        <ui:Label class="sidebar__kicker" text="SESSION" />
+        <ui:Label class="sidebar__title" text="PAUSED" />
+        <ui:Label name="pause-meta" class="sidebar__meta" />
+
+        <ui:VisualElement name="pause-menu" class="pause-menu">
+          <ui:VisualElement name="pause-glide" class="pause-menu__glide" picking-mode="Ignore" />
+          <ui:Button name="pause-resume" class="plain-button pause-row">
+            <ui:Label class="pause-row__index" text="01" picking-mode="Ignore" />
+            <ui:Label class="pause-row__label" text="RESUME" picking-mode="Ignore" />
+            <ui:Label class="pause-row__meta" picking-mode="Ignore" />
+          </ui:Button>
+          <ui:Button name="pause-map" class="plain-button pause-row pause-row--locked">
+            <ui:Label class="pause-row__index" text="02" picking-mode="Ignore" />
+            <ui:Label class="pause-row__label" text="MAP" picking-mode="Ignore" />
+            <ui:Label class="pause-row__meta" text="LOCKED" picking-mode="Ignore" />
+          </ui:Button>
+          <ui:Button name="pause-settings" class="plain-button pause-row pause-row--locked">
+            <ui:Label class="pause-row__index" text="03" picking-mode="Ignore" />
+            <ui:Label class="pause-row__label" text="SETTINGS" picking-mode="Ignore" />
+            <ui:Label class="pause-row__meta" text="LOCKED" picking-mode="Ignore" />
+          </ui:Button>
+          <ui:Button name="pause-quit" class="plain-button pause-row">
+            <ui:Label class="pause-row__index" text="04" picking-mode="Ignore" />
+            <ui:Label class="pause-row__label" text="QUIT TO TITLE" picking-mode="Ignore" />
+            <ui:Label class="pause-row__meta" picking-mode="Ignore" />
+          </ui:Button>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="build" class="build">
+          <ui:Label class="build__label" text="CURRENT BUILD" />
+          <ui:VisualElement name="build-tiles" class="build__tiles" />
+          <ui:VisualElement class="build__counts">
+            <ui:VisualElement class="count">
+              <ui:Label name="count-linked" class="count__value" />
+              <ui:Label class="count__label" text="LINKED" />
+            </ui:VisualElement>
+            <ui:VisualElement class="count">
+              <ui:Label name="count-storage" class="count__value" />
+              <ui:Label class="count__label" text="STORAGE" />
+            </ui:VisualElement>
+            <ui:VisualElement class="count">
+              <ui:Label name="count-elite" class="count__value count__value--elite" />
+              <ui:Label class="count__label" text="ELITE" />
+            </ui:VisualElement>
+            <ui:VisualElement class="count">
+              <ui:Label name="count-classified" class="count__value count__value--classified" />
+              <ui:Label class="count__label" text="CLASSIFIED" />
+            </ui:VisualElement>
+          </ui:VisualElement>
+        </ui:VisualElement>
+      </ui:VisualElement>
+
+      <ui:VisualElement class="toast-row" picking-mode="Ignore">
+        <ui:VisualElement name="toast" class="toast" picking-mode="Ignore">
+          <ui:Label class="toast__source" text="// SYSTEM" />
+          <ui:Label name="toast-message" class="toast__message" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+
+      <ui:Instance template="Crt" class="crt" picking-mode="Ignore" />
+    </ui:VisualElement>
+  </ui:VisualElement>
+</ui:UXML>

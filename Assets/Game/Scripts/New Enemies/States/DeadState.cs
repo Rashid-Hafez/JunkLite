@@ -16,22 +16,15 @@ namespace junklite
 
         public override void Enter()
         {
-            Debug.Log($"[DeadState] {enemy.gameObject.name} entered DeadState");
-
             enemy.Movement?.Stop();
 
-            if (enemy.DetectionZone != null)
-                enemy.DetectionZone.enabled = false;
+            if (enemy.Perception != null)
+                enemy.Perception.enabled = false;
         }
 
         public override void Update()
         {
             // Dead enemies don't do anything
-        }
-
-        public override void Exit()
-        {
-            Debug.Log($"[DeadState] {enemy.gameObject.name} exiting DeadState (respawn?)");
         }
     }
 }

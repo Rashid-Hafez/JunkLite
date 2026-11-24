@@ -2,6 +2,8 @@
 using UnityEngine.EventSystems;
 using System;
 using System.Collections.Generic;
+using UnityEngine.UI;
+using TMPro;
 
 namespace junklite
 {
@@ -12,11 +14,14 @@ namespace junklite
         [SerializeField] private MenuButton inventoryTabButton;
         [SerializeField] private MenuButton infoTabButton;
         [SerializeField] private MenuButton missionsTabButton;
+        [SerializeField] private MenuButton upgradesTabButton;
 
         [Header("Tab Screens")]
         [SerializeField] private GameObject inventoryScreen;
         [SerializeField] private GameObject infoScreen;
         [SerializeField] private GameObject missionsScreen;
+        [Tooltip("Authored Upgrades Page prefab (Tools > JunkLite > UI > Build Upgrades Page Prefab). Instantiated at runtime.")]
+        [SerializeField] private GameObject upgradesScreen;
 
         [Header("Inventory Slots")]
         [SerializeField] private GameObject inventorySlotPrefab;
@@ -30,23 +35,94 @@ namespace junklite
         [SerializeField] private GameObject passiveModSlotPrefab;
         [SerializeField] private Transform passiveModSlotParent;
 
-        [Header("Weapon Slots")]
-        [SerializeField] private InventoryWeaponSlotUI weaponSlot1;
-        [SerializeField] private InventoryWeaponSlotUI weaponSlot2;
-
         [Header("Description Box")]
         [SerializeField] private ItemDescriptionUI descriptionUI;
+
+        [Header("Presentation")]
+        [SerializeField] private GameObject panel;
+        [SerializeField] private RectTransform characterVisual;
+        [SerializeField] private TMP_FontAsset headingFont;
+        [SerializeField] private TMP_FontAsset bodyFont;
+        [SerializeField] private Font headingSourceFont;
+
+        private static readonly Color Backdrop = new(0.012f, 0.018f, 0.042f, 0.78f);
+        private static readonly Color Frame = new(0.032f, 0.045f, 0.087f, 0.985f);
+        private static readonly Color Card = new(0.055f, 0.073f, 0.125f, 0.96f);
+        private static readonly Color Well = new(0.025f, 0.035f, 0.07f, 0.9f);
+        private static readonly Color Hover = new(0.075f, 0.18f, 0.24f, 1f);
+        private static readonly Color Cyan = new(0.24f, 0.91f, 0.98f, 1f);
+        private static readonly Color Magenta = new(0.86f, 0.25f, 0.89f, 1f);
+        private static readonly Color Paper = new(0.9f, 0.94f, 1f, 1f);
+        private static readonly Color Muted = new(0.51f, 0.61f, 0.74f, 1f);
+        private static readonly Color Line = new(0.18f, 0.27f, 0.38f, 0.75f);
+        private static readonly Vector2 DesignSize = new(1440f, 820f);
 
         private InventoryComponent inventory;
         private WeaponManager weaponManager;
         private ModManager modManager;
+        private PlayerProgression progression;
+        private PlayerCharacter player;
+        private Attribute playerHealth;
+        private Attribute playerArmor;
+        private Button characterButton;
+        private GameObject characterSelection;
+        private Sprite characterPortrait;
+        private bool playerDetailsSelected;
+        private bool showingItemPreview;
+        private bool playerDetailsDirty;
 
         private readonly List<ModSlotUI> inventorySlots = new();
         private readonly List<ModSlotUI> activeModSlots = new();
         private readonly List<ModSlotUI> passiveModSlots = new();
 
-        private enum Tab { Inventory, Info, Missions }
+        private enum Tab { Inventory, Info, Missions, Upgrades }
         private Tab activeTab = Tab.Inventory;
+        private const float NavigateDeadZone = 0.45f;
+        private const float NavigateRepeatDelay = 0.16f;
+        // Pixels a target must lie ahead of the current slot; rejects same-row/column slots.
+        private const float NavigateMinStep = 4f;
+        // Sideways offset costs this much more than distance ahead, so rows/columns win.
+        private const float NavigateCrossAxisWeight = 2f;
+        private readonly List<Selectable> navigableBuffer = new();
+        private float nextNavigateTime;
+        private bool themedInterfaceBuilt;
+        private bool authoredMissionsPage;
+        private bool authoredUpgradesPage;
+        private RectTransform frameTransform;
+        private TMP_Text frameTitle;
+        private TMP_Text inputHintsText;
+        private PlayerUpgrades upgrades;
+        private TMP_FontAsset generatedHeadingFont;
+
+        #endregion
+
+
+        #region Unity
+
+        private void Awake()
+        {
+            if (headingSourceFont != null)
+            {
+                generatedHeadingFont = TMP_FontAsset.CreateFontAsset(headingSourceFont);
+                headingFont = generatedHeadingFont;
+            }
+
+            if (bodyFont == null)
+                bodyFont = UIFonts.HudBody;
+            if (headingFont == null)
+                headingFont = UIFonts.HudTitle;
+
+            BuildInterface();
+        }
+
+        private void LateUpdate()
+        {
+            if (panel != null && panel.activeInHierarchy)
+            {
+                FitFrame();
+                if (playerDetailsDirty) RefreshPlayerDetails();
+            }
+        }
 
         #endregion
 
@@ -60,18 +136,35 @@ namespace junklite
             inventory = inv;
             weaponManager = wm;
             modManager = wm != null ? wm.GetComponent<ModManager>() : null;
+            progression = wm != null ? wm.GetComponent<PlayerRuntimeStats>()?.Progression : null;
+            player = wm != null ? wm.GetComponent<PlayerCharacter>() : null;
+            if (characterButton != null) characterButton.interactable = player != null;
+            playerHealth = player != null ? player.Health : null;
+            playerArmor = player != null ? player.RuntimeStats?.ArmorDisplay : null;
+            if (playerHealth != null) playerHealth.OnValueAndMaxChanged += HandlePlayerStatChanged;
+            if (playerArmor != null) playerArmor.OnValueAndMaxChanged += HandlePlayerStatChanged;
+            if (progression != null) progression.Changed += RefreshProgression;
+            RefreshProgression(default);
 
             if (inventory != null)
                 inventory.OnInventoryChanged += RefreshInventory;
 
-            if (weaponManager != null)
-                weaponManager.OnWeaponChanged += RefreshWeapons;
-
             if (modManager != null)
                 modManager.OnModSlotsChanged += RefreshModSlots;
 
+            ModSlotUI.OnModHovered += HandleModHovered;
+            ModSlotUI.OnModHoverExit += HandleHoverExit;
             ModSlotUI.OnModSelected += HandleModSelected;
-            InventoryWeaponSlotUI.OnWeaponSelected += HandleWeaponSelected;
+            ModSlotUI.OnLockedSlotSelected += HandleLockedSlotSelected;
+
+            if (GameInputManager.Instance != null)
+            {
+                GameInputManager.Instance.OnUINavigate += HandleUINavigate;
+                GameInputManager.Instance.OnUIPreviousTab += HandlePreviousTab;
+                GameInputManager.Instance.OnUINextTab += HandleNextTab;
+                GameInputManager.Instance.OnInputDeviceChanged += HandleInputDeviceChanged;
+            }
+            RefreshInputHints();
 
             if (inventoryTabButton != null)
                 inventoryTabButton.OnClick += ShowInventoryTab;
@@ -82,23 +175,45 @@ namespace junklite
             if (missionsTabButton != null)
                 missionsTabButton.OnClick += ShowMissionsTab;
 
+            if (upgradesTabButton != null)
+                upgradesTabButton.OnClick += ShowUpgradesTab;
+
+            upgrades = PlayerUpgrades.Instance;
+            if (upgrades != null) upgrades.Changed += RefreshUpgradesTabLabel;
+            RefreshUpgradesTabLabel();
+
             ShowInventoryTab();
             RefreshAll();
         }
 
         public void Unbind()
         {
+            if (playerHealth != null) playerHealth.OnValueAndMaxChanged -= HandlePlayerStatChanged;
+            if (playerArmor != null) playerArmor.OnValueAndMaxChanged -= HandlePlayerStatChanged;
+            playerHealth = playerArmor = null;
+            player = null;
+            if (characterButton != null) characterButton.interactable = false;
+            ClearPlayerSelection();
+            if (progression != null) progression.Changed -= RefreshProgression;
+            progression = null;
             if (inventory != null)
                 inventory.OnInventoryChanged -= RefreshInventory;
-
-            if (weaponManager != null)
-                weaponManager.OnWeaponChanged -= RefreshWeapons;
 
             if (modManager != null)
                 modManager.OnModSlotsChanged -= RefreshModSlots;
 
+            ModSlotUI.OnModHovered -= HandleModHovered;
+            ModSlotUI.OnModHoverExit -= HandleHoverExit;
             ModSlotUI.OnModSelected -= HandleModSelected;
-            InventoryWeaponSlotUI.OnWeaponSelected -= HandleWeaponSelected;
+            ModSlotUI.OnLockedSlotSelected -= HandleLockedSlotSelected;
+
+            if (GameInputManager.Instance != null)
+            {
+                GameInputManager.Instance.OnUINavigate -= HandleUINavigate;
+                GameInputManager.Instance.OnUIPreviousTab -= HandlePreviousTab;
+                GameInputManager.Instance.OnUINextTab -= HandleNextTab;
+                GameInputManager.Instance.OnInputDeviceChanged -= HandleInputDeviceChanged;
+            }
 
             if (inventoryTabButton != null)
                 inventoryTabButton.OnClick -= ShowInventoryTab;
@@ -109,10 +224,15 @@ namespace junklite
             if (missionsTabButton != null)
                 missionsTabButton.OnClick -= ShowMissionsTab;
 
+            if (upgradesTabButton != null)
+                upgradesTabButton.OnClick -= ShowUpgradesTab;
+
+            if (upgrades != null) upgrades.Changed -= RefreshUpgradesTabLabel;
+            upgrades = null;
+
             ClearSlots(inventorySlots);
             ClearSlots(activeModSlots);
             ClearSlots(passiveModSlots);
-            ClearWeaponSlots();
 
             descriptionUI?.Clear();
 
@@ -124,8 +244,12 @@ namespace junklite
         public void RefreshAll()
         {
             RefreshInventory();
-            RefreshWeapons();
             RefreshModSlots();
+        }
+
+        private void RefreshProgression(ProgressionChange change)
+        {
+            playerDetailsDirty = true;
         }
 
         #endregion
@@ -135,47 +259,107 @@ namespace junklite
 
         private void ShowInventoryTab()
         {
+            ClearPlayerSelection();
             activeTab = Tab.Inventory;
+            if (frameTitle != null) frameTitle.text = "INVENTORY";
 
             inventoryTabButton?.SetSelected(true);
             infoTabButton?.SetSelected(false);
             missionsTabButton?.SetSelected(false);
+            upgradesTabButton?.SetSelected(false);
 
             if (inventoryScreen != null) inventoryScreen.SetActive(true);
             if (infoScreen != null) infoScreen.SetActive(false);
             if (missionsScreen != null) missionsScreen.SetActive(false);
+            if (upgradesScreen != null) upgradesScreen.SetActive(false);
 
             descriptionUI?.Clear();
+            TrySelectDefaultSlotIfGamepad();
         }
 
         private void ShowInfoTab()
         {
+            ClearPlayerSelection();
             activeTab = Tab.Info;
+            if (frameTitle != null) frameTitle.text = "CODEX";
 
             inventoryTabButton?.SetSelected(false);
             infoTabButton?.SetSelected(true);
             missionsTabButton?.SetSelected(false);
+            upgradesTabButton?.SetSelected(false);
 
             if (inventoryScreen != null) inventoryScreen.SetActive(false);
             if (infoScreen != null) infoScreen.SetActive(true);
             if (missionsScreen != null) missionsScreen.SetActive(false);
+            if (upgradesScreen != null) upgradesScreen.SetActive(false);
 
             descriptionUI?.Clear();
         }
 
         private void ShowMissionsTab()
         {
+            ClearPlayerSelection();
             activeTab = Tab.Missions;
+            if (frameTitle != null) frameTitle.text = "MISSIONS";
 
             inventoryTabButton?.SetSelected(false);
             infoTabButton?.SetSelected(false);
             missionsTabButton?.SetSelected(true);
+            upgradesTabButton?.SetSelected(false);
 
             if (inventoryScreen != null) inventoryScreen.SetActive(false);
             if (infoScreen != null) infoScreen.SetActive(false);
             if (missionsScreen != null) missionsScreen.SetActive(true);
+            if (upgradesScreen != null) upgradesScreen.SetActive(false);
 
             descriptionUI?.Clear();
+        }
+
+        private void ShowUpgradesTab()
+        {
+            ClearPlayerSelection();
+            activeTab = Tab.Upgrades;
+            if (frameTitle != null) frameTitle.text = "UPGRADES";
+
+            inventoryTabButton?.SetSelected(false);
+            infoTabButton?.SetSelected(false);
+            missionsTabButton?.SetSelected(false);
+            upgradesTabButton?.SetSelected(true);
+
+            if (inventoryScreen != null) inventoryScreen.SetActive(false);
+            if (infoScreen != null) infoScreen.SetActive(false);
+            if (missionsScreen != null) missionsScreen.SetActive(false);
+            if (upgradesScreen != null) upgradesScreen.SetActive(true);
+
+            descriptionUI?.Clear();
+        }
+
+        // LB / RB step through the tabs and wrap. Bound while closed too, so only act when shown.
+        private void HandlePreviousTab() => CycleTab(-1);
+        private void HandleNextTab() => CycleTab(1);
+
+        private void CycleTab(int step)
+        {
+            if (panel == null || !panel.activeInHierarchy) return;
+            const int tabCount = (int)Tab.Upgrades + 1;
+            switch ((Tab)(((int)activeTab + step + tabCount) % tabCount))
+            {
+                case Tab.Inventory: ShowInventoryTab(); break;
+                case Tab.Info: ShowInfoTab(); break;
+                case Tab.Missions: ShowMissionsTab(); break;
+                case Tab.Upgrades: ShowUpgradesTab(); break;
+            }
+        }
+
+        /// <summary>Opens the inventory menu on the UPGRADES tab (level-up toast, dev tools).</summary>
+        public void OpenUpgradesTab() => ShowUpgradesTab();
+
+        /// <summary>The tab button carries the unspent point count so it is visible from every tab.</summary>
+        private void RefreshUpgradesTabLabel()
+        {
+            if (upgradesTabButton == null) return;
+            int points = upgrades != null ? upgrades.AvailablePoints : 0;
+            upgradesTabButton.SetText(points > 0 ? $"UPGRADES  {points}" : "UPGRADES");
         }
 
         #endregion
@@ -183,16 +367,83 @@ namespace junklite
 
         #region Description Box Handlers
 
-        private void HandleModSelected(ModInstance mod)
+        private void ShowPlayerDetails()
         {
-            if (mod == null) descriptionUI?.Clear();
+            if (player == null || activeTab != Tab.Inventory) return;
+            playerDetailsSelected = true;
+            showingItemPreview = false;
+            if (characterSelection != null) characterSelection.SetActive(true);
+            RefreshPlayerDetails();
+        }
+
+        private void RefreshPlayerDetails()
+        {
+            playerDetailsDirty = false;
+            if (playerDetailsSelected && !showingItemPreview && activeTab == Tab.Inventory)
+                descriptionUI?.ShowPlayer(player, characterPortrait);
+        }
+
+        private void HidePlayerDetails()
+        {
+            playerDetailsSelected = playerDetailsDirty = false;
+            if (characterSelection != null) characterSelection.SetActive(false);
+            if (!showingItemPreview) descriptionUI?.Clear();
+        }
+
+        private void HandlePlayerStatChanged(float current, float maximum) => playerDetailsDirty = true;
+
+        private void ClearPlayerSelection()
+        {
+            playerDetailsSelected = showingItemPreview = playerDetailsDirty = false;
+            if (characterSelection != null) characterSelection.SetActive(false);
+        }
+
+        private void HandleModHovered(ModInstance mod)
+        {
+            showingItemPreview = mod != null;
+            if (mod == null) HandleHoverExit();
             else descriptionUI?.ShowMod(mod);
         }
 
-        private void HandleWeaponSelected(WeaponInstance weapon)
+        private void HandleLockedSlotSelected(ModSlotUI slot)
         {
-            if (weapon == null) descriptionUI?.Clear();
-            else descriptionUI?.ShowWeapon(weapon);
+            if (slot == null || !slot.transform.IsChildOf(transform) || activeTab != Tab.Inventory) return;
+            showingItemPreview = true;
+            descriptionUI?.ShowLockedSlot();
+        }
+
+        private void HandleHoverExit()
+        {
+            showingItemPreview = false;
+            if (playerDetailsSelected) RefreshPlayerDetails();
+            else descriptionUI?.Clear();
+        }
+
+        private void HandleModSelected(ModInstance selectedMod)
+        {
+            if (selectedMod == null) return;
+            ClearPlayerSelection();
+            if (EventSystem.current == null) return;
+
+            var preferredTarget = GetPreferredTargetSlotFor(selectedMod);
+            if (preferredTarget == null) return;
+
+            EventSystem.current.SetSelectedGameObject(preferredTarget.gameObject);
+        }
+
+        private void HandleUINavigate(Vector2 move)
+        {
+            if (activeTab != Tab.Inventory) return;
+            if (EventSystem.current == null) return;
+            if (move.sqrMagnitude < NavigateDeadZone * NavigateDeadZone) return;
+            if (Time.unscaledTime < nextNavigateTime) return;
+
+            nextNavigateTime = Time.unscaledTime + NavigateRepeatDelay;
+
+            if (TryMoveSelection(move.normalized))
+                return;
+
+            TrySelectDefaultSlotIfGamepad();
         }
 
         #endregion
@@ -204,40 +455,26 @@ namespace junklite
         {
             ClearSlots(inventorySlots);
 
-            if (inventory == null || inventorySlotPrefab == null || inventorySlotParent == null) return;
+            if (inventory == null || inventorySlotParent == null ||
+                (!themedInterfaceBuilt && inventorySlotPrefab == null)) return;
 
             for (int i = 0; i < inventory.SlotCount; i++)
             {
                 ModInstance mod = inventory.GetModAt(i);
 
-                var go = Instantiate(inventorySlotPrefab, inventorySlotParent);
-                var slot = go.GetComponent<ModSlotUI>();
+                ModSlotUI slot = themedInterfaceBuilt
+                    ? CreateThemedModSlot(inventorySlotParent, Cyan)
+                    : Instantiate(inventorySlotPrefab, inventorySlotParent).GetComponent<ModSlotUI>();
 
                 if (slot != null)
                 {
                     slot.Bind(mod, inventory, i);
+                    ConfigureSlotNavigation(slot);
                     inventorySlots.Add(slot);
                 }
             }
-        }
 
-        #endregion
-
-
-        #region Weapon Slots
-
-        private void RefreshWeapons()
-        {
-            if (weaponManager == null) return;
-
-            weaponSlot1?.Bind(weaponManager, 1);
-            weaponSlot2?.Bind(weaponManager, 2);
-        }
-
-        private void ClearWeaponSlots()
-        {
-            weaponSlot1?.Unbind();
-            weaponSlot2?.Unbind();
+            TrySelectDefaultSlotIfGamepad();
         }
 
         #endregion
@@ -247,40 +484,590 @@ namespace junklite
 
         private void RefreshModSlots()
         {
+            playerDetailsDirty = true;
             ClearSlots(activeModSlots);
             ClearSlots(passiveModSlots);
 
             if (modManager == null) return;
 
-            if (activeModSlotParent != null && activeModSlotPrefab != null)
+            if (activeModSlotParent != null && (themedInterfaceBuilt || activeModSlotPrefab != null))
             {
                 for (int i = 0; i < modManager.MaxActiveSlots; i++)
                 {
                     bool locked = i >= modManager.UnlockedActiveSlots;
-                    var go = Instantiate(activeModSlotPrefab, activeModSlotParent);
-                    var slot = go.GetComponent<ModSlotUI>();
+                    ModSlotUI slot = themedInterfaceBuilt
+                        ? CreateThemedModSlot(activeModSlotParent, Cyan)
+                        : Instantiate(activeModSlotPrefab, activeModSlotParent).GetComponent<ModSlotUI>();
                     if (slot != null)
                     {
                         slot.Bind(modManager.GetActiveMod(i), modManager, inventory, i, true, locked);
+                        ConfigureSlotNavigation(slot);
                         activeModSlots.Add(slot);
                     }
                 }
             }
 
-            if (passiveModSlotParent != null && passiveModSlotPrefab != null)
+            if (passiveModSlotParent != null && (themedInterfaceBuilt || passiveModSlotPrefab != null))
             {
                 for (int i = 0; i < modManager.MaxPassiveSlots; i++)
                 {
                     bool locked = i >= modManager.UnlockedPassiveSlots;
-                    var go = Instantiate(passiveModSlotPrefab, passiveModSlotParent);
-                    var slot = go.GetComponent<ModSlotUI>();
+                    ModSlotUI slot = themedInterfaceBuilt
+                        ? CreateThemedModSlot(passiveModSlotParent, Magenta)
+                        : Instantiate(passiveModSlotPrefab, passiveModSlotParent).GetComponent<ModSlotUI>();
                     if (slot != null)
                     {
                         slot.Bind(modManager.GetPassiveMod(i), modManager, inventory, i, false, locked);
+                        ConfigureSlotNavigation(slot);
                         passiveModSlots.Add(slot);
                     }
                 }
             }
+
+            TrySelectDefaultSlotIfGamepad();
+        }
+
+        #endregion
+
+
+        #region Presentation
+
+        private void BuildInterface()
+        {
+            if (characterVisual == null && inventoryScreen != null)
+            {
+                RectTransform[] candidates = inventoryScreen.GetComponentsInChildren<RectTransform>(true);
+                foreach (RectTransform candidate in candidates)
+                {
+                    if (candidate.name == "CHARACTER")
+                    {
+                        characterVisual = candidate;
+                        break;
+                    }
+                }
+            }
+
+            if (characterVisual != null)
+                characterVisual.SetParent(transform, false);
+
+            // An authored Missions page (has a MissionsPageView) replaces the code placeholder.
+            // Keep it out of the panel rebuild below; BuildPages moves it into the frame.
+            authoredMissionsPage = missionsScreen != null && missionsScreen.GetComponent<MissionsPageView>() != null;
+            if (authoredMissionsPage)
+            {
+                if (!missionsScreen.scene.IsValid())
+                    missionsScreen = Instantiate(missionsScreen, transform, false);
+                else
+                    missionsScreen.transform.SetParent(transform, false);
+            }
+
+            authoredUpgradesPage = upgradesScreen != null && upgradesScreen.GetComponent<UpgradesPageView>() != null;
+            if (authoredUpgradesPage)
+            {
+                if (!upgradesScreen.scene.IsValid())
+                    upgradesScreen = Instantiate(upgradesScreen, transform, false);
+                else
+                    upgradesScreen.transform.SetParent(transform, false);
+            }
+
+            if (panel == null && inventoryScreen != null && inventoryScreen.transform.parent != null)
+                panel = inventoryScreen.transform.parent.gameObject;
+            if (panel == null && transform.childCount > 0)
+                panel = transform.GetChild(0).gameObject;
+            if (panel == null)
+                panel = CreateRect("Inventory Panel", transform).gameObject;
+
+            RectTransform panelRect = (RectTransform)panel.transform;
+            Stretch(panelRect);
+            panelRect.localScale = Vector3.one;
+
+            for (int i = panel.transform.childCount - 1; i >= 0; i--)
+            {
+                GameObject child = panel.transform.GetChild(i).gameObject;
+                child.SetActive(false);
+                Destroy(child);
+            }
+
+            Image backdrop = panel.GetComponent<Image>();
+            if (backdrop == null)
+                backdrop = panel.AddComponent<Image>();
+            backdrop.color = Backdrop;
+            backdrop.sprite = null;
+            backdrop.raycastTarget = true;
+
+            Image frame = CreateImage("Inventory Interface", panel.transform, Frame);
+            frameTransform = frame.rectTransform;
+            frameTransform.anchorMin = frameTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            frameTransform.pivot = new Vector2(0.5f, 0.5f);
+            frameTransform.anchoredPosition = Vector2.zero;
+            frameTransform.sizeDelta = DesignSize;
+            frame.raycastTarget = false;
+            AddBorder(frameTransform, Line);
+
+            for (int i = 1; i < 12; i++)
+                RectImage("Grid Line", frameTransform,
+                    new Color(Cyan.r, Cyan.g, Cyan.b, 0.022f),
+                    i * 120f, 0f, 1f, DesignSize.y);
+
+            RectImage("Cyan Edge", frameTransform, Cyan, 0f, 0f, 390f, 3f);
+            RectImage("Magenta Edge", frameTransform, Magenta, 1190f, 817f, 250f, 3f);
+            RectImage("Left Mark", frameTransform, Cyan, 0f, 0f, 3f, 28f);
+            RectImage("Right Mark", frameTransform, Magenta, 1437f, 792f, 3f, 28f);
+
+            BuildHeader();
+            BuildPages();
+            BuildFooter();
+            themedInterfaceBuilt = true;
+            FitFrame();
+        }
+
+        private void BuildHeader()
+        {
+            TextAt("Brand", frameTransform, "JUNKLITE  /  STORAGE LINK",
+                16f, Cyan, 40f, 24f, 620f, 24f, false, FontStyles.Bold);
+            frameTitle = TextAt("Title", frameTransform, "INVENTORY",
+                48f, Paper, 38f, 52f, 650f, 64f, true, FontStyles.Bold);
+
+            inventoryTabButton = CreateTab("INVENTORY", 760f, 76f, 148f);
+            infoTabButton = CreateTab("CODEX", 920f, 76f, 118f);
+            missionsTabButton = CreateTab("MISSIONS", 1050f, 76f, 148f);
+            upgradesTabButton = CreateTab("UPGRADES", 1210f, 76f, 180f);
+
+            RectImage("Header Rule", frameTransform, Line, 40f, 146f, 1360f, 1f);
+            RectImage("Header Signal", frameTransform, Magenta, 40f, 146f, 96f, 3f);
+        }
+
+        private MenuButton CreateTab(string label, float x, float y, float width)
+        {
+            Image background = RectImage(label, frameTransform, Card, x, y, width, 46f);
+            background.raycastTarget = true;
+            AddBorder(background.rectTransform, Line);
+            TMP_Text text = TextAt("Label", background.transform, label,
+                14f, Paper, 12f, 0f, width - 24f, 46f, false, FontStyles.Bold);
+            text.horizontalAlignment = HorizontalAlignmentOptions.Center;
+
+            MenuButton button = background.gameObject.AddComponent<MenuButton>();
+            button.Configure(text, background, Card, Paper,
+                new Color(0.08f, 0.21f, 0.29f, 1f), Cyan,
+                Hover, new Color(0.12f, 0.29f, 0.36f, 1f), 14f, 14f);
+            return button;
+        }
+
+        private void BuildPages()
+        {
+            inventoryScreen = CreateRect("Inventory Page", frameTransform).gameObject;
+            Place((RectTransform)inventoryScreen.transform, 40f, 170f, 1360f, 568f);
+            BuildInventoryPage((RectTransform)inventoryScreen.transform);
+
+            infoScreen = CreateRect("Codex Page", frameTransform).gameObject;
+            Place((RectTransform)infoScreen.transform, 40f, 170f, 1360f, 568f);
+            BuildEmptyPage((RectTransform)infoScreen.transform, "CODEX", "NO CODEX DATA");
+
+            if (authoredMissionsPage)
+            {
+                missionsScreen.transform.SetParent(frameTransform, false);
+            }
+            else
+            {
+                missionsScreen = CreateRect("Missions Page", frameTransform).gameObject;
+                Place((RectTransform)missionsScreen.transform, 40f, 170f, 1360f, 568f);
+                BuildEmptyPage((RectTransform)missionsScreen.transform, "MISSIONS", "NO ACTIVE MISSIONS");
+            }
+
+            if (authoredUpgradesPage)
+            {
+                upgradesScreen.transform.SetParent(frameTransform, false);
+            }
+            else
+            {
+                upgradesScreen = CreateRect("Upgrades Page", frameTransform).gameObject;
+                Place((RectTransform)upgradesScreen.transform, 40f, 170f, 1360f, 568f);
+                BuildEmptyPage((RectTransform)upgradesScreen.transform, "UPGRADES",
+                    "RUN TOOLS > JUNKLITE > UI > BUILD UPGRADES PAGE PREFAB");
+            }
+
+            infoScreen.SetActive(false);
+            missionsScreen.SetActive(false);
+            upgradesScreen.SetActive(false);
+        }
+
+        private void BuildInventoryPage(RectTransform page)
+        {
+            Image loadoutCard = RectImage("Profile", page, Card, 0f, 0f, 200f, 568f);
+            AddBorder(loadoutCard.rectTransform, Line);
+            RectImage("Profile Accent", loadoutCard.transform, Magenta, 0f, 0f, 3f, 568f);
+            TextAt("Profile Label", loadoutCard.transform, "PROFILE", 14f, Magenta,
+                16f, 12f, 180f, 24f, false, FontStyles.Bold);
+
+            if (characterVisual != null)
+            {
+                Image target = RectImage("Player Stats Button", loadoutCard.transform, Color.clear, 11f, 50f, 178f, 494f);
+                target.raycastTarget = true;
+                characterButton = target.gameObject.AddComponent<Button>();
+                characterButton.targetGraphic = target;
+                ColorBlock colors = characterButton.colors;
+                colors.normalColor = Color.clear;
+                colors.highlightedColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.08f);
+                colors.selectedColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.12f);
+                colors.pressedColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.2f);
+                characterButton.colors = colors;
+                // The tint needs a white source graphic; Button supplies its transparent idle color.
+                target.color = Color.white;
+                characterButton.navigation = new Navigation { mode = Navigation.Mode.None };
+                characterButton.onClick.AddListener(ShowPlayerDetails);
+                var trigger = target.gameObject.AddComponent<EventTrigger>();
+                var select = new EventTrigger.Entry { eventID = EventTriggerType.Select };
+                select.callback.AddListener(_ => ShowPlayerDetails());
+                trigger.triggers.Add(select);
+                var enter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+                enter.callback.AddListener(_ => ShowPlayerDetails());
+                trigger.triggers.Add(enter);
+                var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+                exit.callback.AddListener(_ => HidePlayerDetails());
+                trigger.triggers.Add(exit);
+                var deselect = new EventTrigger.Entry { eventID = EventTriggerType.Deselect };
+                deselect.callback.AddListener(_ => HidePlayerDetails());
+                trigger.triggers.Add(deselect);
+                characterVisual.SetParent(target.transform, false);
+                Stretch(characterVisual);
+                characterVisual.localScale = Vector3.one;
+                characterVisual.gameObject.SetActive(true);
+                Image characterImage = characterVisual.GetComponent<Image>();
+                if (characterImage != null)
+                {
+                    characterImage.preserveAspect = true;
+                    characterImage.raycastTarget = false;
+                    characterPortrait = characterImage.sprite;
+                }
+                characterSelection = CreateRect("Selected Player", target.transform).gameObject;
+                Stretch((RectTransform)characterSelection.transform);
+                AddBorder((RectTransform)characterSelection.transform, Cyan);
+                characterSelection.SetActive(false);
+                TMP_Text hint = TextAt("Player Stats Hint", target.transform, "CASSIDY", 11f, Cyan,
+                    8f, 466f, 162f, 22f, false, FontStyles.Bold);
+                hint.horizontalAlignment = HorizontalAlignmentOptions.Center;
+            }
+
+            Image equippedCard = RectImage("Equipped Mods", page, Card, 218f, 0f, 300f, 568f);
+            AddBorder(equippedCard.rectTransform, Line);
+            RectImage("Equipped Accent", equippedCard.transform, Cyan, 0f, 0f, 3f, 568f);
+            TextAt("Equipped Label", equippedCard.transform, "EQUIPPED MODS", 14f, Cyan,
+                16f, 12f, 220f, 24f, false, FontStyles.Bold);
+
+            TextAt("Active Label", equippedCard.transform, "ACTIVE", 12f, Paper,
+                16f, 52f, 120f, 20f, false, FontStyles.Bold);
+            activeModSlotParent = CreateRect("Active Mods", equippedCard.transform);
+            Place((RectTransform)activeModSlotParent, 16f, 80f, 268f, 188f);
+            ConfigureGrid(activeModSlotParent, 76f, 76f, 13f, 13f, 3);
+
+            RectImage("Mod Divider", equippedCard.transform, Line, 16f, 284f, 268f, 1f);
+            TextAt("Passive Label", equippedCard.transform, "PASSIVE", 12f, Paper,
+                16f, 302f, 120f, 20f, false, FontStyles.Bold);
+            passiveModSlotParent = CreateRect("Passive Mods", equippedCard.transform);
+            Place((RectTransform)passiveModSlotParent, 16f, 330f, 268f, 188f);
+            ConfigureGrid(passiveModSlotParent, 76f, 76f, 13f, 13f, 3);
+
+            Image inventoryCard = RectImage("Stored Mods", page, Card, 536f, 0f, 480f, 568f);
+            AddBorder(inventoryCard.rectTransform, Line);
+            RectImage("Inventory Accent", inventoryCard.transform, Cyan, 0f, 0f, 3f, 568f);
+            TextAt("Inventory Label", inventoryCard.transform, "STORED MODS", 14f, Cyan,
+                16f, 12f, 220f, 24f, false, FontStyles.Bold);
+            inventorySlotParent = CreateRect("Inventory Grid", inventoryCard.transform);
+            Place((RectTransform)inventorySlotParent, 16f, 52f, 448f, 496f);
+            ConfigureGrid(inventorySlotParent, 72f, 72f, 13f, 13f, 5);
+
+            BuildDescriptionCard(page);
+        }
+
+        private void BuildDescriptionCard(RectTransform page)
+        {
+            Image card = RectImage("Item Details", page, Card, 1034f, 0f, 326f, 568f);
+            AddBorder(card.rectTransform, Line);
+            RectImage("Details Accent", card.transform, Magenta, 0f, 0f, 3f, 568f);
+            TMP_Text title = TextAt("Details Label", card.transform, "ITEM DETAILS", 14f, Magenta,
+                16f, 12f, 220f, 24f, false, FontStyles.Bold);
+
+            Image iconWell = RectImage("Icon Well", card.transform, Well, 20f, 54f, 92f, 92f);
+            AddBorder(iconWell.rectTransform, new Color(Cyan.r, Cyan.g, Cyan.b, 0.25f));
+            Image icon = CreateImage("Item Icon", iconWell.transform, Color.white);
+            Place(icon.rectTransform, 10f, 10f, 72f, 72f);
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+
+            TMP_Text name = TextAt("Item Name", card.transform, "", 23f, Paper,
+                20f, 158f, 286f, 40f, true, FontStyles.Bold);
+            TMP_Text description = TextAt("Description", card.transform, "", 14f, Muted,
+                20f, 204f, 286f, 108f);
+            description.textWrappingMode = TextWrappingModes.Normal;
+            description.verticalAlignment = VerticalAlignmentOptions.Top;
+
+            Image rule = RectImage("Details Rule", card.transform, Line, 20f, 328f, 286f, 1f);
+            TMP_Text stats = TextAt("Stats", card.transform, "", 13f, Paper,
+                20f, 344f, 286f, 180f);
+            stats.textWrappingMode = TextWrappingModes.Normal;
+            stats.verticalAlignment = VerticalAlignmentOptions.Top;
+
+            TMP_Text emptyText = TextAt("Empty", card.transform, "SELECT AN ITEM", 14f, Muted,
+                20f, 246f, 286f, 32f, false, FontStyles.Bold);
+            emptyText.horizontalAlignment = HorizontalAlignmentOptions.Center;
+
+            descriptionUI = card.gameObject.AddComponent<ItemDescriptionUI>();
+            descriptionUI.Configure(icon, name, description, stats, emptyText.gameObject);
+            RectTransform progressionPanel = CreateRect("Character Progression", card.transform);
+            Place(progressionPanel, 124f, 54f, 182f, 92f);
+            TMP_Text level = TextAt("Level", progressionPanel, "", 23f, Cyan, 0, 0, 182, 30, true);
+            TMP_Text xp = TextAt("Experience", progressionPanel, "", 12f, Paper, 0, 32, 182, 20);
+            TMP_Text next = TextAt("Next Level", progressionPanel, "", 11f, Muted, 0, 76, 182, 18);
+            Image xpTrack = RectImage("XP Track", progressionPanel, Line, 0, 60, 182, 8);
+            Image xpFill = CreateImage("XP Fill", xpTrack.transform, Cyan);
+            Stretch(xpFill.rectTransform);
+            xpFill.raycastTarget = false;
+            descriptionUI.ConfigurePlayerProgression(progressionPanel.gameObject, level, xp, next, xpFill, title, rule.rectTransform);
+            descriptionUI.Clear();
+        }
+
+        private ModSlotUI CreateThemedModSlot(Transform parent, Color accent)
+        {
+            RectTransform root = CreateRect("Mod Slot", parent);
+            root.sizeDelta = new Vector2(72f, 72f);
+            LayoutElement element = root.gameObject.AddComponent<LayoutElement>();
+            element.minWidth = element.preferredWidth = 72f;
+            element.minHeight = element.preferredHeight = 72f;
+
+            Image background = root.gameObject.AddComponent<Image>();
+            background.color = Well;
+            background.raycastTarget = true;
+            AddBorder(root, new Color(accent.r, accent.g, accent.b, 0.24f));
+
+            Button button = root.gameObject.AddComponent<Button>();
+            button.targetGraphic = background;
+            button.transition = Selectable.Transition.None;
+
+            Image icon = CreateImage("Icon", root, Color.white);
+            Place(icon.rectTransform, 10f, 12f, 52f, 47f);
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+
+            TMP_Text inputHint = TextAt("Input Hint", root, "", 10f, Paper,
+                5f, 2f, 62f, 16f, false, FontStyles.Bold);
+            inputHint.horizontalAlignment = HorizontalAlignmentOptions.Right;
+
+            Image track = RectImage("Durability Track", root, Line, 9f, 63f, 54f, 4f);
+            Image durability = CreateFill(track.transform, accent);
+
+            Image blocked = CreateImage("Blocked", root,
+                new Color(Magenta.r, Magenta.g, Magenta.b, 0.18f));
+            Stretch(blocked.rectTransform);
+            blocked.raycastTarget = false;
+            blocked.enabled = false;
+
+            TMP_Text locked = TextAt("Locked", root, "×", 28f, Magenta,
+                5f, 17f, 62f, 36f, false, FontStyles.Bold);
+            locked.horizontalAlignment = HorizontalAlignmentOptions.Center;
+            locked.gameObject.SetActive(false);
+
+            GameObject hover = CreateRect("Hover", root).gameObject;
+            Stretch((RectTransform)hover.transform);
+            Image hoverTint = hover.AddComponent<Image>();
+            hoverTint.color = new Color(accent.r, accent.g, accent.b, 0.1f);
+            hoverTint.raycastTarget = false;
+            AddBorder((RectTransform)hover.transform, accent);
+            hover.SetActive(false);
+
+            Image validTarget = CreateImage("Valid Target", root,
+                new Color(Cyan.r, Cyan.g, Cyan.b, 0.18f));
+            Stretch(validTarget.rectTransform);
+            validTarget.raycastTarget = false;
+            validTarget.enabled = false;
+
+            ModSlotUI slot = root.gameObject.AddComponent<ModSlotUI>();
+            slot.Configure(icon, durability, background, blocked, validTarget,
+                hover, inputHint, track.gameObject, null, locked);
+            return slot;
+        }
+
+        private static void ConfigureGrid(
+            Transform parent,
+            float cellWidth,
+            float cellHeight,
+            float spacingX,
+            float spacingY,
+            int columns)
+        {
+            GridLayoutGroup grid = parent.gameObject.AddComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(cellWidth, cellHeight);
+            grid.spacing = new Vector2(spacingX, spacingY);
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = columns;
+            grid.childAlignment = TextAnchor.UpperLeft;
+        }
+
+        private void BuildEmptyPage(RectTransform page, string title, string emptyMessage)
+        {
+            Image card = RectImage(title, page, Card, 0f, 0f, 1360f, 568f);
+            AddBorder(card.rectTransform, Line);
+            RectImage("Page Accent", card.transform, Magenta, 0f, 0f, 3f, 568f);
+            TMP_Text empty = TextAt("Empty", card.transform, emptyMessage, 17f, Muted,
+                40f, 242f, 1280f, 42f, false, FontStyles.Bold);
+            empty.horizontalAlignment = HorizontalAlignmentOptions.Center;
+        }
+
+        private void BuildFooter()
+        {
+            RectImage("Footer Rule", frameTransform, Line, 40f, 760f, 1360f, 1f);
+            inputHintsText = TextAt("Input Hints", frameTransform, "", 13f, Muted, 40f, 775f, 1100f, 24f);
+            RefreshInputHints();
+        }
+
+        private void HandleInputDeviceChanged(bool _) => RefreshInputHints();
+
+        private void RefreshInputHints()
+        {
+            if (inputHintsText == null) return;
+            GameInputManager input = GameInputManager.Instance;
+            if (input == null || !input.IsUsingGamepad)
+            {
+                string tabs = input != null
+                    ? $"{input.GetBindingHint("UI/PreviousTab")} / {input.GetBindingHint("UI/NextTab")}".ToUpperInvariant()
+                    : "Q / R";
+                inputHintsText.text =
+                    $"{tabs}  TABS     DRAG / CLICK  MOVE MOD     HOVER  DETAILS     CLICK CASSIDY  STATS     UPGRADES  SPEND POINTS     I / ESC  CLOSE";
+                return;
+            }
+
+            string previous = input.GetBindingHint("UI/PreviousTab").ToUpperInvariant();
+            string next = input.GetBindingHint("UI/NextTab").ToUpperInvariant();
+            string submit = input.GetBindingHint("UI/Submit").ToUpperInvariant();
+            string close = input.GetBindingHint("Player/Inventory").ToUpperInvariant();
+            inputHintsText.text =
+                $"{previous} / {next}  TABS     D-PAD / STICK  NAVIGATE     {submit}  SELECT     {close}  CLOSE";
+        }
+
+        private void FitFrame()
+        {
+            if (panel == null || frameTransform == null)
+                return;
+
+            Rect available = ((RectTransform)panel.transform).rect;
+            float scale = Mathf.Min(
+                available.width / (DesignSize.x + 100f),
+                available.height / (DesignSize.y + 80f));
+            frameTransform.localScale = Vector3.one * Mathf.Max(0.01f, scale);
+        }
+
+        private static RectTransform CreateRect(string name, Transform parent)
+        {
+            GameObject go = new(name, typeof(RectTransform));
+            go.layer = parent.gameObject.layer;
+            RectTransform rect = (RectTransform)go.transform;
+            rect.SetParent(parent, false);
+            return rect;
+        }
+
+        private static Image CreateImage(string name, Transform parent, Color color)
+        {
+            Image image = CreateRect(name, parent).gameObject.AddComponent<Image>();
+            image.color = color;
+            return image;
+        }
+
+        private static Image RectImage(
+            string name,
+            Transform parent,
+            Color color,
+            float x,
+            float y,
+            float width,
+            float height)
+        {
+            Image image = CreateImage(name, parent, color);
+            Place(image.rectTransform, x, y, width, height);
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private static Image CreateFill(Transform parent, Color color)
+        {
+            Image fill = CreateImage("Fill", parent, color);
+            Stretch(fill.rectTransform);
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.fillOrigin = 0;
+            fill.raycastTarget = false;
+            return fill;
+        }
+
+        private TMP_Text TextAt(
+            string name,
+            Transform parent,
+            string value,
+            float size,
+            Color color,
+            float x,
+            float y,
+            float width,
+            float height,
+            bool heading = false,
+            FontStyles style = FontStyles.Normal)
+        {
+            TextMeshProUGUI text = CreateRect(name, parent).gameObject.AddComponent<TextMeshProUGUI>();
+            text.font = heading ? headingFont : bodyFont;
+            text.text = value;
+            text.fontSize = size;
+            text.fontStyle = style;
+            text.color = color;
+            text.raycastTarget = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+            text.verticalAlignment = VerticalAlignmentOptions.Middle;
+            Place(text.rectTransform, x, y, width, height);
+            return text;
+        }
+
+        private static void AddBorder(RectTransform parent, Color color)
+        {
+            Image top = CreateImage("Top Border", parent, color);
+            Stretch(top.rectTransform);
+            top.rectTransform.anchorMin = new Vector2(0f, 1f);
+            top.rectTransform.sizeDelta = new Vector2(0f, 1f);
+
+            Image bottom = CreateImage("Bottom Border", parent, color);
+            Stretch(bottom.rectTransform);
+            bottom.rectTransform.anchorMax = new Vector2(1f, 0f);
+            bottom.rectTransform.sizeDelta = new Vector2(0f, 1f);
+
+            Image left = CreateImage("Left Border", parent, color);
+            Stretch(left.rectTransform);
+            left.rectTransform.anchorMax = new Vector2(0f, 1f);
+            left.rectTransform.sizeDelta = new Vector2(1f, 0f);
+
+            Image right = CreateImage("Right Border", parent, color);
+            Stretch(right.rectTransform);
+            right.rectTransform.anchorMin = new Vector2(1f, 0f);
+            right.rectTransform.sizeDelta = new Vector2(1f, 0f);
+
+            foreach (Image edge in new[] { top, bottom, left, right })
+                edge.raycastTarget = false;
+        }
+
+        private static void Place(
+            RectTransform rect,
+            float x,
+            float y,
+            float width,
+            float height)
+        {
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(x, -y);
+            rect.sizeDelta = new Vector2(width, height);
+        }
+
+        private static void Stretch(RectTransform rect)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
         }
 
         #endregion
@@ -291,7 +1078,12 @@ namespace junklite
         private void ClearSlots(List<ModSlotUI> slots)
         {
             foreach (var slot in slots)
-                if (slot != null) Destroy(slot.gameObject);
+            {
+                if (slot == null) continue;
+                slot.gameObject.SetActive(false);
+                if (Application.isPlaying) Destroy(slot.gameObject);
+                else DestroyImmediate(slot.gameObject);
+            }
             slots.Clear();
         }
 
@@ -301,7 +1093,181 @@ namespace junklite
             ClearSlots(passiveModSlots);
         }
 
-        private void OnDestroy() => Unbind();
+        private void OnDestroy()
+        {
+            Unbind();
+
+            if (generatedHeadingFont == null)
+                return;
+
+            foreach (Texture2D atlas in generatedHeadingFont.atlasTextures)
+                if (atlas != null)
+                    Destroy(atlas);
+            if (generatedHeadingFont.material != null)
+                Destroy(generatedHeadingFont.material);
+            Destroy(generatedHeadingFont);
+        }
+
+        private void TrySelectDefaultSlotIfGamepad()
+        {
+            if (activeTab != Tab.Inventory) return;
+            if (GameInputManager.Instance == null || !GameInputManager.Instance.IsUsingGamepad) return;
+            if (EventSystem.current == null) return;
+
+            var currentSelected = EventSystem.current.currentSelectedGameObject;
+            if (currentSelected != null &&
+                currentSelected.activeInHierarchy &&
+                (currentSelected.GetComponent<ModSlotUI>() != null ||
+                 (characterButton != null && currentSelected == characterButton.gameObject)))
+            {
+                return;
+            }
+
+            ModSlotUI defaultSlot = GetFirstSelectableModSlot();
+            if (defaultSlot == null) return;
+
+            EventSystem.current.SetSelectedGameObject(defaultSlot.gameObject);
+        }
+
+        private ModSlotUI GetFirstSelectableModSlot()
+        {
+            foreach (var slot in activeModSlots)
+            {
+                if (IsSlotSelectable(slot)) return slot;
+            }
+
+            foreach (var slot in passiveModSlots)
+            {
+                if (IsSlotSelectable(slot)) return slot;
+            }
+
+            foreach (var slot in inventorySlots)
+            {
+                if (IsSlotSelectable(slot)) return slot;
+            }
+
+            return null;
+        }
+
+        private ModSlotUI GetPreferredTargetSlotFor(ModInstance selectedMod)
+        {
+            if (selectedMod == null) return null;
+
+            foreach (var slot in activeModSlots)
+            {
+                if (IsCompatibleEquipTarget(slot, selectedMod)) return slot;
+            }
+
+            foreach (var slot in passiveModSlots)
+            {
+                if (IsCompatibleEquipTarget(slot, selectedMod)) return slot;
+            }
+
+            return null;
+        }
+
+        private static bool IsCompatibleEquipTarget(ModSlotUI slot, ModInstance mod)
+        {
+            if (!IsSlotSelectable(slot) || slot == null || !slot.IsModSlot || slot.IsLocked || mod == null)
+                return false;
+
+            if (slot.Type == ModSlotUI.SlotType.ActiveMod)
+                return mod.IsActive;
+
+            if (slot.Type == ModSlotUI.SlotType.PassiveMod)
+                return mod.IsPassive;
+
+            return false;
+        }
+
+        private bool TryMoveSelection(Vector2 direction)
+        {
+            var currentObj = EventSystem.current.currentSelectedGameObject;
+            var currentSlot = currentObj != null ? currentObj.GetComponent<Selectable>() : null;
+            CollectNavigableSlots(navigableBuffer);
+            if (navigableBuffer.Count == 0) return false;
+
+            if (currentSlot == null || !navigableBuffer.Contains(currentSlot))
+            {
+                EventSystem.current.SetSelectedGameObject(navigableBuffer[0].gameObject);
+                return true;
+            }
+
+            // Snap to the dominant axis so a slightly diagonal stick still moves along a row
+            // or column, then pick the nearest slot ahead, preferring the same row/column.
+            Vector2 axis = Mathf.Abs(direction.x) >= Mathf.Abs(direction.y)
+                ? new Vector2(Mathf.Sign(direction.x), 0f)
+                : new Vector2(0f, Mathf.Sign(direction.y));
+            Vector2 across = new(-axis.y, axis.x);
+            Vector2 origin = RectCenter(currentSlot);
+
+            Selectable bestCandidate = null;
+            float bestCost = float.PositiveInfinity;
+
+            foreach (var candidate in navigableBuffer)
+            {
+                if (candidate == currentSlot) continue;
+
+                Vector2 offset = RectCenter(candidate) - origin;
+                float ahead = Vector2.Dot(offset, axis);
+                if (ahead <= NavigateMinStep) continue;
+
+                float cost = ahead + Mathf.Abs(Vector2.Dot(offset, across)) * NavigateCrossAxisWeight;
+                if (cost < bestCost)
+                {
+                    bestCost = cost;
+                    bestCandidate = candidate;
+                }
+            }
+
+            if (bestCandidate == null) return false;
+
+            EventSystem.current.SetSelectedGameObject(bestCandidate.gameObject);
+            return true;
+        }
+
+        private static Vector2 RectCenter(Selectable selectable)
+        {
+            var rect = (RectTransform)selectable.transform;
+            return rect.TransformPoint(rect.rect.center);
+        }
+
+        private void CollectNavigableSlots(List<Selectable> result)
+        {
+            result.Clear();
+            AddNavigableSlots(activeModSlots, result);
+            AddNavigableSlots(passiveModSlots, result);
+            AddNavigableSlots(inventorySlots, result);
+            if (characterButton != null && characterButton.gameObject.activeInHierarchy && characterButton.IsInteractable())
+                result.Add(characterButton);
+        }
+
+        private static void AddNavigableSlots(List<ModSlotUI> source, List<Selectable> target)
+        {
+            foreach (var slot in source)
+            {
+                if (IsSlotSelectable(slot) && slot.TryGetComponent<Selectable>(out var selectable))
+                    target.Add(selectable);
+            }
+        }
+
+        private static bool IsSlotSelectable(ModSlotUI slot)
+        {
+            if (slot == null || !slot.gameObject.activeInHierarchy) return false;
+            var selectable = slot.GetComponent<Selectable>();
+            return selectable == null || selectable.IsInteractable();
+        }
+
+        private static void ConfigureSlotNavigation(ModSlotUI slot)
+        {
+            if (slot == null) return;
+            var selectable = slot.GetComponent<Selectable>();
+            if (selectable == null) return;
+
+            // HandleUINavigate is the only thing that moves between slots. Automatic
+            // navigation made the EventSystem move too, so one press could skip a slot.
+            selectable.navigation = new Navigation { mode = Navigation.Mode.None };
+        }
 
         #endregion
     }

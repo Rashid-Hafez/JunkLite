@@ -1,0 +1,13 @@
+/* The in-game HUD. Hud.uxml uses this one sheet; the order matters, because later rules win ties.
+   The elements' own sheets come first, then NoBoxes (structure) and Theme (the colours), HudLinear (the colours in
+   Linear colour space), then the layout. */
+
+@import url("HudBase.uss");
+@import url("Objective.uss");
+@import url("Vitals.uss");
+@import url("ModBar.uss");
+@import url("Dialogue.uss");
+@import url("NoBoxes.uss");
+@import url("Theme.uss");
+@import url("HudLinear.uss");
+@import url("HudLayout.uss");

@@ -1,0 +1,16 @@
+{
+  "name": "Junklite.TitleScreen",
+  "rootNamespace": "Junklite.TitleScreen",
+  "references": [
+    "Junklite.Shared"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

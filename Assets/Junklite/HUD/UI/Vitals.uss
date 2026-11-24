@@ -1,0 +1,226 @@
+/* VITALS. Ported from HUD/health/health.css. Cas's feed (an empty placeholder box for her headshots, which
+   still glitches on a hit), health as big Bender digits
+   over a segmented bar, armor as plates, and the CROW drone's status from the GDD.
+
+   States (toggled by HudVitals):
+     .hp--low        under 40%: bar and number turn --hot (yellow)
+     .hp--critical   under 20%: red bar and number, red feed border, the CRITICAL chip blinks
+     .hp--hit        160 ms after damage: a --paper (sky blue) flash on the bar
+     .hp--healing    while a heal plays: the cyan lead runs ahead and the fill follows
+     .hp-plate--broken, .hp-crow--ready / --deployed / --recharging */
+
+.hp { flex-direction: row; align-items: flex-end; }
+
+/* parts a game can switch off (HudVitals: Show Crow, Show Lives, Show Armor) */
+.hp--no-crow .hp-crow { display: none; }
+.hp--no-lives .hp-feed__lives { display: none; }
+.hp--no-armor .hp-armor { display: none; }
+
+/* ---------- Cas's feed ---------- */
+.hp-feed {
+    width: 124px;
+    height: 150px;
+    flex-shrink: 0;
+    overflow: hidden;
+    background-color: var(--band);
+    border-width: 1px;
+    border-color: var(--line);
+}
+
+.hp-feed__art { position: absolute; left: -14px; top: 4px; right: -14px; bottom: -26px; }
+
+.hp-feed__art .pt__img {
+    background-size: cover;
+    background-position-x: center;
+    background-position-y: top;
+}
+
+.hp-feed__tag {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 22px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+    background-color: var(--ink);
+}
+
+.hp-feed__id {
+    -unity-font-definition: var(--hud-head);
+    font-size: 10px;
+    letter-spacing: 21.6px;
+    color: var(--text-dim);
+}
+
+.hp-feed__lives {
+    -unity-font-definition: var(--hud-number);
+    font-size: 14px;
+    letter-spacing: 8.5px;
+    color: var(--hot);
+}
+
+.hp--critical .hp-feed { border-color: var(--alert); }
+
+/* ---------- readout panel ---------- */
+.hp-main {
+    width: 400px;
+    height: 150px;
+    margin-left: 10px;
+    flex-direction: column;
+    padding: 12px 18px 14px 18px;
+}
+
+.hp-head { flex-direction: row; align-items: center; height: 18px; }
+.hp-head__label { flex-grow: 1; }
+.hp-crow { flex-direction: row; align-items: center; }
+.hp-crow__dot { width: 7px; height: 7px; margin-right: 8px; flex-shrink: 0; background-color: var(--action); }
+
+.hp-crow__label {
+    -unity-font-definition: var(--hud-head);
+    font-size: 10px;
+    letter-spacing: 26.4px;
+    color: var(--action);
+}
+
+.hp-crow--deployed .hp-crow__dot { background-color: var(--hot); }
+.hp-crow--deployed .hp-crow__label { color: var(--hot); }
+.hp-crow--recharging .hp-crow__dot { background-color: var(--alert); }
+.hp-crow--recharging .hp-crow__label { color: var(--alert); }
+
+/* the number */
+.hp-readout { flex-direction: row; align-items: flex-end; height: 52px; margin-top: 2px; }
+
+.hp-value {
+    -unity-font-definition: var(--hud-number-light);
+    font-size: 54px;
+    height: 52px;
+    letter-spacing: 2.2px;
+    color: var(--text);
+    transition: color 150ms ease-out;
+}
+
+.hp-max {
+    margin-left: 8px;
+    margin-bottom: 6px;
+    -unity-font-definition: var(--hud-number);
+    font-size: 18px;
+    letter-spacing: 6.7px;
+    color: var(--text-dim);
+}
+
+.hp-readout__gap { flex-grow: 1; }
+.hp-state { margin-bottom: 8px; }
+.hp-state--off { opacity: 0.2; transition-duration: 0s; }
+
+/* the bar: trough, damage trail (red, in Theme.uss), cyan heal lead, fill, then the segment gaps and the hit flash on top */
+.hp-bar {
+    height: 14px;
+    margin-top: 6px;
+    overflow: hidden;
+    background-color: var(--trough);
+    border-width: 1px;
+    border-color: var(--line);
+}
+
+.hp-bar__trail,
+.hp-bar__heal,
+.hp-bar__fill,
+.hp-bar__flash { position: absolute; left: 0; top: 0; bottom: 0; }
+
+/* the trail waits 380 ms, then drains after the fill */
+.hp-bar__trail {
+    background-color: var(--hot);
+    transition: width 520ms ease-out-cubic 380ms;
+}
+
+.hp-bar__heal {
+    background-color: var(--action);
+    transition: width 0s ease-out-cubic;
+}
+
+.hp--healing .hp-bar__heal { transition-duration: 180ms; }
+
+.hp-bar__fill {
+    background-color: var(--text);
+    transition-property: width, background-color;
+    transition-duration: 90ms, 150ms;
+    transition-timing-function: ease-out, ease-out;
+}
+
+.hp--healing .hp-bar__fill { transition-duration: 640ms, 150ms; transition-delay: 160ms, 0s; }
+
+.hp-bar__flash {
+    right: 0;
+    background-color: var(--paper);
+    opacity: 0;
+    transition: opacity 220ms ease-out;
+}
+
+.hp--hit .hp-bar__flash { opacity: 0.7; transition-duration: 0s; }
+
+.hp-bar__gap { position: absolute; top: 0; bottom: 0; width: 3px; background-color: var(--trough); }
+
+/* the shield (Pulse Barrier): a band along the top of the bar, its share of the shield left; the frame lights while
+   it's up, and its points show beside her health. A hit on it flashes the band. */
+.hp-bar__shield {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 5px;
+    width: 0;
+    background-color: var(--action);
+    opacity: 0;
+    transition: width 220ms ease-out, opacity 200ms ease-out, background-color 120ms ease-out;
+}
+
+.hp--shielded .hp-bar__shield { opacity: 1; }
+.hp--shield-hit .hp-bar__shield { background-color: var(--paper); transition-duration: 220ms, 200ms, 0s; }
+.hp--shielded .hp-bar { border-color: var(--action); }
+
+.hp-shield {
+    margin-left: 10px;
+    margin-bottom: 6px;
+    -unity-font-definition: var(--hud-number);
+    font-size: 18px;
+    letter-spacing: 4px;
+    color: var(--action);
+    opacity: 0;
+    transition: opacity 200ms ease-out;
+}
+
+.hp--shielded .hp-shield { opacity: 1; }
+
+.hp--low .hp-bar__fill { background-color: var(--hot); }
+.hp--low .hp-bar__trail { background-color: var(--alert); }
+.hp--low .hp-value { color: var(--hot); }
+.hp--critical .hp-bar__fill { background-color: var(--alert); }
+.hp--critical .hp-bar__trail { background-color: var(--paper); }
+.hp--critical .hp-value { color: var(--alert); }
+
+/* armor plates */
+.hp-armor { flex-direction: row; align-items: center; height: 20px; margin-top: 12px; }
+.hp-armor__label { width: 76px; }
+.hp-plates { flex-direction: row; flex-grow: 1; }
+
+.hp-plate {
+    width: 46px;
+    height: 10px;
+    margin-right: 5px;
+    background-color: var(--action);
+    border-width: 1px;
+    border-color: var(--action);
+    transition: background-color 240ms ease-out, border-color 240ms ease-out, opacity 240ms ease-out;
+}
+
+.hp-plate--broken { background-color: rgba(93, 239, 226, 0); border-color: var(--action-idle); opacity: 0.55; }
+.hp-plate--flash { background-color: var(--paper); border-color: var(--paper); transition-duration: 0s; }
+
+.hp-armor__value {
+    -unity-font-definition: var(--hud-number);
+    font-size: 16px;
+    letter-spacing: 7.5px;
+    color: var(--action);
+}

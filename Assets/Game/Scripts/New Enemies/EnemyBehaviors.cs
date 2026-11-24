@@ -2,31 +2,48 @@ using UnityEngine;
 
 namespace junklite
 {
-    // ============================================================
-    // SERIALIZABLE BEHAVIOR CLASSES
-    // 
-    // Reusable implementations for capability interfaces.
-    // Enemies embed these as [SerializeField] fields and delegate.
-    // 
-    // Add this file to: Scripts/Enemies/Core/EnemyBehaviors.cs
-    // ============================================================
+    /// <summary>
+    /// Shared validation for damage initiated by an enemy. Layer masks are not
+    /// sufficient because some enemy child colliders intentionally use Default.
+    /// </summary>
+    internal static class EnemyAttackTargetFilter
+    {
+        public static bool CanDamage(GameObject owner, Collider target)
+        {
+            if (owner == null || target == null)
+                return false;
+
+            EnemyCharacter sourceEnemy = owner.GetComponentInParent<EnemyCharacter>();
+            EnemyCharacter targetEnemy = target.GetComponentInParent<EnemyCharacter>();
+            if (sourceEnemy != null && targetEnemy != null)
+                return false;
+
+            return DamageReceiverUtility.IsAlive(target);
+        }
+    }
 
     /// <summary>
     /// Reusable patrol implementation.
     /// </summary>
     [System.Serializable]
-    public class PatrolBehavior
+    public class PatrolBehavior : IPatroller
     {
         [SerializeField] private float patrolDistance = 5f;
         [SerializeField] private float patrolSpeed = 2f;
         [SerializeField] private float wallCheckDistance = 0.5f;
         [SerializeField] private LayerMask wallLayer;
         [SerializeField] private Transform wallCheckPoint;
+        [Tooltip("Floor layers for the ledge check. Empty = Default + Ground + Wall.")]
+        [SerializeField] private LayerMask groundLayer;
+        [Tooltip("How far down to look for floor one step ahead. 0 disables the ledge check.")]
+        [SerializeField, Min(0f)] private float ledgeCheckDepth = 1.5f;
 
         private Transform owner;
         private Vector3 spawnPosition;
         private int direction = 1;
         private Vector3 horizontalAxis = Vector3.right;
+        private LayerMask resolvedGroundLayer;
+        private EnemyMovement ownerMovement;
 
         public float PatrolDistance => patrolDistance;
         public float PatrolSpeed => patrolSpeed;
@@ -38,6 +55,22 @@ namespace junklite
         {
             this.owner = owner;
             this.spawnPosition = owner.position;
+            // Lanes run along world X or Z; the wall and ledge rays must follow the lane, not world X.
+            horizontalAxis = SnapToNearestAxis(owner.right);
+            ownerMovement = owner.GetComponent<EnemyMovement>();
+            resolvedGroundLayer = groundLayer.value != 0
+                ? groundLayer
+                : (LayerMask)LayerMask.GetMask("Default", "Ground", "Wall");
+        }
+
+        public bool IsLedgeAhead()
+        {
+            if (owner == null || ledgeCheckDepth <= 0f) return false;
+
+            // From the feet, not the transform (enemy roots sit at the body centre).
+            Vector3 feet = ownerMovement != null ? ownerMovement.GetFeetPosition() : owner.position;
+            Vector3 ahead = feet + horizontalAxis * (direction * Mathf.Max(0.3f, wallCheckDistance)) + Vector3.up * 0.3f;
+            return !Physics.Raycast(ahead, Vector3.down, ledgeCheckDepth + 0.3f, resolvedGroundLayer, QueryTriggerInteraction.Ignore);
         }
 
         public bool IsWallAhead()
@@ -106,20 +139,24 @@ namespace junklite
     /// Reusable charge-up implementation.
     /// </summary>
     [System.Serializable]
-    public class ChargeBehavior
+    public class ChargeBehavior : ICharger
     {
         [SerializeField] private float chargeTime = 1f;
         [SerializeField] private GameObject chargeVFXPrefab;
 
+        public event System.Action Completed;
+
         public float ChargeTime => chargeTime;
         public GameObject ChargeVFXPrefab => chargeVFXPrefab;
+
+        public void OnChargeComplete() => Completed?.Invoke();
     }
 
     /// <summary>
     /// Reusable dash attack implementation.
     /// </summary>
     [System.Serializable]
-    public class DashBehavior
+    public class DashBehavior : IDasher
     {
         [SerializeField] private float dashSpeed = 15f;
         [SerializeField] private float dashDamage = 10f;
@@ -136,6 +173,12 @@ namespace junklite
         [Tooltip("Extra delay after attack window ends before dash resolves whiff/success")]
         [SerializeField] private float whiffResolveDelay = 0.05f;
 
+        private GameObject owner;
+        private Hitbox subscribedHitbox;
+        private bool lastHitApplied;
+
+        public event System.Action Completed;
+
         public float DashSpeed => dashSpeed;
         public float DashDamage => dashDamage;
         public float DashStopDistance => dashStopDistance;
@@ -146,6 +189,58 @@ namespace junklite
         public float DashAttackStartNormalized => attackStartNormalized;
         public float DashAttackActiveDuration => attackActiveDuration;
         public float DashWhiffResolveDelay => whiffResolveDelay;
+        public bool LastHitApplied => lastHitApplied;
+
+        public void Initialize(GameObject damageOwner)
+        {
+            owner = damageOwner;
+            RefreshHitboxSubscription();
+        }
+
+        public void Dispose()
+        {
+            if (subscribedHitbox != null)
+                subscribedHitbox.OnHit -= OnHitboxHit;
+
+            subscribedHitbox = null;
+            owner = null;
+        }
+
+        public void ResetHitResult() => lastHitApplied = false;
+
+        public void OnDashComplete() => Completed?.Invoke();
+
+        private void RefreshHitboxSubscription()
+        {
+            if (subscribedHitbox == dashHitbox)
+                return;
+
+            if (subscribedHitbox != null)
+                subscribedHitbox.OnHit -= OnHitboxHit;
+
+            subscribedHitbox = dashHitbox;
+            if (subscribedHitbox != null)
+            {
+                subscribedHitbox.OnHit += OnHitboxHit;
+                subscribedHitbox.Deactivate();
+            }
+        }
+
+        private void OnHitboxHit(Collider other, Hitbox hitbox)
+        {
+            if (!EnemyAttackTargetFilter.CanDamage(owner, other))
+                return;
+
+            hitbox?.Deactivate();
+            DamageResult result = DamageReceiverUtility.Receive(other, new DamageRequest(
+                dashDamage,
+                owner,
+                DamageType.Physical,
+                dashKnockback));
+
+            if (result.WasApplied)
+                lastHitApplied = true;
+        }
     }
 
     /// <summary>
@@ -177,20 +272,39 @@ namespace junklite
     /// Reusable recovery implementation.
     /// </summary>
     [System.Serializable]
-    public class RecoveryBehavior
+    public class RecoveryBehavior : IRecoverer
     {
         [SerializeField] private float recoveryTime = 0.3f;
         [SerializeField] private GameObject recoveryVFXPrefab;
 
+        public event System.Action Completed;
+
         public float RecoveryTime => recoveryTime;
         public GameObject RecoveryVFXPrefab => recoveryVFXPrefab;
+
+        public void OnRecoveryComplete() => Completed?.Invoke();
+    }
+
+    /// <summary>
+    /// Interrupt completion for enemies that can be knocked back or explicitly
+    /// stunned but should not enter hit-stun from ordinary damage.
+    /// </summary>
+    public sealed class NoHitstunBehavior : IStunnable
+    {
+        public event System.Action Completed;
+
+        public float StaggerDuration => 0f;
+        public float ForcedStunDuration { get; set; }
+        public GameObject StunVFXObject => null;
+
+        public void OnStunComplete() => Completed?.Invoke();
     }
 
     /// <summary>
     /// Reusable melee attack implementation.
     /// </summary>
     [System.Serializable]
-    public class MeleeAttackBehavior
+    public class MeleeAttackBehavior : IMeleeAttacker
     {
         [Tooltip("Delay before the attack swing. Telegraph/anticipation time.")]
         [SerializeField] private float windUpDuration = 0.3f;
@@ -208,6 +322,16 @@ namespace junklite
         [Tooltip("When during the attack the hitbox deactivates")]
         [SerializeField][Range(0f, 1f)] private float hitEndNormalized = 0.6f;
 
+        private GameObject owner;
+        private Hitbox subscribedHitbox;
+
+        public event System.Action Completed;
+
+        public void AssignHitbox(Hitbox resolvedHitbox)
+        {
+            hitbox = resolvedHitbox;
+            RefreshHitboxSubscription();
+        }
         public float MeleeWindUpDuration => windUpDuration;
         public float MeleeAttackDuration => attackDuration;
         public float MeleeAttackSpeed => attackSpeed;
@@ -217,13 +341,58 @@ namespace junklite
         public GameObject MeleeVFXPrefab => vfxPrefab;
         public float MeleeHitStartNormalized => hitStartNormalized;
         public float MeleeHitEndNormalized => hitEndNormalized;
+
+        public void Initialize(GameObject damageOwner)
+        {
+            owner = damageOwner;
+            RefreshHitboxSubscription();
+        }
+
+        public void Dispose()
+        {
+            if (subscribedHitbox != null)
+                subscribedHitbox.OnHit -= OnHitboxHit;
+
+            subscribedHitbox = null;
+            owner = null;
+        }
+
+        public void OnMeleeComplete() => Completed?.Invoke();
+
+        private void RefreshHitboxSubscription()
+        {
+            if (owner == null || subscribedHitbox == hitbox)
+                return;
+
+            if (subscribedHitbox != null)
+                subscribedHitbox.OnHit -= OnHitboxHit;
+
+            subscribedHitbox = hitbox;
+            if (subscribedHitbox != null)
+            {
+                subscribedHitbox.OnHit += OnHitboxHit;
+                subscribedHitbox.Deactivate();
+            }
+        }
+
+        private void OnHitboxHit(Collider other, Hitbox sourceHitbox)
+        {
+            if (!EnemyAttackTargetFilter.CanDamage(owner, other))
+                return;
+
+            DamageReceiverUtility.Receive(other, new DamageRequest(
+                damage,
+                owner,
+                DamageType.Physical,
+                knockback));
+        }
     }
 
     /// <summary>
     /// Reusable dodge implementation.
     /// </summary>
     [System.Serializable]
-    public class DodgeBehavior
+    public class DodgeBehavior : IDodger
     {
         [SerializeField] private float dodgeDistance = 3f;
         [SerializeField] private float dodgeSpeed = 10f;
@@ -240,6 +409,8 @@ namespace junklite
         [Tooltip("Chance to dodge forward (past/behind the player) instead of backward")]
         [SerializeField][Range(0f, 1f)] private float forwardDodgeChance = 0f;
 
+        public event System.Action Completed;
+
         public float DodgeDistance => dodgeDistance;
         public float DodgeSpeed => dodgeSpeed;
         public float DodgeDuration => dodgeSpeed > 0f ? dodgeDistance / dodgeSpeed : 0.3f;
@@ -249,13 +420,15 @@ namespace junklite
         public LayerMask DodgeWallLayer => wallLayer;
         public float DodgeWallCheckBuffer => wallCheckBuffer;
         public float DodgeForwardChance => forwardDodgeChance;
+
+        public void OnDodgeComplete() => Completed?.Invoke();
     }
 
     /// <summary>
     /// Reusable chase implementation.
     /// </summary>
     [System.Serializable]
-    public class ChaseBehavior
+    public class ChaseBehavior : IChaser
     {
         [SerializeField] private float chaseSpeed = 5f;
         [Tooltip("Distance to stop from target (0 = use attack range instead)")]
@@ -263,8 +436,17 @@ namespace junklite
 
         private Vector3 lastKnownPosition;
         private bool hasLastKnownPosition;
+        private float speedMultiplier = 1f;
 
-        public float ChaseSpeed => chaseSpeed;
+        public event System.Action ReachedTarget;
+
+        public float ChaseSpeed => chaseSpeed * speedMultiplier;
+
+        /// <summary>
+        /// Runtime-only per-instance variance so a crowd does not move in lockstep.
+        /// The authored chase speed is never modified.
+        /// </summary>
+        public void SetSpeedMultiplier(float multiplier) => speedMultiplier = Mathf.Max(0.01f, multiplier);
         public float ChaseStopDistance => chaseStopDistance;
         public Vector3 LastKnownTargetPosition => lastKnownPosition;
         public bool HasLastKnownPosition => hasLastKnownPosition;
@@ -276,6 +458,8 @@ namespace junklite
         }
 
         public void ClearLastKnownPosition() => hasLastKnownPosition = false;
+
+        public void OnReachedTarget() => ReachedTarget?.Invoke();
     }
 
     /// <summary>
@@ -312,12 +496,14 @@ namespace junklite
     /// Reusable stun/stagger implementation.
     /// </summary>
     [System.Serializable]
-    public class StunBehavior
+    public class StunBehavior : IStunnable
     {
         [SerializeField] private float staggerDuration = 0.5f;
         [SerializeField] private GameObject stunVFXObject;
 
         private float forcedStunDuration;
+
+        public event System.Action Completed;
 
         public float StaggerDuration => staggerDuration;
         public GameObject StunVFXObject => stunVFXObject;
@@ -335,5 +521,7 @@ namespace junklite
             forcedStunDuration > 0f ? forcedStunDuration : staggerDuration;
 
         public void ClearForcedDuration() => forcedStunDuration = 0f;
+
+        public void OnStunComplete() => Completed?.Invoke();
     }
 }

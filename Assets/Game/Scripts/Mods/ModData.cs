@@ -33,5 +33,17 @@ namespace junklite
         [Header("Durability")]
         public float maxDurability = 20f;
         public float durabilityPerUse = 1f;
+
+        /// <summary>Called once when this runtime instance is placed in a player slot.</summary>
+        public virtual void OnInstalled(ModInstance instance, PlayerCharacter player) { }
+
+        /// <summary>Called once when this runtime instance leaves its player slot.</summary>
+        public virtual void OnRemoved(ModInstance instance, PlayerCharacter player) { }
+
+        /// <summary>Called when an installed mod becomes enabled by Mod Combat mode.</summary>
+        public virtual void OnCombatModeEntered(ModInstance instance, PlayerCharacter player) { }
+
+        /// <summary>Called when an installed mod stops being enabled by Mod Combat mode.</summary>
+        public virtual void OnCombatModeExited(ModInstance instance, PlayerCharacter player) { }
     }
 }

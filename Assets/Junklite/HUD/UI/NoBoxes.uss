@@ -1,0 +1,31 @@
+/* NO BOXES. Ported from HUD/new version/shared/css/no-boxes.css. Structure only; the colours are in Theme.uss.
+   The vitals and the dialogue lose their panels, strips, frames and corner ticks, the way the bare mod bar did
+   (the mod bar goes bare through its .mods--bare class). The objective keeps its card.
+   What's left: the text, the bars, the status chips, the mod slots and the button prompts.
+   Cas's feed is an empty outline: a placeholder for her headshots, which still glitches on a hit. */
+
+/* ---------- vitals: no panel ---------- */
+.hp-main.hud-panel {
+    background-color: rgba(0, 0, 0, 0);
+    border-top-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: 18px;
+}
+
+.hp .tick { display: none; }
+
+.hp-feed { background-color: rgba(0, 0, 0, 0); border-color: var(--outline); }
+.hp-feed .hud-scan { display: none; }
+.hp-feed__tag { background-color: rgba(0, 0, 0, 0); }
+.hp--critical .hp-feed { border-color: var(--alert); }
+
+/* ---------- dialogue: the line and its prompt, no box ---------- */
+.dlg-box.hud-panel {
+    background-color: rgba(0, 0, 0, 0);
+    border-top-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.dlg .tick { display: none; }
