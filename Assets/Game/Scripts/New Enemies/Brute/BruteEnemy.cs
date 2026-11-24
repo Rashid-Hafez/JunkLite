@@ -39,6 +39,10 @@ namespace junklite
         [Tooltip("Particles each slide system throws out at once when the parry lands.")]
         [SerializeField, Min(0)] private int parrySlideBurst = 20;
 
+        [Header("Brute - Death")]
+        [Tooltip("Glowing sparks played on death; they run while he holds the Hurt pose for Death Linger.")]
+        [SerializeField] private ParticleSystem[] deathSparks;
+
         [Header("Brute - Knockdown")]
         [Tooltip("Damage he takes outside a knockdown that knocks him down. 0 = never. Blocked hits and damage-over-time ticks don't count.")]
         [SerializeField, Min(0f)] private float knockdownDamage = 200f;
@@ -85,6 +89,9 @@ namespace junklite
             base.OnEnable();
             if (StateMachine != null)
                 StateMachine.OnStateChanged += HandleStateChanged;
+            // The sparks loop, and Unity resumes a system that was playing when the
+            // object was disabled: clear them so they only ever start in HandleDeath.
+            StopDeathSparks();
         }
 
         public override DamageResult ReceiveDamage(DamageRequest request)
@@ -127,6 +134,25 @@ namespace junklite
             stunnable.ForcedStunDuration = knockdownDuration;
             StateMachine.RestartState<StunnedState>();
             FeedbackManager.Instance?.DoCameraShake(knockdownShakeForce);
+        }
+
+        protected override void HandleDeath()
+        {
+            base.HandleDeath();
+            if (deathSparks == null)
+                return;
+
+            foreach (ParticleSystem sparks in deathSparks)
+                if (sparks != null) sparks.Play(true);
+        }
+
+        private void StopDeathSparks()
+        {
+            if (deathSparks == null)
+                return;
+
+            foreach (ParticleSystem sparks in deathSparks)
+                if (sparks != null) sparks.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
 
         private void HandleStateChanged(IState from, IState to)
@@ -276,6 +302,7 @@ namespace junklite
             if (StateMachine != null)
                 StateMachine.OnStateChanged -= HandleStateChanged;
             knockedDown = false;
+            StopDeathSparks();
 
             if (slideRoutine != null)
             {

@@ -93,5 +93,5 @@ The new Cass has two rigs, `Cass_R` (shown facing right) and `Cass_L` (shown fac
 
 ## Rendering notes (Cass)
 
-- Cass's renderers use **Motion Vectors: Force No Motion**, and `Cas_R_Material`/`Cas_L_Material` have their motion vector pass on (`_AddPrecomputedVelocity`). Together they keep the player out of camera motion blur. A new Cass material needs both.
+- Cass's materials (`Cas_R/L/F/B_Material`, 2026-11-23) use **Universal Render Pipeline/Spine/Sprite**: Lit Universal, PMA Vertex + straight texture (`_ALPHAPREMULTIPLY_VERTEX_ONLY`), Z write on with a 0.5 alpha cutoff (queue 2450), fixed view-space normals, `_MainTex` = the rig's atlas png. That shader has **no motion vector pass**, so the old motion-blur exclusion (renderer *Force No Motion* plus the ComplexLit motion vector pass) may no longer keep her out of camera motion blur now that she writes depth. Check it while the camera moves. Her renderers still cast shadows.
 - The Spine data asset scale is `0.02`. The prefab root scale sets the on-screen size.

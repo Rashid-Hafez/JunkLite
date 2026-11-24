@@ -9,6 +9,10 @@
 >
 > After architecture changes, run `graphify update .` again so the next developer and agent get accurate answers. Details are in `GRAPHIFY_WORKFLOW.md`. The graph covers C# and `.md` files only and does not replace this document.
 
+### Brute: new Spine clips (Charge, ChargeAttack, Hurt, Walk) + death sparks (2026-11-23)
+- `BruteAnimationPresenter`: ChargeState plays `Charge` once and holds its last frame; DashState blends into `ChargeAttack` (`chargeAttackMix`, 0.15 s), which holds its last frame. ParriedState and StunnedState (incl. the parried-dash slide; not the knockdown) play `Hurt` and hold. DeadState plays `Hurt` and holds until `EnemyCharacter.deathLinger` tears the body down. Idle/Chase poll `EnemyMovement.IsMoving` each frame: `Walk` while moving, `1_Idle` otherwise. `chargeHold` (Land_SmashGround) is gone; the Grab+Attack dash chain too.
+- `BruteEnemy.deathSparks` (ParticleSystem[]) plays from `HandleDeath`. The prefab's `Death Sparks` child (copied from the slide's Scrape Sparks: `Point.mat`, URP Particles/Unlit with HDR base colour ~6.3, so it blooms) loops at chest height with bursts until the body deactivates.
+
 ### Brute: grab fixes, red unparryable tell, exact parry slide, no touch grab (2026-11-19)
 - **Grab damage without the grab:** `BruteGrabState.BeginReach` activated the hitbox before `SetPhase(Reach)`; `Hitbox.Activate` queries at once, so a player already inside took `grabDamage` and `HandleCaught` dropped the catch (phase was still Warning). Now phase, then lunge, then hitbox. A first-frame catch keeps the reach clip instead of `PlayGrabHold`.
 - **Unparryable tell:** `AttackTellView.Play(seconds, unparryable)` tints every sprite in the sign (`unparryableTint`) and shakes it (`shakeAmplitude`, `shakeHz`); `EnemyCharacter.ShowAttackWarningImmediate(seconds, unparryable)` passes it. The grab warning uses it.
@@ -47,6 +51,10 @@
 - **Comfort scalars:** `FeedbackManager.ShakeIntensity` and `RumbleIntensity` (0..1, serialized) scale every shake and rumble. No settings UI drives them yet.
 - **Not verified:** nothing was run in Play Mode (no Editor was open; the two weapon assets were edited as YAML). The values are first guesses and need tuning with a pad in hand.
 
+### Dash ghost boxes again after Cass moved to Spine URP Sprite (2026-11-23)
+- Cass's `Cas_*_Material` now use `Universal Render Pipeline/Spine/Sprite`, which keeps the texture in `_MainTex`. `JunkLite/SkeletonGhostURP` only read `_BaseMap`, which builds strip, so the ghost drew boxes in builds only.
+- The ghost shader now declares both `_BaseMap` and `_MainTex` and samples whichever is larger (`_TexelSize.z`). Unity's default textures are tiny, so this works with Lit and Spine materials. Not yet checked in a build.
+
 ### Title TRAINING (practice) option (2026-11-18)
 - `TitleCommand.Training` sits between Rooftop and Calibrate. The UXML item `menu-training` (04, "TRAINING / PRACTICE") is the button, and `ButtonNames` keeps the same order as the enum.
 - `MainMenuController.OnTraining` loads `sandboxScene` (SANDBOX) with the current profile, like Sandbox. The old `V2.5.unity` was deleted in `4b4695842`, so SANDBOX is the training level.
@@ -65,6 +73,15 @@
 - **Brute intro (Service Floor `Story & Objectives/BruteIntro`):** trigger moved z 246 → 254 (Brute stands at 268). Steps: lock, `BruteIntroCam` (blend out 0, released under the black), music, wait, dialogue, new **Story/Brute Intro Dash** (`BruteBrain.PlayIntroDash`: faces her, taunt/point clip 1.2 s, then `DashTo` along the lane at his dash speed with `9_Throw` fitted to the dash, stops 3.5 m short, no damage), new **UI/Screen Fade** cut to black (`FaderCanvas/Image`, canvas now override sorting 90), wait 0.5, unlock, wait 0.3, fade in 0.6, then `BruteBrain.Engage()` (normal move roll) instead of `OpenWithCharge`. `introScripted` blocks `TickBrain`/`EvaluateNextAction` from `PlayIntroDash` until `Engage`/`OpenWithCharge` (cleared in `OnDisable`). Verified in Play Mode (dialogue advanced by script).
 - **Parried dash shove:** `ParryHandler` pushes along enemy − player, and a fast dash can carry the Brute's centre past hers, so he slid behind her. `BruteEnemy.OnParryStunned` now stores the reverse of his dash facing while still in `DashState`, and `ApplyParryPush` uses it for a heavy parry. Not play-tested.
 - **Title screen:** `ROOFTOP` item (03, `menu-rooftop`, `TitleCommand.Rooftop`, inserted before Calibrate, so the enum order still matches the buttons) → `MainMenuController.OnRooftop` (`Rooftop Scene v2`, current profile). Package edit: keep when re-importing `Assets/Junklite`.
+
+### Cass materials on the Spine URP Sprite shader (2026-11-23)
+
+- **Setup:** `Cas_R/L/F/B_Material` now use `Universal Render Pipeline/Spine/Sprite` (Lit Universal), set through Spine's own `SpineSpriteShaderGUI` methods:
+  - PMA Vertex + straight texture.
+  - Z write on, cutoff 0.5, alpha-test queue.
+  - Fixed view-space normals.
+- **Verified:** she renders lit in Service Floor, and the dash ghost (`SkeletonGhostURP`) still finds her texture through `_MainTex`. Enemies are unchanged; their damage flash needs `URP_Unlit_DamageFlash`.
+- **Watch:** the Spine shader has no MotionVectors pass, so her motion-blur exclusion may be lost (see `SpineAnimationController.md`). Some old keywords from ComplexLit are still set on the materials (`_ADD_PRECOMPUTED_VELOCITY`, `_RECEIVE_SHADOWS_OFF`, `_SPECULARHIGHLIGHTS_OFF`). `_RECEIVE_SHADOWS_OFF` means she doesn't receive shadows.
 
 ### Player knockdown clip (2026-11-13)
 
@@ -968,6 +985,7 @@ The V2.5 validation command now requires exactly one scene-local `CameraManager`
 - **Door blockers are on the Wall layer** (`Door4_Sliding.prefab` → `Blocker`), so a closed door blocks enemy line of sight (`EnemyPerception.losBlockingLayers` = Ground + Wall). Before, a Room 1 Grunt that chased the player to `Door_Entry` kept seeing her through the locked door after a respawn at `Checkpoint_ServiceDoor`; combat stayed on, `PlayerCharacter.InteractBlocker` swallowed E, and the gate never unlocked. Open doors disable the blocker, so sight passes through them.
 - **Harmless (0-damage) hits on the player.** `PlayerCharacter.ReceiveDamage` treats `Amount == 0` as a hit that lands: team validation (as 1), parry, i-frames, shield, `OnHurt`, hurt VFX/shake and `hitReactionResolver` all run, but `Damageable` is skipped, so health never changes. It returns `DamageResult.Applied(0, 0)`, whose `WasApplied` is false, so producers (lifesteal, durability, enemy hit VFX) still treat it as no damage. `Damageable` itself still rejects 0. Used by `Hyena EASY` (simulation demo practice enemy: melee and dash damage 0, contact shove 0 so the shove no longer calls damage).
 - **Parry VFX.** `Parry Impact Sparks` has no start delay (it had 0.51 s, which slow motion stretched past the parry clip). `ParryHandler` no longer clones its inactive `Shockwave Parry` child each parry (an invisible copy per parry); it only toggles it. `Player_Cass`: `ShockWave2` distortion ×1.2, `Portal blue` size ×1.3 plus a flat `Portal Ring Ground` ring.
+- **B+9 boss shortcut (works in builds).** `HotkeyTeleport` (`Scripts/LEVEL`) sits on `[Gameplay]/Spawn & Recovery/brute room spawn` in Service Floor. Pressing B and 9 together (keys are Inspector fields) moves the living player there through `HotkeyTeleport.Teleport` (snap to the nearest lane, sync corners, cut to the lane camera); the dev console's room buttons call the same method. It is not Editor-only, so it ships in builds; delete the component to remove it.
 - **Prompt Zone.** `PromptZone` (`Scripts/INTERACTION`) + prefab `Prefabs/Interactables/Prompt Zone.prefab`: a trigger box (orange gizmo) that shows the existing `TutorialPromptHUD` entry `[systemButton] prompt` while the player is inside, counted by Player-tag contacts, hidden on exit, death and disable. `systemButton` is an `[InputActionPath]` string; `Editor/InputActionPathDrawer.cs` turns it into a dropdown of the `InputSystem_Actions` actions ("Map/Action"). Device switching stays in `TutorialPromptHUD` (unchanged). The zone creates one shared `PromptZoneHUD` instance on first use.
 - **Dev console GIVE SERVICE KEY** (ROOMS tab) adds `PlayerKeyring.ZKey` ("Z Key"), which opens Room 3's Z Door.
 - **Broken mods stay in their slot.** `ModManager` no longer nulls a slot when a mod hits 0 durability. `IsBroken` mods leave combat mode once (`OnCombatModeExited`), are skipped by hooks and activation, and are not re-entered by `Activate`, resize or `EquipModAt`/`EquipModAny`. They still occupy the slot until the player moves them to inventory (`UnequipMod` calls `OnRemoved`, no second exit). `ModSlotUI` tints the icon and toggles an optional `brokenBadge`.

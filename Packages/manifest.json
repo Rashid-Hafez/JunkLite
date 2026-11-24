@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "com.cqf.urpvolumetricfog": "https://github.com/CristianQiu/Unity-URP-Volumetric-Light.git",
+    "com.esotericsoftware.spine.urp-shaders": "file:/Users/rashid/Desktop/RASHID/2025/RashMonsterProductions/JUNKLITE/CHARACTER/SHADER/com.esotericsoftware.spine.urp-shaders-4.2-2019.1",
     "com.subbu.urp-glitch": "https://github.com/saimarei/URPGlitch.git",
     "com.unity.ai.assistant": "2.19.0-pre.2",
     "com.unity.ai.inference": "2.6.1",

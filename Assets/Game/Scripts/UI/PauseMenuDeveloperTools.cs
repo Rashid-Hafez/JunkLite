@@ -270,32 +270,7 @@ namespace junklite
             if (anchor == null)
                 return $"No '{anchorName}' in this scene";
 
-            Vector3 target = anchor.transform.position;
-            float bestSqr = float.MaxValue;
-            float yaw = 0f;
-            foreach (LanePath lane in UnityEngine.Object.FindObjectsByType<LanePath>(FindObjectsSortMode.None))
-            {
-                if (!lane.TryGetClosestPoint(anchor.transform.position, out Vector3 point, out float laneYaw))
-                    continue;
-                float sqr = (point - anchor.transform.position).sqrMagnitude;
-                if (sqr >= bestSqr) continue;
-                bestSqr = sqr;
-                target = point;
-                yaw = laneYaw;
-            }
-            if (bestSqr == float.MaxValue)
-                return "No lane path in this scene";
-
-            player.Controller.SnapToLane(target, yaw);
-
-            CinemachineCamera laneCamera = null;
-            foreach (CameraSwitchTrigger corner in UnityEngine.Object.FindObjectsByType<CameraSwitchTrigger>(
-                         FindObjectsSortMode.None))
-                laneCamera = corner.SyncToLaneSide(yaw) ?? laneCamera;
-            if (laneCamera != null && CameraManager.Instance != null)
-                CameraManager.Instance.CutToLaneCamera(laneCamera);
-
-            return $"Moved to {anchorName}";
+            return HotkeyTeleport.Teleport(player, anchor.transform);
         }
 
         private string SpawnEnemy(string label, GameObject prefab)
